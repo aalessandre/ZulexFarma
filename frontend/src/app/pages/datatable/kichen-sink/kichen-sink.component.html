@@ -1,0 +1,100 @@
+<mat-card class="cardWithShadow">
+  <mat-card-content>
+    <div class="grid grid-cols-12 justify-between">
+      <div class="lg:col-span-6 col-span-12">
+        <mat-form-field appearance="outline" class="hide-hint">
+          <div class="flex flex-row items-center self-stretch gap-3">
+            <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+            <input matInput placeholder="Search User" (keyup)="applyFilter($any($event.target).value)" />
+          </div>
+        </mat-form-field>
+      </div>
+      <div class="lg:col-span-6 col-span-12 flex items-center justify-end">
+        <button mat-flat-button (click)="openDialog('Add', {})" color="primary">
+          Add User
+        </button>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <div class="relative overflow-auto">
+      <table mat-table [dataSource]="dataSource" class="min-w-full">
+        <ng-container matColumnDef="#">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">#</th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">{{ element.id }}</td>
+        </ng-container>
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">Name</th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            <div class="flex items-center">
+              <img class="rounded-full" [src]="element.imagePath" width="40" />
+              <div class="ms-4">
+                <p class="font-semibold text-base mb-1 mt-0">
+                  {{ element.Name }}
+                </p>
+                <small class="text-sm">{{ element.Position }}</small>
+              </div>
+            </div>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="email">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Email
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">{{ element.Email }}</td>
+        </ng-container>
+        <ng-container matColumnDef="mobile">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Mobile
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.Mobile }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="date of joining">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Date of Joining
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.DateOfJoining | date : "fullDate" }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="salary">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Salary
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.Salary }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="projects">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Projects
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.Projects }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="action">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Action
+          </th>
+          <td mat-cell *matCellDef="let element" class="action-link whitespace-nowrap">
+            <a (click)="openDialog('Update', element)" class="me-2.5 cursor-pointer">
+              <i-tabler name="edit" class="size-4.5!"></i-tabler>
+            </a>
+            <a (click)="openDialog('Delete', element)" class="me-2.5 cursor-pointer">
+              <i-tabler name="trash" class="size-4.5!"></i-tabler>
+            </a>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+      <mat-paginator [pageSizeOptions]="[5, 10, 20]" showFirstLastButtons></mat-paginator>
+    </div>
+  </mat-card-content>
+</mat-card>

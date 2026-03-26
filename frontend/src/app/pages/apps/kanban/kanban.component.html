@@ -1,0 +1,256 @@
+﻿<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <div>
+      <div class="flex flex-row items-center self-stretch gap-4 flex-wrap justify-between mb-6">
+        <mat-card-title>Work Made Easy</mat-card-title>
+        <button mat-flat-button (click)="openDialog('Add', {})">
+          Add List
+        </button>
+      </div>
+
+      <div class="relative overflow-x-auto-auto">
+        <div class="task-list-section flex gap-6 flex-nowrap overflow-x-auto" cdkDropListGroup>
+          <div class="task-list-container w-[300px] shrink-0">
+            <div class="connect-sorting p-[6px] rounded-md  new-request">
+              <div class="flex flex-row items-center self-stretch gap-2 py-2 px-1.5">
+                <span class="block rounded-full bg-error size-2!"></span>
+                <h5 class="text-base mb-0 font-semibold">New Request</h5>
+              </div>
+              <div class="connect-sorting-content">
+                <div class="connect-sorting-content" [cdkDropListData]="todos" cdkDropList
+                  (cdkDropListDropped)="drop($event)">
+                  @for(task of todos; track task.id) {
+                  <mat-card
+                    class="cardWithShadow img-task cursor-grab mborder.5! overflow-hidden p-4! flex gap-1 mb-1.5!"
+                    cdkDrag>
+                    <div>
+                      @if(task.imageUrl){
+                      <img [src]="task.imageUrl" alt="{{ task.title }} image"
+                        class="w-full overflow-hidden object-cover rounded-md" height="180" />
+                      } @if(task.description){
+                      <span class="text-sm text-muted block">{{
+                        task.description
+                        }}</span>
+                      }
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <h5 class="text-sm font-semibold">{{ task.title }}</h5>
+                      <button class="flex! items-center p-0 justify-center" mat-icon-button [matMenuTriggerFor]="menu">
+                        <i class="iconify size-4.5!" data-icon="tabler:dots-vertical"></i>
+                      </button>
+                      <mat-menu #menu="matMenu" xPosition="before" class="cardWithShadow">
+                        <button mat-menu-item (click)="openDialog('Edit', task)"
+                          class="flex items-center min-h-auto! py-2.5!">
+                          <div class="flex items-center gap-2">
+                            <i class="iconify text-base flex" data-icon="solar:pen-2-linear"></i>
+                            Edit
+                          </div>
+                        </button>
+                        <button mat-menu-item (click)="deleteTask(task)" class="flex items-center min-h-auto! py-2.5!">
+                          <div class="flex items-center gap-2">
+                            <i class="iconify text-base flex" data-icon="solar:trash-bin-trash-linear"></i>
+                            Delete
+                          </div>
+                        </button>
+                      </mat-menu>
+                    </div>
+                    <div>
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-muted">
+                          <i class="iconify text-base flex" data-icon="solar:calendar-linear"></i>
+                          <span class="text-sm">{{ task.date }}</span>
+                        </div>
+                        <span class="rounded-md text-xs px-2 py-0.5 text-white"
+                          [ngClass]="getTaskClass(task.taskProperty)">
+                          {{ task.taskProperty }}
+                        </span>
+                      </div>
+                    </div>
+                  </mat-card>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="task-list-container w-[300px] shrink-0">
+            <div class="connect-sorting p-[6px] rounded-md in-progress">
+              <div class="flex flex-row items-center self-stretch gap-2 py-2 px-1.5">
+                <span class="block rounded-full bg-info size-2!"></span>
+                <h5 class="text-base mb-0 font-semibold">In Progress</h5>
+              </div>
+              <div [cdkDropListData]="inprogress" cdkDropList (cdkDropListDropped)="drop($event)">
+                @for(task of inprogress; track task.id){
+                <mat-card class="cardWithShadow img-task cursor-grab mborder.5! overflow-hidden p-4! flex gap-1 mb-1.5!"
+                  cdkDrag>
+                  <div>
+                    @if(task.imageUrl){
+                    <img [src]="task.imageUrl" alt="{{ task.title }} image"
+                      class="w-full overflow-hidden object-cover rounded-md" height="180" />
+                    } @if(task.description){
+                    <span class="text-sm text-muted block">{{
+                      task.description
+                      }}</span>
+                    }
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <h5 class="text-sm font-semibold">{{ task.title }}</h5>
+                    <button class="flex! items-center p-0 justify-center" mat-icon-button [matMenuTriggerFor]="menu">
+                      <i class="iconify size-4.5!" data-icon="tabler:dots-vertical"></i>
+                    </button>
+                    <mat-menu #menu="matMenu" xPosition="before" class="cardWithShadow">
+                      <button mat-menu-item (click)="openDialog('Edit', task)"
+                        class="flex items-center min-h-auto! py-1.5">
+                        <div class="flex items-center gap-2">
+                          <i class="iconify text-base flex" data-icon="solar:pen-2-linear"></i>
+                          Edit
+                        </div>
+                      </button>
+                      <button mat-menu-item (click)="deleteTask(task)" class="flex items-center min-h-auto! py-1.5">
+                        <div class="flex items-center gap-2">
+                          <i class="iconify text-base flex" data-icon="solar:trash-bin-trash-linear"></i>
+                          Delete
+                        </div>
+                      </button>
+                    </mat-menu>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2 text-muted">
+                        <i class="iconify text-base flex" data-icon="solar:calendar-linear"></i>
+                        <span class="text-sm ">{{ task.date }}</span>
+                      </div>
+                      <span class="rounded-md text-xs px-2 py-0.5 text-white"
+                        [ngClass]="getTaskClass(task.taskProperty)">
+                        {{ task.taskProperty }}
+                      </span>
+                    </div>
+                  </div>
+                </mat-card>
+                }
+              </div>
+            </div>
+          </div>
+          <div class="task-list-container w-[300px] shrink-0">
+            <div class="connect-sorting p-[6px] rounded-md complete">
+              <div class="flex flex-row items-center self-stretch gap-2 py-2 px-1.5">
+                <span class="block rounded-full bg-success size-2!"></span>
+                <h5 class="text-base mb-0 font-semibold">Complete</h5>
+              </div>
+              <div class="connect-sorting-content" [cdkDropListData]="onhold" cdkDropList
+                (cdkDropListDropped)="drop($event)">
+                @for(task of onhold; track task.id){
+                <mat-card class="cardWithShadow img-task cursor-grab mborder.5! overflow-hidden p-4! flex gap-1 mb-1.5!"
+                  cdkDrag>
+                  <div>
+                    @if(task.imageUrl){
+                    <img [src]="task.imageUrl" alt="{{ task.title }} image"
+                      class="w-full overflow-hidden object-cover rounded-md" height="180" />
+                    } @if(task.description){
+                    <span class="text-sm text-muted block">{{
+                      task.description
+                      }}</span>
+                    }
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <h5 class="text-sm font-semibold">{{ task.title }}</h5>
+                    <button class="flex! items-center p-0 justify-center" mat-icon-button [matMenuTriggerFor]="menu">
+                      <i class="iconify size-4.5!" data-icon="tabler:dots-vertical"></i>
+                    </button>
+                    <mat-menu #menu="matMenu" xPosition="before" class="cardWithShadow">
+                      <button mat-menu-item (click)="openDialog('Edit', task)"
+                        class="flex items-center min-h-auto! py-1.5">
+                        <div class="flex items-center gap-2">
+                          <i class="iconify text-base flex" data-icon="solar:pen-2-linear"></i>
+                          Edit
+                        </div>
+                      </button>
+                      <button mat-menu-item (click)="deleteTask(task)" class="flex items-center min-h-auto! py-1.5">
+                        <div class="flex items-center gap-2">
+                          <i class="iconify text-base flex" data-icon="solar:trash-bin-trash-linear"></i>
+                          Delete
+                        </div>
+                      </button>
+                    </mat-menu>
+                  </div>
+
+                  <div>
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2 text-muted">
+                        <i class="iconify text-base flex" data-icon="solar:calendar-linear"></i>
+                        <span class="text-sm ">{{ task.date }}</span>
+                      </div>
+                      <span class="rounded-md text-xs px-2 py-0.5 text-white"
+                        [ngClass]="getTaskClass(task.taskProperty)">
+                        {{ task.taskProperty }}
+                      </span>
+                    </div>
+                  </div>
+                </mat-card>
+                }
+              </div>
+            </div>
+          </div>
+          <div class="task-list-container w-[300px] shrink-0">
+            <div class="connect-sorting p-[6px] rounded-md backLog">
+              <div class="flex flex-row items-center self-stretch gap-2 py-2 px-1.5">
+                <span class="block rounded-full bg-dark size-2!"></span>
+                <h5 class="text-base mb-0 font-semibold">BackLog</h5>
+              </div>
+              <div [cdkDropListData]="completed" cdkDropList (cdkDropListDropped)="drop($event)">
+                @for(task of completed; track task.id){
+                <mat-card class="cardWithShadow img-task cursor-grab mborder.5! overflow-hidden p-4! flex gap-1 mb-1.5!"
+                  cdkDrag>
+                  <div class="flex items-center justify-between">
+                    <h5 class="text-sm font-semibold">{{ task.title }}</h5>
+                    <button class="flex! items-center p-0 justify-center" mat-icon-button [matMenuTriggerFor]="menu">
+                      <i class="iconify size-4.5!" data-icon="tabler:dots-vertical"></i>
+                    </button>
+                    <mat-menu #menu="matMenu" xPosition="before" class="cardWithShadow">
+                      <button mat-menu-item (click)="openDialog('Edit', task)"
+                        class="flex items-center min-h-auto! py-1.5">
+                        <div class="flex items-center gap-2">
+                          <i class="iconify text-base flex" data-icon="solar:pen-2-linear"></i>
+                          Edit
+                        </div>
+                      </button>
+                      <button mat-menu-item (click)="deleteTask(task)" class="flex items-center min-h-auto! py-1.5">
+                        <div class="flex items-center gap-2">
+                          <i class="iconify text-base flex" data-icon="solar:trash-bin-trash-linear"></i>
+                          Delete
+                        </div>
+                      </button>
+                    </mat-menu>
+                  </div>
+                  <div>
+                    @if(task.imageUrl){
+                    <img [src]="task.imageUrl" alt="{{ task.title }} image"
+                      class="w-full overflow-hidden object-cover rounded-md" height="180" />
+                    } @if(task.description){
+                    <span class="text-sm text-muted block
+                    ">{{
+                      task.description
+                      }}</span>
+                    }
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2 text-muted">
+                        <i class="iconify text-base flex" data-icon="solar:calendar-linear"></i>
+                        <span class="text-sm ">{{ task.date }}</span>
+                      </div>
+                      <span class="rounded-md text-xs px-2 py-0.5 text-white"
+                        [ngClass]="getTaskClass(task.taskProperty)">
+                        {{ task.taskProperty }}
+                      </span>
+                    </div>
+                  </div>
+                </mat-card>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

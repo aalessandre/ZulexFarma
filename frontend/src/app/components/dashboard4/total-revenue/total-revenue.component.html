@@ -1,0 +1,31 @@
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content class="pb-0!">
+    <div class="flex flex-wrap gap-4 items-center justify-between">
+      <mat-card-title>Total Revenue</mat-card-title>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1 text-error">
+          <i-tabler name="circle-filled" class="size-3!"></i-tabler>
+          <span class="text-sm">2024</span>
+        </div>
+        <div class="flex items-center gap-1 text-secondary">
+          <i-tabler name="circle-filled" class="size-3!"></i-tabler>
+          <span class="text-sm">2025</span>
+        </div>
+        <div class="flex items-center gap-1 text-primary">
+          <i-tabler name="circle-filled" class="size-3!"></i-tabler>
+          <span class="text-sm">2026</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <apx-chart [series]="totalrevenueChart.series" [chart]="totalrevenueChart.chart"
+        [plotOptions]="totalrevenueChart.plotOptions" [xaxis]="totalrevenueChart.xaxis"
+        [yaxis]="totalrevenueChart.yaxis" [grid]="totalrevenueChart.grid" [fill]="totalrevenueChart.fill"
+        [tooltip]="totalrevenueChart.tooltip" [colors]="totalrevenueChart.colors"
+        [dataLabels]="totalrevenueChart.dataLabels" [markers]="totalrevenueChart.markers"
+        [legend]="totalrevenueChart.legend" [stroke]="totalrevenueChart.stroke">
+      </apx-chart>
+    </div>
+  </mat-card-content>
+</mat-card>

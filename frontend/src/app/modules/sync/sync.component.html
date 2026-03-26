@@ -1,0 +1,81 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="carregarStatus()">
+      <span>Atualizar</span>
+      <span class="sidebar-sub">Recarregar status</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" [class.disabled]="sincronizando()" (click)="executarSync()">
+      <span>Sincronizar</span>
+      <span class="sidebar-sub">Forçar sync</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="form-wrapper">
+      <div class="form-titulo">Gerenciamento de Sincronização</div>
+
+      <!-- Seletor de filial -->
+      <div class="sync-filtro">
+        <label>FILIAL</label>
+        <select [value]="filialSelecionada()" (change)="onFilialChange(+$any($event.target).value)">
+          <option [value]="0" disabled>Selecione uma filial...</option>
+          @for (f of filiais(); track f.id) {
+            <option [value]="f.id">{{ f.nomeFantasia }}</option>
+          }
+        </select>
+        <div class="sync-resumo">
+          @if (statusList().length > 0) {
+            <span class="sync-total">{{ statusList().length }} tabelas</span>
+            @if (totalPendentes() > 0) {
+              <span class="sync-pendentes">{{ totalPendentes() }} pendentes</span>
+            } @else {
+              <span class="sync-atualizado">Tudo atualizado</span>
+            }
+          }
+        </div>
+      </div>
+
+      <!-- Grid de status -->
+      @if (carregando()) {
+        <div class="sync-loading">Carregando status...</div>
+      } @else if (statusList().length === 0 && filialSelecionada()) {
+        <div class="sync-loading">Nenhum dado de sincronização encontrado.</div>
+      } @else {
+        <table class="sync-grid">
+          <thead>
+            <tr>
+              <th>Tabela</th>
+              <th>Status</th>
+              <th>Última Sync</th>
+              <th>Versão Enviada</th>
+              <th>Versão Recebida</th>
+              <th>Pendentes</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of statusList(); track s.tabela) {
+              <tr>
+                <td class="sync-tabela-nome">{{ s.tabela }}</td>
+                <td><span class="sync-badge" [class]="statusCss(s.status)">{{ s.status }}</span></td>
+                <td>{{ s.ultimoSync ? (s.ultimoSync | date:'dd/MM/yyyy HH:mm:ss') : '—' }}</td>
+                <td class="sync-numero">{{ s.ultimaVersaoEnviada }}</td>
+                <td class="sync-numero">{{ s.ultimaVersaoRecebida }}</td>
+                <td class="sync-numero">
+                  @if (s.pendentesEnvio > 0) {
+                    <span class="sync-pendente-badge">{{ s.pendentesEnvio }}</span>
+                  } @else {
+                    <span class="sync-ok-check">✓</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+</div>

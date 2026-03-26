@@ -1,0 +1,124 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="carregar()">
+      <span>Atualizar</span>
+      <span class="sidebar-sub">Recarregar info</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" [class.disabled]="verificando()" (click)="verificarAtualizacao()">
+      <span>Verificar</span>
+      <span class="sidebar-sub">Buscar updates</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="form-wrapper">
+      <div class="form-titulo">Informações do Sistema</div>
+
+      @if (carregando()) {
+        <div class="sys-loading">Carregando informações...</div>
+      } @else if (info()) {
+        <!-- Versão e Build -->
+        <div class="sys-cards">
+          <div class="sys-card sys-card-versao">
+            <div class="sys-card-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <div class="sys-card-body">
+              <span class="sys-card-label">Versão</span>
+              <span class="sys-card-valor">{{ info()!.versao }}</span>
+              <span class="sys-card-sub">Build {{ info()!.build }}</span>
+            </div>
+          </div>
+
+          <div class="sys-card">
+            <div class="sys-card-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div class="sys-card-body">
+              <span class="sys-card-label">Uptime</span>
+              <span class="sys-card-valor">{{ info()!.uptime }}</span>
+              <span class="sys-card-sub">Tempo em execução</span>
+            </div>
+          </div>
+
+          <div class="sys-card">
+            <div class="sys-card-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <div class="sys-card-body">
+              <span class="sys-card-label">Máquina</span>
+              <span class="sys-card-valor">{{ info()!.maquina }}</span>
+              <span class="sys-card-sub">{{ info()!.processadores }} CPUs | {{ info()!.memoriaAtual }} MB RAM</span>
+            </div>
+          </div>
+
+          <div class="sys-card">
+            <div class="sys-card-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              </svg>
+            </div>
+            <div class="sys-card-body">
+              <span class="sys-card-label">Plataforma</span>
+              <span class="sys-card-valor">.NET {{ info()!.dotnet }}</span>
+              <span class="sys-card-sub">{{ info()!.os }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status de atualização -->
+        <div class="form-secao">Atualização</div>
+        <div class="sys-update-panel">
+          @if (atualizacao()?.atualizacaoDisponivel) {
+            <div class="sys-update-badge update-disponivel">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <div>
+                <strong>Atualização disponível: {{ atualizacao()!.versaoDisponivel }}</strong>
+                @if (atualizacao()!.descricao) {
+                  <p>{{ atualizacao()!.descricao }}</p>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="sys-update-badge update-atualizado">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/>
+              </svg>
+              <span>Sistema atualizado ({{ info()!.versao }})</span>
+            </div>
+          }
+          @if (atualizacao()?.ultimaVerificacao) {
+            <span class="sys-update-check">Última verificação: {{ atualizacao()!.ultimaVerificacao | date:'dd/MM/yyyy HH:mm' }}</span>
+          }
+        </div>
+
+        <!-- Serviços -->
+        <div class="form-secao">Serviços</div>
+        <div class="sys-services">
+          <div class="sys-service">
+            <span class="sys-service-dot" [class.dot-ativo]="info()!.syncHabilitado"></span>
+            <span>Sincronização</span>
+            <span class="sys-service-status">{{ info()!.syncHabilitado ? 'Ativo' : 'Desativado' }}</span>
+          </div>
+          <div class="sys-service">
+            <span class="sys-service-dot" [class.dot-ativo]="info()!.atualizacaoHabilitada"></span>
+            <span>Atualização Automática</span>
+            <span class="sys-service-status">{{ info()!.atualizacaoHabilitada ? 'Ativo' : 'Desativado' }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

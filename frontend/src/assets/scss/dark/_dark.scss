@@ -1,0 +1,48 @@
+@use "sass:meta";
+@use "../variables" as *;
+
+.dark-theme {
+  //   typography
+  color: $dark-text-secondary;
+
+  .text-muted {
+    color: $dark-text-secondary !important;
+  }
+
+  .mat-mdc-menu-panel {
+    color: var(--mat-sys-on-background) !important;
+  }
+
+  .bg-white,
+  .mdc-menu-surface {
+    background-color: var(--mat-sys-surface) !important;
+  }
+
+  .hljs {
+    background: var(--mat-sys-surface);
+  }
+
+  .mdc-button.bg-dark\! {
+    color: var(--mat-sys-background) !important;
+  }
+
+
+  // fill
+  .customizer-button-group .mat-button-toggle-appearance-standard.mat-button-toggle-checked i-tabler.fill-icon {
+    fill: var(--mat-sys-primary-fixed-dim);
+  }
+}
+
+// horizontal + dark
+
+html.dark-theme {
+  .logodark {
+    display: none;
+  }
+}
+
+html.light-theme {
+  .logolight {
+    display: none;
+  }
+}

@@ -1,0 +1,138 @@
+﻿<!-- Listing and total number of counts -->
+<div class="grid grid-cols-12 gap-6">
+  <div class="lg:col-span-3 sm:col-span-6 col-span-12">
+    <mat-card class="shadow-none! mb-0! lg:mb-6! p-8 bg-light-primary text-center cursor-pointer rounded-md"
+      (click)="btnCategoryClick('')">
+      <h3 class="text-2xl text-primary font-semibold mborder">{{ totalCount }}</h3>
+      <h6 class="text-primary font-semibold m-0 text-base">Total Tickets</h6>
+    </mat-card>
+  </div>
+  <div class="lg:col-span-3 sm:col-span-6 col-span-12">
+    <mat-card class="shadow-none! mb-0! lg:mb-6! p-8 bg-light-warning text-center cursor-pointer rounded-md"
+      (click)="btnCategoryClick('InProgress')">
+      <h3 class="text-2xl text-warning mborder">
+        {{ countTicketsByStatus("Inprogress") }}
+      </h3>
+      <h6 class="text-warning font-semibold m-0 text-base">In Progress</h6>
+    </mat-card>
+  </div>
+  <div class="lg:col-span-3 sm:col-span-6 col-span-12">
+    <mat-card class="shadow-none! mb-0! lg:mb-6! p-8 bg-light-success text-center cursor-pointer rounded-md"
+      (click)="btnCategoryClick('Open')">
+      <h3 class="text-2xl text-success mborder">
+        {{ countTicketsByStatus("Open") }}
+      </h3>
+      <h6 class="text-success font-semibold m-0 text-base">Open</h6>
+    </mat-card>
+  </div>
+  <div class="lg:col-span-3 sm:col-span-6 col-span-12">
+    <mat-card class="shadow-none! mb-0! lg:mb-6! p-8 bg-light-error text-center cursor-pointer rounded-md"
+      (click)="btnCategoryClick('Closed')">
+      <h3 class="text-2xl text-error mborder">
+        {{ countTicketsByStatus("Closed") }}
+      </h3>
+      <h6 class="text-error font-semibold m-0 text-base">Closed</h6>
+    </mat-card>
+  </div>
+</div>
+
+<!-- Add and search tickets -->
+<mat-card class="cardWithShadow">
+  <mat-card-content>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+
+      <div class="w-full sm:w-1/3">
+        <mat-form-field appearance="outline" class="w-full hide-hint">
+          <div class="flex flex-row items-center w-full gap-3">
+            <i class="iconify text-xl" data-icon="solar:magnifer-line-duotone"></i>
+            <input matInput (keyup)="onKeyup($event)" placeholder="Search Tickets" class="flex-1" />
+          </div>
+        </mat-form-field>
+      </div>
+
+      <div class="w-full sm:w-1/3 flex justify-end items-center">
+        <button mat-flat-button color="primary" (click)="openDialog('Add', {})">
+          Add Ticket
+        </button>
+      </div>
+
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<!-- Table -->
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <div class="relative overflow-auto">
+      <table mat-table [dataSource]="dataSource" class="stats-wrapper min-w-full font-medium">
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">Id</th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">{{ element.id }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="title">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Title
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            <h6 class="text-base font-medium mborder">{{ element.title }}</h6>
+            <span class="text-sm font-normal max-text block max-w-[250px] leading-[1.57] truncate">{{
+              element.subtext
+              }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="assignee">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Assigned To
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            <div class="flex items-center">
+              <img [src]="element.imgSrc" alt="user" width="36" class="rounded-full me-2" />
+              <span class="font-semibold text-base">{{ element.assignee }}</span>
+            </div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Status
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            <span class="bg-light font-medium px-2 py-1 rounded-full text-xs" [ngClass]="{
+                'bg-light-warning': element.status === 'inprogress',
+                'bg-light-success': element.status === 'open',
+                'bg-light-error': element.status === 'closed'
+              }">
+              {{ element.status }}
+            </span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">Date</th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap text-sm">
+            {{ element.date | date }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="action">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Action
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap action-link">
+            <a (click)="openDialog('Update', element)" class="me-2.5 cursor-pointer"><i-tabler name="edit"
+                class="size-4.5!"></i-tabler></a>
+            <a (click)="openDialog('Delete', element)" class="me-2.5 cursor-pointer"><i-tabler name="trash"
+                class="size-4.5!"></i-tabler></a>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+
+    <mat-paginator [pageSizeOptions]="[5, 10, 20]" showFirstLastButtons></mat-paginator>
+  </mat-card-content>
+</mat-card>

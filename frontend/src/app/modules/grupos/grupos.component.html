@@ -1,0 +1,288 @@
+<div class="tela-erp">
+
+  <!-- SIDEBAR ESQUERDA -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()">
+      <span>Procurar</span>
+      <span class="sidebar-sub">Consulta</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()">
+      <span>Adicionar</span>
+      <span class="sidebar-sub">Novo grupo</span>
+    </div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!grupoSelecionado()" (click)="editar()">
+      <span>Editar</span>
+      <span class="sidebar-sub">Alterar grupo</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+
+    @if (abasEdicao().length > 0) {
+      <div class="sidebar-divider"></div>
+      @for (aba of abasEdicao(); track aba.grupo.id) {
+        <div class="sidebar-aba"
+             [class.ativo]="abaAtivaId() === aba.grupo.id && modo() === 'form'"
+             (click)="ativarAba(aba.grupo.id!)">
+          <div class="sidebar-aba-topo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span class="sidebar-aba-id">#{{ aba.grupo.id }}</span>
+            @if (aba.isDirty) { <span class="sidebar-aba-dirty">&bull;</span> }
+          </div>
+          <span class="sidebar-aba-nome">{{ aba.grupo.nome }}</span>
+          <button class="sidebar-aba-fechar"
+                  (click)="$event.stopPropagation(); fecharAba(aba.grupo.id!)"
+                  title="Fechar">&times;</button>
+        </div>
+      }
+    }
+  </aside>
+
+  <!-- AREA PRINCIPAL -->
+  <div class="tela-main">
+
+    @if (modo() === 'lista') {
+      <!-- LISTA -->
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="Nome do grupo..."
+                   [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            @if (busca()) {
+              <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="lista-filtro">
+          <label>SITUA&Ccedil;&Atilde;O</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header">
+                <span>Personalizar Colunas</span>
+                <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padr&atilde;o</button>
+              </div>
+              <div class="col-picker-lista">
+                @for (col of colunas(); track col.campo) {
+                  <label class="col-picker-item">
+                    <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                    <span>{{ col.label }}</span>
+                    @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              @for (col of colunasVisiveis(); track col.campo) {
+                <th class="th-sort th-resize"
+                    [style.width.px]="col.largura"
+                    [style.min-width.px]="col.minLargura"
+                    (click)="ordenar(col.campo)">
+                  {{ col.label }}
+                  <span class="sort-icon">{{ sortColuna() === col.campo ? (sortDirecao() === 'asc' ? '&#9650;' : '&#9660;') : '&#8693;' }}</span>
+                  <div class="resize-handle"
+                       (mousedown)="iniciarResize($event, col.campo, col.largura)"
+                       (click)="$event.stopPropagation()"></div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+            } @else if (gruposFiltrados().length === 0) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+            } @else {
+              @for (g of gruposFiltrados(); track g.id) {
+                <tr [class.selecionado]="grupoSelecionado()?.id === g.id"
+                    (click)="selecionar(g)" (dblclick)="editar()">
+                  <td class="td-arrow">
+                    @if (grupoSelecionado()?.id === g.id) { <span>&#9654;</span> }
+                  </td>
+                  @for (col of colunasVisiveis(); track col.campo) {
+                    <td>{{ getCellValue(g, col.campo) }}</td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ gruposFiltrados().length }}</strong></span>
+      </div>
+    }
+
+    @if (modo() === 'form') {
+      <!-- FORMULARIO -->
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar Grupo' : 'Novo Grupo de Usu&aacute;rio' }}</div>
+
+        <!-- ID / DATA CADASTRO -->
+        @if (modoEdicao()) {
+          <div class="form-grid form-grid-info">
+            <div class="field">
+              <label>C&Oacute;DIGO</label>
+              <input type="text" [value]="grupoForm().id" disabled class="field-disabled" />
+            </div>
+            <div class="field">
+              <label>DATA CADASTRO</label>
+              <input type="text" [value]="grupoForm().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" />
+            </div>
+          </div>
+        }
+
+        @if (erro()) {
+          <div class="form-erro">{{ erro() }}</div>
+        }
+
+        <!-- DADOS DO GRUPO -->
+        <div class="form-secao">Dados do Grupo</div>
+        <div class="form-grid">
+          <div class="field field-2" [class.field-invalido]="erroCampo('nome')">
+            <label>NOME DO GRUPO *</label>
+            <input type="text" [value]="grupoForm().nome" (input)="upd('nome', $any($event.target).value)" />
+            @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
+          </div>
+          <div class="field field-3">
+            <label>DESCRIÇÃO</label>
+            <input type="text" [value]="grupoForm().descricao || ''" (input)="upd('descricao', $any($event.target).value)" />
+          </div>
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="grupoForm().ativo" (change)="upd('ativo', $any($event.target).checked)" />
+              Ativo
+            </label>
+          </div>
+        </div>
+
+        <!-- PERMISSÕES (TreeView) -->
+        <div class="perm-header">
+          <div class="form-secao" style="flex:1; margin-bottom:0">Permissões</div>
+          <div class="perm-toolbar">
+            <div class="perm-busca-wrap">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="text" class="perm-busca" placeholder="Filtrar telas..."
+                     [value]="buscaPermissao()" (input)="buscaPermissao.set($any($event.target).value)" />
+              @if (buscaPermissao()) {
+                <button class="perm-busca-limpar" (click)="buscaPermissao.set('')">&times;</button>
+              }
+            </div>
+            <button class="perm-btn-todos" (click)="expandirTodos()">Expandir</button>
+            <button class="perm-btn-todos" (click)="recolherTodos()">Recolher</button>
+          </div>
+        </div>
+
+        <div class="tree-view">
+          @for (bloco of blocos; track bloco.bloco) {
+            @if (blocoTemResultados(bloco.bloco)) {
+              <!-- NÓ BLOCO -->
+              <div class="tree-node tree-bloco">
+                <div class="tree-node-header" (click)="toggleNo('bloco_' + bloco.bloco)">
+                  <span class="tree-toggle">{{ isNoAberto('bloco_' + bloco.bloco) ? '▾' : '▸' }}</span>
+                  <span class="tree-bloco-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  </span>
+                  <span class="tree-bloco-nome">{{ bloco.nome }}</span>
+                  <span class="tree-bloco-count">{{ contarPermissoesBloco(bloco.bloco) }}/{{ totalTelasBloco(bloco.bloco) }}</span>
+                </div>
+
+                @if (isNoAberto('bloco_' + bloco.bloco)) {
+                  <div class="tree-children">
+                    @for (p of getPermissoesBloco(bloco.bloco); track p.codigoTela) {
+                      <!-- NÓ TELA -->
+                      <div class="tree-node tree-tela" [class.tree-tela-ativo]="temAlgumaPermissao(p)">
+                        <div class="tree-node-header" (click)="toggleNo('tela_' + p.codigoTela)">
+                          <span class="tree-toggle">{{ isNoAberto('tela_' + p.codigoTela) ? '▾' : '▸' }}</span>
+                          <input type="checkbox" class="tree-check-tela"
+                                 [checked]="temAlgumaPermissao(p)"
+                                 (click)="$event.stopPropagation()"
+                                 (change)="marcarTodosTela(p.codigoTela, $any($event.target).checked)" />
+                          <span class="tree-tela-nome">{{ p.nomeTela }}</span>
+                        </div>
+
+                        @if (isNoAberto('tela_' + p.codigoTela)) {
+                          <div class="tree-children tree-perms">
+                            <label class="tree-perm-item" (click)="$event.stopPropagation()">
+                              <input type="checkbox" [checked]="p.podeConsultar"
+                                     (change)="togglePermissao(p.codigoTela, 'podeConsultar')" />
+                              <span>Consultar</span>
+                            </label>
+                            <label class="tree-perm-item" (click)="$event.stopPropagation()">
+                              <input type="checkbox" [checked]="p.podeIncluir"
+                                     (change)="togglePermissao(p.codigoTela, 'podeIncluir')" />
+                              <span>Incluir</span>
+                            </label>
+                            <label class="tree-perm-item" (click)="$event.stopPropagation()">
+                              <input type="checkbox" [checked]="p.podeAlterar"
+                                     (change)="togglePermissao(p.codigoTela, 'podeAlterar')" />
+                              <span>Alterar</span>
+                            </label>
+                            <label class="tree-perm-item" (click)="$event.stopPropagation()">
+                              <input type="checkbox" [checked]="p.podeExcluir"
+                                     (change)="togglePermissao(p.codigoTela, 'podeExcluir')" />
+                              <span>Excluir</span>
+                            </label>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      <!-- TOOLBAR FORM -->
+      <div class="tela-toolbar">
+        <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+          {{ salvando() ? 'Salvando...' : 'Salvar' }}
+        </button>
+        <button class="tb-btn tb-cancelar" (click)="fechar()">Cancelar</button>
+        <div class="tb-separador"></div>
+      </div>
+    }
+
+  </div>
+</div>
+

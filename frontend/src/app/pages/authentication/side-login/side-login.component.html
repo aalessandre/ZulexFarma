@@ -1,0 +1,98 @@
+<div class="login-wrapper">
+
+  <!-- Lado esquerdo — branding -->
+  <div class="login-left">
+    <div class="login-brand">
+      <div class="brand-logo">ZF</div>
+      <div class="brand-text">
+        <span class="brand-name">ZULEX FARMA ERP</span>
+      </div>
+    </div>
+
+    <div class="login-hero">
+      <h1 class="hero-title">ERP web com cara<br>de desktop<br>para farmácia.</h1>
+      <p class="hero-sub">
+        Gerencie vendas, estoque, financeiro e muito mais.<br>
+        Rápido, moderno e feito para o dia a dia da farmácia.
+      </p>
+      <div class="hero-tiles">
+        <div class="hero-tile tile-cyan">
+          <strong>Movimento</strong>
+          <span>Vendas e caixa</span>
+        </div>
+        <div class="hero-tile tile-orange">
+          <strong>Cadastros</strong>
+          <span>Clientes e produtos</span>
+        </div>
+        <div class="hero-tile tile-purple">
+          <strong>Relatórios</strong>
+          <span>Análises e indicadores</span>
+        </div>
+        <div class="hero-tile tile-yellow">
+          <strong>Manutenção</strong>
+          <span>Configurações</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lado direito — formulário -->
+  <div class="login-right">
+    <div class="login-card">
+      <h2 class="login-title">Acesso ao sistema</h2>
+      <p class="login-sub">Informe suas credenciais para entrar</p>
+
+      @if (erroLogin()) {
+        <div class="login-error">
+          <span>⚠</span> {{ erroLogin() }}
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+
+        <div class="field-group">
+          <label class="field-label">EMPRESA</label>
+          <select class="field-select" [value]="filialSelecionada">
+            <option value="001">{{ nomeFilial }}</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">USUÁRIO</label>
+          <input class="field-input" formControlName="uname"
+                 placeholder="Login" autocomplete="username" />
+          @if (f['uname'].touched && f['uname'].invalid) {
+            <span class="field-error">Campo obrigatório</span>
+          }
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">SENHA</label>
+          <input class="field-input" type="password" formControlName="password"
+                 placeholder="••••••" autocomplete="current-password" />
+          @if (f['password'].touched && f['password'].invalid) {
+            <span class="field-error">Campo obrigatório</span>
+          }
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">TURNO</label>
+          <select class="field-select" formControlName="turno">
+            <option value="manha">Manhã</option>
+            <option value="tarde">Tarde</option>
+            <option value="noite">Noite</option>
+          </select>
+        </div>
+
+        <div class="login-actions">
+          <button class="btn-entrar" type="submit"
+                  [disabled]="!form.valid || carregando()">
+            @if (carregando()) { Aguarde... } @else { Entrar }
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+</div>

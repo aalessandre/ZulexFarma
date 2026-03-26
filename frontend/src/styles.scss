@@ -1,0 +1,120 @@
+/* You can add global styles to this file, and also import other style files */
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ERP — CSS Custom Properties (tema + escala de fonte)
+   Disponíveis em todos os componentes via herança de variáveis CSS.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Escala de fonte ─────────────────────────────────────────────────── */
+:root,
+[data-fonte="normal"] {
+  --erp-accent:       var(--erp-blue);
+  --erp-accent-light: rgba(44, 95, 173, 0.15);
+  --erp-radius:       12px;
+  --erp-radius-sm:    8px;
+  --erp-fs-xs:    12px;
+  --erp-fs-sm:    13px;
+  --erp-fs-md:    14px;
+  --erp-fs-body:  15px;
+  --erp-fs-lg:    17px;
+  --erp-fs-title: 18px;
+  --erp-fs-h2:    20px;
+}
+
+[data-fonte="grande"] {
+  --erp-fs-xs:    13px;
+  --erp-fs-sm:    15px;
+  --erp-fs-md:    16px;
+  --erp-fs-body:  17px;
+  --erp-fs-lg:    20px;
+  --erp-fs-title: 22px;
+  --erp-fs-h2:    24px;
+}
+
+[data-fonte="enorme"] {
+  --erp-fs-xs:    15px;
+  --erp-fs-sm:    17px;
+  --erp-fs-md:    18px;
+  --erp-fs-body:  20px;
+  --erp-fs-lg:    23px;
+  --erp-fs-title: 26px;
+  --erp-fs-h2:    29px;
+}
+
+[data-fonte="extra"] {
+  --erp-fs-xs:    17px;
+  --erp-fs-sm:    20px;
+  --erp-fs-md:    22px;
+  --erp-fs-body:  24px;
+  --erp-fs-lg:    28px;
+  --erp-fs-title: 32px;
+  --erp-fs-h2:    36px;
+}
+
+/* ── Tema Claro (padrão) ─────────────────────────────────────────────── */
+:root,
+[data-tema="claro"] {
+  --erp-bg:            #ffffff;
+  --erp-surface:       #ffffff;
+  --erp-border:        #e0e4eb;
+  --erp-border-input:  #d0d7e2;
+  --erp-text:          #2c3e50;
+  --erp-text-muted:    #6a7888;
+  --erp-text-sec:      #556677;
+  --erp-blue:          #2c5fad;
+  --erp-primary:       #1e3a5f;
+  --erp-row-hover:     #f5f8ff;
+  --erp-row-selected:  #dce8ff;
+  --erp-grid-head:     #f0f2f5;
+  --erp-input-bg:      #fafbfc;
+  --erp-modal-overlay: rgba(0, 0, 0, 0.55);
+  --erp-sidebar-bg:    #1e3a5f;
+  --erp-navy-mid:      #27496d;
+  --erp-log-lista-bg:  #fafbfc;
+  --erp-log-detalhe-bg:#e8f0fa;
+  --erp-config-panel:  #ffffff;
+  --erp-config-border: #e0e4eb;
+  --erp-config-op-bg:  #f5f6f8;
+  --erp-config-op-hover: #e8efff;
+}
+
+/* ── Accent overridable via data-accent ─────────────────────────────── */
+:root[data-accent] {
+  --erp-accent: attr(data-accent type(<color>), var(--erp-blue));
+}
+
+/* ── Tema Escuro ─────────────────────────────────────────────────────── */
+[data-tema="escuro"] {
+  --erp-bg:            #151b2b;
+  --erp-surface:       #1e2538;
+  --erp-border:        #2e3a54;
+  --erp-border-input:  #374466;
+  --erp-text:          #d4ddf0;
+  --erp-text-muted:    #7b8dac;
+  --erp-text-sec:      #8899bb;
+  --erp-blue:          #5585e0;
+  --erp-primary:       #1c3058;
+  --erp-row-hover:     #242e48;
+  --erp-row-selected:  #1c3060;
+  --erp-grid-head:     #192030;
+  --erp-input-bg:      #192030;
+  --erp-modal-overlay: rgba(0, 0, 0, 0.72);
+  --erp-sidebar-bg:    #0f1a2e;
+  --erp-navy-mid:      #182540;
+  --erp-log-lista-bg:  #192030;
+  --erp-log-detalhe-bg:#192030;
+  --erp-config-panel:  #1e2538;
+  --erp-config-border: #2e3a54;
+  --erp-config-op-bg:  #192030;
+  --erp-config-op-hover: #1c3060;
+}

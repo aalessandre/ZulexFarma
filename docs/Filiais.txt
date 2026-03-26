@@ -1,0 +1,29 @@
+** campos com astericos são obrigatorios
+
+Bloco: Cadastros
+SubBloco: Outros
+Modulo: Filiais
+Tela : Cadastro de Filiais
+Tabela: Filiais
+Campos:
+ - * ID => auto increment
+ - * Razão Social
+ - * Nome Fantasia
+ - * Apelido
+ - * Cnpj
+ - * Inscrição Estadual
+ - * CEP
+ - * Rua
+ - * Numero
+ - * Bairro 
+ - * Cidade
+ - * UF
+ - * Telefone
+ - * Email
+ - * Data Cadastro
+ - * Ativo
+
+
+Regras
+ - Cnpj/CPF Unicos, nao pode repetir
+

@@ -1,0 +1,58 @@
+<div class="relative overflow-hidden h-screen bg-light-primary">
+  <div class="flex h-full justify-center items-center px-4">
+    <mat-card class="cardWithShadow md:w-[450px] w-full mb-0!">
+      <mat-card-content class="p-8">
+        <div class="flex flex-row items-center self-stretch justify-center mb-6">
+          <app-auth-branding></app-auth-branding>
+        </div>
+        <span class="block text-sm mt-6 text-center">We sent a verification code to your mobile. Enter the code from the
+          mobile in the field below.</span>
+        <span class="font-semibold block mt-4 text-center">******1234</span>
+
+        <form class="mt-8 pt-7">
+          <mat-label class="text-sm font-semibold mb-3 block">Type your 6 digits security code</mat-label>
+          <div class="grid grid-cols-12 gap-4">
+            <div class="col-span-2">
+              <mat-form-field appearance="outline" class="w-full" color="primary">
+                <input matInput />
+              </mat-form-field>
+            </div>
+            <div class="col-span-2">
+              <mat-form-field appearance="outline" class="w-full" color="primary">
+                <input matInput />
+              </mat-form-field>
+            </div>
+            <div class="col-span-2">
+              <mat-form-field appearance="outline" class="w-full" color="primary">
+                <input matInput />
+              </mat-form-field>
+            </div>
+            <div class="col-span-2">
+              <mat-form-field appearance="outline" class="w-full" color="primary">
+                <input matInput />
+              </mat-form-field>
+            </div>
+            <div class="col-span-2">
+              <mat-form-field appearance="outline" class="w-full" color="primary">
+                <input matInput />
+              </mat-form-field>
+            </div>
+            <div class="col-span-2">
+              <mat-form-field appearance="outline" class="w-full" color="primary">
+                <input matInput />
+              </mat-form-field>
+            </div>
+          </div>
+
+          <a [routerLink]="['/dashboards/dashboard1']" mat-flat-button color="primary" class="w-full">
+            Verify My Account
+          </a>
+          <!-- input -->
+        </form>
+        <span class="font-medium block text-sm mt-6">Didn't get the code?
+          <a [routerLink]="['/dashboards/dashboard1']" class="no-underline text-primary font-medium">Resend</a>
+        </span>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

@@ -1,0 +1,97 @@
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <mat-card-title>Recent Chats</mat-card-title>
+  </mat-card-content>
+  <ng-scrollbar class="chat-box w-full h-[338px]">
+    <ul class="chat-listing m-0 p-7.5 pt-0">
+      <li class="mt-6 flex items-center gap-4">
+        <div class="chat-img inline-block align-top">
+          <img src="assets/images/profile/user-5.jpg" alt="user" class="rounded-full" width="40" />
+        </div>
+        <div class="chat-content inline-block">
+          <h5 class="text-sm font-medium mb-2">James Anderson</h5>
+          <div class="message font-normal text-base bg-light-primary inline-block mb-2">
+            Lorem Ipsum is simply dummy text of the printing & type setting
+            industry.
+          </div>
+        </div>
+        <div class="chat-time inline-block text-right">10:56 am</div>
+      </li>
+
+      <li class="mt-6 flex items-center gap-4">
+        <div class="chat-img inline-block align-top">
+          <img src="assets/images/profile/user-6.jpg" alt="user" class="rounded-full" width="40" />
+        </div>
+        <div class="chat-content inline-block">
+          <h5 class="text-sm font-medium mb-2">Bianca Doe</h5>
+          <div class="message font-normal text-base bg-light-success inline-block mb-2">
+            It’s Great opportunity to work.
+          </div>
+        </div>
+        <div class="chat-time inline-block text-right">10:57 am</div>
+      </li>
+
+      <li class="odd mt-6 flex items-center gap-4">
+        <div class="chat-content inline-block text-right">
+          <div class="message font-normal text-base bg-light-warning inline-block mb-2">
+            I would love to join the team.
+          </div>
+        </div>
+        <div class="chat-time inline-block text-right">10:58 am</div>
+      </li>
+
+      <li class="odd mt-6 flex items-center gap-4">
+        <div class="chat-content inline-block text-right">
+          <div class="message font-normal text-base bg-light-warning inline-block mb-2">
+            Whats budget of the new project.
+          </div>
+        </div>
+        <div class="chat-time inline-block text-right">10:59 am</div>
+      </li>
+
+      <li class="mt-6 flex items-center gap-4">
+        <div class="chat-img inline-block align-top">
+          <img src="assets/images/profile/user-3.jpg" alt="user" class="rounded-full" />
+        </div>
+        <div class="chat-content inline-block">
+          <h5 class="text-sm font-medium mb-2">Angelina Rhodes</h5>
+          <div class="message font-normal text-base bg-light-primary inline-block mb-2">
+            Well we have good budget for the project
+          </div>
+        </div>
+        <div class="chat-time inline-block text-right">11:00 am</div>
+      </li>
+
+      <li class="mt-6 flex items-center gap-4">
+        <div class="chat-img inline-block align-top">
+          <img src="assets/images/profile/user-5.jpg" alt="user" class="rounded-full" />
+        </div>
+        <div class="chat-content inline-block">
+          <h5 class="text-sm font-medium mb-2">James Anderson</h5>
+          <div class="message font-normal text-base bg-light-primary inline-block mb-2">
+            Lorem Ipsum is simply dummy text of the printing & type setting
+            industry.
+          </div>
+        </div>
+        <div class="chat-time inline-block text-right">10:56 am</div>
+      </li>
+
+      <li class="odd mt-6 flex items-center gap-4">
+        <div class="chat-content inline-block text-right">
+          <div class="message font-normal text-base bg-light-primary inline-block mb-2">
+            Whats budget of the new project.
+          </div>
+        </div>
+        <div class="chat-time inline-block text-right">10:59 am</div>
+      </li>
+    </ul>
+  </ng-scrollbar>
+  <div class="p-7.5 pb-2.5 border-t border-border flex items-center justify-between gap-7.5">
+    <mat-form-field appearance="outline" class="w-full b-0">
+      <input class="b-0" matInput placeholder="Send message" />
+    </mat-form-field>
+    <button mat-fab color="primary" class="size-11! mb-4!" aria-label="Example icon button with a delete icon">
+      <mat-icon>send</mat-icon>
+    </button>
+  </div>
+</mat-card>

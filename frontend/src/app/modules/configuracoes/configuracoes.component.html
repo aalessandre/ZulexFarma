@@ -1,0 +1,62 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="carregar()">
+      <span>Atualizar</span>
+      <span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="form-wrapper">
+      <div class="form-titulo">Configurações do Sistema</div>
+
+      @if (carregando()) {
+        <div class="loading">Carregando configurações...</div>
+      } @else {
+        <!-- SISTEMA -->
+        <div class="form-secao">Sistema</div>
+        <div class="form-grid">
+          <div class="field field-2">
+            <label>NOME DO SISTEMA</label>
+            <input type="text" [value]="getConfig('sistema.nome', 'ZulexPharma')"
+                   (input)="setConfig('sistema.nome', $any($event.target).value)" />
+          </div>
+        </div>
+
+        <!-- SESSÃO -->
+        <div class="form-secao">Controle de Sessão</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>
+              SESSÃO MÁXIMA (MIN)
+              <span class="field-info" title="Tempo máximo que um usuário pode ficar logado, independente de atividade. 0 = sem limite. Pode ser sobrescrito por usuário na aba Acesso do Colaborador.">&#9432;</span>
+            </label>
+            <input type="number" min="0" [value]="getConfig('sessao.maxima.minutos', '480')"
+                   (input)="setConfig('sessao.maxima.minutos', $any($event.target).value)"
+                   placeholder="0 = sem limite" />
+          </div>
+          <div class="field">
+            <label>
+              INATIVIDADE (MIN)
+              <span class="field-info" title="Tempo de inatividade (sem interação) para encerrar a sessão automaticamente. 0 = não verifica. Pode ser sobrescrito por usuário na aba Acesso do Colaborador.">&#9432;</span>
+            </label>
+            <input type="number" min="0" [value]="getConfig('sessao.inatividade.minutos', '10')"
+                   (input)="setConfig('sessao.inatividade.minutos', $any($event.target).value)"
+                   placeholder="0 = sem limite" />
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="tela-toolbar">
+      <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+        {{ salvando() ? 'Salvando...' : 'Salvar' }}
+      </button>
+    </div>
+  </div>
+</div>

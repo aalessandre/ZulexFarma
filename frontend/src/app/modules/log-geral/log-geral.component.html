@@ -1,0 +1,202 @@
+<div class="tela-erp">
+
+  <!-- ── SIDEBAR ESQUERDA ─────────────────────────────────────────── -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar ativo" (click)="filtrar()">
+      <span>Procurar</span>
+      <span class="sidebar-sub">Filtrar logs</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <!-- ── ÁREA PRINCIPAL ───────────────────────────────────────────── -->
+  <div class="tela-main">
+
+    <div class="lista-header">
+      <!-- Seletor de colunas -->
+      <div class="col-picker-wrap">
+        <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          Colunas
+        </button>
+        @if (painelColunas()) {
+          <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+          <div class="col-picker-painel">
+            <div class="col-picker-header">
+              <span>Personalizar Colunas</span>
+              <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+            </div>
+            <div class="col-picker-lista">
+              @for (col of colunas(); track col.campo) {
+                <label class="col-picker-item">
+                  <input type="checkbox" [checked]="col.visivel"
+                         (change)="toggleColunaVisivel(col.campo)" />
+                  <span>{{ col.label }}</span>
+                  @if (!col.padrao) {
+                    <span class="col-picker-opcional">opcional</span>
+                  }
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="grid-wrapper">
+
+      <!-- FILTROS (dentro do card) -->
+      <div class="log-filtros">
+        <div class="filtro-campo">
+          <label>DATA INÍCIO</label>
+          <input type="date" [value]="dataInicio()" (change)="dataInicio.set($any($event.target).value)" />
+        </div>
+        <div class="filtro-campo">
+          <label>DATA FIM</label>
+          <input type="date" [value]="dataFim()" (change)="dataFim.set($any($event.target).value)" />
+        </div>
+        <div class="filtro-campo">
+          <label>TELA</label>
+          <input type="text" placeholder="Filtrar por tela..." [value]="filtroTela()"
+                 (input)="filtroTela.set($any($event.target).value)" />
+        </div>
+        <div class="filtro-campo">
+          <label>AÇÃO</label>
+          <select [value]="filtroAcao()" (change)="filtroAcao.set($any($event.target).value)">
+            <option value="">Todas</option>
+            <option value="CRIAÇÃO">Criação</option>
+            <option value="ALTERAÇÃO">Alteração</option>
+            <option value="EXCLUSÃO">Exclusão</option>
+            <option value="DESATIVAÇÃO">Desativação</option>
+            <option value="LIBERAÇÃO">Liberação por Senha</option>
+          </select>
+        </div>
+        <div class="filtro-campo">
+          <label>USUÁRIO</label>
+          <input type="text" placeholder="Nome ou login..." [value]="filtroUsuario()"
+                 (input)="filtroUsuario.set($any($event.target).value)" />
+        </div>
+        <div class="filtro-campo">
+          <label>LIBERAÇÃO</label>
+          <select [value]="filtroLiberacao()" (change)="filtroLiberacao.set($any($event.target).value)">
+            <option value="">Todas</option>
+            <option value="sim">Com liberação por senha</option>
+            <option value="nao">Sem liberação</option>
+          </select>
+        </div>
+        <button class="btn-filtrar" (click)="filtrar()" [disabled]="carregando()">
+          {{ carregando() ? 'Buscando...' : 'Filtrar' }}
+        </button>
+      </div>
+
+      <!-- GRID -->
+      <div class="grid-scroll">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              @for (col of colunasVisiveis(); track col.campo) {
+                <th class="th-sort th-resize"
+                    [style.width.px]="col.largura"
+                    [style.min-width.px]="col.minLargura"
+                    (click)="ordenar(col.campo)">
+                  {{ col.label }}
+                  <span class="sort-icon">{{ sortColuna() === col.campo ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span>
+                  <div class="resize-handle"
+                       (mousedown)="iniciarResize($event, col.campo, col.largura)"
+                       (click)="$event.stopPropagation()"></div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+            } @else if (logsFiltrados().length === 0) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum log encontrado para os filtros informados.</td></tr>
+            } @else {
+              @for (log of logsFiltrados(); track log.id) {
+                <tr [class.selecionado]="expandidoId() === log.id"
+                    (click)="toggleExpandir(log.id)">
+                  <td class="td-arrow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         [style.transform]="expandidoId() === log.id ? 'rotate(180deg)' : 'rotate(0)'"
+                         style="transition: transform 0.2s">
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </td>
+                  @for (col of colunasVisiveis(); track col.campo) {
+                    <td>
+                      @if (col.campo === 'realizadoEm') {
+                        {{ log.realizadoEm | date:'dd/MM/yyyy HH:mm:ss' }}
+                      } @else if (col.campo === 'acao') {
+                        <span class="log-badge" [class]="acaoCss(log.acao)">{{ log.acao }}</span>
+                      } @else {
+                        {{ getCellValue(log, col.campo) }}
+                      }
+                    </td>
+                  }
+                </tr>
+                @if (expandidoId() === log.id) {
+                  <tr class="grid-detalhe-row">
+                    <td [attr.colspan]="colunasVisiveis().length + 1">
+                      <div class="detalhe-container">
+                        <div class="detalhe-bloco">
+                          <h4>Valores Anteriores</h4>
+                          @if (parseJson(log.valoresAnteriores); as obj) {
+                            <div class="detalhe-campos">
+                              @for (key of objectKeys(obj); track key) {
+                                <div class="detalhe-campo" [class.campo-alterado]="campoAlterado(log, key)">
+                                  <span class="campo-label">{{ formatarChave(key) }}:</span>
+                                  <span class="campo-valor">{{ formatarValor(obj[key]) }}</span>
+                                </div>
+                              }
+                            </div>
+                          } @else {
+                            <span class="detalhe-vazio">Nenhum valor anterior registrado.</span>
+                          }
+                        </div>
+                        <div class="detalhe-bloco">
+                          <h4>Valores Novos</h4>
+                          @if (parseJson(log.valoresNovos); as obj) {
+                            <div class="detalhe-campos">
+                              @for (key of objectKeys(obj); track key) {
+                                <div class="detalhe-campo" [class.campo-alterado]="campoAlterado(log, key)">
+                                  <span class="campo-label">{{ formatarChave(key) }}:</span>
+                                  <span class="campo-valor">{{ formatarValor(obj[key]) }}</span>
+                                </div>
+                              }
+                            </div>
+                          } @else {
+                            <span class="detalhe-vazio">Nenhum valor novo registrado.</span>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FOOTER / PAGINAÇÃO -->
+    <div class="grid-rodape">
+      <span>{{ total() }} registro(s) — Página {{ pagina() }} de {{ totalPaginas() }}</span>
+      <div class="paginacao">
+        <button [disabled]="pagina() <= 1" (click)="irPagina(pagina() - 1)">Anterior</button>
+        <button [disabled]="pagina() >= totalPaginas()" (click)="irPagina(pagina() + 1)">Próxima</button>
+      </div>
+    </div>
+
+  </div>
+</div>

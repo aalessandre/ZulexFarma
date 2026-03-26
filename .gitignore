@@ -1,0 +1,36 @@
+# ── .NET ──────────────────────────────────────────
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+.idea/
+*.DotSettings
+
+# ── Angular / Node ────────────────────────────────
+node_modules/
+dist/
+.angular/
+.cache/
+npm-debug.log
+yarn-error.log
+
+# ── Ambiente ──────────────────────────────────────
+.env
+*.local
+appsettings.Development.json
+
+# ── OS ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Backups e logs ────────────────────────────────
+*.log
+backups/

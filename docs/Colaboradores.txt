@@ -1,0 +1,55 @@
+** campos com astericos são obrigatorios
+
+Bloco: Cadastros
+Modulo: Colaboradores
+Tela : Cadastro de Colaboradores
+Tabela: Pessoas/Colaboradores
+Campos:
+ - * ID => auto increment
+ - * Nome
+ - * CPF
+ - * RG
+ - * Data Nascimento
+ - * CEP
+ - * Rua
+ - * Numero
+ - * Bairro 
+ - * Cidade
+ - * UF
+ - * Email
+ - * Data Cadastro
+ - * Ativo
+
+Bloco: 
+Modulo: Colaboradores
+Tela : Cadastro de Colaboradores
+Campos:
+ - * ID => auto increment
+ - * Nome
+ - * CPF
+ - * RG
+ - * Data Nascimento
+ - * CEP
+ - * Rua
+ - * Numero
+ - * Bairro 
+ - * Cidade
+ - * UF
+ - * Email
+ - * Data Cadastro
+ - * Ativo
+
+
+Regras
+ - Cnpj/CPF Unicos, nao pode repetir
+
+Não precisaremos de um tela para Usuários, pois cada usuario sempre será um colaborador, então na tela de Colaboradores daremos acesso para definir o nome do usuario, senha do usuario, grupo do usuario.
+
+Então na tela de colaboradores poderia ter algumas abas
+Aba Acesso com os campos
+- Usuario
+- Senha
+- Grupo de Usuário por filial (um usuario que numa filial é grupo x, numa outra filial poderia ser grupo Y)
+- qual flial pode acessar
+
+Aba Contato, com a possibilidade de informar o tipo do contato (Telefone, whatsapp, email), tendo em vista que 

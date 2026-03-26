@@ -1,0 +1,68 @@
+<div class="portfolio-page">
+  <div class="banner-portfolio bg-extra-light py-14">
+    <div class="container">
+      <div class="flex justify-between flex-wrap items-center height-row">
+        <h2 class="text-2xl sm:text-3xl md:text-[44px] font-bold">Explore Our Latest Works</h2>
+        <div class="flex items-center gap-1.5 breadcrumb">
+          <a [routerLink]="'/front-pages/homepage'"
+            class="text-sm text-uppercase no-underline font-bold">MaterialPro</a>
+          <i-tabler name="chevron-right" class="size-4.5! flex"></i-tabler>
+          <a [routerLink]="'/front-pages/portfolio'" class="text-sm text-uppercase text-primary no-underline font-bold">
+            Portfolio
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cards-list bg-white py-12">
+    <div class="container">
+      <div class="flex items-center justify-between gap-3 flex-wrap mb-6">
+        <div class="flex items-center gap-2 mb-2.5">
+          <h5 class="font-medium text-xl">Portfolio</h5>
+          <div class="px-1.5 py-0.5 rounded-full bg-secondary text-white">
+            <div class="text-sm lh-sm">{{ filteredCount }} </div>
+          </div>
+        </div>
+
+        <!-- Search bar pushed to the right -->
+        <mat-form-field appearance="outline" class="search-bar-style hide-hint">
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput placeholder="Search Photos" [(ngModel)]="searchText" (input)="onSearchChange()" />
+        </mat-form-field>
+      </div>
+      <div class="grid grid-cols-12 gap-6">
+        @for(productcard of filteredCardImgs; track productcard.id) {
+        <div class="col-span-12 lg:col-span-4 sm:col-span-6">
+          <mat-card class="cardWithShadow productcard overflow-hidden border! border-border! rounded mb-0!">
+            <a routerLink="/widgets/cards">
+              <img src="{{ productcard.imgSrc }}" alt="imgSrc" class="w-full object-cover" height="220"
+                mat-card-image />
+            </a>
+            <mat-card-content class="relative p-6!">
+              <mat-card-title class="mat-headline-2 text-base mb-1">
+                <div class="flex items-center justify-between">
+                  <!-- Left Side: Text Content -->
+                  <div>
+                    <h6 class="text-base font-semibold mb-1">{{ productcard.title }}</h6>
+                    <p class="text-xs font-normal my-0">{{ productcard.date }}</p>
+                  </div>
+
+                  <!-- Right Side: Icon -->
+                  <button mat-icon-button aria-label="Example icon button with a vertical three dot icon">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                </div>
+              </mat-card-title>
+            </mat-card-content>
+          </mat-card>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <app-footer></app-footer>
+  </div>
+</div>

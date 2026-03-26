@@ -1,0 +1,143 @@
+﻿<mat-card class="mat-card-top cardWithShadow relative mb-0! overflow-hidden">
+  <mat-sidenav-container [ngClass]="{
+          'side-panel-opened': sidePanelOpened(),
+          'side-panel-closed': !sidePanelOpened()
+        }" style="min-height: 80vh">
+    <!-- --------------------------------------------------------------------------- -->
+    <!-- Sidebar -->
+    <!-- --------------------------------------------------------------------------- -->
+    <mat-sidenav #chatnav mode="side" class="app-left-sidebar w-[240px]!" [mode]="isOver() ? 'over' : 'side'"
+      [opened]="!isOver()" (open)="sidePanelOpened.set(true)" (close)="sidePanelOpened.set(false)" position="start">
+      <mat-toolbar>
+        <h4 class="font-medium text-lg m-0">Todo App</h4>
+      </mat-toolbar>
+      <div class="mx-3">
+        <mat-nav-list>
+          <mat-list-item (click)="selectionlblClick('all')" class="all mb-0.5"
+            [class.bg-light-primary]="selectedCategory() === 'all'">
+            <div class="flex items-center">
+              <span class="text-sm">All</span>
+              <div class="ms-auto">
+                <span class="size-6! bg-primary text-white rounded-md flex items-center justify-center">{{
+                  totalTodos() }}</span>
+              </div>
+            </div>
+          </mat-list-item>
+          <mat-list-item [class.bg-light-primary]="selectedCategory() === 'uncomplete'" class="incomplete mb-0.5"
+            (click)="selectionlblClick('uncomplete')">
+            <div class="flex items-center">
+              <span class="text-sm">Incompleted</span>
+              <div class="ms-auto">
+                <span class="size-6! bg-error text-white rounded-md flex items-center justify-center">{{
+                  totalIncomplete() }}</span>
+              </div>
+            </div>
+          </mat-list-item>
+          <mat-list-item [class.bg-light-primary]="selectedCategory() === 'complete'" class="complete mb-0.5"
+            (click)="selectionlblClick('complete')">
+            <div class="flex items-center">
+              <span class="text-sm">Completed</span>
+              <div class="ms-auto">
+                <span class="size-6! bg-success text-white rounded-md flex items-center justify-center">{{
+                  totalCompleted() }}</span>
+              </div>
+            </div>
+          </mat-list-item>
+        </mat-nav-list>
+      </div>
+    </mat-sidenav>
+    <mat-sidenav-content class="bg-white">
+      <!-- --------------------------------------------------------------------------- -->
+      <!-- Detail View -->
+      <!-- --------------------------------------------------------------------------- -->
+      <mat-toolbar>
+        <div class="flex items-center justify-between w-full">
+          <div class="flex items-center">
+            <button mat-icon-button (click)="chatnav.toggle()">
+              <i-tabler name="align-left" class="size-5!"></i-tabler>
+            </button>
+            <mat-checkbox (change)="allTodos()" color="primary">Mark All
+            </mat-checkbox>
+          </div>
+
+          <span class="bg-primary text-white p-2 py-0.5 rounded-md text-sm">{{ remainingList() }} Tasks
+            left</span>
+        </div>
+      </mat-toolbar>
+      <mat-divider></mat-divider>
+      <div class="p-4">
+        <form [formGroup]="inputFg" (ngSubmit)="addTodo()">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+
+            <div class="w-full sm:w-1/2 lg:w-5/12">
+              <mat-form-field appearance="outline" class="w-full hide-hint">
+                <input matInput #inputData formControlName="mess" placeholder="Add todo" />
+              </mat-form-field>
+            </div>
+
+            <div class="w-full sm:w-1/4 lg:w-1/6">
+              <button mat-flat-button color="primary" [disabled]="!inputFg.get('mess')?.value" class="w-full"
+                id="btnAddTodo" type="submit">
+                Add Todo
+              </button>
+            </div>
+
+          </div>
+        </form>
+      </div>
+      <mat-divider></mat-divider>
+      <mat-card-content>
+        @for(todo of todos(); track todo.message; let i = $index) {
+        <div class="todo-item relative py-3 px-2 border-b border-border">
+          <div class="flex items-center w-full">
+            <div class="shrink-0">
+              <mat-checkbox [checked]="todo.completionStatus" (change)="toggleTodoCompletion(todo)" color="primary">
+                <span class="text-base font-medium" [ngClass]="{ completed: todo.completionStatus }">{{ todo.message
+                  }}</span>
+              </mat-checkbox>
+              <p class="mt-0 text-sm ms-6 ps-5">
+                {{ todo.date | date }}
+              </p>
+            </div>
+            <div class="w-full">
+              @if(!todo.edit) {
+              <div class="flex items-start">
+                <div class="ms-auto flex">
+                  <button mat-icon-button class="flex! justify-center" href="javascript: void(0);"
+                    (click)="editTodo(todo)">
+                    <i-tabler name="pencil" class="size-4.5! flex!"></i-tabler>
+                  </button>
+                  <button mat-icon-button class="flex! justify-center" href="javascript: void(0);"
+                    (click)="deleteTodo(todo.id)">
+                    <i-tabler name="trash" class="size-4.5! flex!"></i-tabler>
+                  </button>
+                </div>
+              </div>
+              }
+
+              <!-- Edit View -->
+              @if(todo.edit) {
+              <div class="flex items-center edit-view absolute left-0 top-4 w-full h-[70px] bg-white px-3">
+                <mat-form-field appearance="outline" class="hide-hint">
+                  <input matInput [(ngModel)]="todo.message" />
+                </mat-form-field>
+
+                <div class="ms-auto flex items-center">
+                  <a mat-icon-button class="flex justify-center" href="javascript: void(0);" (click)="editTodo(todo)">
+                    <i-tabler name="checks" class="size-4.5! flex"></i-tabler>
+                  </a>
+                  <a mat-icon-button class="flex justify-center" href="javascript: void(0);" (click)="deleteTodo(i)">
+                    <i-tabler name="trash" class="size-4.5! flex"></i-tabler>
+                  </a>
+                </div>
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        }
+      </mat-card-content>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</mat-card>

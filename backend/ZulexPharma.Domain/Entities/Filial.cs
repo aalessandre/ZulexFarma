@@ -1,0 +1,21 @@
+namespace ZulexPharma.Domain.Entities;
+
+public class Filial : BaseEntity
+{
+    public string NomeFilial { get; set; } = string.Empty;
+    public string RazaoSocial { get; set; } = string.Empty;
+    public string NomeFantasia { get; set; } = string.Empty;
+    public string Cnpj { get; set; } = string.Empty;
+    public string? InscricaoEstadual { get; set; }
+    public string Cep { get; set; } = string.Empty;
+    public string Rua { get; set; } = string.Empty;
+    public string Numero { get; set; } = string.Empty;
+    public string Bairro { get; set; } = string.Empty;
+    public string Cidade { get; set; } = string.Empty;
+    public string Uf { get; set; } = string.Empty;
+    public string Telefone { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+
+    public ICollection<Usuario> Usuarios { get; set; } = new List<Usuario>();
+    public ICollection<UsuarioFilialGrupo> UsuarioFilialGrupos { get; set; } = new List<UsuarioFilialGrupo>();
+}

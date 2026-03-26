@@ -1,0 +1,373 @@
+.erp-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--erp-bg);
+  font-family: inherit;
+  overflow: hidden;
+}
+
+/* ── Topbar (clean branco) ──────────────────────────────────────────── */
+.shell-topbar {
+  height: 56px;
+  background: var(--erp-surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-home {
+  width: 38px; height: 38px;
+  background: var(--erp-blue);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: filter 0.2s;
+  &:hover { filter: brightness(1.1); }
+}
+
+.topbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--erp-border);
+}
+
+.topbar-titulo {
+  font-size: var(--erp-fs-h2);
+  font-weight: 700;
+  color: var(--erp-text);
+  letter-spacing: -0.3px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-filial {
+  font-size: var(--erp-fs-sm);
+  color: var(--erp-text-muted);
+  padding-right: 8px;
+  border-right: 1px solid var(--erp-border);
+  margin-right: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--erp-fs-body);
+  font-weight: 600;
+  color: var(--erp-text);
+  padding: 6px 14px;
+  background: var(--erp-bg);
+  border: 1px solid var(--erp-border);
+  border-radius: 20px;
+}
+
+.topbar-icon {
+  width: 34px; height: 34px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--erp-text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  &:hover { background: var(--erp-bg); color: var(--erp-text); }
+}
+
+/* ── Barra de abas (clean) ─────────────────────────────────────────── */
+.shell-tabs {
+  height: 40px;
+  background: var(--erp-surface);
+  display: flex;
+  align-items: stretch;
+  padding: 0 12px;
+  gap: 4px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  &::-webkit-scrollbar { height: 3px; }
+  &::-webkit-scrollbar-thumb { background: var(--erp-border); border-radius: 2px; }
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 100%;
+  background: transparent;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+  min-width: 100px;
+  max-width: 200px;
+
+  &:hover {
+    border-bottom-color: var(--erp-border-input);
+    .tab-titulo { color: var(--erp-text); }
+  }
+
+  &.tab-ativa {
+    border-bottom-color: var(--erp-blue);
+    .tab-titulo { color: var(--erp-blue); font-weight: 600; }
+    .tab-close  { color: var(--erp-blue); }
+  }
+}
+
+.tab-titulo {
+  font-size: var(--erp-fs-sm);
+  font-weight: 500;
+  color: var(--erp-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.tab-close {
+  width: 18px; height: 18px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--erp-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+
+  &:hover { background: #fde8e8; color: #c0392b; }
+}
+
+/* ── Conteúdo ──────────────────────────────────────────────────────── */
+.shell-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  /* O router-outlet injeta o componente como irmão — garantir que ocupe o espaço */
+  > *:not(router-outlet) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+}
+
+/* ── Painel de configurações ───────────────────────────────────────── */
+.config-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 900;
+  backdrop-filter: blur(1px);
+}
+
+.config-painel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  background: var(--erp-config-panel);
+  border-left: 1px solid var(--erp-config-border);
+  box-shadow: -8px 0 32px rgba(0,0,0,0.2);
+  z-index: 901;
+  display: flex;
+  flex-direction: column;
+  animation: painel-in 0.22s ease-out;
+  overflow-y: auto;
+}
+
+@keyframes painel-in {
+  from { transform: translateX(300px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+.config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--erp-config-border);
+  flex-shrink: 0;
+}
+
+.config-header-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--erp-fs-lg);
+  font-weight: 700;
+  color: var(--erp-text);
+}
+
+.config-fechar {
+  background: none;
+  border: none;
+  color: var(--erp-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  transition: background 0.12s, color 0.12s;
+  &:hover { background: var(--erp-config-op-bg); color: var(--erp-text); }
+}
+
+.config-secao {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--erp-config-border);
+}
+
+.config-secao-nome {
+  font-size: var(--erp-fs-body);
+  font-weight: 700;
+  color: var(--erp-text);
+  margin-bottom: 4px;
+}
+
+.config-secao-desc {
+  font-size: var(--erp-fs-sm);
+  color: var(--erp-text-muted);
+  margin-bottom: 14px;
+}
+
+.config-opcoes {
+  display: flex;
+  gap: 10px;
+}
+
+.config-opcoes-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.config-op {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 8px 12px;
+  background: var(--erp-config-op-bg);
+  border: 2px solid var(--erp-config-border);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--erp-text-muted);
+  font-size: var(--erp-fs-sm);
+  font-weight: 500;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+  &:hover { background: var(--erp-config-op-hover); color: var(--erp-text); }
+
+  &.ativo {
+    border-color: var(--erp-blue);
+    background: var(--erp-config-op-hover);
+    color: var(--erp-blue);
+    font-weight: 700;
+  }
+}
+
+.config-letra {
+  font-weight: 700;
+  line-height: 1;
+  color: inherit;
+}
+
+/* ── Color picker de accent ──────────────────────────────────────────── */
+.config-color-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.config-color-input {
+  width: 48px;
+  height: 48px;
+  border: 2px solid var(--erp-config-border);
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 2px;
+  background: var(--erp-config-op-bg);
+
+  &::-webkit-color-swatch-wrapper { padding: 0; }
+  &::-webkit-color-swatch { border: none; border-radius: 6px; }
+}
+
+.config-color-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.config-color-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+
+  &:hover { transform: scale(1.1); }
+  &.ativo { border-color: var(--erp-text); transform: scale(1.15); }
+
+  &.config-color-reset {
+    background: var(--erp-config-op-bg);
+    border: 2px dashed var(--erp-config-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--erp-text-muted);
+
+    &:hover { color: var(--erp-text); }
+  }
+}
+
+/* ── Aviso de sessão ──────────────────────────────────────────────── */
+.aviso-sessao {
+  position: fixed;
+  top: 12px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+  border-radius: 8px;
+  font-size: var(--erp-fs-sm);
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 9999;
+  animation: toastSlideIn 0.3s ease-out;
+}
+
+@keyframes toastSlideIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

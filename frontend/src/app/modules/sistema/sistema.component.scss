@@ -1,0 +1,235 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+/* ── Layout ERP padrão ─────────────────────────────────────────────── */
+.tela-erp {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: var(--erp-bg);
+}
+
+/* ── Sidebar esquerda (tiles coloridos) ─────────────────────────────── */
+.tela-sidebar {
+  width: 180px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.sidebar-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 14px 16px;
+  color: #fff;
+  cursor: pointer;
+  border-radius: var(--erp-radius-sm);
+  font-size: var(--erp-fs-body);
+  font-weight: 700;
+  text-align: left;
+  line-height: 1.3;
+  transition: filter 0.15s, transform 0.08s;
+  background: linear-gradient(135deg, #2980b9, #3498db);
+
+  svg { width: 0; height: 0; display: none; }
+
+  .sidebar-sub { font-size: var(--erp-fs-xs); font-weight: 400; opacity: 0.85; }
+
+  &:hover { filter: brightness(1.08); }
+  &:active { transform: scale(0.98); }
+  &.ativo  { filter: brightness(0.92); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
+  &.disabled { opacity: 0.35; pointer-events: none; }
+
+  /* Cores por tipo */
+  &.tile-procurar  { background: linear-gradient(135deg, #2471a3, #2e86c1); }
+  &.tile-adicionar { background: linear-gradient(135deg, #1abc9c, #16a085); }
+  &.tile-editar    { background: linear-gradient(135deg, #2980b9, #3498db); }
+  &.tile-sair      { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+}
+
+/* ── Área principal ────────────────────────────────────────────────── */
+.tela-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Formulário ────────────────────────────────────────────────────── */
+.form-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 16px;
+  padding: 24px 28px;
+  background: var(--erp-surface);
+  border-radius: 16px;
+  border: 1px solid #e8ecf1;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.form-titulo {
+  font-size: var(--erp-fs-h2);
+  font-weight: 700;
+  color: var(--erp-primary);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--erp-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.form-secao {
+  font-size: var(--erp-fs-sm);
+  font-weight: 700;
+  color: var(--erp-blue);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin: 18px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--erp-border);
+}
+
+/* ── System cards ──────────────────────────────────────────────── */
+.sys-loading { text-align: center; padding: 40px; color: var(--erp-text-muted); }
+
+.sys-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.sys-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #e8ecf1;
+  border-radius: 12px;
+  background: var(--erp-surface);
+}
+
+.sys-card-versao {
+  border-color: var(--erp-blue);
+  background: linear-gradient(135deg, rgba(44,95,173,0.04), rgba(44,95,173,0.08));
+}
+
+.sys-card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f4f8;
+  border-radius: 10px;
+  color: var(--erp-blue);
+}
+
+.sys-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sys-card-label {
+  font-size: var(--erp-fs-xs);
+  font-weight: 700;
+  color: var(--erp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.sys-card-valor {
+  font-size: var(--erp-fs-lg);
+  font-weight: 700;
+  color: var(--erp-text);
+}
+
+.sys-card-sub {
+  font-size: var(--erp-fs-xs);
+  color: var(--erp-text-muted);
+}
+
+/* ── Update panel ──────────────────────────────────────────────── */
+.sys-update-panel {
+  margin-bottom: 24px;
+}
+
+.sys-update-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  font-size: var(--erp-fs-body);
+
+  p { margin: 4px 0 0; font-size: var(--erp-fs-sm); opacity: 0.8; }
+
+  &.update-disponivel {
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffcc80;
+  }
+
+  &.update-atualizado {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+  }
+}
+
+.sys-update-check {
+  display: block;
+  margin-top: 8px;
+  font-size: var(--erp-fs-xs);
+  color: var(--erp-text-muted);
+}
+
+/* ── Services ──────────────────────────────────────────────────── */
+.sys-services {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sys-service {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #e8ecf1;
+  border-radius: 8px;
+  font-size: var(--erp-fs-body);
+  color: var(--erp-text);
+}
+
+.sys-service-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #bdbdbd;
+  flex-shrink: 0;
+
+  &.dot-ativo { background: #4caf50; }
+}
+
+.sys-service-status {
+  margin-left: auto;
+  font-size: var(--erp-fs-sm);
+  color: var(--erp-text-muted);
+  font-weight: 600;
+}
