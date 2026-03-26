@@ -7,17 +7,24 @@ RUN npm install --legacy-peer-deps
 COPY . .
 RUN npx ng build --configuration=production
 
-# Debug: mostra o que foi gerado
-RUN ls -la dist/ && ls -la dist/Materialpro/ && ls -la dist/Materialpro/browser/ || true
-
 FROM nginx:alpine
 
-# Copiar build output - tenta browser/ primeiro, senao pega a raiz
 COPY --from=build /app/dist/Materialpro/browser /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Verificar se index.html existe
-RUN ls -la /usr/share/nginx/html/index.html
+# Nginx config template com PORT variável
+RUN printf 'server {\n\
+    listen PORT_PLACEHOLDER;\n\
+    server_name _;\n\
+    root /usr/share/nginx/html;\n\
+    index index.html;\n\
+    location / {\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
+    gzip on;\n\
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;\n\
+}\n' > /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
-CMD sh -c "sed -i \"s/listen 80/listen ${PORT:-80}/\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+# Entrypoint que substitui a porta
+RUN printf '#!/bin/sh\nsed -i "s/PORT_PLACEHOLDER/${PORT:-80}/" /etc/nginx/conf.d/default.conf\nnginx -g "daemon off;"\n' > /start.sh && chmod +x /start.sh
+
+CMD ["/start.sh"]
