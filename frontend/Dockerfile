@@ -1,29 +1,40 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
+# Forçar rebuild - v3
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
 COPY . .
 RUN npx ng build --configuration=production
 
-# Encontrar onde o index.html foi gerado
-RUN find dist/ -name "index.html" -type f
+# Mostrar onde index.html está
+RUN echo "=== FIND INDEX ===" && find dist/ -name "index.html" -type f
+RUN echo "=== LS DIST ===" && ls -la dist/Materialpro/
+RUN echo "=== LS BROWSER ===" && ls -la dist/Materialpro/browser/ 2>/dev/null || echo "No browser dir"
 
 FROM nginx:alpine
 
-# Copiar TUDO do dist/Materialpro para nginx html
+# Copiar TUDO do dist para temp
 COPY --from=build /app/dist/Materialpro/ /tmp/dist/
 
-# Mover: se browser/ existe e tem index.html, usar browser/. Senao usar raiz.
+# Verificar o que veio
+RUN echo "=== TEMP DIST ===" && find /tmp/dist/ -name "index.html" -type f
+
+# Copiar para nginx - testar ambos os caminhos
 RUN if [ -f /tmp/dist/browser/index.html ]; then \
+      echo "FOUND in browser/"; \
       cp -r /tmp/dist/browser/* /usr/share/nginx/html/; \
     elif [ -f /tmp/dist/index.html ]; then \
+      echo "FOUND in root"; \
       cp -r /tmp/dist/* /usr/share/nginx/html/; \
-    fi && \
-    rm -rf /tmp/dist && \
-    echo "=== Files in html ===" && \
-    ls /usr/share/nginx/html/index.html
+    else \
+      echo "NOT FOUND - listing all:"; \
+      find /tmp/dist/ -type f | head -20; \
+    fi
+
+RUN rm -rf /tmp/dist
+RUN echo "=== NGINX HTML ===" && ls /usr/share/nginx/html/ | head -10
 
 # Nginx config
 RUN printf 'server {\n\
