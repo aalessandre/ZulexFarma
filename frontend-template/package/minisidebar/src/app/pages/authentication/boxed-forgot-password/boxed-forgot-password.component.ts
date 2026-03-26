@@ -1,0 +1,41 @@
+import { Component } from '@angular/core';
+import { CoreService } from 'src/app/services/core.service';
+import {
+  FormGroup,
+  FormControl,
+  Validators,
+  FormsModule,
+  ReactiveFormsModule,
+} from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
+import { MaterialModule } from '../../../material.module';
+import { AppAuthBrandingComponent } from 'src/app/layouts/full/vertical/sidebar/auth-branding.component';
+
+@Component({
+  selector: 'app-boxed-forgot-password',
+  imports: [
+    RouterModule,
+    MaterialModule,
+    FormsModule,
+    ReactiveFormsModule,
+    AppAuthBrandingComponent,
+  ],
+  templateUrl: './boxed-forgot-password.component.html',
+})
+export class AppBoxedForgotPasswordComponent {
+  options = this.settings.getOptions();
+
+  constructor(private settings: CoreService, private router: Router) { }
+
+  form = new FormGroup({
+    email: new FormControl('admin@gmail.com', [Validators.required]),
+  });
+
+  get f() {
+    return this.form.controls;
+  }
+
+  submit() {
+    this.router.navigate(['/dashboards/dashboard1']);
+  }
+}

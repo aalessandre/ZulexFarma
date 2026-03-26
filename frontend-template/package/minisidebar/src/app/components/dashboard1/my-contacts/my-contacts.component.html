@@ -1,0 +1,36 @@
+<mat-card class="cardWithShadow overflow-hidden mb-0!">
+  <div class="pt-7.5 px-7.5">
+    <mat-card-title>My Contacts</mat-card-title>
+    <mat-card-subtitle>Checkout my contacts here</mat-card-subtitle>
+  </div>
+
+  <div class="msg-box">
+    @for(msg of msgs; track msg.title) {
+    <div class="px-7.5 py-6">
+      <div class="flex items-center gap-4 w-full">
+        <div class="relative flex">
+          <img [src]="msg.img" class="rounded-full" width="48" height="48" />
+          <div matBadge="" matBadgeOverlap="false"
+            class="demo-section bg-success inbox-badge absolute! top-0 right-0 size-2! border-white rounded-full"></div>
+        </div>
+        <div class="flex items-center justify-between w-full">
+          <div>
+            <h5 class="text-base font-medium">
+              {{ msg.title }}
+            </h5>
+            <span class="text-sm">{{ msg.subtitle }}</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <button class="flex items-center justify-center bg-light-error text-error" mat-icon-button>
+              <i-tabler name="video" class="flex"></i-tabler>
+            </button>
+            <button class="flex items-center justify-center bg-light-primary text-primary" mat-icon-button>
+              <i-tabler name="phone-incoming" class="flex"></i-tabler>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    }
+  </div>
+</mat-card>

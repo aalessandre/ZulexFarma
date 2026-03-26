@@ -1,0 +1,290 @@
+<mat-toolbar class="topbar horizontal-topbar">
+  <div class="container gap-1.5">
+    <div class="hidden md:flex">
+      <app-branding></app-branding>
+    </div>
+
+    <!-- Mobile Menu -->
+    <button mat-icon-button (click)="toggleMobileNav.emit()" class="flex! items-center justify-center lg:hidden!">
+      <i-tabler name="menu-2" class="flex"></i-tabler>
+    </button>
+
+    <!-- --------------------------------------------------------------- -->
+
+    <!-- --------------------------------------------------------------- -->
+    <!--  Search -->
+    <!-- --------------------------------------------------------------- -->
+    <button mat-icon-button (click)="openDialog()" class="flex justify-center">
+      <i-tabler name="search" class="flex"></i-tabler>
+    </button>
+
+    <div class="hidden lg:flex">
+      <!-- --------------------------------------------------------------- -->
+      <!--  Links -->
+      <!-- --------------------------------------------------------------- -->
+      <button mat-icon-button [matMenuTriggerFor]="appsmenu" aria-label="Notifications"
+        class="flex items-center justify-center">
+        <i-tabler name="layout-grid" class="flex"></i-tabler>
+      </button>
+
+      <mat-menu #appsmenu="matMenu" class="apps-dd cardWithShadow">
+        <div class="grid grid-cols-12 gap-4">
+          <div class="sm:col-span-8 col-span-12 border-r border-border pe-0">
+            <div class="p-6">
+              <div class="grid grid-cols-12 gap-6">
+                @for(appdd of apps; track appdd.title) {
+                <div class="sm:col-span-6 col-span-12 text-hover-primary">
+                  <a [routerLink]="[appdd.link]" class="flex items-center gap-4 no-underline">
+                    <span class="text-{{ appdd.color }} bg-light-{{
+                        appdd.color
+                      }} rounded-full size-10! flex items-center justify-center">
+                      <i-tabler class="flex" name="{{ appdd.icon }}"></i-tabler>
+                    </span>
+
+                    <div>
+                      <h5 class="text-sm font-semibold m-0 textprimary hover-text">
+                        {{ appdd.title }}
+                      </h5>
+                      <span class="text-body text-xs">{{ appdd.subtitle }}</span>
+                    </div>
+                  </a>
+                </div>
+                }
+              </div>
+            </div>
+            <div class="border-t border-border p-5 hidden lg:flex items-center justify-between">
+              <span class="flex items-center gap-2 text-base font-medium">
+                <i-tabler name="help"></i-tabler>Frequently Asked Questions
+              </span>
+              <a [routerLink]="['/theme-pages/faq']" mat-flat-button color="primary">Check</a>
+            </div>
+          </div>
+          <div class="sm:col-span-4 col-span-12">
+            <div class="px-4 py-6 pb-0">
+              <h4 class="text-lg font-semibold mb-4">Quick Links</h4>
+              @for(quicklink of quicklinks; track quicklink.title) {
+              <div class="text-hover-primary">
+                <a [routerLink]="[quicklink.link]"
+                  class="hover-text no-underline text-body font-semibold block py-1.5">{{
+                  quicklink.title }}</a>
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+      </mat-menu>
+    </div>
+
+    <span class="flex-1"></span>
+
+    <!-- Mobile Menu -->
+    <button mat-icon-button (click)="toggleMobileFilterNav.emit()" class="flex! lg:hidden! justify-center items-center">
+      <i-tabler name="grid-dots" class="flex"></i-tabler>
+    </button>
+
+    <!-- --------------------------------------------------------------- -->
+    <!-- langugage Dropdown -->
+    <!-- --------------------------------------------------------------- -->
+    <button [matMenuTriggerFor]="flags" mat-icon-button class="hidden! lg:flex! items-center justify-center">
+      <img [src]="selectedLanguage.icon" class="rounded-full object-cover size-5!" />
+    </button>
+    <mat-menu #flags="matMenu" class="cardWithShadow" xPosition="before">
+      @for(lang of languages; track lang) {
+      <button mat-menu-item (click)="changeLanguage(lang)">
+        <div class="flex items-center gap-2.5">
+          <img [src]="lang.icon" class="rounded-full object-cover size-5!" />
+          <span class="text-sm">{{ lang.language }}</span>
+        </div>
+      </button>
+      }
+    </mat-menu>
+
+    @if(options.theme=='light'){
+    <button mat-icon-button aria-label="lightdark" class="flex justify-center" (click)="setlightDark('dark')">
+      <i-tabler class="flex" [name]="'moon'"></i-tabler>
+    </button>
+    }@else{
+    <button mat-icon-button aria-label="lightdark" class="flex justify-center" (click)="setlightDark('light')">
+      <i-tabler class="flex" [name]="'sun'"></i-tabler>
+    </button>
+    }
+
+    <!-- --------------------------------------------------------------- -->
+    <!-- Collpase bar -->
+    <!-- --------------------------------------------------------------- -->
+    <button mat-icon-button (click)="toggleCollpase()" class="flex! lg:hidden! justify-center">
+      <i-tabler name="dots" class="flex"></i-tabler>
+    </button>
+    @if(isCollapse){
+    <div class="header-collpase py-3 px-3">
+      <div class="flex justify-center gap-2.5">
+        <!-- --------------------------------------------------------------- -->
+        <!-- langugage Dropdown -->
+        <!-- --------------------------------------------------------------- -->
+        <button [matMenuTriggerFor]="flags" mat-icon-button class="items-center justify-center">
+          <img [src]="selectedLanguage.icon" class="rounded-full object-cover size-5!" />
+        </button>
+
+        <!-- --------------------------------------------------------------- -->
+        <!-- Notification Dropdown -->
+        <!-- --------------------------------------------------------------- -->
+        <button class="relative items-center justify-center" mat-icon-button [matMenuTriggerFor]="notificationmenu"
+          aria-label="Notifications">
+          <i-tabler name="bell" class="flex text-dark"></i-tabler>
+          <div class="notify">
+            <span class="heartbit"></span> <span class="point"></span>
+          </div>
+        </button>
+
+        <!-- --------------------------------------------------------------- -->
+        <!-- Messages Dropdown -->
+        <!-- --------------------------------------------------------------- -->
+        <button mat-icon-button [matMenuTriggerFor]="inboxmenu" aria-label="Inbox"
+          class="relative flex items-center justify-center">
+          <i-tabler name="message" class="flex text-dark"></i-tabler>
+          <div class="notify">
+            <span class="heartbit"></span> <span class="point"></span>
+          </div>
+        </button>
+
+        <!-- --------------------------------------------------------------- -->
+        <!-- Profile Dropdown -->
+        <!-- --------------------------------------------------------------- -->
+        <button mat-icon-button [matMenuTriggerFor]="profilemenu" aria-label="Profile"
+          class="flex justify-center items-center p-0!">
+          <img src="/assets/images/profile/user-1.jpg" class="rounded-full object-cover size-9!" width="36" />
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- --------------------------------------------------------------- -->
+    <!-- Notification Dropdown -->
+    <!-- --------------------------------------------------------------- -->
+    <button class="relative items-center justify-center hidden! lg:flex!" mat-icon-button
+      [matMenuTriggerFor]="notificationmenu" aria-label="Notifications">
+      <i-tabler name="bell" class="flex"></i-tabler>
+      <div class="notify">
+        <span class="heartbit"></span> <span class="point"></span>
+      </div>
+    </button>
+    <mat-menu #notificationmenu="matMenu" class="topbar-dd cardWithShadow dd-notifications" xPosition="before">
+      <div class="px-6 py-4 bg-primary">
+        <h6 class="text-lg mb-0.5 text-white font-medium">Notifications</h6>
+        <p class="m-0 text-white text-xs font-normal">You have 4 Notifications</p>
+      </div>
+
+      @for(notification of notifications; track notification.title) {
+      <button mat-menu-item class="p-4!">
+        <div class="flex gap-4 items-center text-dark">
+          <span class="shrink-0 text-{{ notification.color }} bg-light-{{
+            notification.color
+          }} rounded-full size-10! flex items-center justify-center">
+            <i-tabler name="{{ notification.icon }}" class="text-xl! flex"></i-tabler>
+          </span>
+          <div class="w-full flex flex-col gap-0.5">
+            <div class="flex items-center justify-between w-full">
+              <h5 class="text-sm font-semibold">
+                {{ notification.title }}
+              </h5>
+              <span class="block text-xs">
+                {{ notification.time }}</span>
+            </div>
+            <span class="block text-truncate text-xs text-muted">{{
+              notification.subtitle
+              }}</span>
+          </div>
+        </div>
+      </button>
+      }
+
+      <div class="py-3 px-7.5">
+        <button mat-flat-button color="primary" class="w-full">
+          See all Notifications
+        </button>
+      </div>
+    </mat-menu>
+
+    <!-- --------------------------------------------------------------- -->
+    <!-- Messages Dropdown -->
+    <!-- --------------------------------------------------------------- -->
+    <button mat-icon-button [matMenuTriggerFor]="inboxmenu" aria-label="Inbox"
+      class="relative items-center justify-center hidden! lg:flex!">
+      <i-tabler name="message" class="flex"></i-tabler>
+      <div class="notify">
+        <span class="heartbit"></span> <span class="point"></span>
+      </div>
+    </button>
+    <mat-menu #inboxmenu="matMenu" class="topbar-dd cardWithShadow dd-notifications" xPosition="before">
+      <div class="px-6 py-4 bg-secondary">
+        <h6 class="text-lg mb-0.5 text-white font-medium">Messages</h6>
+        <p class="m-0 text-white text-xs font-normal">You have 5 new messages</p>
+      </div>
+
+      @for(inbox of inbox; track inbox.title) {
+      <button mat-menu-item class="p-4!">
+        <div class="flex gap-4 items-center text-dark">
+          <span class="relative shrink-0 rounded-full size-10! flex items-center justify-center">
+            <img class="rounded-full" [src]="inbox.imagePath" width="40" height="40" alt="users" />
+            <div matBadge="" matBadgeOverlap="false" class="{{
+              inbox.bgcolor
+            }} demo-section inbox-badge absolute! top-0 right-0 size-2! border-white rounded-full"></div>
+          </span>
+          <div class="w-full flex flex-col gap-0.5">
+            <div class="flex items-center justify-between w-full">
+              <h5 class="text-sm font-semibold">
+                {{ inbox.title }}
+              </h5>
+              <span class="block text-xs">
+                {{ inbox.time }}</span>
+            </div>
+            <span class="block text-truncate text-xs text-muted">{{ inbox.subtitle }}</span>
+          </div>
+        </div>
+      </button>
+      }
+
+      <div class="py-3 px-7.5">
+        <button mat-flat-button color="secondary" class="w-full">
+          Check all Messages
+        </button>
+      </div>
+    </mat-menu>
+
+    <!-- --------------------------------------------------------------- -->
+    <!-- profile Dropdown -->
+    <!-- --------------------------------------------------------------- -->
+    <button mat-icon-button [matMenuTriggerFor]="profilemenu" aria-label="Profile"
+      class="hidden! lg:flex! justify-center items-center p-0!">
+      <img src="/assets/images/profile/user-1.jpg" class="rounded-full object-cover size-9!" width="36" />
+    </button>
+    <mat-menu #profilemenu="matMenu" class="topbar-dd cardWithShadow" xPosition="before">
+      <div class="px-5 py-4 border-b border-border">
+        <div class="flex gap-4 items-center">
+          <img src="/assets/images/profile/user-1.jpg" class="rounded-full" width="56" />
+          <div>
+            <h6 class="text-sm font-semibold flex items-center">
+              Markarn Doe
+              <span class="text-sm block text-success mx-1">Pro</span>
+            </h6>
+            <span class="text-muted">markrarn@wrappixel.com</span>
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        @for(profile of profiledd; track profile.title) {
+        <a class="p-2 no-underline block text-hover-primary" [routerLink]="[profile.link]">
+          <div class="flex items-center">
+            <h5 class="text-sm font-semibold hover-text">
+              {{ profile.title }}
+            </h5>
+            @if(profile.new) {
+            <span class="bg-light-error text-error rounded-xl px-2 py-0.5 font-medium text-xs mx-1">5</span>
+            }
+          </div>
+        </a>
+        }
+      </div>
+    </mat-menu>
+  </div>
+</mat-toolbar>

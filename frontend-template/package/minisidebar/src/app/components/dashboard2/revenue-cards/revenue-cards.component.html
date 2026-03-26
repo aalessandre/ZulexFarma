@@ -1,0 +1,23 @@
+<div class="grid grid-cols-12 gap-7.5">
+  @for(topcard of topcards; track topcard.title) {
+  <div class="col-span-12 md:col-span-6 xl:col-span-3">
+    <mat-card class="cardWithShadow text-center mb-0!">
+      <div class="p-5">
+        <div class="flex items-center gap-5">
+          <span class="size-14! bg-{{ topcard.color }} text-white rounded-full flex items-center justify-center">
+            <i-tabler name="{{ topcard.icon }}"></i-tabler>
+          </span>
+          <div class="text-left">
+            <mat-card-title class="text-xl! font-medium">
+              {{ topcard.title }}
+            </mat-card-title>
+            <mat-card-subtitle class="text-base font-normal">
+              {{ topcard.subtitle }}
+            </mat-card-subtitle>
+          </div>
+        </div>
+      </div>
+    </mat-card>
+  </div>
+  }
+</div>

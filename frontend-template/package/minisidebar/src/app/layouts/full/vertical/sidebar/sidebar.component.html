@@ -1,0 +1,52 @@
+<div class="flex">
+  <div class="user-profile profile-bar w-full bg-[url('assets/images/backgrounds/user-info.jpg')] bg-no-repeat">
+    <!-- User profile image -->
+    <div class="profile-img">
+      <img src="assets/images/profile/user-1.jpg" alt="user" width="50" class="rounded-full" />
+    </div>
+    <!-- User profile text-->
+    <!-- ============================================================== -->
+    <!-- Profile - style you can find in header.scss -->
+    <!-- ============================================================== -->
+    <div class="profile-text pt-1">
+      <a href="javascript:void(0)" [matMenuTriggerFor]="sdprofile"
+        class="no-underline flex items-center justify-between text-white! w-full text-base">
+        Markarn Doe
+        <i-tabler name="chevron-down"></i-tabler>
+      </a>
+    </div>
+
+    <mat-menu #sdprofile="matMenu" class="cardWithShadow profile-dd" xPosition="before">
+      <button class="flex items-center gap-2 px-4 py-2.5" mat-menu-item>
+        <mat-icon class="flex items-center m-0!">
+          <i-tabler name="user-circle"></i-tabler>
+        </mat-icon>
+        <span>My Profile</span>
+      </button>
+      <button class="flex items-center gap-2 px-4 py-2.5" mat-menu-item>
+        <mat-icon class="flex items-center m-0!"> <i-tabler name="note"></i-tabler></mat-icon>
+        <span>My Notes</span>
+      </button>
+      <button class="flex items-center gap-2 px-4 py-2.5" mat-menu-item>
+        <mat-icon class="flex items-center m-0!"><i-tabler name="mail"></i-tabler></mat-icon>
+        <span>Inbox</span>
+      </button>
+      <mat-divider></mat-divider>
+      <button class="flex items-center gap-2 px-4 py-2.5" mat-menu-item>
+        <mat-icon class="flex items-center m-0!"><i-tabler name="settings"></i-tabler></mat-icon>
+        <span>Account Setting</span>
+      </button>
+      <mat-divider></mat-divider>
+      <button class="flex items-center gap-2 px-4 py-2.5" mat-menu-item>
+        <mat-icon class="flex items-center m-0!"><i-tabler name="login"></i-tabler></mat-icon>
+        <span>Logout</span>
+      </button>
+      <mat-divider></mat-divider>
+      <div class="p-2">
+        <button mat-flat-button color="primary" class="w-full shadow-none!">
+          View Profile
+        </button>
+      </div>
+    </mat-menu>
+  </div>
+</div>

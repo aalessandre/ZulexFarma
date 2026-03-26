@@ -1,0 +1,14 @@
+@use "sass:map";
+@use "@angular/material" as mat;
+
+@include mat.expansion-overrides(
+  (
+    container-background-color: var(--mdc-elevated-card-container-color),
+    header-text-color: var(--mat-sys-on-background),
+  )
+);
+
+
+.mat-expansion-panel:not([class*=mat-elevation-z]) {
+  box-shadow: var(--mat-sys-level2);
+}

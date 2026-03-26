@@ -1,0 +1,157 @@
+﻿<mat-card class="cardWithShadow overflow-hidden relative mb-0!">
+  <!-- ------------------------------------------------------ -->
+  <!-- Desktop App -->
+  <!-- ------------------------------------------------------ -->
+
+  <div class="bg-primary text-white p-2 block lg:hidden">
+    <!-- ------------------------------------------------------ -->
+    <!-- Toggle mobile -->
+    <!-- ------------------------------------------------------ -->
+    <button (click)="mailnav.toggle()" class="text-white!" mat-icon-button>
+      <mat-icon>short_text</mat-icon>
+    </button>
+  </div>
+
+  <mat-sidenav-container class="email-box">
+    <!-- ------------------------------------------------------ -->
+    <!-- Sidebar contact -->
+    <!-- ------------------------------------------------------ -->
+    <mat-sidenav #mailnav [mode]="isOver() ? 'over' : 'side'" [opened]="!isOver()" class="mail-sidebar w-[240px]!">
+      <div class="p-4">
+        <button mat-flat-button (click)="openAddContactDialog()" color="primary" class="w-full btn-block">
+          Add New Contacts
+        </button>
+      </div>
+      <ng-scrollbar style="height: calc(100vh - 350px)" class="relative">
+        <div class="p-4">
+          <mat-nav-list>
+            @for(fil of contactService.filters();track fil.id) {
+            <mat-list-item role="listitem" [ngClass]="{
+                'bg-light-primary':
+                  fil.id === contactService.selectedFilter()?.id
+              }" (click)="applyFilter(fil)" class="mb-0.5 gap-2.5">
+              <span matListItemIcon class="me-0! flex flex-row items-center self-stretch justify-center">
+                <i-tabler name="{{ fil.icon }}" class="size-5!"></i-tabler>
+              </span>
+              <span matListItemTitle class="font-normal text-sm">{{
+                fil.name
+                }}</span>
+            </mat-list-item>
+            }
+          </mat-nav-list>
+        </div>
+        <h5 class="m-0 pt-4 px-8 text-sm font-semibold border-t border-border">Categories</h5>
+        <div class="p-4">
+          <mat-nav-list>
+            @for(lab of contactService.labels();track lab.id){
+            <mat-list-item role="listitem" [ngClass]="{
+                'bg-light-primary':
+                  lab.id === contactService.selectedCategory()?.id
+              }" (click)="applyCategory(lab)" class="mb-0.5 gap-2.5">
+              <span matListItemIcon class="me-0! flex flex-row items-center self-stretch justify-center">
+                <i-tabler name="{{ lab.icon }}" [style.color]="lab.color" class="size-5!"></i-tabler>
+              </span>
+              <span class="font-normal text-sm" matListItemTitle>{{
+                lab.name
+                }}</span>
+            </mat-list-item>
+            }
+          </mat-nav-list>
+        </div>
+      </ng-scrollbar>
+    </mat-sidenav>
+    <mat-sidenav-content>
+      <!-- ------------------------------------------------------ -->
+      <!-- contact Listing and Details-->
+      <!-- ------------------------------------------------------ -->
+      <div class="w-full h-full bg-white">
+        <div class="grid grid-cols-12 h-full">
+          <!-- ------------------------------------------------------ -->
+          <!-- Listing -->
+          <!-- ------------------------------------------------------ -->
+          <div class="md:col-span-4 col-span-12 border-e border-border p-0!">
+            <div class="py-5 px-3 flex items-center">
+              <mat-form-field appearance="outline" class="w-full hide-hint">
+                <div class="flex flex-row items-center self-stretch gap-3 ">
+                  <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+                  <input matInput placeholder="Search Contacts" [(ngModel)]="searchTerm"
+                    (ngModelChange)="searchTerm.set($event)" />
+                </div>
+              </mat-form-field>
+            </div>
+            <ng-scrollbar style="height: calc(100vh - 350px)" class="relative">
+              @if(filteredContacts().length){
+              <div class="relative">
+                <mat-nav-list class="px-2 contact-listing stats-wrapper">
+                  @for(contact of filteredContacts(); track contact.id ){
+                  <mat-list-item (click)="selectContact(contact)" class="gap-2.5 mb-0.5 stat-item" [ngClass]="{
+                      'bg-light-primary':
+                        contact.id === contactService.getSelectedContact()?.id
+                    }">
+                    <span matListItemIcon>
+                      <img [src]="contact.image" alt="Contact Image" width="40px" height="40px" class="rounded-full" />
+                    </span>
+                    <div class="flex! items-center justify-between w-full" matListItemTitle>
+                      <h6 class="font-semibold text-sm leading-5">
+                        {{ contact.firstname }} {{ contact.lastname }}
+                      </h6>
+                      <div class="flex justify-center gap-2 ms-auto">
+                        <!-- star icon -->
+                        <span class="flex items-center gap-2" (click)="toggleStarred(contact, $event)">
+                          @if(contact.starred){
+                          <i-tabler name="star" class="size-4! fill-warning"></i-tabler>
+                          }@else{
+                          <i-tabler name="star" class="size-4!"></i-tabler>
+                          }
+                        </span>
+                        <!-- Delete Icon -->
+                        <i-tabler name="trash" class="size-4! cursor-pointer"
+                          (click)="deleteContact(contact)"></i-tabler>
+                      </div>
+                    </div>
+                    <p class="text-xs m-0" matListItemLine>
+                      {{ contact.department }}
+                    </p>
+                  </mat-list-item>
+                  }
+                </mat-nav-list>
+              </div>
+              } @else {
+              <div class="p-4 bg-light-primary text-primary rounded-md mx-5 text-center">
+                <span class="text-sm">No contacts found.</span>
+              </div>
+
+              }
+            </ng-scrollbar>
+          </div>
+
+          <!-- ------------------------------------------------------ -->
+          <!-- Details of contacts -->
+          <!-- ------------------------------------------------------ -->
+          <div [ngClass]="{
+              'md:col-span-8 col-span-12 detail-part contact-detail-part p-0!': true,
+              activeContact: isActiveContact
+            }">
+            @if(selectedContact() == null) {
+            <div class="h-full welcome-app">
+              <div class="flex items-center justify-center h-full w-full">
+                <div>
+                  <h3 class="text-xl font-semibold">Please Select a contact</h3>
+                  <img src="/assets/images/breadcrumb/emailSv.png" width="250px" />
+                </div>
+              </div>
+            </div>
+            } @else{
+            <div class="w-full">
+              <div class="px-6 py-4 lg:hidden">
+                <button mat-stroked-button (click)="goBack()">Back</button>
+              </div>
+              <app-detail></app-detail>
+            </div>
+            }
+          </div>
+        </div>
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</mat-card>

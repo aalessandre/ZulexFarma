@@ -1,0 +1,51 @@
+﻿<div class="gallery-contents">
+  <div class="gallery-header-content">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-2">
+        <div class="font-medium text-xl">Gellary</div>
+        <div class="px-1.5 py-0.5 rounded-full bg-secondary text-white">
+          <div class="text-sm leading-5">{{ filteredCards.length }}</div>
+        </div>
+      </div>
+      <!-- Search bar pushed to the right -->
+      <div class="grow flex justify-end mt-3">
+        <mat-form-field appearance="outline" class="search-bar-style">
+          <div class="flex gap-3">
+            <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+            <input matInput placeholder="Search Gellary" [(ngModel)]="searchText" (ngModelChange)="filterCards()" />
+          </div>
+        </mat-form-field>
+      </div>
+    </div>
+  </div>
+  <div class="grid grid-cols-12 gap-6">
+    @for(productcard of filteredCards; track productcard.id) {
+    <div class="col-span-12 sm:col-span-6 lg:col-span-3">
+      <mat-card class="cardWithShadow productcard overflow-hidden mb-0! group">
+        <a class="relative overflow-hidden cursor-pointer" routerLink="/widgets/cards">
+          <img src="{{ productcard.imgSrc }}" alt="imgSrc" class="w-full group-hover:scale-[1.03] duration-300"
+            mat-card-image />
+        </a>
+        <mat-card-content>
+
+          <mat-card-title class="mat-headline-2 text-base mborder">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <!-- Left Side: Text Content -->
+              <div>
+                <div>{{ productcard.title }}</div>
+                <div class="text-xs font-normal">{{ productcard.date }}</div>
+              </div>
+
+              <!-- Right Side: Icon -->
+              <div>
+                <tabler-icon name="dots-vertical" style="height: 10px; width: 18px;"></tabler-icon>
+              </div>
+            </div>
+          </mat-card-title>
+
+        </mat-card-content>
+      </mat-card>
+    </div>
+    }
+  </div>
+</div>

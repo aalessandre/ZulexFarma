@@ -1,0 +1,107 @@
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content class="pb-2.5">
+    <div class="flex items-center justify-between flex-wrap gap-4 mb-2">
+      <mat-card-title>Product Overview</mat-card-title>
+      <mat-form-field class="theme-select" appearance="outline">
+        <mat-select value="mar">
+          @for(month of months; track month.value) {
+          <mat-option [value]="month.value">
+            {{ month.viewValue }}
+          </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div class="relative overflow-auto">
+      <table mat-table [dataSource]="dataSource2" class="min-w-full">
+        <!-- customer Column -->
+        <ng-container matColumnDef="customer">
+          <th mat-header-cell *matHeaderCellDef class="font-medium text-base">
+            Customer
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            <h6 class="text-base font-medium">
+              {{ element.customer }}
+            </h6>
+          </td>
+        </ng-container>
+
+        <!-- photo Column -->
+        <ng-container matColumnDef="photo">
+          <th mat-header-cell *matHeaderCellDef class="font-medium text-base">
+            Photo
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            <img [src]="element.imagePath" alt="users" width="80" />
+          </td>
+        </ng-container>
+
+        <!-- Quantity Column -->
+        <ng-container matColumnDef="quantity">
+          <th mat-header-cell *matHeaderCellDef class="font-medium text-base">
+            Quantity
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            {{ element.quantity }}
+          </td>
+        </ng-container>
+
+        <!-- Date Column -->
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef class="font-medium text-base">
+            Date
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            {{ element.date }}
+          </td>
+        </ng-container>
+
+        <!-- status Column -->
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef class="font-medium text-base">
+            Status
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            @if (element.priority == 'paid') {
+            <span class="bg-success text-white rounded-full font-normal px-2.5 py-1 text-xs">
+              {{ element.priority | titlecase }}
+            </span>
+            }
+            @if (element.priority == 'pending') {
+            <span class="bg-warning text-white rounded-full font-normal px-2.5 py-1 text-xs">
+              {{ element.priority | titlecase }}
+            </span>
+            }
+            @if (element.priority == 'failed') {
+            <span class="bg-error text-white rounded-full font-normal px-2.5 py-1 text-xs">
+              {{ element.priority | titlecase }}
+            </span>
+            }
+          </td>
+        </ng-container>
+
+        <!-- Symbol Column -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef class="font-medium text-base">
+            Actions
+          </th>
+          <td mat-cell *matCellDef="let element" class="whitespace-nowrap">
+            <div class="flex items-center gap-1">
+              <button class="size-10! p-1! flex! items-center justify-center bg-light-primary text-primary"
+                matIconButton aria-label="Example icon button with a vertical three dot icon">
+                <i-tabler name="eye" class="flex"></i-tabler>
+              </button>
+              <button class="size-10! p-1! flex! items-center justify-center bg-light-error text-error" matIconButton
+                aria-label="Example icon button with a vertical three dot icon">
+                <i-tabler name="trash" class="flex"></i-tabler>
+              </button>
+            </div>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns2"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns2"></tr>
+      </table>
+    </div>
+  </mat-card-content>
+</mat-card>

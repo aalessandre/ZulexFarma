@@ -1,0 +1,29 @@
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <mat-card-title>Product Sales</mat-card-title>
+    <div id="visitor-chart" class="mt-8 flex flex-col">
+      <apx-chart [series]="productsalesChart.series" [chart]="productsalesChart.chart"
+        [labels]="productsalesChart.labels" [responsive]="productsalesChart.responsive"
+        [tooltip]="productsalesChart.tooltip" [legend]="productsalesChart.legend" [colors]="productsalesChart.colors"
+        [dataLabels]="productsalesChart.dataLabels" [plotOptions]="productsalesChart.plotOptions"
+        [stroke]="productsalesChart.stroke" [responsive]="productsalesChart.responsive">
+      </apx-chart>
+    </div>
+  </mat-card-content>
+  <mat-card-content class="mt-2.5 border-t border-border">
+    <div class="flex items-center justify-center gap-7.5">
+      <div class="flex gap-2 items-center text-sm">
+        <i-tabler name="circle-filled" class="text-primary size-3! flex"></i-tabler>
+        <span class="text-primary">Mobile</span>
+      </div>
+      <div class="flex gap-2 items-center text-sm">
+        <i-tabler name="circle-filled" class="text-secondary size-3! flex"></i-tabler>
+        <span class="text-secondary">Tablet</span>
+      </div>
+      <div class="flex gap-2 items-center text-sm">
+        <i-tabler name="circle-filled" class="text-purple size-3! flex"></i-tabler>
+        <span class="text-purple">Desktop</span>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

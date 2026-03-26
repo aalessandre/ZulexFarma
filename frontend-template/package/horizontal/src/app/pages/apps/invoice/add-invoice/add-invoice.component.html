@@ -1,0 +1,153 @@
+﻿<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <form #invoiceForm="ngForm">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h4 class="text-lg font-semibold">
+            #
+            <span name="id" [(ngModel)]="invoice().id" ngDefaultControl>
+              {{ invoice().id }}</span>
+          </h4>
+        </div>
+        <div>
+          <a routerLink="/apps/invoice/list" mat-flat-button class="bg-error text-white! me-2.5">
+            Cancel
+          </a>
+          <button mat-flat-button color="primary" (click)="saveDetail($event)" [disabled]="addForm.invalid">
+            Save Invoice
+          </button>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="flex items-center py-6 justify-between">
+        <div>
+          <span class="font-semibold text-base block mb-2">
+            Order Status:
+          </span>
+          <h6 name="date" class="mt-1 mb-0 font-medium text-sm" ngDefaultControl>
+            {{ invoice().status }}
+          </h6>
+        </div>
+        <div class="text-right rtl:text-left">
+          <span class="font-semibold text-base block mb-2">
+            Order Date
+          </span>
+          <h6 name="date" class="mt-1 mb-0 font-medium text-sm" [(ngModel)]="invoice().orderDate" ngDefaultControl>
+            {{ invoice().orderDate | date : "dd-MM-yyyy" }}
+          </h6>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="grid grid-cols-12 gap-x-6 my-6 pt-6">
+        <div class="sm:col-span-6 col-span-12">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Bill From</mat-label>
+            <input matInput placeholder="Bill From" name="from" [(ngModel)]="invoice().billFrom" />
+          </mat-form-field>
+        </div>
+        <div class="sm:col-span-6 col-span-12">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Bill To</mat-label>
+            <input matInput placeholder="Bill To" name="to" [(ngModel)]="invoice().billTo" />
+          </mat-form-field>
+        </div>
+        <div class="sm:col-span-6 col-span-12">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Enter From Address</mat-label>
+            <input matInput placeholder="Enter From Address" name="fromAddress"
+              [(ngModel)]="invoice().billFromAddress" />
+          </mat-form-field>
+        </div>
+        <div class="sm:col-span-6 col-span-12">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Enter To Address</mat-label>
+            <input matInput placeholder="Enter To Address" name="toAddress" [(ngModel)]="invoice().billToAddress" />
+          </mat-form-field>
+        </div>
+      </div>
+    </form>
+
+    <div [formGroup]="addForm" class="add-invoice-list">
+      <div class="relative overflow-auto">
+        <table class="table table-hover border border-border no-wrap min-w-full rounded-md text-left rtl:text-right">
+          <thead>
+            <tr>
+              <th class="p-4">#</th>
+              <th class="p-4">Item Name</th>
+              <th class="p-4">Unit Price</th>
+              <th class="p-4">Units</th>
+              <th class="p-4">Unit Total Price</th>
+              <th class="p-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(row of addForm.get('rows')['controls']; track row; let index =
+            $index) {
+            <tr>
+              <td class="p-4 whitespace-nowrap">
+                {{ index + 1 }}
+              </td>
+
+              <td class="p-4 whitespace-nowrap">
+                <mat-form-field appearance="outline" class="w-full hide-hint">
+                  <input type="text" matInput class="form-control" [formControl]="row.get('itemName')"
+                    (input)="itemsChanged()" />
+                </mat-form-field>
+              </td>
+
+              <td class="p-4 whitespace-nowrap">
+                <mat-form-field appearance="outline" class="w-full hide-hint">
+                  <input type="number" matInput class="form-control" min="1" [formControl]="row.get('unitPrice')"
+                    (input)="itemsChanged()" />
+                </mat-form-field>
+              </td>
+
+              <td class="p-4 whitespace-nowrap">
+                <mat-form-field appearance="outline" class="w-full hide-hint">
+                  <input type="number" matInput class="form-control" min="1" [formControl]="row.get('units')"
+                    (input)="itemsChanged()" />
+                </mat-form-field>
+              </td>
+
+              <td class="p-4 whitespace-nowrap">
+                <form>
+                  <mat-form-field appearance="outline" class="w-full hide-hint">
+                    <input disabled matInput type="number" class="form-control"
+                      [value]="row.get('unitPrice').value * row.get('units').value" />
+                  </mat-form-field>
+                </form>
+              </td>
+              <td class="whitespace-nowrap">
+                @if(addForm.get('rows')) {
+                <button (click)="onAddRow()" [disabled]="addForm.invalid" class="flex! justify-center size-9.5! p-2"
+                  mat-icon-button>
+                  <i-tabler name="circle-plus" class="size-4.5! flex!"></i-tabler>
+                </button>
+                }
+              </td>
+              <td class="whitespace-nowrap">
+                @if(index > 0) {
+                <button mat-icon-button (click)="onRemoveRow(index)" class="flex! justify-center size-9.5! p-2">
+                  <i-tabler name="trash" class="size-4.5! flex!"></i-tabler>
+                </button>
+                }
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-right rtl:text-left mt-8">
+        <h5 class="mborder font-semibold text-base">Sub total: {{ subTotal() }}</h5>
+        <h5 class="font-semibold text-base mb-6!">Total Vat: {{ vat() }}%</h5>
+        <mat-divider></mat-divider>
+        <h3 class="mb-0 pt-5 text-lg">Grand Total: {{ grandTotal() }}</h3>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

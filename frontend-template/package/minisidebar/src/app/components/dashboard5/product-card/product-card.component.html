@@ -1,0 +1,18 @@
+<div class="grid grid-cols-12 gap-7.5">
+  @for(productcard of productcard; track productcard.title) {
+  <div class="col-span-12 md:col-span-6 xl:col-span-3">
+    <mat-card class="cardWithShadow mb-0!">
+      <mat-card-content>
+        <mat-card-title class="text-2xl! font-medium mb-2!">
+          {{ productcard.title }}
+        </mat-card-title>
+        <mat-card-subtitle class="text-sm! font-normal mb-1!">
+          {{ productcard.subtitle }}
+        </mat-card-subtitle>
+        <mat-progress-bar mode="determinate" class="{{ productcard.color }}"
+          value="{{productcard.value}}"></mat-progress-bar>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  }
+</div>

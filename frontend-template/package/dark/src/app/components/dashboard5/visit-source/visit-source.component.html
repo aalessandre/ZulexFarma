@@ -1,0 +1,40 @@
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <div class="flex items-start flex-wrap gap-4 justify-between">
+      <mat-card-title>Visit source</mat-card-title>
+
+      <mat-form-field class="theme-select hide-hint" appearance="outline">
+        <mat-select value="mar">
+          @for(month of months; track month.value) {
+          <mat-option [value]="month.value">
+            {{ month.viewValue }}
+          </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div id="visitor-chart" class="flex flex-col justify-center my-4.5">
+      <apx-chart [series]="visitsourceChart.series" [chart]="visitsourceChart.chart" [labels]="visitsourceChart.labels"
+        [responsive]="visitsourceChart.responsive" [tooltip]="visitsourceChart.tooltip"
+        [legend]="visitsourceChart.legend" [colors]="visitsourceChart.colors" [dataLabels]="visitsourceChart.dataLabels"
+        [plotOptions]="visitsourceChart.plotOptions" [stroke]="visitsourceChart.stroke"
+        [responsive]="visitsourceChart.responsive">
+      </apx-chart>
+    </div>
+
+    <div class="flex gap-7.5 items-center justify-center">
+      <div class="flex items-center gap-1 text-primary">
+        <i-tabler name="circle-filled" class="size-3!"></i-tabler>
+        <span class="text-sm">Desktop</span>
+      </div>
+      <div class="flex items-center gap-1 text-secondary">
+        <i-tabler name="circle-filled" class="size-3!"></i-tabler>
+        <span class="text-sm">Tablet</span>
+      </div>
+      <div class="flex items-center gap-1 text-error">
+        <i-tabler name="circle-filled" class="size-3!"></i-tabler>
+        <span class="text-sm">Mobile</span>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

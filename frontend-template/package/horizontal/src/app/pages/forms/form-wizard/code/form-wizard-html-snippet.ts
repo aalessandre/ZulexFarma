@@ -1,0 +1,209 @@
+export const BASIC_FORM_WIZARD_HTML_SNIPPET = `    <mat-stepper #stepper>
+      <mat-step [stepControl]="firstFormGroup">
+        <form class="mt-6" [formGroup]="firstFormGroup">
+          <ng-template matStepLabel>Account</ng-template>
+          <div>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2">Name </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput formControlName="firstCtrl" required />
+            </mat-form-field>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2">Email </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input
+                matInput
+                formControlName="firstCtrl"
+                required
+                type="email"
+              />
+            </mat-form-field>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2"
+              >Password
+            </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input
+                matInput
+                formControlName="firstCtrl"
+                required
+                type="password"
+              />
+            </mat-form-field>
+          </div>
+          <div class="text-right rtl:text-left">
+            <button mat-flat-button matStepperNext>Next</button>
+          </div>
+        </form>
+      </mat-step>
+      <mat-step [stepControl]="secondFormGroup">
+        <form class="mt-6" [formGroup]="secondFormGroup">
+          <ng-template matStepLabel>Profile</ng-template>
+          <div>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2"
+              >First Name
+            </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput formControlName="secondCtrl" required />
+            </mat-form-field>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2"
+              >Last Name
+            </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput formControlName="secondCtrl" required />
+            </mat-form-field>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2"
+              >Address
+            </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea
+                rows="5"
+                matInput
+                formControlName="secondCtrl"
+                required
+              ></textarea>
+            </mat-form-field>
+          </div>
+          <div class="flex items-center justify-between">
+            <button
+              mat-flat-button
+              class="bg-error text-white!"
+              matStepperPrevious
+            >
+              Back
+            </button>
+            <button mat-flat-button matStepperNext>Next</button>
+          </div>
+        </form>
+      </mat-step>
+      <mat-step>
+        <ng-template matStepLabel>Finish</ng-template>
+        <h4 class="mat-headline-6 mt-6">Terms and condition</h4>
+        <p class="mt-2 text-sm">
+          Sard about this site or you have been to it, but you cannot figure out
+          what it is or what it can do. MTA web directory isSard about this site
+          or you have been to it, but you cannot figure out what it is or what
+          it can do. MTA web directory is
+        </p>
+        <mat-checkbox checked color="primary">Agree with terms?</mat-checkbox>
+        <div class="flex justify-between mt-4">
+          <button
+            mat-flat-button
+            class="bg-error text-white!"
+            matStepperPrevious
+          >
+            Back
+          </button>
+          <button mat-flat-button (click)="stepper.reset()">Finish</button>
+        </div>
+      </mat-step>
+    </mat-stepper>
+`;
+
+export const VERTICAL_FORM_WIZARD_HTML_SNIPPET = `    <mat-stepper orientation="vertical" #stepper>
+      <mat-step [stepControl]="firstFormGroup">
+        <form class="mt-6" [formGroup]="firstFormGroup">
+          <ng-template matStepLabel>Account</ng-template>
+          <div>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2">Name </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput formControlName="firstCtrl" required />
+            </mat-form-field>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2">Email </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input
+                matInput
+                formControlName="firstCtrl"
+                required
+                type="email"
+              />
+            </mat-form-field>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2"
+              >Password
+            </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input
+                matInput
+                formControlName="firstCtrl"
+                required
+                type="password"
+              />
+            </mat-form-field>
+          </div>
+          <div class="text-right rtl:text-left">
+            <button mat-flat-button matStepperNext>Next</button>
+          </div>
+        </form>
+      </mat-step>
+      <mat-step [stepControl]="secondFormGroup">
+        <form class="mt-6" [formGroup]="secondFormGroup">
+          <ng-template matStepLabel>Profile</ng-template>
+          <div>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2"
+              >First Name
+            </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput formControlName="secondCtrl" required />
+            </mat-form-field>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2"
+              >Last Name
+            </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput formControlName="secondCtrl" required />
+            </mat-form-field>
+            <!-- input -->
+            <mat-label class="text-sm font-semibold block mb-2"
+              >Address
+            </mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea
+                rows="5"
+                matInput
+                formControlName="secondCtrl"
+                required
+              ></textarea>
+            </mat-form-field>
+          </div>
+          <div class="flex items-center justify-between">
+            <button
+              mat-flat-button
+              class="bg-error text-white!"
+              matStepperPrevious
+            >
+              Back
+            </button>
+            <button mat-flat-button matStepperNext>Next</button>
+          </div>
+        </form>
+      </mat-step>
+      <mat-step>
+        <ng-template matStepLabel>Finish</ng-template>
+        <h4 class="mat-headline-6 mt-6">Terms and condition</h4>
+        <p class="mt-2 text-sm">
+          Sard about this site or you have been to it, but you cannot figure out
+          what it is or what it can do. MTA web directory isSard about this site
+          or you have been to it, but you cannot figure out what it is or what
+          it can do. MTA web directory is
+        </p>
+        <mat-checkbox checked color="primary">Agree with terms?</mat-checkbox>
+        <div class="flex justify-between mt-4">
+          <button
+            mat-flat-button
+            class="bg-error text-white!"
+            matStepperPrevious
+          >
+            Back
+          </button>
+          <button mat-flat-button (click)="stepper.reset()">Finish</button>
+        </div>
+      </mat-step>
+    </mat-stepper>
+`;

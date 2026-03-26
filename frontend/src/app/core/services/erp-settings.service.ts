@@ -8,6 +8,7 @@ export class ErpSettingsService {
   tema  = signal<Tema>('claro');
   fonte = signal<FonteEscala>('normal');
   cor   = signal<string>('');
+  fundoDash = signal<string>('#1a1a2e');
 
   readonly coresPreset = [
     { nome: 'Azul',    valor: '#2c5fad' },
@@ -23,9 +24,10 @@ export class ErpSettingsService {
   constructor() {
     try {
       const s = JSON.parse(localStorage.getItem(this.KEY) ?? '{}');
-      if (s.tema)  this.tema.set(s.tema);
-      if (s.fonte) this.fonte.set(s.fonte);
-      if (s.cor)   this.cor.set(s.cor);
+      if (s.tema)      this.tema.set(s.tema);
+      if (s.fonte)     this.fonte.set(s.fonte);
+      if (s.cor)       this.cor.set(s.cor);
+      if (s.fundoDash) this.fundoDash.set(s.fundoDash);
     } catch {}
 
     this.aplicar(this.tema(), this.fonte(), this.cor());
@@ -34,8 +36,9 @@ export class ErpSettingsService {
       const tema  = this.tema();
       const fonte = this.fonte();
       const cor   = this.cor();
+      const fundoDash = this.fundoDash();
       this.aplicar(tema, fonte, cor);
-      localStorage.setItem(this.KEY, JSON.stringify({ tema, fonte, cor }));
+      localStorage.setItem(this.KEY, JSON.stringify({ tema, fonte, cor, fundoDash }));
     });
   }
 

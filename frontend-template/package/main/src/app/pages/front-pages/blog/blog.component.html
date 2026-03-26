@@ -1,0 +1,78 @@
+<div class="blog-page">
+  <div class="banner-blog bg-extra-light py-14">
+    <div class="container">
+      <div class="flex justify-between flex-wrap items-center height-row">
+        <h2 class="text-2xl sm:text-3xl md:text-[44px] font-bold">Our most recent articles</h2>
+        <div class="flex items-center gap-1.5 breadcrumb">
+          <a [routerLink]="'/front-pages/homepage'"
+            class="text-sm text-uppercase no-underline font-bold">MaterialPro</a>
+          <i-tabler name="chevron-right" class="size-4.5! flex"></i-tabler>
+          <a [routerLink]="'/front-pages/blog'" class="text-sm text-uppercase text-primary no-underline font-bold">
+            Blog posts
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cards-list bg-extra-light pb-12">
+    <div class="container">
+      <div class="grid grid-cols-12 gap-6">
+        <!--new-->
+        @for(blogPost of blogService.getBlog(); track blogPost.user) {
+        <!-- ----------------------------------------------------------------- -->
+        <!-- If Feature Blog is available -->
+        <!-- ----------------------------------------------------------------- -->
+        @if(blogPost.featuredPost) {
+        }
+
+        <!-- ----------------------------------------------------------------- -->
+        <!-- Else Simple Blog is available -->
+        <!-- ----------------------------------------------------------------- -->
+        @else {
+        <div class="col-span-12 lg:col-span-4 sm:col-span-6">
+          <mat-card class="cardWithShadow relative cursor-pointer blog-card mb-0!" (click)="getBlogDetails(blogPost)">
+            <img mat-card-image src="{{ blogPost.imgSrc }}" alt="Photo of a Shiba Inu" />
+            <div class="card-overlay h-full flex items-end justify-end">
+              <span class="text-xs font-semibold bg-white rounded-full px-2 mx-4">{{
+                blogPost.time
+                }}</span>
+            </div>
+
+            <mat-card-content>
+              <div class="user-category relative z-1 -mt-[60px]">
+                <img src="{{ blogPost.user }}" class="rounded-full" width="40" />
+              </div>
+              <mat-card-title class="mat-headline-6 mt-4!">
+                <div class="flex mb-5">
+                  <p class="rounded-full text-xs m-0 py-1 px-2.5 bg-light">
+                    Web Development
+                  </p>
+                </div>
+                {{ blogPost.title }}
+              </mat-card-title>
+              <div class="flex items-center justify-center mt-6">
+                <div class="flex items-center gap-3">
+                  <span class="text-sm flex items-center gap-1"><i-tabler name="eye" class="size-4.5!"></i-tabler>{{
+                    blogPost.views }}</span>
+                  <span class="text-sm flex items-center gap-1"><i-tabler name="message-2"
+                      class="size-4.5!"></i-tabler>{{
+                    blogPost.comments }}</span>
+                </div>
+                <span class="ml-auto text-sm flex items-center gap-1">
+                  <i-tabler name="point" class="size-3.5!"></i-tabler>
+                  {{ blogPost.date }}
+                </span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+        } }
+        <!--end-->
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <app-footer></app-footer>
+  </div>
+</div>

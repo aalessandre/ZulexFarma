@@ -1,0 +1,103 @@
+<div class="footer-content">
+  <div class="bg-primary relative overflow-hidden md:py-20 py-6 footer-first-content">
+    <div class="first-section left-0 absolute top-1/2 -translate-y-1/2 hidden xl:flex">
+      <img src="assets/images/front-end/screenshot-1.png" alt="left-side-img" />
+    </div>
+
+    <div class="second-section">
+      <div class="container">
+        <div class="lg:w-8/12 w-full text-center mx-auto">
+          <div class="flex items-center justify-center">
+            <mat-card class="rounded-xl! cards mb-0! size-14! flex items-center justify-center">
+              <img src="assets/images/front-end/logo-icon.svg" alt="framework" />
+            </mat-card>
+          </div>
+          <h2 class="text-white my-5 text-2xl sm:text-3xl md:text-[44px]">
+            Focus on what truly matters—creating stunning, functional designs.
+          </h2>
+          <p class="text-lg mb-5 mt-0 text-center text-white">
+            Designed for ease of use and customization, this template help you
+            build professional dashboards faster.
+          </p>
+          <a mat-stroked-button class="text-white! border-white!"
+            [routerLink]="'/authentication/side-register'">Register</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="third-section right-0 absolute top-1/2 -translate-y-1/2 hidden xl:flex">
+      <img src="assets/images/front-end/screenshot-2.png" alt="right-side-img" />
+    </div>
+  </div>
+
+
+  <div class="overflow-hidden bg-white footer-second-content">
+    <div class="container">
+      <div class="grid grid-cols-12 gap-6 pt-12 pb-6">
+        <div class="col-span-6 md:col-span-3">
+          <div class="listContainer">
+            <div class="branding p-0! mb-3">
+              <app-auth-branding></app-auth-branding>
+            </div>
+            <mat-list role="list" class="py-0!">
+              @for (item of applicationsItems; track item) {
+              <a class="footer-link no-underline block mb-5 hover:text-primary!" [routerLink]="[item.href]">
+                {{ item.title }}
+              </a>
+              }
+            </mat-list>
+          </div>
+        </div>
+        <div class="col-span-6 md:col-span-3">
+          <div class="listContainer">
+            <h5 class="text-base font-semibold mb-5">Forms</h5>
+            <mat-list role="list" class="py-0!">
+              @for (item of formsItems; track item) {
+              <a class="footer-link no-underline block mb-5 hover:text-primary!" [routerLink]="[item.href]">
+                {{ item.title }}
+              </a>
+              }
+            </mat-list>
+          </div>
+        </div>
+        <div class="col-span-6 md:col-span-3">
+          <div class="listContainer">
+            <h5 class="text-base font-semibold mb-5">Tables</h5>
+            <mat-list role="list" class="py-0!">
+              @for (item of tablesItems; track item) {
+              <a class="footer-link no-underline block mb-5 hover:text-primary!" [routerLink]="[item.href]">
+                {{ item.title }}
+              </a>
+              }
+            </mat-list>
+          </div>
+        </div>
+        <div class="col-span-6 md:col-span-3">
+          <h5 class="text-base font-semibold mb-5">Follow us</h5>
+          <div class="flex items-center gap-5">
+            @for (icon of socialIcons; track icon.name) {
+            <i-tabler [name]="icon.name" [matTooltip]="icon.tooltip" alt="social-icon" class="cursor-pointer">
+            </i-tabler>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col md:flex-row items-center justify-between py-6 border-t border-border gap-3">
+        <!-- Left side -->
+        <div class="flex items-center gap-3">
+          <img src="assets/images/front-end/logo-icon.svg" alt="logo" />
+          <h6 class="text-sm font-medium">All rights reserved by MaterialPro.</h6>
+        </div>
+
+        <!-- Right side -->
+        <div class="flex justify-end items-center my-2">
+          <p class="text-sm m-0">
+            Designed & Developed by
+            <a href="https://www.wrappixel.com/" target="_blank" class="no-underline text-primary">
+              Wrappixel.</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

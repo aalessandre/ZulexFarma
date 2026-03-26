@@ -185,75 +185,100 @@
   &:hover { background: #fde8e8; color: #c0392b; }
 }
 
-/* ── Main ──────────────────────────────────────────────────────── */
+/* ── Main (launcher style) ────────────────────────────────────── */
 .dash-main {
   flex: 1;
   overflow-y: auto;
   display: flex;
   justify-content: center;
-  padding: 32px;
+  align-items: flex-start;
+  padding: 40px 32px;
+  transition: background 0.3s;
 }
 
 .tiles-area {
   display: flex;
-  gap: 28px;
-  flex-wrap: nowrap;
+  gap: 40px;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
+  max-width: 1400px;
 }
 
-/* ── Bloco ─────────────────────────────────────────────────────── */
-.bloco { display: flex; flex-direction: column; gap: 10px; }
+.bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
 .bloco-titulo {
   font-family: 'Poppins', sans-serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 500;
-  color: #4a5568;
+  color: rgba(255,255,255,0.6);
   margin: 0;
-  padding-left: 2px;
+  padding-left: 4px;
+  letter-spacing: 0.5px;
 }
 
-/* ── Tiles grid ───────────────────────────────────────────────── */
 .tiles-grid {
   display: grid;
-  grid-template-columns: repeat(2, 145px);
-  gap: 5px;
+  grid-template-columns: repeat(2, 140px);
+  gap: 10px;
 }
 
-/* ── Tile ──────────────────────────────────────────────────────── */
 .tile {
-  width: 145px;
-  height: 125px;
-  border-radius: 0;
+  width: 140px;
+  height: 110px;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 12px;
   cursor: pointer;
-  transition: filter 0.15s, transform 0.1s;
-  box-sizing: border-box;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
 
-  &:hover { filter: brightness(1.06); transform: translateY(-1px); }
-  &:active { transform: scale(0.97); }
-  &.tile-wide { grid-column: span 2; width: 100%; }
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.15s;
+    border-radius: 16px;
+  }
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    &::after { background: rgba(255,255,255,0.08); }
+  }
+
+  &:active { transform: scale(0.96); }
 }
 
 .tile-sigla {
-  opacity: 0.9;
-  color: rgba(255,255,255,0.95);
-  svg { width: 36px; height: 36px; stroke: rgba(255,255,255,0.95); }
+  font-family: 'Poppins', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .tile-label {
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.85);
   text-align: center;
-  line-height: 1.3;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  line-height: 1.2;
+  position: relative;
+  z-index: 1;
+  max-width: 120px;
 }
 
 /* ── Modal alterar senha ──────────────────────────────────────── */

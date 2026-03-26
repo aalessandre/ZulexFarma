@@ -1,0 +1,84 @@
+<div class="relative overflow-hidden h-screen bg-light-primary">
+  <div class="flex h-full justify-center items-center px-4">
+    <mat-card class="cardWithShadow md:w-[450px] w-full mb-0!">
+      <mat-card-content class="p-8">
+        <div class="flex flex-row items-center self-stretch justify-center mb-6">
+          <app-auth-branding></app-auth-branding>
+        </div>
+
+        <div class="grid grid-cols-12 gap-6">
+          <div class="col-span-6">
+            <button mat-stroked-button class="w-full">
+              <div class="flex items-center gap-2">
+                <i class="iconify text-xl" data-icon="devicon:google"></i>
+                Google
+              </div>
+            </button>
+          </div>
+          <div class="col-span-6">
+            <button mat-stroked-button class="w-full flex items-center">
+              <div class="flex items-center gap-2">
+                <i class="iconify text-xl" data-icon="logos:facebook"></i>
+                Facebook
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div
+          class="or-border relative text-center before:content-[''] before:absolute before:left-0 before:top-1/2 
+            before:w-[120px] before:h-px before:bg-(--mat-sys-outline) after:content-[''] after:absolute after:right-0 after:top-1/2 after:w-[120px] after:h-px after:bg-(--mat-sys-outline) mt-8">
+          or sign up with</div>
+
+        <form class="mt-8" [formGroup]="form" (ngSubmit)="submit()">
+          <mat-label class="text-sm font-semibold mb-2 block">Name</mat-label>
+          <mat-form-field appearance="outline" class="w-full" color="primary">
+            <input matInput formControlName="uname" />
+            @if(f['uname'].touched && f['uname'].invalid) {
+            <mat-hint class="mb-4 absolute -top-[19px] right-[3px]">
+              @if(f['uname'].errors && f['uname'].errors['required']) {
+              <div class="text-error">Name is required.</div>
+              } @if(f['uname'].errors && f['uname'].errors['minlength']) {
+              <div class="text-error">Name should be 6 character.</div>
+              }
+            </mat-hint>
+            }
+          </mat-form-field>
+          <mat-label class="text-sm font-semibold mb-2 block">Email Adddress</mat-label>
+          <mat-form-field appearance="outline" class="w-full" color="primary">
+            <input matInput type="email" formControlName="email" />
+            @if(f['email'].touched && f['email'].invalid) {
+            <mat-hint class="mb-4 absolute -top-[19px] right-[3px]">
+              @if(f['email'].errors && f['email'].errors['required']) {
+              <div class="text-error">Email is required.</div>
+              }
+            </mat-hint>
+            }
+          </mat-form-field>
+          <!-- password -->
+          <mat-label class="text-sm font-semibold mb-2 block">Password</mat-label>
+          <mat-form-field appearance="outline" class="w-full" color="primary">
+            <input matInput type="password" formControlName="password" />
+            @if(f['password'].touched && f['password'].invalid) {
+            <mat-hint class="mb-4 absolute -top-[19px] right-[3px]">
+              @if(f['password'].errors && f['password'].errors['required']) {
+              <div class="text-error">Password is required.</div>
+              }
+            </mat-hint>
+            }
+          </mat-form-field>
+
+          <button mat-flat-button color="primary" class="w-full" [disabled]="!form.valid">
+            Sign Up
+          </button>
+          <!-- input -->
+        </form>
+        <span class="block font-medium text-center mt-6">Already have an Account?
+
+          <a [routerLink]="['/authentication/boxed-login']" class="no-underline text-primary font-medium text-sm">
+            Sign In</a>
+        </span>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

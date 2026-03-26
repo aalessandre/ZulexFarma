@@ -1,0 +1,231 @@
+<div class="blog-details-page">
+  <div class="banner-blog-details bg-extra-light py-14">
+    <div class="container">
+      <div class="text-center">
+        <div class="flex items-center justify-center gap-1.5 breadcrumb">
+          <a [routerLink]="'/front-pages/homepage'"
+            class="text-sm text-uppercase no-underline font-bold">MaterialPro</a>
+          <i-tabler name="chevron-right" class="size-4.5! flex"></i-tabler>
+          <a [routerLink]="'/front-pages/blog'" class="text-sm text-uppercase no-underline font-bold"> Blog posts
+          </a>
+          <i-tabler name="chevron-right" class="size-4.5! flex"></i-tabler>
+          <a [routerLink]="''" class="text-sm text-uppercase text-primary no-underline font-bold"> Web Development
+          </a>
+        </div>
+        <h2 class="my-5 text-2xl sm:text-3xl md:text-[44px] font-bold">
+          {{ blogPost.title }}
+        </h2>
+        <div class="flex items-center justify-center gap-2.5">
+          <div class="flex items-center gap-3">
+            <span class="text-sm flex items-center gap-1"><i-tabler name="eye" class="size-4.5!"></i-tabler>{{
+              blogPost.views }}</span>
+            <span class="text-sm flex items-center gap-1"><i-tabler name="message-2" class="size-4.5!"></i-tabler>{{
+              blogPost.comments }}</span>
+            <span class="text-sm flex items-center gap-1">
+              <i-tabler name="point" class="size-3.5!"></i-tabler>
+              {{ blogPost.date }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-extra-light pb-7.5">
+    <div class="container">
+      <img [src]="blogPost.imgSrc" alt="" class="w-full rounded-xl object-cover max-h-[500px] blog-details-img" />
+      <div class="grid grid-cols-12 gap-6 mt-7.5">
+        <div class="col-span-12 lg:col-span-4">
+          <mat-card>
+            <mat-card-content>
+              <div class="flex items-center gap-4 pb-4">
+                <div class="user-category mt-0">
+                  <img [src]="blogPost.user" class="rounded-full" width="44" height="44" />
+                </div>
+                <div>
+                  <h6 class="text-base font-semibold">Zachary Smith</h6>
+                  <p class="m-0 text-sm font-semibold">Product Manager</p>
+                </div>
+              </div>
+              <mat-divider></mat-divider>
+              <div class="flex flex-col py-5 gap-1">
+                <h4 class="text-sm text-uppercase">Contents</h4>
+                <a class="text-base font-semibold no-underline" href="javascript:void(0)">Adopt a Mobile-First
+                  Approach</a>
+                <a class="text-base font-semibold no-underline" href="javascript:void(0)">Use Fluid Grid Layouts</a>
+                <a class="text-base font-semibold no-underline" href="javascript:void(0)">Leverage Media Queries</a>
+                <a class="text-base font-semibold no-underline" href="javascript:void(0)">Optimize Images for Different
+                  Devices</a>
+                <a class="text-base font-semibold no-underline" href="javascript:void(0)">Conclusion</a>
+              </div>
+              <mat-divider></mat-divider>
+              <div class="pt-5">
+                <h4 class="mb-2 text-sm text-uppercase">Share</h4>
+                <div class="flex gap-3">
+                  <a href="javascript:void(0)" matTooltip="Facebook"
+                    class="border border-border rounded-full size-10! flex items-center justify-center">
+                    <img src="/assets/images/front-end/icon-facebook-dark.svg" alt="icon-facebook-dark" width="20"
+                      height="20" />
+                  </a>
+                  <a href="javascript:void(0)" matTooltip="Instagram"
+                    class="border border-border rounded-full size-10! flex items-center justify-center">
+                    <img src="/assets/images/front-end/icon-instagram-dark.svg" alt="icon-instagram-dark" width="20"
+                      height="20" />
+                  </a>
+                  <a href="javascript:void(0)" matTooltip="Youtube"
+                    class="border border-border rounded-full size-10! flex items-center justify-center">
+                    <img src="/assets/images/front-end/icon-youtube-dark.svg" alt="icon-youtube-dark" width="20"
+                      height="20" />
+                  </a>
+                  <a href="javascript:void(0)" matTooltip="LinkedIn"
+                    class="border border-border rounded-full size-10! flex items-center justify-center">
+                    <img src="/assets/images/front-end/icon-linckedin-dark.svg" alt="icon-linckedin-dark" width="20"
+                      height="20" />
+                  </a>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <div class="col-span-12 lg:col-span-8">
+          <mat-card>
+            <mat-card-content>
+              <p class="text-base mb-6 mt-0">
+                In today’s digital age, having a responsive website is no longer
+                optional—it’s a necessity. With the increasing variety of
+                devices used to access the web, from smartphones and tablets to
+                laptops and large desktop monitors, developers face the
+                challenge of ensuring a seamless experience across all screen
+                sizes.
+              </p>
+
+              <p class="text-base mb-6 mt-0">
+                This article offers essential tips and tricks for modern
+                developers to create responsive websites that not only look
+                great but also perform efficiently.
+              </p>
+
+              <h3 class="text-2xl mb-6">
+                Adopt a Mobile-First Approach
+              </h3>
+              <p class="text-base mb-6 mt-0">
+                Starting with mobile design and then scaling up is a widely
+                recommended approach. By prioritizing the mobile experience,
+                developers can ensure that the most critical content is
+                accessible on smaller screens. Once the mobile version is
+                optimized, expanding to larger screens becomes much easier.
+              </p>
+
+              <h3 class="text-2xl mb-6">Use Fluid Grid Layouts</h3>
+              <p class="text-base mb-6 mt-0">
+                A fluid grid layout is the backbone of a responsive design.
+                Unlike fixed layouts, fluid grids use relative units like
+                percentages instead of pixels, allowing the layout to adjust
+                smoothly across different screen sizes. Popular frameworks like
+                <a href="https://getbootstrap.com/" target="_blank"
+                  class="text-primary text-decoration-underline">Bootstrap</a>
+                and Foundation offer pre-built grid systems that simplify the
+                implementation of fluid grids.
+              </p>
+
+              <h3 class="text-2xl mb-6">Leverage Media Queries</h3>
+              <p class="text-base mb-6 mt-0">
+                Media queries are CSS techniques that apply styles based on the
+                screen size or device characteristics. By using media queries,
+                developers can create breakpoints in their design, ensuring that
+                the layout adapts to different screen widths. For instance, you
+                might want to change the font size or adjust the padding on a
+                smaller screen. A simple example of a media query is:
+              </p>
+
+              <div class="flex flex-col gap-3 mb-6">
+                <p class="m-0 text-base">
+                  <span class="text-base font-bold">Set Breakpoints:</span> Define
+                  breakpoints for different screen sizes (e.g., 600px, 768px,
+                  1024px) to adjust the layout and design elements.
+                </p>
+
+                <p class="m-0 text-base">
+                  <span class="text-base font-bold">Adjust Font Sizes:</span> Use
+                  media queries to change font sizes for readability on
+                  smaller screens.
+                </p>
+
+                <p class="m-0 text-base">
+                  <span class="text-base font-bold">Modify Layout:</span> Rearrange
+                  or hide certain elements based on the screen size to
+                  maintain a clean design.
+                </p>
+
+                <p class="m-0 text-base">
+                  <span class="text-base font-bold">Responsive Images:</span> Serve
+                  different image sizes using media queries to improve loading
+                  times.
+                </p>
+
+                <p class="m-0 text-base">
+                  <span class="text-base font-bold">Test Across Devices:</span> Ensure media queries work as intended on
+                  various devices
+                  and orientations.
+                </p>
+              </div>
+
+              <h3 class="text-2xl mb-6">
+                Optimize Images for Different Devices
+              </h3>
+              <p class="text-base mb-6 mt-0">
+                Images can make or break the performance of a website. To ensure
+                that your website loads quickly on all devices, consider using
+                responsive images. The element in HTML5 allows you to serve
+                different images based on the screen size or resolution.
+                Additionally, tools like
+                <a href="https://imageoptim.com/mac" target="_blank"
+                  class="text-primary text-decoration-underline">ImageOptim</a>
+                and
+                <a href="https://imageoptim.com/mac" target="_blank"
+                  class="text-primary text-decoration-underline">TinyPNG</a>
+                can help you compress images without sacrificing quality.
+              </p>
+              <p class="text-base mb-6 mt-0">
+                Responsive design isn’t just about screen sizes—it’s also about
+                accessibility. Make sure your website is usable for people with
+                disabilities by following accessibility best practices. Use
+                semantic HTML, ensure keyboard navigation works seamlessly, and
+                provide alternative text for images. The
+                <a href="https://www.w3.org/WAI/WCAG22/quickref/?versions=2.1" target="_blank"
+                  class="text-primary text-decoration-underline">Web Content Accessibility Guidelines
+                  (WCAG)</a>
+                provide a comprehensive overview of accessibility standards.
+              </p>
+
+              <h3 class="text-2xl mb-6">Conclusion</h3>
+              <p class="text-base mb-6 mt-0">Building responsive websites requires careful planning, testing,
+                and
+                a deep understanding of both design and development principles.
+                By adopting a mobile-first approach, leveraging fluid grids and media queries, and optimizing both
+                performance and accessibility,
+                modern developers can create websites that deliver a seamless experience across all devices. As the
+                famous saying goes,
+                "A responsive design is not a luxury; it's a necessity for every website today."</p>
+
+              <p class="m-0">Incorporating these tips and tricks into your workflow will not only improve the user
+                experience but also ensure your website stands out in today’s competitive digital landscape.</p>
+
+              <div class="my-6 py-3 px-5 border border-border rounded-md bg-light-primary">
+                <p class="m-0 text-primary">"A responsive design is not a luxury; it's a necessity for every website
+                  today."</p>
+              </div>
+
+              <p class="m-0">For more resources on responsive web design, check out the <a href=""
+                  class="text-primary text-decoration-underline">MDN Web Docs and Smashing</a> Magazine’s Guide.</p>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <app-footer></app-footer>
+  </div>
+</div>

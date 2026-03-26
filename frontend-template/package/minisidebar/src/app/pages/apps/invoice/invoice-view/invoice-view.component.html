@@ -1,0 +1,113 @@
+﻿<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    @if(invoiceDetail()){
+    <span>
+      <div class="flex justify-between mb-6">
+        <div class="flex items-center">
+          <h4 class="text-xl font-semibold">#{{ invoiceDetail()?.id }}</h4>
+        </div>
+        <div class="text-right rtl:text-left">
+          <a routerLink="/apps/invoice/list" mat-stroked-button class="mr-2.5">Back to Invoice</a>
+          <a [routerLink]="['/apps/invoice/editinvoice/', invoiceDetail()?.id]" mat-flat-button>Edit Invoice</a>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+      <div class="flex items-center justify-between py-6">
+        <div>
+          <span class="font-semibold text-base"> Order Status: </span>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.status }}
+          </h6>
+        </div>
+        <div class="text-right rtl:text-left">
+          <span class="font-semibold text-base"> Order Date: </span>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.orderDate | date : "fullDate" }}
+          </h6>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+      <div class="flex items-center justify-between py-6">
+        <div>
+          <span class="font-semibold text-base"> Bill From: </span>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.billFrom }}
+          </h6>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.billFromEmail }}
+          </h6>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.billFromAddress }}
+          </h6>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.billFromPhone }}
+          </h6>
+        </div>
+        <div class="text-right rtl:text-left">
+          <span class="font-semibold text-base"> Bill To: </span>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.billTo }}
+          </h6>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.billToEmail }}
+          </h6>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.billToAddress }}
+          </h6>
+          <h6 class="mt-1! mb-0! font-medium text-sm">
+            {{ invoiceDetail()?.billToPhone }}
+          </h6>
+        </div>
+      </div>
+
+      <div class="border border-border relative overflow-auto">
+        <table mat-table [dataSource]="invoiceDetail()?.orders || []" class="no-wrap v-middle min-w-full">
+          <ng-container matColumnDef="itemName">
+            <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+              Item Name
+            </th>
+            <td class="font-normal whitespace-nowrap" mat-cell *matCellDef="let element">
+              {{ element.itemName }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="unitPrice">
+            <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+              Unit Price
+            </th>
+            <td class="font-normal whitespace-nowrap" mat-cell *matCellDef="let element">
+              {{ element.unitPrice }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="unit">
+            <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+              Unit
+            </th>
+            <td class="font-normal whitespace-nowrap" mat-cell *matCellDef="let element">
+              {{ element.units }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="total">
+            <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+              Total Cost
+            </th>
+            <td class="font-normal" mat-cell *matCellDef="let element">
+              {{ element.unitTotalPrice }}
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
+      <div class="text-right rtl:text-left mt-8">
+        <h5 class="mborder font-semibold text-base">
+          Sub total: {{ invoiceDetail()?.totalCost }}
+        </h5>
+        <span class="font-semibold text-base">Vat: 10%</span>
+        <h3 class="mb-0 border-t border-border pt-5 text-lg mt-6">
+          Grand Total: {{ invoiceDetail()?.grandTotal }}
+        </h3>
+      </div>
+    </span>
+    }
+  </mat-card-content>
+</mat-card>

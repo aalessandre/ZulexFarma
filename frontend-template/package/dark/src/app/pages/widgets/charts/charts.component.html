@@ -1,0 +1,417 @@
+<!-- --------------------------------------------------------------------- -->
+<!-- card 1 -->
+<!-- --------------------------------------------------------------------- -->
+<div class="grid grid-cols-12 gap-6">
+  <!-- column -->
+  <div class="sm:col-span-6 xl:col-span-3 col-span-12">
+    <mat-card class="cardWithShadow overflow-hidden mb-0!">
+      <mat-card-content>
+        <mat-card-title class="font-semibold mb-1">2,545</mat-card-title>
+        <div class="flex items-center">
+          <span>Followers</span>
+          <span class="text-success ms-auto">+1.20%</span>
+        </div>
+      </mat-card-content>
+      <apx-chart [series]="followersChart.series" [chart]="followersChart.chart" [colors]="followersChart.colors"
+        [stroke]="followersChart.stroke" [dataLabels]="followersChart.dataLabels" [legend]="followersChart.legend"
+        [grid]="followersChart.grid" [xaxis]="followersChart.xaxis" [tooltip]="followersChart.tooltip">
+      </apx-chart>
+    </mat-card>
+  </div>
+  <!-- column -->
+  <div class="sm:col-span-6 xl:col-span-3 col-span-12">
+    <mat-card class="cardWithShadow overflow-hidden mb-0!">
+      <mat-card-content>
+        <mat-card-title class="font-semibold mb-1">15,480</mat-card-title>
+        <div class="flex items-center mb-6">
+          <span>Views</span>
+          <span class="text-error ms-auto">-4.150%</span>
+        </div>
+        <apx-chart [series]="viewsChart.series" [chart]="viewsChart.chart" [colors]="viewsChart.colors"
+          [plotOptions]="viewsChart.plotOptions" [dataLabels]="viewsChart.dataLabels" [legend]="viewsChart.legend"
+          [grid]="viewsChart.grid" [xaxis]="viewsChart.xaxis" [yaxis]="viewsChart.yaxis" [tooltip]="viewsChart.tooltip">
+        </apx-chart>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  <!-- column -->
+  <div class="sm:col-span-6 xl:col-span-3 col-span-12">
+    <mat-card class="cardWithShadow overflow-hidden mb-0!">
+      <mat-card-content>
+        <mat-card-title class="font-semibold mb-1">2,545</mat-card-title>
+        <div class="flex items-center">
+          <span>Earned</span>
+          <span class="text-success ms-auto">+1.20%</span>
+        </div>
+      </mat-card-content>
+      <apx-chart [series]="earnChart.series" [chart]="earnChart.chart" [colors]="earnChart.colors"
+        [stroke]="earnChart.stroke" [dataLabels]="earnChart.dataLabels" [legend]="earnChart.legend"
+        [grid]="earnChart.grid" [xaxis]="earnChart.xaxis" [tooltip]="earnChart.tooltip">
+      </apx-chart>
+    </mat-card>
+  </div>
+  <!-- column -->
+  <div class="sm:col-span-6 xl:col-span-3 col-span-12">
+    <mat-card class="cardWithShadow mb-0!">
+      <mat-card-content>
+        <span class="mb-1 block">Total Earning</span>
+        <mat-card-title class="font-semibold mb-6">$78,298</mat-card-title>
+
+        <apx-chart [series]="totalearnChart.series" [chart]="totalearnChart.chart" [colors]="totalearnChart.colors"
+          [grid]="totalearnChart.grid" [plotOptions]="totalearnChart.plotOptions"
+          [dataLabels]="totalearnChart.dataLabels" [stroke]="totalearnChart.stroke" [xaxis]="totalearnChart.xaxis"
+          [yaxis]="totalearnChart.yaxis" [fill]="totalearnChart.fill" [tooltip]="totalearnChart.tooltip">
+        </apx-chart>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  <!-- column -->
+  <div class="col-span-12">
+    <mat-card class="cardWithShadow mb-0!">
+      <mat-card-content>
+        <div class="flex items-center justify-between">
+          <mat-card-title>Current Value</mat-card-title>
+          <div>
+            <button mat-flat-button color="primary" class="me-2">Buy</button>
+            <button mat-stroked-button color="primary">Sell</button>
+          </div>
+        </div>
+        <!-- columns -->
+        <div class="grid grid-cols-12 gap-6 mt-6">
+          <div class="lg:col-span-4 col-span-12">
+            <mat-card class="cardWithShadow mb-0!">
+              <mat-card-content>
+                <apx-chart [series]="incomeChart.series" [chart]="incomeChart.chart" [colors]="incomeChart.colors"
+                  [grid]="incomeChart.grid" [plotOptions]="incomeChart.plotOptions"
+                  [dataLabels]="incomeChart.dataLabels" [stroke]="incomeChart.stroke" [xaxis]="incomeChart.xaxis"
+                  [yaxis]="incomeChart.yaxis" [fill]="incomeChart.fill" [tooltip]="incomeChart.tooltip">
+                </apx-chart>
+
+                <span class="text-base block mb-1 mt-6">Income</span>
+
+                <div class="flex items-center">
+                  <mat-card-title class="font-semibold mb-1">$25,260</mat-card-title>
+                  <span class="text-success ms-auto">+1.25%</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+          <div class="lg:col-span-4 col-span-12">
+            <mat-card class="cardWithShadow mb-0!">
+              <mat-card-content>
+                <apx-chart [series]="expancechart.series" [chart]="expancechart.chart" [colors]="expancechart.colors"
+                  [grid]="expancechart.grid" [plotOptions]="expancechart.plotOptions"
+                  [dataLabels]="expancechart.dataLabels" [stroke]="expancechart.stroke" [xaxis]="expancechart.xaxis"
+                  [yaxis]="expancechart.yaxis" [fill]="expancechart.fill" [tooltip]="expancechart.tooltip">
+                </apx-chart>
+
+                <span class="text-base block mb-1 mt-6">Expance</span>
+
+                <div class="flex items-center">
+                  <mat-card-title class="font-semibold mb-1">$12,260</mat-card-title>
+                  <span class="text-success ms-auto">+4.25%</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+          <div class="lg:col-span-4 col-span-12">
+            <mat-card class="cardWithShadow mb-0!">
+              <mat-card-content>
+                <apx-chart [series]="currentyearChart.series" [chart]="currentyearChart.chart"
+                  [colors]="currentyearChart.colors" [grid]="currentyearChart.grid"
+                  [plotOptions]="currentyearChart.plotOptions" [dataLabels]="currentyearChart.dataLabels"
+                  [legend]="currentyearChart.legend" [stroke]="currentyearChart.stroke" [xaxis]="currentyearChart.xaxis"
+                  [yaxis]="currentyearChart.yaxis" [fill]="currentyearChart.fill" [tooltip]="currentyearChart.tooltip">
+                </apx-chart>
+
+                <span class="text-base block mb-1 mt-6">Current Year</span>
+
+                <div class="flex items-center">
+                  <mat-card-title class="font-semibold mb-1">$98,260
+                  </mat-card-title>
+                  <span class="text-success ms-auto">+2.5%</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- column -->
+  <div class="xl:col-span-4 col-span-12">
+    <div class="grid grid-cols-12 gap-6">
+      <div class="col-span-12 lg:col-span-12">
+        <mat-card class="cardWithShadow mb-0!">
+          <mat-card-header>
+            <mat-card-title>Yearly Breakup</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="grid grid-cols-12 gap-6 mt-6">
+              <div class="col-span-7">
+                <h4 class="text-3xl font-medium">$36,358</h4>
+                <div class="flex items-center mt-4">
+                  <button mat-mini-fab class="bg-light-success text-success flex! shadow-none! size-6!">
+                    <i-tabler name="arrow-up-right" class="size-5! flex!"></i-tabler>
+                  </button>
+                  <div class="font-semibold ms-3">+9%</div>
+                  <div class="ms-1">last year</div>
+                </div>
+
+                <div class="flex items-center mt-8">
+                  <div class="flex items-center">
+                    <i-tabler name="circle-filled" class="text-primary size-3! flex"></i-tabler>
+                    <div class="ms-3">2023</div>
+                  </div>
+                  <div class="flex items-center ms-4">
+                    <i-tabler name="circle-filled" class="text-light-primary size-3! flex"></i-tabler>
+                    <div class="ms-3">2022</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-span-5">
+                <apx-chart [series]="yearlyBreakupChart.series" [dataLabels]="yearlyBreakupChart.dataLabels"
+                  [chart]="yearlyBreakupChart.chart" [legend]="yearlyBreakupChart.legend"
+                  [colors]="yearlyBreakupChart.colors" [stroke]="yearlyBreakupChart.stroke"
+                  [tooltip]="yearlyBreakupChart.tooltip" [plotOptions]="yearlyBreakupChart.plotOptions"
+                  [responsive]="yearlyBreakupChart.responsive"></apx-chart>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+      <div class="col-span-12 lg:col-span-12">
+        <mat-card class="cardWithShadow mb-0!">
+          <mat-card-header class="flex items-start">
+            <mat-card-title>Monthly Earnings</mat-card-title>
+            <div class="ms-auto">
+              <button mat-fab class="bg-light-primary shadow-none! rounded-md size-12! flex items-center">
+                <img src="assets/images/svgs/icon-master-card-2.svg" alt="icon" class="flex" />
+              </button>
+            </div>
+          </mat-card-header>
+          <mat-card-content class="pb-6 pt-5">
+            <div class="flex items-center mb-6">
+              <h4 class="text-3xl font-medium">$6,820</h4>
+              <div class="flex items-center ms-3">
+                <button mat-mini-fab class="bg-light-success text-success shadow-none! flex! size-5!">
+                  <i-tabler name="arrow-up-left" class="size-3.5! flex!"></i-tabler>
+                </button>
+                <div class="font-semibold ms-3">+9%</div>
+              </div>
+            </div>
+
+            <apx-chart [series]="monthlytwoChart.series" [dataLabels]="monthlytwoChart.dataLabels"
+              [chart]="monthlytwoChart.chart" [legend]="monthlytwoChart.legend" [colors]="monthlytwoChart.colors"
+              [stroke]="monthlytwoChart.stroke" [tooltip]="monthlytwoChart.tooltip"
+              [plotOptions]="monthlytwoChart.plotOptions" [responsive]="monthlytwoChart.responsive"></apx-chart>
+          </mat-card-content>
+        </mat-card>
+      </div>
+      <div class="col-span-12 lg:col-span-12">
+        <mat-card class="cardWithShadow mb-0!">
+          <mat-card-content>
+            <div class="flex items-start mb-6">
+              <mat-card-title>Most Visited</mat-card-title>
+              <mat-form-field class="theme-select w-36 ms-auto" appearance="outline">
+                <mat-select value="mar">
+                  @for(month of months; track month.value) {
+                  <mat-option [value]="month.value">
+                    {{ month.viewValue }}
+                  </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+            <div class="most-visit-chart rounded-bars">
+              <apx-chart [series]="mostvisitChart.series" [dataLabels]="mostvisitChart.dataLabels"
+                [chart]="mostvisitChart.chart" [legend]="mostvisitChart.legend" [colors]="mostvisitChart.colors"
+                [stroke]="mostvisitChart.stroke" [tooltip]="mostvisitChart.tooltip" [grid]="mostvisitChart.grid"
+                [plotOptions]="mostvisitChart.plotOptions" [responsive]="mostvisitChart.responsive"
+                class="rounded-chart"></apx-chart>
+            </div>
+            <div class="flex items-center justify-center mt-6">
+              <div class="flex items-center">
+                <i-tabler name="circle-filled" class="text-primary size-3! flex"></i-tabler>
+                <div class="ms-3 flex">
+                  <span class="text-sm">San Francisco </span>
+                </div>
+              </div>
+              <div class="flex ms-4 items-center">
+                <i-tabler name="circle-filled" class="text-secondary size-3! flex"></i-tabler>
+                <div class="ms-3 flex">
+                  <span class="text-sm">Diego</span>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+  </div>
+
+  <!-- column -->
+  <div class="xl:col-span-4 col-span-12">
+    <!-- card -->
+    <mat-card class="cardWithShadow">
+      <mat-card-header>
+        <mat-card-title>Yearly Sales</mat-card-title>
+        <mat-card-subtitle>Every month</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content class="pb-[30px]">
+        <apx-chart [series]="yearlysaleChart.series" [plotOptions]="yearlysaleChart.plotOptions"
+          [dataLabels]="yearlysaleChart.dataLabels" [chart]="yearlysaleChart.chart" [legend]="yearlysaleChart.legend"
+          [colors]="yearlysaleChart.colors" [tooltip]="yearlysaleChart.tooltip" [xaxis]="yearlysaleChart.xaxis"
+          [yaxis]="yearlysaleChart.yaxis" [grid]="yearlysaleChart.grid"></apx-chart>
+
+        <div class="flex items-center justify-between mt-6">
+          <div class="flex items-center">
+            <button mat-mini-fab class="text-primary bg-light-primary shadow-none! flex rounded-md">
+              <i-tabler name="grid-dots" class="size-5! flex!"></i-tabler>
+            </button>
+            <div class="ms-3">
+              <span class="text-sm">Salary</span>
+              <h5 class="text-base font-semibold mt-1">$36,358</h5>
+            </div>
+          </div>
+          <div class="flex items-center">
+            <button mat-mini-fab class="text-secondary bg-light-secondary shadow-none! flex rounded-md">
+              <i-tabler name="grid-dots" class="size-5! flex!"></i-tabler>
+            </button>
+            <div class="ms-3">
+              <span class="text-sm">Expance</span>
+              <h5 class="text-base font-semibold mt-1">$5,296</h5>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    <!-- page impressions -->
+    <mat-card class="cardWithShadow">
+      <mat-card-content>
+        <mat-card-title class="mb-6!">Page Impressions</mat-card-title>
+        <div class="grid grid-cols-12 gap-6">
+          <div class="col-span-6">
+            <h5 class="mt-1 text-lg font-semibold">$456,120</h5>
+            <mat-card-subtitle class="pb-1!">(Change Yesterday)</mat-card-subtitle>
+            <div class="flex items-center mt-4">
+              <button mat-mini-fab class="bg-light-error text-error flex shadow-none! size-6!">
+                <i-tabler name="arrow-down-left" class="size-5! flex!"></i-tabler>
+              </button>
+              <div class="font-semibold ms-3">+9%</div>
+            </div>
+          </div>
+          <div class="col-span-6">
+            <apx-chart [series]="pageimpChart.series" [chart]="pageimpChart.chart" [colors]="pageimpChart.colors"
+              [grid]="pageimpChart.grid" [plotOptions]="pageimpChart.plotOptions" [dataLabels]="pageimpChart.dataLabels"
+              [stroke]="pageimpChart.stroke" [xaxis]="pageimpChart.xaxis" [yaxis]="pageimpChart.yaxis"
+              [fill]="pageimpChart.fill" [tooltip]="pageimpChart.tooltip"></apx-chart>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    <!-- rows -->
+    <div class="grid grid-cols-12 gap-6">
+      <div class="sm:col-span-6 col-span-12">
+        <mat-card class="cardWithShadow mb-0!">
+          <mat-card-content class="mb-4 pt-8">
+            <mat-card-subtitle class="pb-1!">Customers</mat-card-subtitle>
+            <h5 class="mt-1! font-semibold text-lg">36,358</h5>
+
+            <div class="flex items-center mt-4">
+              <button mat-mini-fab class="bg-light-error text-error flex shadow-none! size-6!">
+                <i-tabler name="arrow-down-left" class="size-5! flex!"></i-tabler>
+              </button>
+              <div class="font-semibold ms-3">+9%</div>
+            </div>
+          </mat-card-content>
+          <apx-chart [series]="customerChart.series" [dataLabels]="customerChart.dataLabels"
+            [chart]="customerChart.chart" [legend]="customerChart.legend" [colors]="customerChart.colors"
+            [stroke]="customerChart.stroke" [tooltip]="customerChart.tooltip" [plotOptions]="customerChart.plotOptions"
+            [responsive]="customerChart.responsive"></apx-chart>
+        </mat-card>
+      </div>
+      <div class="sm:col-span-6 col-span-12">
+        <mat-card class="cardWithShadow mb-0!">
+          <mat-card-content class="pt-8">
+            <mat-card-subtitle class="pb-1!">Projects</mat-card-subtitle>
+            <h5 class="mt-1! font-semibold text-lg">78,298</h5>
+
+            <div class="flex items-center mt-4">
+              <button mat-mini-fab class="bg-light-success text-success flex shadow-none! size-6!">
+                <i-tabler name="arrow-up-left" class="size-5! flex!"></i-tabler>
+              </button>
+              <div class="font-semibold ms-3">+9%</div>
+            </div>
+            <apx-chart [series]="projectsChart.series" [chart]="projectsChart.chart"
+              [plotOptions]="projectsChart.plotOptions" [tooltip]="projectsChart.tooltip"
+              [stroke]="projectsChart.stroke" [xaxis]="projectsChart.xaxis" [yaxis]="projectsChart.yaxis"
+              [grid]="projectsChart.grid" [colors]="projectsChart.colors"></apx-chart>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+  </div>
+  <!-- column -->
+  <div class="xl:col-span-4 col-span-12">
+    <mat-card class="cardWithShadow">
+      <mat-card-content>
+        <mat-card-title>Revenue Updates</mat-card-title>
+        <mat-card-subtitle>Overview of Profit</mat-card-subtitle>
+        <div class="flex items-center mt-6">
+          <div class="flex items-center">
+            <i-tabler name="circle-filled" class="text-primary size-3! flex"></i-tabler>
+            <div class="ms-3 flex">
+              <span class="text-xs">Footware</span>
+            </div>
+          </div>
+          <div class="flex ms-4 items-center">
+            <i-tabler name="circle-filled" class="text-secondary size-3! flex"></i-tabler>
+            <div class="ms-3 flex">
+              <span class="text-xs">Fashionware</span>
+            </div>
+          </div>
+        </div>
+        <apx-chart [series]="revenuetwoChart.series" [dataLabels]="revenuetwoChart.dataLabels"
+          [chart]="revenuetwoChart.chart" [legend]="revenuetwoChart.legend" [xaxis]="revenuetwoChart.xaxis"
+          [yaxis]="revenuetwoChart.yaxis" [grid]="revenuetwoChart.grid" [stroke]="revenuetwoChart.stroke"
+          [tooltip]="revenuetwoChart.tooltip" [plotOptions]="revenuetwoChart.plotOptions"></apx-chart>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="cardWithShadow mb-0!">
+      <mat-card-header>
+        <mat-card-title>Sales Overview</mat-card-title>
+        <mat-card-subtitle>Every month </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content class="py-8">
+        <apx-chart [series]="salesoverviewChart.series" [plotOptions]="salesoverviewChart.plotOptions"
+          [dataLabels]="salesoverviewChart.dataLabels" [chart]="salesoverviewChart.chart"
+          [legend]="salesoverviewChart.legend" [colors]="salesoverviewChart.colors"
+          [tooltip]="salesoverviewChart.tooltip" [labels]="salesoverviewChart.labels"
+          [stroke]="salesoverviewChart.stroke"></apx-chart>
+
+        <div class="flex items-center justify-between mt-[30px]">
+          <div class="flex items-center">
+            <button mat-mini-fab class="text-primary bg-light-primary flex shadow-none! rounded-md">
+              <i-tabler name="grid-dots" class="size-5! flex!"></i-tabler>
+            </button>
+            <div class="ms-3">
+              <h5 class="text-base font-semibold mt-1">$23,450</h5>
+              <span class="text-sm">Profit</span>
+            </div>
+          </div>
+          <div class="flex items-center">
+            <button mat-mini-fab class="text-secondary bg-light-secondary flex shadow-none! rounded-md">
+              <i-tabler name="grid-dots" class="size-5! flex!"></i-tabler>
+            </button>
+            <div class="ms-3">
+              <h5 class="text-base font-semibold mt-1">$23,450</h5>
+              <span class="text-sm">Expance</span>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

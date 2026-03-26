@@ -1,0 +1,182 @@
+<mat-card class="cardWithShadow theme-card mb-0!">
+  <div class="p-6">
+    <mat-card-title class="mb-0">Dialog</mat-card-title>
+  </div>
+  <mat-card-content class="border-border border-t">
+    <div class="grid grid-cols-12 gap-6">
+      <!-- columns -->
+      <div class="col-span-12">
+        <app-code-view [isTitle]="true">
+          <!-- output view -->
+          <h4 Ctitle>
+            Animations
+          </h4>
+          <div output>
+
+            <div class="grid grid-cols-12 gap-6">
+              <div class="sm:col-span-6 col-span-12">
+                <button mat-flat-button color="primary" (click)="openDialog('0ms', '0ms')" class="w-full">
+                  Open Dialog without animation
+                </button>
+              </div>
+              <div class="sm:col-span-6 col-span-12">
+                <button mat-flat-button color="accent" class="ms-2" (click)="openDialog('3000ms', '1500ms')"
+                  class="w-full">
+                  Open Dialog slowly
+                </button>
+              </div>
+            </div>
+
+          </div>
+          <!-- html view -->
+          <div htmlView>
+            <pre>
+              <code [highlight]="codeFordialogAnimations"
+                    language="html"
+                    lineNumbers></code>
+            </pre>
+          </div>
+          <!-- typescript view -->
+          <div tsView>
+            <pre>
+              <code [highlightAuto]="codeFordialogAnimationsTs"   language="ts"
+                    lineNumbers></code>
+            </pre>
+          </div>
+        </app-code-view>
+      </div>
+      <!-- column -->
+      <div class="col-span-12 lg:col-span-6">
+        <app-code-view [isTitle]="true">
+          <!-- output view -->
+          <h4 Ctitle>
+            Scrollable content and actions
+          </h4>
+          <div output>
+
+            <button mat-flat-button color="primary" (click)="openHeaderDialog()" class="w-full">
+              Open Scrollable Dialog
+            </button>
+
+          </div>
+          <!-- html view -->
+          <div htmlView>
+            <pre>
+              <code [highlight]="codeForScrollable"
+                    language="html"
+                    lineNumbers></code>
+            </pre>
+          </div>
+          <!-- typescript view -->
+          <div tsView>
+            <pre>
+              <code [highlightAuto]="codeForScrollableTs"   language="ts"
+                    lineNumbers></code>
+            </pre>
+          </div>
+        </app-code-view>
+      </div>
+      <!-- column -->
+      <div class="col-span-12 lg:col-span-6">
+        <app-code-view [isTitle]="true">
+          <!-- output view -->
+          <h4 Ctitle>
+            Injecting data on Open
+          </h4>
+          <div output>
+
+            <button mat-flat-button color="accent" (click)="openInjectDialog()" class="w-full">
+              Open dialog
+            </button>
+
+          </div>
+          <!-- html view -->
+          <div htmlView>
+            <pre>
+              <code [highlight]="codeForInjecting"
+                    language="html"
+                    lineNumbers></code>
+            </pre>
+          </div>
+          <!-- typescript view -->
+          <div tsView>
+            <pre>
+              <code [highlightAuto]="codeForInjectingTs"   language="ts"
+                    lineNumbers></code>
+            </pre>
+          </div>
+        </app-code-view>
+      </div>
+      <!-- column -->
+      <div class="col-span-12 lg:col-span-6">
+        <app-code-view [isTitle]="true">
+          <!-- output view -->
+          <h4 Ctitle>
+            Dialog launched from a menu
+          </h4>
+          <div output>
+            <button mat-flat-button class="w-full" color="primary" [matMenuTriggerFor]="menu" #menuTrigger>
+              Menu
+            </button>
+            <mat-menu #menu="matMenu">
+              <button mat-menu-item (click)="openMenuDialog()">
+                Open dialog
+              </button>
+            </mat-menu>
+          </div>
+          <!-- html view -->
+          <div htmlView>
+            <pre>
+              <code [highlight]="codeForMenu"
+                    language="html"
+                    lineNumbers></code>
+            </pre>
+          </div>
+          <!-- typescript view -->
+          <div tsView>
+            <pre>
+              <code [highlightAuto]="codeForMenuTs"   language="ts"
+                    lineNumbers></code>
+            </pre>
+          </div>
+        </app-code-view>
+      </div>
+      <!-- column -->
+      <div class="col-span-12 lg:col-span-6">
+        <app-code-view [isTitle]="true">
+          <h4 Ctitle>
+            Dialog Overview
+          </h4>
+          <!-- output view -->
+          <div output>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>What's your name?</mat-label>
+              <input matInput [(ngModel)]="name" />
+            </mat-form-field>
+            <button mat-flat-button class="bg-primary w-full" (click)="openDialogEx()">Pick one</button>
+            @if (animal()) {
+            <span class="mt-3 block">
+              You chose: <span class="font-semibold">{{ animal() }}</span>
+            </span>
+            }
+          </div>
+          <!-- html view -->
+          <div htmlView>
+            <pre>
+              <code [highlight]="codeForOverview"
+                    language="html"
+                    lineNumbers></code>
+            </pre>
+          </div>
+          <!-- typescript view -->
+          <div tsView>
+            <pre>
+              <code [highlightAuto]="codeForOverviewTs"   language="ts"
+                    lineNumbers></code>
+            </pre>
+          </div>
+        </app-code-view>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

@@ -1,0 +1,53 @@
+<app-code-view [isTitle]="true">
+  <!-- output view -->
+  <h4 Ctitle>
+    Table dynamically changing the columns displayed
+    <span class="text-sm font-normal block">add column dynamically</span>
+  </h4>
+  <div output>
+    <div class="flex sm:block items-center gap-1 my-4">
+      <button mat-flat-button class="ms-2" (click)="addColumn()">
+        Add column
+      </button>
+      <button mat-flat-button class="ms-2 bg-error text-white!" (click)="removeColumn()">
+        Remove column
+      </button>
+      <button mat-flat-button class="bg-secondary ms-2 text-white!" (click)="shuffle()">
+        Shuffle
+      </button>
+    </div>
+
+    <div class="relative overflow-auto mt-8">
+      <table mat-table [dataSource]="data" class="min-w-full">
+        @for(column of displayedColumns; track column) {
+        <ng-container [matColumnDef]="column">
+          <th mat-header-cell *matHeaderCellDef class="font-semibold mat-subtitle-1 text-sm ps-0">
+            {{ column | titlecase }}
+          </th>
+          <td mat-cell *matCellDef="let element" class="ps-0 text-sm whitespace-nowrap">
+            {{ element[column] }}
+          </td>
+        </ng-container>
+        }
+
+        <tr mat-header-row *matHeaderRowDef="columnsToDisplay"></tr>
+        <tr mat-row *matRowDef="let row; columns: columnsToDisplay"></tr>
+      </table>
+    </div>
+  </div>
+  <!-- html view -->
+  <div htmlView>
+    <pre>
+      <code [highlight]="codeForDynamicTable"
+            language="html"
+            lineNumbers></code>
+    </pre>
+  </div>
+  <!-- typescript view -->
+  <div tsView>
+    <pre>
+      <code [highlightAuto]="codeForDynamicTableTs"   language="ts"
+            lineNumbers></code>
+    </pre>
+  </div>
+</app-code-view>

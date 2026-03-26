@@ -1,0 +1,109 @@
+<mat-card class="cardWithShadow">
+  <mat-card-content>
+    <div class="grid grid-cols-12 justify-between gap-4">
+      <div class="col-span-12 lg:col-span-3">
+        <mat-form-field appearance="outline" class="w-full hide-hint">
+          <div class="flex gap-3">
+            <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+            <input matInput placeholder="Search Employee" (keyup)="applyFilter($any($event.target).value)" />
+          </div>
+        </mat-form-field>
+      </div>
+      <div class="col-span-12 lg:col-span-9 flex items-center justify-end">
+        <!-- add employee -->
+        <button mat-flat-button (click)="openDialog('Add', {})" color="primary">
+          Add Employee
+        </button>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <div class="relative overflow-auto">
+      <table mat-table [dataSource]="dataSource" class="min-w-full stats-wrapper">
+        <ng-container matColumnDef="#">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">#</th>
+          <td class="whitespace-nowrap" mat-cell *matCellDef="let element">{{ element.id }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">Name</th>
+          <td class="whitespace-nowrap" mat-cell *matCellDef="let element">
+            <div class="flex items-center gap-4">
+              <img class="rounded-full" [src]="element.imagePath" width="45" />
+              <div>
+                <h6 class="font-semibold text-base mt-0">
+                  {{ element.Name }}
+                </h6>
+                <span class="text-sm">{{ element.Position }}</span>
+              </div>
+            </div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="email">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Email
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.Email }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="mobile">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Mobile
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.Mobile }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="date of joining">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Date of Joining
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.DateOfJoining | date : "fullDate" }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="salary">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Salary
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.Salary }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="projects">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Projects
+          </th>
+          <td mat-cell *matCellDef="let element" class="text-sm whitespace-nowrap">
+            {{ element.Projects }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="action">
+          <th mat-header-cell *matHeaderCellDef class="text-base font-semibold">
+            Action
+          </th>
+          <td mat-cell *matCellDef="let element" class="action-link whitespace-nowrap">
+            <a (click)="openDialog('Update', element)" class="me-2.5 cursor-pointer"><i-tabler name="edit"
+                class="size-4.5!"></i-tabler></a>
+            <a (click)="openDialog('Delete', element)" class="cursor-pointer">
+              <i-tabler name="trash" class="size-4.5!"></i-tabler>
+            </a>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+      <mat-paginator [pageSizeOptions]="[5, 10, 20]" showFirstLastButtons></mat-paginator>
+    </div>
+  </mat-card-content>
+</mat-card>

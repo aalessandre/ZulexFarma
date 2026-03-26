@@ -1,0 +1,27 @@
+<div class="px-6 py-5 flex items-center justify-between gap-4">
+  <mat-form-field appearance="outline" color="primary" class="hide-hint w-full">
+    <input matInput placeholder="Search here" [(ngModel)]="searchText" />
+  </mat-form-field>
+
+  <button mat-icon-button mat-dialog-close class="flex justify-center">
+    <i-tabler name="x" class="text-base flex"></i-tabler>
+  </button>
+</div>
+<mat-divider></mat-divider>
+<mat-dialog-content class="mat-typography search-dialog">
+  <h4 class="text-lg font-semibold mat-subtitle-1 mb-4">Quick Page Links</h4>
+
+  @for(item of navItemsData; track item.id) {
+  <span>
+    @for(child of item.children ; track child.displayName){
+    @if(child.displayName) {
+    <a [routerLink]="[item.route]" mat-dialog-close class="py-3 no-underline block">
+      <h5 class="text-sm font-medium block">
+        {{ child.displayName }}
+      </h5>
+      <span class="text-xs">{{ child.route }}</span>
+    </a>
+    } }
+  </span>
+  }
+</mat-dialog-content>

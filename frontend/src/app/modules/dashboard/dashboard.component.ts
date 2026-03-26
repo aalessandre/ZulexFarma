@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AuthService } from '../../core/services/auth.service';
 import { TabService } from '../../core/services/tab.service';
+import { ErpSettingsService } from '../../core/services/erp-settings.service';
 import { environment } from '../../../environments/environment';
 
 const ICONS: Record<string, string> = {
@@ -29,6 +30,7 @@ const ICONS: Record<string, string> = {
 
 export interface TileItem {
   label: string;
+  sigla: string;
   iconKey: string;
   rota: string;
   tamanho?: 'normal' | 'largo';
@@ -55,46 +57,46 @@ export class DashboardComponent {
       nome: 'Movimento',
       cor: '#00acc1',
       tiles: [
-        { label: 'Vendas',           iconKey: 'cart',      rota: '/erp/vendas',              tamanho: 'largo' },
-        { label: 'Empréstimo',       iconKey: 'handshake', rota: '/erp/emprestimo' },
-        { label: 'Mov. de Estoque',  iconKey: 'box',       rota: '/erp/movimentacao-estoque' },
-        { label: 'Carteira Digital', iconKey: 'wallet',    rota: '/erp/carteira' },
-        { label: 'Conta do Cliente', iconKey: 'user',      rota: '/erp/conta-cliente',       tamanho: 'largo' },
-        { label: 'Caixa',            iconKey: 'cash',      rota: '/erp/caixa' },
-        { label: 'Compras',          iconKey: 'cart2',     rota: '/erp/compras' },
-        { label: 'Financeiro',       iconKey: 'dollar',    rota: '/erp/financeiro',          tamanho: 'largo' },
+        { label: 'Vendas',           sigla: 'VE', iconKey: 'cart',      rota: '/erp/vendas' },
+        { label: 'Empréstimo',       sigla: 'EP', iconKey: 'handshake', rota: '/erp/emprestimo' },
+        { label: 'Mov. de Estoque',  sigla: 'ME', iconKey: 'box',       rota: '/erp/movimentacao-estoque' },
+        { label: 'Carteira Digital', sigla: 'CD', iconKey: 'wallet',    rota: '/erp/carteira' },
+        { label: 'Conta do Cliente', sigla: 'CC', iconKey: 'user',      rota: '/erp/conta-cliente' },
+        { label: 'Caixa',            sigla: 'CX', iconKey: 'cash',      rota: '/erp/caixa' },
+        { label: 'Compras',          sigla: 'CP', iconKey: 'cart2',     rota: '/erp/compras' },
+        { label: 'Financeiro',       sigla: 'FN', iconKey: 'dollar',    rota: '/erp/financeiro' },
       ]
     },
     {
       nome: 'Cadastros',
       cor: '#e65100',
       tiles: [
-        { label: 'Clientes',         iconKey: 'users',     rota: '/erp/clientes',     tamanho: 'largo' },
-        { label: 'Colaboradores',    iconKey: 'user',      rota: '/erp/colaboradores', tamanho: 'largo' },
-        { label: 'Produtos',         iconKey: 'pill',      rota: '/erp/produtos',     tamanho: 'largo' },
-        { label: 'Fornecedores',     iconKey: 'truck',     rota: '/erp/fornecedores', tamanho: 'largo' },
+        { label: 'Clientes',         sigla: 'CL', iconKey: 'users',     rota: '/erp/clientes' },
+        { label: 'Colaboradores',    sigla: 'CO', iconKey: 'user',      rota: '/erp/colaboradores' },
+        { label: 'Produtos',         sigla: 'PR', iconKey: 'pill',      rota: '/erp/produtos' },
+        { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
       ]
     },
     {
       nome: 'Relatórios',
       cor: '#6a1b9a',
       tiles: [
-        { label: 'Análise de Vendas',   iconKey: 'chart', rota: '/erp/rel/vendas' },
-        { label: 'Análise de Produtos', iconKey: 'chart', rota: '/erp/rel/produtos' },
-        { label: 'Log de Auditoria',    iconKey: 'log',   rota: '/erp/log-geral', tamanho: 'largo' },
+        { label: 'Análise de Vendas',   sigla: 'AV', iconKey: 'chart', rota: '/erp/rel/vendas' },
+        { label: 'Análise de Produtos', sigla: 'AP', iconKey: 'chart', rota: '/erp/rel/produtos' },
+        { label: 'Log de Auditoria',    sigla: 'LA', iconKey: 'log',   rota: '/erp/log-geral' },
       ]
     },
     {
       nome: 'Manutenção',
       cor: '#f9a825',
       tiles: [
-        { label: 'Manutenção',       iconKey: 'wrench',   rota: '/erp/manutencao' },
-        { label: 'Sincronização',   iconKey: 'wrench',   rota: '/erp/sync' },
-        { label: 'Grupo de Usuários', iconKey: 'lock',     rota: '/erp/grupos' },
-        { label: 'Usuários',         iconKey: 'users',    rota: '/erp/usuarios' },
-        { label: 'Filiais',          iconKey: 'building', rota: '/erp/filiais' },
-        { label: 'Sistema',           iconKey: 'gear',     rota: '/erp/sistema' },
-        { label: 'Configurações',    iconKey: 'gear',     rota: '/erp/configuracoes', tamanho: 'largo' },
+        { label: 'Manutenção',        sigla: 'MT', iconKey: 'wrench',   rota: '/erp/manutencao' },
+        { label: 'Sincronização',     sigla: 'SI', iconKey: 'wrench',   rota: '/erp/sync' },
+        { label: 'Grupo de Usuários', sigla: 'GU', iconKey: 'lock',     rota: '/erp/grupos' },
+        { label: 'Usuários',          sigla: 'US', iconKey: 'users',    rota: '/erp/usuarios' },
+        { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },
+        { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
+        { label: 'Configurações',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
       ]
     }
   ];
@@ -111,6 +113,7 @@ export class DashboardComponent {
   constructor(
     private authService: AuthService,
     public tabService: TabService,
+    public settings: ErpSettingsService,
     private router: Router,
     private sanitizer: DomSanitizer,
     private http: HttpClient

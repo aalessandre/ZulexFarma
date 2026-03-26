@@ -1,0 +1,7 @@
+@use "../variables" as *;
+
+.todo-item {
+  .completed {
+    text-decoration: line-through;
+  }
+}

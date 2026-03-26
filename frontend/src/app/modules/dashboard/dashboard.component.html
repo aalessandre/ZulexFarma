@@ -75,7 +75,7 @@
   }
 
   <!-- TILES -->
-  <main class="dash-main">
+  <main class="dash-main" [style.background]="settings.fundoDash()">
     <div class="tiles-area">
       @for (bloco of blocos; track bloco.nome) {
         <div class="bloco">
@@ -83,10 +83,9 @@
           <div class="tiles-grid">
             @for (tile of bloco.tiles; track tile.label) {
               <div class="tile"
-                   [class.tile-wide]="tile.tamanho === 'largo'"
                    [style.background]="bloco.cor"
                    (click)="navegar(tile)">
-                <div class="tile-sigla" [innerHTML]="getIcon(tile.iconKey)"></div>
+                <span class="tile-sigla">{{ tile.sigla }}</span>
                 <span class="tile-label">{{ tile.label }}</span>
               </div>
             }

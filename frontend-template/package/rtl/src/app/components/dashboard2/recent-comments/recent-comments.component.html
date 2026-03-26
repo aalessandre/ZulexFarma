@@ -1,0 +1,41 @@
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content class="pb-4!">
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-1">
+      <div>
+        <mat-card-title>Recent Comments</mat-card-title>
+        <mat-card-subtitle>Latest Comments on users from Material</mat-card-subtitle>
+      </div>
+      <button mat-flat-button>View All</button>
+    </div>
+
+    @for(recentcomment of recentcomments; track recentcomment) {
+    <div class="flex gap-4 flex-row comment-row border-b border-border py-5">
+      <div class="size-11! shrink-0">
+        <img src="{{ recentcomment.image }}" class="rounded-full" alt="user" width="44" height="44" />
+      </div>
+      <div class="comment-text w-full">
+        <h5 class="text-base font-medium mb-2">{{ recentcomment.name }}</h5>
+        <p class="text-sm mb-2 mt-0">{{ recentcomment.comment }}</p>
+        <div class="comment-footer flex items-center flex-wrap gap-2 justify-between">
+          <div class="flex items-center gap-3">
+            <span class="badge px-2.5 py-1 text-xs font-medium rounded-full {{
+                recentcomment.labelcolor
+              }}">{{ recentcomment.status }}</span>
+            <span class="action-icons flex items-center gap-1.5!">
+              <a href="javascript:void(0)">
+                <i-tabler name="edit" class="size-4.5! flex"></i-tabler>
+              </a>
+              <a href="javascript:void(0)">
+                <i-tabler name="circle-check" class="size-4.5! flex"></i-tabler></a>
+              <a href="javascript:void(0)">
+                <i-tabler name="heart" class="size-4.5! flex"></i-tabler>
+              </a>
+            </span>
+          </div>
+          <span class="text-sm">{{ recentcomment.date }}</span>
+        </div>
+      </div>
+    </div>
+    }
+  </mat-card-content>
+</mat-card>

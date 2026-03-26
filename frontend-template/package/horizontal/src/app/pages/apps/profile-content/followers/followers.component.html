@@ -1,0 +1,50 @@
+<div class="followers-contents">
+  <div class="header-content">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-2">
+        <h5 class="font-medium text-xl">Followers</h5>
+        <div class="px-1.5 py-0.5 rounded-full bg-secondary text-white">
+          <div class="text-sm leading-5">{{ filteredCount }}</div>
+        </div>
+      </div>
+      <!-- Search bar pushed to the right -->
+      <div class="grow flex justify-end mt-3">
+        <mat-form-field appearance="outline" class="search-bar-style">
+          <div class="flex gap-3">
+            <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+            <input matInput placeholder="Search Followers" [(ngModel)]="searchText" />
+          </div>
+        </mat-form-field>
+      </div>
+    </div>
+    <div class="grid grid-cols-12 gap-6">
+      @for(followercard of filteredFollowercards(); track followercard.id){
+      <div class="col-span-12 sm:col-span-6 lg:col-span-4">
+        <mat-card class="cardWithShadow mb-0!">
+          <mat-card-content>
+            <div class="flex items-center">
+              <div class="flex items-center">
+                <img src="{{ followercard.imgSrc }}" width="40" alt="user" class="rounded-full" />
+                <div class="ms-4">
+                  <h6 class="m-0 font-semibold text-base">{{ followercard.title }}</h6>
+                  <span class="flex items-center text-sm"><i-tabler name="map-pin" class="size-3.5! me-1"></i-tabler>{{
+                    followercard.subtext }}</span>
+                </div>
+              </div>
+              @if (followercard.status) {
+              <button mat-flat-button color="primary" class="ms-auto">
+                Follow
+              </button>
+              }@else {
+              <button mat-stroked-button class="ms-auto">Unfollow</button>
+              }
+
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+      }
+    </div>
+
+  </div>
+</div>

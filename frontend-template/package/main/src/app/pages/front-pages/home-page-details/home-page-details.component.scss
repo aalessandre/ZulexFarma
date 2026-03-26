@@ -1,0 +1,66 @@
+.home-page-details {
+  .banner {
+    .container {
+      .banner-slider {
+        min-width: 1300px;
+        max-height: 700px;
+        height: calc(100vh - 100px);
+        background-color: var(--mat-sys-background);
+      }
+    }
+  }
+
+  .navigation {
+    .nav-bar {
+      .custom-tab-bar {
+        .btn-bg {
+          background-color: var(--mat-sys-primary-fixed-dim);
+          color: var(--mat-sys-primary);
+          transition: all 0.3s ease;
+          height: 47px;
+
+          &:hover {
+            color: var(--mat-sys-primary);
+          }
+
+          &.active {
+            background-color: var(--mat-sys-primary) !important;
+            color: var(--mat-sys-background) !important;
+
+            .material-icons {
+              color: var(--mat-sys-background) !important;
+            }
+          }
+        }
+      }
+
+      .tab-content {
+        .accordion {
+          .expansion {
+            box-shadow: none !important;
+            background: none !important;
+            border-radius: 0 !important;
+
+            mat-expansion-panel-header {
+              padding: 20px 0 !important;
+              margin: 0 !important;
+              height: auto;
+            }
+
+            .mat-expansion-panel-content-wrapper {
+              .mat-expansion-panel-content {
+                .mat-expansion-panel-body {
+                  padding: 0 !important;
+                }
+              }
+            }
+          }
+        }
+
+        .mat-expansion-panel:not(.mat-expanded) .mat-expansion-panel-header:not([aria-disabled="true"]):hover {
+          background: none !important;
+        }
+      }
+    }
+  }
+}

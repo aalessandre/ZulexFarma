@@ -1,0 +1,162 @@
+﻿<div class="w-full relative">
+  <!-- ------------------------------------------------------------------ -->
+  <!-- If contact is selected -->
+  <!-- ------------------------------------------------------------------ -->
+  @if( selectedContact()) {
+  <div class="flex items-center justify-between px-6 py-4">
+    <h5 class="font-semibold text-lg">Contact Details</h5>
+
+    <!-- contact actions -->
+    <div class="flex items-center">
+      <button class="flex items-center justify-center" [matTooltip]="contact()?.starred ? 'Unstar' : 'Star'"
+        mat-icon-button (click)="toggleStarred(contact(), $event)">
+        @if(contact()?.starred){
+        <i-tabler name="star" class="size-4.5! flex items-center fill-warning"></i-tabler>
+        } @else {
+        <i-tabler name="star" class="size-4.5! flex items-center"></i-tabler>
+        }
+      </button>
+      <button class="flex items-center justify-center" [matTooltip]="isEditing() ? 'Save' : 'Edit'" mat-icon-button
+        (click)="isEditing() ? saveContact() : editContact()">
+        <i-tabler [name]="isEditing() ? 'device-floppy' : 'pencil'" class="size-4.5! flex items-center"></i-tabler>
+      </button>
+      <button class="flex items-center justify-center" mat-icon-button (click)="deleteContact(contact())"
+        matTooltip="Delete">
+        <i-tabler name="trash" class="size-4.5! flex items-center"></i-tabler>
+      </button>
+    </div>
+  </div>
+  }
+
+  <mat-divider></mat-divider>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!--  Contact in List View  -->
+  <!-- ------------------------------------------------------------------ -->
+  @if(selectedContact()) {
+  <ng-scrollbar class="relative" style="height: calc(100vh - 350px)">
+    @if(!isEditing() && contact()) {
+    <div class="p-6">
+      <div class="flex items-center gap-4">
+        <img [src]="contact().image" class="rounded-full" alt="userimg" width="72px" height="72px" />
+        <div>
+          <h5 class="font-semibold text-base">
+            {{ contact().firstname }}
+          </h5>
+          <span class="font-normal text-xs">
+            {{ contact().department }}
+          </span>
+          <span class="font-normal text-xs">
+            {{ contact().company }}
+          </span>
+        </div>
+      </div>
+      <div class="grid grid-cols-12">
+        <div class="lg:col-span-6 col-span-12 mt-8">
+          <span class="text-xs">Phone Number</span>
+          <h5 class="font-semibold leading-5 text-sm">
+            {{ contact().phone }}
+          </h5>
+        </div>
+        <div class="lg:col-span-6 col-span-12 mt-8">
+          <span class="text-xs">Email address</span>
+          <h5 class="font-semibold leading-5 text-sm">
+            {{ contact().email }}
+          </h5>
+        </div>
+        <div class="col-span-12 mt-8">
+          <span class="text-xs">Address</span>
+          <h5 class="font-semibold leading-5 text-sm">
+            {{ contact().address }}
+          </h5>
+        </div>
+        <div class="lg:col-span-6 col-span-12 mt-8">
+          <span class="text-xs">Department</span>
+          <h5 class="font-semibold leading-5 text-sm">
+            {{ contact().department }}
+          </h5>
+        </div>
+        <div class="lg:col-span-6 col-span-12 mt-8">
+          <span class="text-xs">Company</span>
+          <h5 class="font-semibold leading-5 text-sm">
+            {{ contact().company }}
+          </h5>
+        </div>
+        <div class="col-span-12 mt-8">
+          <span class="text-xs">Notes</span>
+          <h5 class="font-normal text-sm">{{ contact().notes }}</h5>
+        </div>
+      </div>
+    </div>
+    <mat-divider></mat-divider>
+    <div class="p-6 flex items-center gap-2">
+      <button mat-flat-button color="primary" (click)="editContact()">
+        Edit
+      </button>
+      <button mat-flat-button class="bg-error" (click)="deleteContact(contact())">
+        Delete
+      </button>
+    </div>
+
+    }
+
+    <!-- ------------------------------------------------------------------ -->
+    <!--  Contact in Edit View  -->
+    <!-- ------------------------------------------------------------------ -->
+    @else {
+    <div class="p-6">
+      <div class="mt-2.5">
+        <div>
+          <form (ngSubmit)="saveContact()">
+            <mat-label class="text-sm font-semibold mb-2 block">First Name</mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput [(ngModel)]="formData().firstname" name="firstname" required />
+            </mat-form-field>
+            <mat-label class="text-sm font-semibold mb-2 block">Last Name</mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput [(ngModel)]="formData().lastname" name="lastname" required />
+            </mat-form-field>
+            <mat-label class="text-sm font-semibold mb-2 block">Company</mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput [(ngModel)]="formData().company" name="company" required />
+            </mat-form-field>
+            <mat-label class="text-sm font-semibold mb-2 block">Phone</mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput [(ngModel)]="formData().phone" name="phone" required />
+            </mat-form-field>
+            <mat-label class="text-sm font-semibold mb-2 block">Email</mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput [(ngModel)]="formData().email" name="email" required />
+            </mat-form-field>
+            <mat-label class="text-sm font-semibold mb-2 block">Address</mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput [(ngModel)]="formData().address" name="address" />
+            </mat-form-field>
+            <mat-label class="text-sm font-semibold mb-2 block">Notes</mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea matInput [(ngModel)]="formData().notes" name="notes"></textarea>
+            </mat-form-field>
+            <mat-label class="text-sm font-semibold mb-2 block">Department</mat-label>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-select [(ngModel)]="formData().department" name="department" required>
+                @for ( department of departments; track department) {
+                <mat-option [value]="department.name">
+                  {{ department.name }}
+                </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <div class="mt-2 flex items-center gap-2">
+              <button type="submit" mat-flat-button>Save Contact</button>
+              <button mat-flat-button class="bg-error text-white!" (click)="cancelEdit()">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    }
+  </ng-scrollbar>
+  }
+</div>

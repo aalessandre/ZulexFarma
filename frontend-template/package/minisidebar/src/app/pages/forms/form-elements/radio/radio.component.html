@@ -1,0 +1,73 @@
+<mat-card class="cardWithShadow theme-card mb-0!">
+  <div class="p-6">
+    <mat-card-title class="mb-0">Radio</mat-card-title>
+  </div>
+  <mat-card-content class="border-t border-border flex! flex-col gap-6">
+    <app-code-view [isTitle]="true">
+      <!-- output view -->
+      <h4 Ctitle>
+        Basic
+      </h4>
+      <div output>
+        <mat-radio-group aria-label="Select an option">
+          <mat-radio-button value="1" color="primary">Option 1</mat-radio-button>
+          <mat-radio-button value="2" color="primary">Option 2</mat-radio-button>
+        </mat-radio-group>
+      </div>
+      <!-- html view -->
+      <div htmlView>
+        <pre>
+          <code [highlight]="codeForBasicRadio"
+                language="html"
+                lineNumbers></code>
+        </pre>
+      </div>
+      <!-- typescript view -->
+      <div tsView>
+        <pre>
+          <code [highlightAuto]="codeForBasicRadioTs"   language="ts"
+                lineNumbers></code>
+        </pre>
+      </div>
+    </app-code-view>
+
+    <app-code-view [isTitle]="true">
+      <!-- output view -->
+      <h4 Ctitle>
+        ngModel
+      </h4>
+      <div output>
+        <label id="example-radio-group-label" class="font-semibold block text-sm">Pick your favorite season</label>
+        <mat-radio-group aria-labelledby="example-radio-group-label" class="example-radio-group"
+          [(ngModel)]="favoriteSeason">
+          @for(season of seasons; track season) {
+          <mat-radio-button class="example-radio-button" color="primary" [value]="season">
+            {{ season }}
+          </mat-radio-button>
+          }
+        </mat-radio-group>
+        <div class="p-6 rounded-md bg-light mt-4">
+          <div class="font-semibold text-sm">
+            Your favorite season is: {{ favoriteSeason }}
+          </div>
+        </div>
+      </div>
+      <!-- html view -->
+      <div htmlView>
+        <pre>
+          <code [highlight]="codeForngModelRadio"
+                language="html"
+                lineNumbers></code>
+        </pre>
+      </div>
+      <!-- typescript view -->
+      <div tsView>
+        <pre>
+          <code [highlightAuto]="codeForngModelRadioTs"   language="ts"
+                lineNumbers></code>
+        </pre>
+      </div>
+    </app-code-view>
+
+  </mat-card-content>
+</mat-card>

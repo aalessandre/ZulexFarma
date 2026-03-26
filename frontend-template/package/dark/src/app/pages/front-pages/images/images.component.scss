@@ -1,0 +1,10 @@
+.leadership-card {
+  position: absolute;
+  bottom: -100%;
+  transition: all .3s;
+  width: -webkit-fill-available;
+}
+
+.meet-our-team:hover .leadership-card {
+  bottom: 0;
+}

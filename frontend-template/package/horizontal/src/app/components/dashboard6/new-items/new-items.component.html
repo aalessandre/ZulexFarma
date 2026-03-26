@@ -1,0 +1,19 @@
+<mat-card class="cardWithShadow overflow-hidden mb-0!">
+  <div class="px-7.5 py-2 flex items-center justify-between">
+    <mat-card-title>New items</mat-card-title>
+    <div>
+      <button class="flex items-center justify-center" mat-icon-button [matMenuTriggerFor]="beforeMenu">
+        <i-tabler name="dots" class="text-body flex"></i-tabler>
+      </button>
+      <mat-menu #beforeMenu="matMenu" xPosition="before">
+        <button mat-menu-item>Item 1</button>
+        <button mat-menu-item>Item 2</button>
+        <button mat-menu-item>Item 3</button>
+      </mat-menu>
+    </div>
+  </div>
+  <mat-card-content class="text-center">
+    <img alt="chair" class="mx-auto" src="assets/images/gallery/chair.png" />
+    <mat-card-title>Brand New Chair</mat-card-title>
+  </mat-card-content>
+</mat-card>

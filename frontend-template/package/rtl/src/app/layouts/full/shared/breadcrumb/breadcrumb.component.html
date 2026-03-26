@@ -1,0 +1,54 @@
+<div class="mb-6 flex flex-wrap gap-7.5 items-center justify-between">
+  <div class="flex flex-col">
+    <h4 class="page-title text-lg font-medium">
+      {{ pageInfo?.['title'] }}
+    </h4>
+    <div class="flex items-center overflow-hidden justify-content-start list-style-none">
+      <ul class="breadcrumb">
+        @for (url of pageInfo?.['urls']; track url.url;let index =
+        $index,last = $last ) { @if(!last){
+        <li class="breadcrumb-item" [routerLink]="url.url">
+          <a [routerLink]="url.url">{{ url.title }}</a>
+        </li>
+        }@else {
+        <li class="breadcrumb-item">
+          <i-tabler name="circle-filled" class="size-2!"></i-tabler>
+        </li>
+
+        <li class="breadcrumb-item active text-sm">{{ url.title }}</li>
+        } }
+      </ul>
+    </div>
+  </div>
+  <div class="relative items-center justify-end gap-5 hidden md:flex">
+    <div class="flex items-center gap-2">
+      <div class="text-left">
+        <span class="text-xs">This Month</span>
+        <h6 class="text-primary m-0 text-lg font-medium">$58,356</h6>
+      </div>
+      <div class="flex flex-column">
+        <apx-chart [series]="breadcrumbOption.series" [chart]="breadcrumbOption.chart"
+          [dataLabels]="breadcrumbOption.dataLabels" [plotOptions]="breadcrumbOption.plotOptions"
+          [yaxis]="breadcrumbOption.yaxis" [legend]="breadcrumbOption.legend" [fill]="breadcrumbOption.fill"
+          [stroke]="breadcrumbOption.stroke" [tooltip]="breadcrumbOption.tooltip" [xaxis]="breadcrumbOption.xaxis"
+          [grid]="breadcrumbOption.grid">
+        </apx-chart>
+      </div>
+    </div>
+    <!-- 2 -->
+    <div class="flex items-center gap-2">
+      <div class="text-left">
+        <span class="text-xs">Last Month</span>
+        <h6 class="text-secondary m-0 text-lg font-medium">$48,356</h6>
+      </div>
+      <div class="flex flex-column">
+        <apx-chart [series]="breadcrumb2Option.series" [chart]="breadcrumb2Option.chart"
+          [dataLabels]="breadcrumb2Option.dataLabels" [plotOptions]="breadcrumb2Option.plotOptions"
+          [yaxis]="breadcrumb2Option.yaxis" [legend]="breadcrumb2Option.legend" [fill]="breadcrumb2Option.fill"
+          [stroke]="breadcrumb2Option.stroke" [tooltip]="breadcrumb2Option.tooltip" [xaxis]="breadcrumb2Option.xaxis"
+          [grid]="breadcrumb2Option.grid">
+        </apx-chart>
+      </div>
+    </div>
+  </div>
+</div>

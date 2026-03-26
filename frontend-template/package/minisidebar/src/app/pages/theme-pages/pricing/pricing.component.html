@@ -1,0 +1,72 @@
+<div class="max-w-5xl px-3 mx-auto">
+  <h4 class="text-3xl font-semibold text-center leading-relaxed mb-4">
+    Flexible Plans Tailored to Fit Your Community's Unique Needs!
+  </h4>
+  <div class="flex items-center justify-center">
+    <span class="text-sm me-2">Monthly</span>
+    <mat-slide-toggle (click)="show = !show" color="primary">Yearly</mat-slide-toggle>
+  </div>
+</div>
+
+<div class="grid grid-cols-12 gap-6 mt-16">
+  @for(pricecard of pricecards; track pricecard.plan) {
+  <div class="sm:col-span-6 col-span-12 lg:col-span-4">
+    <mat-card class="cardWithShadow mb-0!">
+      <mat-card-content class="py-6">
+        @if(pricecard.popular) {
+        <span
+          class="popular-badge absolute right-4 rtl:right-auto rtl:left-4 uppercase bg-light-warning text-warning px-2 py-1 text-xs font-medium rounded-md">Popular</span>
+        }
+
+        <span class="block uppercase text-xs mb-4">{{
+          pricecard.plan
+          }}</span>
+        <img src="{{ pricecard.imgSrc }}" alt="badge" width="90" />
+
+        @if(pricecard.free) {
+        <h2 class="text-5xl font-bold my-5">Free</h2>
+        } @else {
+        <div>
+          @if(show) {
+          <div>
+            <div class="flex my-5">
+              <span class="text-xl font-bold text-ld -mt-2 me-2">$</span>
+              <h2 class="text-5xl font-bold">
+                {{ yearlyPrice(pricecard.planPrice) }}
+              </h2>
+              <span class="text-base text-dark mt-3 ms-1.5">/mo</span>
+            </div>
+          </div>
+          } @else {
+          <div class="flex my-5">
+            <span class="text-xl font-bold text-ld -mt-2 me-2">$</span>
+            <h2 class="text-5xl font-bold">
+              {{ pricecard.planPrice }}
+            </h2>
+            <span class="text-base text-dark mt-3 ms-1.5">/mo</span>
+          </div>
+          }
+        </div>
+        }
+        @for(rule of pricecard.rules; track rule){
+        <div class="flex items-center py-3">
+          @if(rule.limit) {
+          <div class="flex items-center">
+            <i-tabler name="check" class="size-4! me-3 text-primary flex"></i-tabler>
+            <span class="text-sm font-medium">{{ rule.title }}</span>
+          </div>
+
+          } @else {
+          <i-tabler name="x" class="size-4! me-3 opacity-50 flex"></i-tabler>
+          <span class="opacity-50 font-medium text-sm">{{ rule.title }}</span>
+          }
+        </div>
+        }
+        <button mat-flat-button color="primary" class="w-full mt-6">
+          {{ pricecard.btnText }}
+        </button>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  }
+</div>

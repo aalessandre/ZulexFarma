@@ -1,0 +1,27 @@
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content class="pb-0!">
+    <div class="flex flex-wrap gap-4 justify-between mb-4">
+      <div>
+        <mat-card-title>Sales Overview</mat-card-title>
+        <mat-card-subtitle>Ample Admin Vs Pixel Admin</mat-card-subtitle>
+      </div>
+      <div>
+        <div class="flex flex-row gap-4 items-center">
+          <div class="flex items-center gap-1.5 text-primary">
+            <i-tabler name="circle-filled" class="size-3!"></i-tabler>
+            <span class="text-sm">Ample</span>
+          </div>
+          <div class="flex items-center gap-1.5 text-secondary">
+            <i-tabler name="circle-filled" class="size-3!"></i-tabler>
+            <span class="text-sm">Pixel</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <apx-chart class="-mx-3" [series]="salesChart.series" [dataLabels]="salesChart.dataLabels"
+      [chart]="salesChart.chart" [legend]="salesChart.legend" [xaxis]="salesChart.xaxis" [yaxis]="salesChart.yaxis"
+      [grid]="salesChart.grid" [stroke]="salesChart.stroke" [fill]="salesChart.fill" [tooltip]="salesChart.tooltip"
+      [colors]="salesChart.colors" [responsive]="salesChart.responsive"
+      [plotOptions]="salesChart.plotOptions"></apx-chart>
+  </mat-card-content>
+</mat-card>

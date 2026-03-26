@@ -1,0 +1,25 @@
+<div class="pricing-page">
+  <div class="banner-pricing bg-extra-light py-14">
+    <div class="container">
+      <div class="flex justify-between flex-wrap items-center height-row">
+        <h2 class="text-2xl sm:text-3xl md:text-[44px] font-bold">Choose Your Plan</h2>
+        <div class="flex items-center gap-1.5 breadcrumb">
+          <a [routerLink]="'/front-pages/homepage'"
+            class="text-sm text-uppercase no-underline font-bold">MaterialPro</a>
+          <i-tabler name="chevron-right" class="size-4.5! flex"></i-tabler>
+          <a [routerLink]="'/front-pages/pricing'" class="text-sm text-uppercase text-primary no-underline font-bold">
+            Pricing page
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pricing md:py-20 py-6 bg-white">
+    <app-price-page></app-price-page>
+  </div>
+
+  <div class="footer">
+    <app-footer></app-footer>
+  </div>
+</div>

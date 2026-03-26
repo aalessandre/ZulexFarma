@@ -1,0 +1,11 @@
+<mat-card class="cardWithShadow mb-0!">
+  <div class="p-5">
+    <mat-card-subtitle class="mb-1!">Online Revenue</mat-card-subtitle>
+    <mat-card-title>$2376</mat-card-title>
+    <apx-chart [series]="downloadOptions.series" [chart]="downloadOptions.chart" [grid]="downloadOptions.grid"
+      [xaxis]="downloadOptions.xaxis" [yaxis]="downloadOptions.yaxis" [dataLabels]="downloadOptions.dataLabels"
+      [plotOptions]="downloadOptions.plotOptions" [tooltip]="downloadOptions.tooltip" [colors]="downloadOptions.colors"
+      [stroke]="downloadOptions.stroke" [fill]="downloadOptions.fill">
+    </apx-chart>
+  </div>
+</mat-card>

@@ -1,0 +1,176 @@
+﻿<!-- ----------------------------------------------------------------- -->
+<!-- If Blog is available -->
+<!-- ----------------------------------------------------------------- -->
+@if(blogDetail()) {
+<mat-card class="cardWithShadow">
+  <img mat-card-image src="{{ blogDetail()?.imgSrc }}" alt="Photo of a Shiba Inu" height="440" />
+  <div class="detail-card-overlay -mt-14 z-2 flex items-end justify-end">
+    <span class="text-xs my-4 font-semibold bg-white rounded-full py-1 px-2 me-4">2 mins Read</span>
+  </div>
+  <mat-card-content class="p-6 border-b border-border">
+    <div class="user-category">
+      <div>
+        <img src="{{ blogDetail()?.user }}" class="rounded-full" width="40" />
+      </div>
+      <span class="text-xs my-4 font-semibold rounded-full px-2 py-1 inline-block bg-primary text-white">{{
+        blogDetail()?.category }}</span>
+    </div>
+
+    <mat-card-title class="mt-4 mb-6 blog-title">{{ blogDetail()?.title }}
+    </mat-card-title>
+    <div class="flex items-center justify-center mt-6">
+      <div class="flex items-center">
+        <span class="me-3 text-sm flex items-center"><i-tabler name="eye" class="size-4.5! me-1"></i-tabler>{{
+          blogDetail()?.views }}</span>
+        <span class="text-sm flex items-center"><i-tabler name="message-2" class="size-4.5! me-1"></i-tabler>4</span>
+      </div>
+      <span class="ms-auto text-sm flex items-center">
+        <i-tabler name="point" class="size-3.5! me-1"></i-tabler>
+        {{ blogDetail()?.date }}
+      </span>
+    </div>
+  </mat-card-content>
+  <mat-card-content>
+    <h2 class="text-2xl font-semibold text-[30px]">Title of the paragraph</h2>
+    <p class="text-sm mt-4">
+      But you cannot figure out what it is or what it can do. MTA web directory
+      is the simplest way in which one can bid on a link, or a few links if they
+      wish to do so. The link directory on MTA displays all of the links it
+      currently has, and does so in alphabetical order, which makes it much
+      easier for someone to find what they are looking for if it is something
+      specific and they do not want to go through all the other sites and links
+      as well. It allows you to start your bid at the bottom and slowly work
+      your way to the top of the list.
+    </p>
+
+    <p class="text-sm mt-4">
+      Gigure out what it is or what it can do. MTA web directory is the simplest
+      way in which one can bid on a link, or a few links if they wish to do so.
+      The link directory on MTA displays all of the links it currently has, and
+      does so in alphabetical order, which makes it much easier for someone to
+      find what they are looking for if it is something specific and they do not
+      want to go through all the other sites and links as well. It allows you to
+      start your bid at the bottom and slowly work your way to the top of the
+    </p>
+
+    <p class="text-sm mt-4 font-semibold">This is strong text.</p>
+    <p class="text-sm mt-1 font-medium"><i>This is italic text.</i></p>
+
+    <mat-divider class="my-8!"></mat-divider>
+    <h2 class="text-2xl font-semibold">Unorder list.</h2>
+    <ul>
+      <li>Gigure out what it is or</li>
+      <li>The links it currently</li>
+      <li>It allows you to start your bid</li>
+      <li>Gigure out what it is or</li>
+      <li>The links it currently</li>
+      <li>It allows you to start your bid</li>
+    </ul>
+
+    <mat-divider class="my-8!"></mat-divider>
+    <h2 class="text-2xl font-semibold">Order list.</h2>
+    <ol>
+      <li>Gigure out what it is or</li>
+      <li>The links it currently</li>
+      <li>It allows you to start your bid</li>
+      <li>Gigure out what it is or</li>
+      <li>The links it currently</li>
+      <li>It allows you to start your bid</li>
+    </ol>
+
+    <mat-divider class="my-8!"></mat-divider>
+    <h2 class="text-2xl font-semibold">Quotes</h2>
+    <div class="p-6">
+      <h6 class="text-base font-semibold">
+        <i-tabler name="quote" class="size-6!4"></i-tabler> Life is short, Smile
+        while you still have teeth!
+      </h6>
+    </div>
+  </mat-card-content>
+</mat-card>
+}
+
+<!-- ----------------------------------------------------------------- -->
+<!-- If Blog isn't available -->
+<!-- ----------------------------------------------------------------- -->
+
+@if (!blogDetail() || blogDetail().length === 0) {
+<mat-card class="cardWithShadow">
+  <mat-card-content>
+    <p>No blog post available.</p>
+  </mat-card-content>
+</mat-card>
+}
+
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <mat-card-title class="mb-6 text-xl">Post Comments</mat-card-title>
+    <form>
+      <mat-form-field appearance="outline" class="w-full">
+        <textarea matInput rows="5"></textarea>
+      </mat-form-field>
+      <button mat-flat-button color="primary">Post Button</button>
+    </form>
+
+    <mat-card-title class="mt-8 text-xl pt-6 flex items-center">Comments
+      <span
+        class="text-primary px-3 py-1 rounded-md bg-light-primary font-semibold ms-2 text-lg">4</span></mat-card-title>
+
+    <!-- ----------------------------------------------------------------- -->
+    <!-- comment -->
+    <!-- ----------------------------------------------------------------- -->
+    <div class="bg-light rounded-md p-6 mt-6">
+      <div class="flex items-center">
+        <img src="/assets/images/profile/user-2.jpg" alt="user" width="36" class="rounded-full" />
+        <span class="text-base font-semibold ms-3">Charlie Hamilton</span>
+        <span class="ms-3 text-xs flex items-center">
+          <i-tabler class="size-1.5! opacity-50 flex me-1" name="circle-filled"></i-tabler>
+          now
+        </span>
+      </div>
+      <p class="text-sm mt-4">
+        Jigho tabkubho nira carudi ganlac milza dekpo putog iptodok tuhral canse
+        mi rega ujnuf kukfag osailu bis oca. Gegeholo hata sogi kod bihdelsa
+        nege evinog mes loz perdutace kehlondip im fep wiven fefu fi tigfiso.
+      </p>
+
+      <button mat-mini-fab class="bg-primary text-white! size-7.5! mt-4" matTooltip="Reply" (click)="toggleReply()">
+        <i-tabler name="arrow-back-up" class="size-4.5! flex!"></i-tabler>
+      </button>
+    </div>
+    <!-- ----------------------------------------------------------------- -->
+    <!-- add comment -->
+    <!-- ----------------------------------------------------------------- -->
+    <div [hidden]="istoggleReply()">
+      <form class="flex items-center my-6">
+        <img src="/assets/images/profile/user-1.jpg" alt="user" width="36" class="rounded-full" />
+        <mat-form-field appearance="outline" class="w-full hide-hint ms-4">
+          <input matInput placeholder="Reply" />
+        </mat-form-field>
+        <button mat-flat-button color="primary" class="ms-4">Reply</button>
+      </form>
+    </div>
+
+    <!-- ----------------------------------------------------------------- -->
+    <!-- comment -->
+    <!-- ----------------------------------------------------------------- -->
+    <div class="bg-light rounded-md p-6 mt-6 ms-6">
+      <div class="flex items-center">
+        <img src="/assets/images/profile/user-3.jpg" alt="user" width="36" class="rounded-full" />
+        <span class="text-base font-semibold ms-3">Ethan Gordon</span>
+        <span class="ms-3 text-xs flex items-center">
+          <i-tabler class="size-1.5! opacity-50 flex! me-1" name="circle-filled"></i-tabler>
+          now
+        </span>
+      </div>
+      <p class="text-sm mt-4">
+        Diprow wir hilohi ilmi fumow oc co cop iv gi ize tamiv kulok. Bam ci
+        urkati ul negu ovga hivwe toubugof gok imro ale sujoh saput.
+      </p>
+
+      <button mat-mini-fab class="bg-primary text-white! size-7.5! mt-4" matTooltip="Reply" (click)="toggleReply()">
+        <i-tabler name="arrow-back-up" class="size-4.5! flex!"></i-tabler>
+      </button>
+    </div>
+  </mat-card-content>
+</mat-card>

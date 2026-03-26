@@ -1,0 +1,192 @@
+﻿<mat-card class="chat-app cardWithShadow overflow-hidden mb-0!">
+  <mat-sidenav-container [ngClass]="{
+      'side-panel-opened': sidePanelOpened,
+      'side-panel-closed': !sidePanelOpened
+    }">
+    <!-- ---------------------------------------------------- -->
+    <!-- sidebar -->
+    <!-- ---------------------------------------------------- -->
+    <mat-sidenav class="w-[350px]!" [mode]="isOver() ? 'over' : 'side'" [opened]="sidePanelOpened"
+      (open)="sidePanelOpened = true" (close)="sidePanelOpened = false">
+      <ng-scrollbar class="relative" style="height: 100%">
+        <div class="flex flex-row items-center self-stretch justify-between p-6 gap-4">
+          <div class="flex flex-row items-center self-stretch gap-3 ">
+            <div matBadge="1" matBadgeSize="small" class="demo-section">
+              <img src="assets/images/profile/user-1.jpg" class="rounded-full" width="56" />
+            </div>
+            <div>
+              <h4 class="text-base font-semibold">Markarn Doe</h4>
+              <span class="text-xs text-muted">info@materialpro.com</span>
+            </div>
+          </div>
+          <button mat-icon-button [matMenuTriggerFor]="menu" aria-label="More options">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+
+          <mat-menu #menu="matMenu" xPosition="before">
+            <button class="min-h-auto! border-b" mat-menu-item>
+              <div class="flex flex-row items-center self-stretch gap-3  px-2 py-1.5">
+                <i class="iconify size-4.5!" data-icon="solar:settings-outline"></i>
+                <span>Setting</span>
+              </div>
+            </button>
+            <button class="min-h-auto!" mat-menu-item>
+              <div class="flex flex-row items-center self-stretch gap-3  px-2 py-1.5">
+                <i class="iconify size-4.5!" data-icon="solar:question-circle-outline"></i>
+                <span>Help and feedback</span>
+              </div>
+            </button>
+            <button class="min-h-auto!" mat-menu-item>
+              <div class="flex flex-row items-center self-stretch gap-3  px-2 py-1.5">
+                <i class="iconify size-4.5!" data-icon="solar:align-horizonta-spacing-line-duotone"></i>
+                <span>Enable split View mode</span>
+              </div>
+            </button>
+            <button class="min-h-auto!" mat-menu-item>
+              <div class="flex flex-row items-center self-stretch gap-3  px-2 py-1.5">
+                <i class="iconify size-4.5!" data-icon="solar:keyboard-outline"></i>
+                <span>Keyboard shortcut</span>
+              </div>
+            </button>
+            <button class="min-h-auto! border-t" mat-menu-item>
+              <div class="flex flex-row items-center self-stretch gap-3  px-2 py-1.5">
+                <i class="iconify size-4.5!" data-icon="solar:logout-2-outline"></i>
+                <span>Sign Out</span>
+              </div>
+            </button>
+          </mat-menu>
+
+        </div>
+
+        <div class="px-6">
+          <!-- search -->
+          <mat-form-field appearance="outline" class="w-full">
+            <div class="flex flex-row items-center self-stretch gap-3 ">
+              <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+              <input matInput placeholder="Search" [(ngModel)]="searchTerm" (input)="searchMessages()" />
+            </div>
+          </mat-form-field>
+
+          <!-- Recent Chats -->
+          <button class="p-4 h-auto" matButton [matMenuTriggerFor]="recent">
+            <div class="flex flex-row items-center self-stretch gap-2 text-dark">
+              Recent Chats
+              <i class="iconify size-4.5!" data-icon="solar:alt-arrow-down-linear"></i>
+            </div>
+          </button>
+
+          <mat-menu #recent="matMenu">
+            <button class="min-h-auto!" mat-menu-item>
+              <div class="flex flex-row items-center self-stretch px-2 py-1.5">
+                <span> Sort by Time</span>
+              </div>
+            </button>
+            <button class="min-h-auto!" mat-menu-item>
+              <div class="flex flex-row items-center self-stretch px-2 py-1.5">
+                <span>Sort by Unread</span>
+              </div>
+            </button>
+            <button class="min-h-auto! border-t" mat-menu-item>
+              <div class="flex flex-row items-center self-stretch px-2 py-1.5">
+                <span>Sort by Favourites</span>
+              </div>
+            </button>
+          </mat-menu>
+        </div>
+
+        @if (filteredMessages() && filteredMessages().length > 0) {
+        <div class="mx-6">
+          <mat-nav-list class="chat-listing">
+            @for(message of filteredMessages(); track message.from) {
+            <mat-list-item role="listitem" (click)="selectMessage(message)"
+              [class.bg-light-primary]="message === selectedMessage()" class="mb-2 gap-3">
+              <span matListItemIcon>
+                <img src="{{ message.photo }}" alt="" width="42" class="rounded-full" />
+              </span>
+              <h3 class="font-semibold! text-base" matListItemTitle>
+                {{ message.from }}
+              </h3>
+              <p class="text-sm text-muted" matListItemLine>
+                {{ message.subject }}
+              </p>
+            </mat-list-item>
+            }
+          </mat-nav-list>
+        </div>
+        } @else {
+        <div class="p-4 bg-light-primary text-primary rounded-md mx-5 mt-5 text-center">
+          <span class="text-sm">No messages found.</span>
+        </div>
+        }
+      </ng-scrollbar>
+    </mat-sidenav>
+    <mat-sidenav-content class="bg-white">
+      <!-- ------------------------------------------- -->
+      <!-- chat details -->
+      <!-- ------------------------------------------- -->
+      <mat-toolbar class="chat-right-panel flex items-center border-border border-b gap-2">
+        <button (click)="sidePanelOpened = !sidePanelOpened" mat-icon-button>
+          <mat-icon>short_text</mat-icon>
+        </button>
+        <div class="flex items-center gap-4">
+          <img src="{{ selectedMessage()?.photo }}" width="40" class="rounded-full" />
+          <div class="text-base font-semibold">
+            {{ selectedMessage()?.from }}
+          </div>
+        </div>
+        <button [matMenuTriggerFor]="moredd" class="ms-auto" mat-icon-button>
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #moredd="matMenu" xPosition="before">
+          <button mat-menu-item>Contact info</button>
+          <button mat-menu-item>Mute</button>
+          <button mat-menu-item>Delete chat</button>
+        </mat-menu>
+      </mat-toolbar>
+
+      <!-- ------------------------------------------- -->
+      <!-- chat content -->
+      <!-- ------------------------------------------- -->
+      <ng-scrollbar style="height: calc(100vh - 405px)" class="relative">
+        <mat-card-content class="chat-middle-box p-6">
+          @for(c of selectedMessage()?.chat; track c) { @if(c.type === 'odd') {
+          <div class="chat-list overflow-hidden w-full mb-4 flex odd">
+            <div class="mb-4">
+              <div class="flex flex-row items-center self-stretch gap-3 ">
+                <img src="{{ selectedMessage()?.photo }}" class="rounded-full" width="40" />
+                <div class="flex flex-col flex-auto self-stretch">
+                  <span class="text-xs">
+                    {{ c.date | date }}
+                  </span>
+                  <span class="text-sm p-2 rounded-md bg-light">{{ c.msg }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          } @else {
+          <div class="chat-list overflow-hidden w-full mb-4 flex justify-end text-right rtl:text-left even">
+            <div class="mb-4">
+              <div class="bg-light-info p-2 rounded-md flex items-center text-sm">
+                {{ c.msg }}
+              </div>
+              <span class="text-fs">
+                {{ c.date | date }}
+              </span>
+            </div>
+          </div>
+          } }
+        </mat-card-content>
+      </ng-scrollbar>
+      <mat-divider></mat-divider>
+      <div class="pt-5 px-6">
+        <mat-form-field appearance="outline" class="w-full">
+          <input matInput placeholder="Send message" [ngModel]="msg()" (ngModelChange)="msg.set($event)"
+            (keydown.enter)="sendMessage()" />
+          <button mat-icon-button matSuffix (click)="sendMessage()" [disabled]="!!msg">
+            <mat-icon>send</mat-icon>
+          </button>
+        </mat-form-field>
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</mat-card>

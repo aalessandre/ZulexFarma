@@ -1,0 +1,71 @@
+<mat-card class="cardWithShadow">
+  <mat-card-content>
+    <div class="grid grid-cols-12 justify-between gap-4">
+      <div class="col-span-12 sm:col-span-6">
+        <mat-form-field appearance="outline" class="hide-hint">
+          <div class="flex gap-3">
+            <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+            <input matInput placeholder="Search here..." (keyup)="applyFilter($event)" />
+          </div>
+        </mat-form-field>
+        @if(contacts().length === 0){
+        <p>No contacts available.</p>
+        }
+      </div>
+      <div class="col-span-12 sm:col-span-6 flex items-center justify-end">
+        <button mat-flat-button (click)="openDialog('Add', {})" color="primary">
+          Add Contact
+        </button>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<div class="grid grid-cols-12 gap-6">
+  @for(contact of contacts(); track contact.contactname ) {
+  <div class="col-span-12 sm:col-span-6 lg:col-span-4">
+    <mat-card class="cardWithShadow mb-0!">
+      <mat-card-content class="text-center">
+        <img src="{{ contact.contactimg }}" class="rounded-full mx-auto p-1" width="100" />
+        <div class="flex flex-col gap-5 mt-4">
+          <div>
+            <h4 mat-card-title>
+              {{ contact.contactname }}
+            </h4>
+            <span class="text-xs">{{ contact.contactpost }}</span>
+          </div>
+          <div class="flex gap-2 justify-center">
+            <button mat-flat-button>Chat</button>
+            <button mat-flat-button class="bg-secondary text-white!">
+              Follow
+            </button>
+          </div>
+          <span class="text-sm">{{ contact.contactadd }}</span>
+          <span class="text-sm">Mo: {{ contact.contactno }}</span>
+        </div>
+      </mat-card-content>
+      <mat-divider></mat-divider>
+      <div class="grid grid-cols-12">
+        <div class="col-span-4 py-3">
+          <a href="javascript:void(0)" class="no-underline text-sm font-medium flex justify-center items-center gap-1">
+            <i-tabler name="brand-instagram" class="size-4.5! flex"></i-tabler>
+            {{ contact.contactinstagram }}
+          </a>
+        </div>
+        <div class="col-span-4 py-3">
+          <a href="javascript:void(0)" class="no-underline text-sm font-medium flex justify-center items-center gap-1">
+            <i-tabler name="brand-linkedin" class="size-4.5! flex"></i-tabler>
+            {{ contact.contactlinkedin }}
+          </a>
+        </div>
+        <div class="col-span-4 py-3">
+          <a href="javascript:void(0)" class="no-underline text-sm font-medium flex justify-center items-center gap-1">
+            <i-tabler name="brand-facebook" class="size-4.5! flex"></i-tabler>
+            {{ contact.contactfacebook }}
+          </a>
+        </div>
+      </div>
+    </mat-card>
+  </div>
+  }
+</div>

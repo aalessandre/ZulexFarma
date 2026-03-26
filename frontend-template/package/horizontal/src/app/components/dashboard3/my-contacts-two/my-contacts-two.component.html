@@ -1,0 +1,38 @@
+<mat-card class="cardWithShadow overflow-hidden mb-0!">
+  <mat-card-content class="pb-0!">
+    <mat-card-title>My Contacts</mat-card-title>
+    <mat-card-subtitle>Checkout my contacts here</mat-card-subtitle>
+  </mat-card-content>
+
+  <div class="msg-box">
+    @for(msg of msgs; track msg.title) {
+    <div class="px-7.5 py-5">
+      <div class="flex items-center gap-4 w-full">
+        <div class="relative flex items-center">
+          <img [src]="msg.img" class="rounded-full" width="48" height="48" />
+          <div matBadge="" matBadgeOverlap="false"
+            class="demo-section bg-success inbox-badge absolute! top-0 right-0 size-2! border-white rounded-full"></div>
+        </div>
+        <div class="flex items-center justify-between w-full">
+          <div>
+            <h5 class="text-base font-medium">
+              {{ msg.title }}
+            </h5>
+            <span class="text-sm">{{ msg.subtitle }}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button class="size-10! p-0.5 flex items-center justify-center bg-light-error text-error" mat-icon-button
+              aria-label="Example icon button with a vertical three dot icon">
+              <i-tabler name="video" class="size-5! flex"></i-tabler>
+            </button>
+            <button class="size-10! p-0.5 flex items-center justify-center bg-light-primary text-primary"
+              mat-icon-button aria-label="Example icon button with a vertical three dot icon">
+              <i-tabler name="phone-incoming" class="size-5! flex"></i-tabler>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    }
+  </div>
+</mat-card>

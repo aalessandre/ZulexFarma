@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+:root {
+    --font-body: Poppins, sans-serif;
+    --border: var(--mat-sys-outline-variant);
+    --info-color: #539bff;
+    --warning-color: #f6c000;
+    --success-color: #2cd07e;
+
+    --lightsuccess-color: #2cd07e26;
+    --lightinfo-color: #8754ec26;
+    --lightwarning-color: #f6c00026;
+}
+
+@theme {
+    /* Color */
+    --color-primary: var(--mat-sys-primary);
+    --color-secondary: var(--mat-sys-secondary);
+    --color-error: var(--mat-sys-error);
+    --color-info: var(--info-color);
+    --color-warning: var(--warning-color);
+    --color-success: var(--success-color);
+    --color-dark: var(--mat-sys-on-background);
+    --color-light: var(--mat-sys-surface-bright);
+
+    /* Light Color */
+    --color-light-primary: var(--mat-sys-primary-fixed-dim);
+    --color-light-secondary: var(--mat-sys-secondary-fixed-dim);
+    --color-light-error: var(--mat-sys-error-fixed-dim);
+    --color-light-success: var(--lightsuccess-color);
+    --color-light-info: var(--lightinfo-color);
+    --color-light-warning: var(--lightwarning-color);
+
+    /* Border */
+    --color-border: var(--mat-sys-outline-variant);
+
+    /* Border Radius */
+    --radius-sm: var(--mat-sys-corner-small);
+    --radius-md: var(--mat-sys-corner-medium);
+
+    /* Shadow */
+    --shadow-sm: 0px 12px 24px -4px rgb(145 158 171 / 30%);
+    --shadow-md: rgba(145, 158, 171, 0.12) 0px 1px 16px;
+}
+
+@layer base {
+
+    img,
+    video {
+        max-width: inherit;
+        height: revert-layer;
+    }
+
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        margin: revert-layer;
+
+    }
+
+    ol,
+    ul,
+    menu {
+        list-style-type: disc;
+        padding-inline-start: 40px;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-weight: 500;
+        margin: 0;
+    }
+
+    /* Text color */
+
+    .text-primary {
+        color: var(--color-primary) !important;
+    }
+
+    .text-secondary {
+        color: var(--color-secondary) !important;
+    }
+
+    .text-error {
+        color: var(--color-error) !important;
+    }
+
+    .text-info {
+        color: var(--color-info) !important;
+    }
+
+    .text-warning {
+        color: var(--color-warning) !important;
+    }
+
+    .text-success {
+        color: var(--color-success) !important;
+    }
+
+    .text-light {
+        color: var(--color-light) !important;
+    }
+
+    /* bg color */
+    .bg-primary {
+        background-color: var(--color-primary) !important;
+    }
+
+    .bg-secondary {
+        background-color: var(--color-secondary) !important;
+    }
+
+    .bg-error {
+        background-color: var(--color-error) !important;
+    }
+
+    .bg-info {
+        background-color: var(--color-info) !important;
+    }
+
+    .bg-warning {
+        background-color: var(--color-warning) !important;
+    }
+
+    .bg-success {
+        background-color: var(--color-success) !important;
+    }
+
+    .bg-light {
+        background-color: var(--color-light) !important;
+    }
+
+    /* bg light color */
+    .bg-light-primary {
+        background-color: var(--color-light-primary) !important;
+    }
+
+    .bg-light-secondary {
+        background-color: var(--color-light-secondary) !important;
+    }
+
+    .bg-light-error {
+        background-color: var(--color-light-error) !important;
+    }
+
+    .bg-light-success {
+        background-color: var(--color-light-success) !important;
+    }
+
+    .bg-light-info {
+        background-color: var(--color-light-info) !important;
+    }
+
+    .bg-light-warning {
+        background-color: var(--color-light-warning) !important;
+    }
+}

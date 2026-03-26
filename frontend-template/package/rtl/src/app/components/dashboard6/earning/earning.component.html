@@ -1,0 +1,42 @@
+<mat-card class="cardWithShadow overflow-hidden mb-0!">
+  <div class="px-7.5 py-2 border-b border-border flex items-center justify-between">
+    <mat-card-title>Earning</mat-card-title>
+    <div>
+      <button class="flex items-center justify-center" mat-icon-button [matMenuTriggerFor]="beforeMenu">
+        <i-tabler name="dots" class="icon-24 text-body flex"></i-tabler>
+      </button>
+      <mat-menu #beforeMenu="matMenu" xPosition="before">
+        <button mat-menu-item>Item 1</button>
+        <button mat-menu-item>Item 2</button>
+        <button mat-menu-item>Item 3</button>
+      </mat-menu>
+    </div>
+  </div>
+
+  <div class="msg-box py-4">
+    @for(msg of msgs; track msg.title) {
+    <div class="px-7.5 py-4">
+      <div class="flex items-center gap-4 w-full">
+        <div class="relative flex">
+          <img [src]="msg.img" class="rounded-full" width="48" height="48" />
+          <div matBadge="" matBadgeOverlap="false"
+            class="demo-section bg-success inbox-badge absolute! top-0 right-0 size-2! border-white rounded-full"></div>
+        </div>
+        <div class="flex items-center justify-between w-full">
+          <div>
+            <h5 class="text-base font-medium">
+              {{ msg.title }}
+            </h5>
+            <span class="text-sm">{{ msg.subtitle }}</span>
+          </div>
+          <span class="bg-light-{{ msg.color }} text-{{
+              msg.color
+            }} rounded-full font-medium px-2.5 py-1 text-xs">
+            {{ msg.earning }}
+          </span>
+        </div>
+      </div>
+    </div>
+    }
+  </div>
+</mat-card>

@@ -1,0 +1,188 @@
+﻿<div class="flex items-center mb-2.5">
+  <button mat-flat-button (click)="getBack()" class="w-30">Back</button>
+</div>
+<mat-card class="cardWithShadow  border! border-border! rounded-md p-2">
+  <div class="grid grid-cols-12 gap-6">
+    <div class="lg:col-span-6 col-span-12">
+      <img [src]="product?.imagePath " alt="user" class="rounded-md img-fluid" />
+    </div>
+    <div class="lg:col-span-6 col-span-12">
+      <div class="flex items-center">
+        <span class="bg-success rounded-full px-2 py-0.5 text-white text-xs">
+          {{ product?.status === "Stock" ? "In Stock" : "Out of Stock" }}</span>
+        <span class="text-xs mx-2.5"> Books</span>
+      </div>
+
+      <h3 class="mt-2.5! font-semibold">{{ product?.product_name }}</h3>
+      <p class="mt-4 text-sm font-medium">{{ product.description || 'Lorem ipsum dolor sit amet, consectetur adipiscing
+        elit. Sed ex arcu, tincidunt bibendum felis' }}</p>
+
+      <div class="flex items-center">
+        <del class="text-base font-semibold">${{ product.base_price }}</del>
+        <span class="text-xl font-semibold mx-0.5">${{ product.dealPrice || 134}}</span>
+        <span class="text-sm font-semibold mx-1">({{ product.discountPercent || 14 }}% off)</span>
+      </div>
+      <div class="my-6 flex ">
+        <div class="flex gap-1 mt-1">
+          @if(product.rating !== undefined){
+          @for (star of [1, 2, 3, 4, 5]; track star) {
+          <span>
+            <i-tabler name="star" class="size-4.5! text-warning"
+              [ngClass]="getStarClass(star, product.rating )"></i-tabler>
+          </span>
+          }
+          }
+        </div>
+        <a href="javascript:void(0)" class="text-primary text-sm font-semibold no-underline mx-2.5 mt-1">
+          236 reviews
+        </a>
+      </div>
+      <mat-divider></mat-divider>
+      <div class="flex items-center">
+        <label class="text-base font-semibold my-8">Colors:</label>
+
+        <span class="cards-circle mx-2.5" [ngClass]="{ 'selected': isSelected }" (click)="toggleSelected()">
+          @if(isSelected){
+          <tabler-icon name="check" class="theme-icon"></tabler-icon>
+          }
+
+        </span>
+      </div>
+
+      <div class="flex items-center mb-8">
+        <label class="text-base font-semibold">QTY:</label>
+
+        <mat-button-toggle-group #toggleGroup="matButtonToggleGroup" class="border-style mx-5" [(value)]="toggleValue"
+          multiple>
+          <mat-button-toggle (click)="decreaseQty(); toggleGroup.value = null" disableRipple>
+            -
+          </mat-button-toggle>
+          <mat-button-toggle disableRipple>
+            {{ quantity }}
+          </mat-button-toggle>
+          <mat-button-toggle (click)="increaseQty(); toggleGroup.value = null" disableRipple>
+            +
+          </mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      <mat-divider></mat-divider>
+      <div class="flex items-center gap-5 my-5">
+        <button mat-flat-button class="py-5">Buy Now</button>
+        <button mat-flat-button class="bg-error text-white!">Add to Card</button>
+      </div>
+      <p class="mt-2.5">
+        Dispatched in 2–3 weeks<br />
+        <a href="javascript:void(0)" class="text-primary no-underline text-sm font-medium">Why the longer time for
+          delivery?</a>
+      </p>
+    </div>
+  </div>
+</mat-card>
+<mat-card class="cardWithShadow  border! border-border! rounded-md p-8">
+  <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" [(selectedIndex)]="selectedTabIndex">
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <span [class.text-primary]="selectedTabIndex === 0">Description</span>
+      </ng-template>
+      <h5 class="text-base font-semibold mt-5!">
+        Sed at diam elit. Vivamus tortor odio, pellentesque eu tincidunt a,
+        aliquet sit amet lorem pellentesque eu tincidunt a, aliquet sit amet
+        lorem.
+      </h5>
+      <p class="text-sm font-regular my-8">
+        Cras eget elit semper, congue sapien id, pellentesque diam. Nulla
+        faucibus diam nec fermentum ullamcorper. Praesent sed ipsum ut augue
+        vestibulum malesuada. Duis vitae volutpat odio. Integer sit amet elit ac
+        justo sagittis dignissim.
+      </p>
+      <p class="text-sm font-regular">
+        Vivamus quis metus in nunc semper efficitur eget vitae diam. Proin justo
+        diam, venenatis sit amet eros in, iaculis auctor magna. Pellentesque sit
+        amet accumsan urna, sit amet pretium ipsum. Fusce condimentum venenatis
+        mauris et luctus. Vestibulum ante ipsum primis in faucibus orci luctus
+        et ultrices posuere cubilia curae.
+      </p>
+    </mat-tab>
+
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <span [class.text-primary]="selectedTabIndex === 1">Reviews</span>
+      </ng-template>
+      <div class="grid grid-cols-12 mt-6 gap-6 w-full">
+        <div class="lg:col-span-4 col-span-12 flex">
+          <mat-card
+            class="cardWithShadow  border! border-border! rounded-md w-full flex justify-center items-center mb-0">
+            <div class="text-center">
+              <h6 class="text-sm font-medium">Average Rating</h6>
+              <h6 class="text-primary text-3xl font-semibold my-6">4/5</h6>
+              <div class="flex gap-5">
+                <span><i-tabler name="star" class="fill-warning size-4.5!"></i-tabler></span>
+                <span><i-tabler name="star" class="fill-warning size-4.5!"></i-tabler></span>
+                <span><i-tabler name="star" class="fill-warning size-4.5!"></i-tabler></span>
+                <span><i-tabler name="star" class="fill-warning size-4.5!"></i-tabler></span>
+                <span><i-tabler name="star" class="size-4.5!"></i-tabler></span>
+              </div>
+            </div>
+          </mat-card>
+        </div>
+        <div class="lg:col-span-4 col-span-12 flex">
+          <mat-card class="cardWithShadow  border! border-border! rounded-md w-full p-5 mb-0">
+            @for(rating of ratings; track rating) {
+            <div class="flex items-center gap-1 mt-2.5">
+              <span class="text-sm w-60">{{ rating.label }} Stars</span>
+              <mat-progress-bar class="progress rounded-md w-20 mx-6 my-2.5" color="primary" mode="determinate"
+                [value]="rating.value">
+              </mat-progress-bar>
+              <span class="count">({{ rating.count }})</span>
+            </div>
+            }
+          </mat-card>
+        </div>
+        <div class="lg:col-span-4 col-span-12 flex">
+          <mat-card
+            class="cardWithShadow  border! border-border! rounded-md w-full flex items-center justify-center mb-0">
+            <button mat-stroked-button class="w-75 bg-light-primary">
+              <div class="flex items-center justify-center">
+                <tabler-icon name="pencil" class="mx-1.5"></tabler-icon>
+                <span>Write a Review</span>
+              </div>
+            </button>
+          </mat-card>
+        </div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</mat-card>
+<h6 class="text-2xl font-semibold my-4!">Related Products</h6>
+<div class="grid grid-cols-12 gap-6">
+  @for(productcard of productcards; track productcard.title) {
+  <div class="lg:col-span-3 sm:col-span-6 col-span-12">
+    <mat-card class="cardWithShadow productcard overflow-hidden">
+      <a routerLink="/widgets/cards">
+        <img src="{{ productcard.imgSrc }}" alt="imgSrc" class="w-full" mat-card-image />
+      </a>
+      <mat-card-content class="pb-6 pt-3 relative">
+        <mat-card-title class="mat-headline-2 text-base mborder">{{
+          productcard.title
+          }}</mat-card-title>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <h6 class="text-base font-semibold">${{ productcard.price }}</h6>
+            <span class="text-sm ms-1 line-through">${{ productcard.rprice }}</span>
+          </div>
+          <div class="ms-auto flex gap-1">
+            @if(product.rating !== undefined){
+            @for (star of [1, 2, 3, 4, 5]; track star) {
+            <span>
+              <i-tabler name="star" class="size-4.5! text-warning"
+                [ngClass]="getStarClass(star, product.rating)"></i-tabler>
+            </span>
+            }
+            }
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  }
+</div>

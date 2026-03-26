@@ -1,0 +1,26 @@
+<mat-card class="overflow-hidden shadow-none! bg-primary mb-0!">
+  <mat-card-content>
+    <div class="flex flex-row gap-3 mb-7.5">
+      <div class="bg-white size-12! rounded-full flex items-center justify-center">
+        <i-tabler name="server-2" class="flex text-primary"></i-tabler>
+      </div>
+      <div>
+        <mat-card-title class="text-white">Bandwidth usage</mat-card-title>
+        <mat-card-subtitle class="text-white! opacity-70">March 2026</mat-card-subtitle>
+      </div>
+    </div>
+    <div class="grid grid-cols-12 gap-7.5 items-center pt-2.5">
+      <div class="col-span-6">
+        <h2 class="text-3xl font-medium text-white">50 GB</h2>
+      </div>
+      <div class="col-span-6">
+        <apx-chart [series]="inexpuchartOptions.series" [chart]="inexpuchartOptions.chart"
+          [colors]="inexpuchartOptions.colors" [dataLabels]="inexpuchartOptions.dataLabels"
+          [plotOptions]="inexpuchartOptions.plotOptions" [yaxis]="inexpuchartOptions.yaxis"
+          [legend]="inexpuchartOptions.legend" [fill]="inexpuchartOptions.fill" [stroke]="inexpuchartOptions.stroke"
+          [tooltip]="inexpuchartOptions.tooltip" [xaxis]="inexpuchartOptions.xaxis" [grid]="inexpuchartOptions.grid">
+        </apx-chart>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

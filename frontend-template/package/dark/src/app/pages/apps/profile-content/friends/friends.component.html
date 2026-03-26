@@ -1,0 +1,55 @@
+<div class="friend-contents">
+  <div class="friend-header-content">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-2">
+        <div class="font-medium text-xl">Friends</div>
+
+        <div class="px-1.5 py-0.5 rounded-full bg-secondary text-white">
+          <div class="text-sm leading-5">{{ filteredCount }}</div>
+        </div>
+      </div>
+
+
+      <!-- Search bar pushed to the right -->
+      <div class="grow flex justify-end mt-3">
+        <mat-form-field appearance="outline" class="search-bar-style">
+          <div class="flex gap-3">
+            <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+            <input matInput placeholder="Search Friends" [(ngModel)]="searchText" (ngModelChange)="applyFilter()" />
+          </div>
+        </mat-form-field>
+      </div>
+    </div>
+  </div>
+  <div class="grid grid-cols-12 gap-6">
+    @for(socialcard of filteredSocialcards; track socialcard.id) {
+    <div class="col-span-12 sm:col-span-6 lg:col-span-4">
+      <mat-card class="cardWithShadow overflow-hidden mb-0!">
+        <mat-card-content class="text-center py-6">
+          <img src="{{ socialcard.imgSrc }}" class="rounded-full mx-auto" width="80" />
+          <mat-card-title class="text-lg mb-0 mt-4!">{{
+            socialcard.username
+            }}</mat-card-title>
+          <mat-card-subtitle class="text-xs">{{
+            socialcard.post
+            }}</mat-card-subtitle>
+        </mat-card-content>
+        <div class="border-t border-border px-6 py-2 flex justify-center bg-light-primary">
+          <button mat-icon-button class="flex! justify-center">
+            <i-tabler name="brand-facebook" class="size-4.5! flex! text-primary"></i-tabler>
+          </button>
+          <button mat-icon-button class="flex! justify-center">
+            <i-tabler name="brand-instagram" class="size-4.5! flex! text-error"></i-tabler>
+          </button>
+          <button mat-icon-button class="flex! justify-center">
+            <i-tabler name="brand-github" class="size-4.5! flex! text-success"></i-tabler>
+          </button>
+          <button mat-icon-button class="flex! justify-center">
+            <i-tabler name="brand-twitter" class="size-4.5! flex! text-secondary"></i-tabler>
+          </button>
+        </div>
+      </mat-card>
+    </div>
+    }
+  </div>
+</div>

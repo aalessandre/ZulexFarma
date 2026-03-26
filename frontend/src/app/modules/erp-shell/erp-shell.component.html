@@ -161,6 +161,29 @@
       </div>
     </div>
 
+    <!-- Fundo do Dashboard -->
+    <div class="config-secao">
+      <div class="config-secao-nome">Fundo do Dashboard</div>
+      <div class="config-secao-desc">Cor de fundo da tela inicial</div>
+      <div class="config-color-picker">
+        <input type="color" class="config-color-input"
+               [value]="settings.fundoDash()"
+               (input)="settings.fundoDash.set($any($event.target).value)" />
+        <div class="config-color-presets">
+          <button class="config-color-dot" [class.ativo]="settings.fundoDash() === '#1a1a2e'"
+                  style="background:#1a1a2e" title="Escuro Azul" (click)="settings.fundoDash.set('#1a1a2e')"></button>
+          <button class="config-color-dot" [class.ativo]="settings.fundoDash() === '#0d1117'"
+                  style="background:#0d1117" title="Escuro GitHub" (click)="settings.fundoDash.set('#0d1117')"></button>
+          <button class="config-color-dot" [class.ativo]="settings.fundoDash() === '#1e293b'"
+                  style="background:#1e293b" title="Slate" (click)="settings.fundoDash.set('#1e293b')"></button>
+          <button class="config-color-dot" [class.ativo]="settings.fundoDash() === '#ffffff'"
+                  style="background:#ffffff; border: 1px solid #ddd" title="Branco" (click)="settings.fundoDash.set('#ffffff')"></button>
+          <button class="config-color-dot" [class.ativo]="settings.fundoDash() === '#f0f2f5'"
+                  style="background:#f0f2f5; border: 1px solid #ddd" title="Cinza Claro" (click)="settings.fundoDash.set('#f0f2f5')"></button>
+        </div>
+      </div>
+    </div>
+
   </div>
 }
 

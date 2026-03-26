@@ -1,0 +1,55 @@
+﻿<mat-card class="cardWithShadow">
+  <mat-card-content>
+    <div class="flex justify-between items-center gap-6">
+      <div>
+        <mat-form-field appearance="outline" class="w-full hide-hint">
+          <div class="flex gap-3">
+            <i class="iconify size-5.5!" data-icon="solar:magnifer-line-duotone"></i>
+            <input matInput placeholder="Search..." (keyup)="applyFilter($event)" />
+          </div>
+        </mat-form-field>
+      </div>
+      <div>
+        <mat-form-field appearance="outline" class=" hide-hint">
+          <mat-select required [value]="selectedCategory()" (selectionChange)="ddlChange($event)">
+            <mat-option value="All" selected>All</mat-option>
+            <mat-option value="Web">Web</mat-option>
+            <mat-option value="Android">Android</mat-option>
+            <mat-option value="Angular">Angular</mat-option>
+            <mat-option value="Design">Design</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<div class="grid grid-cols-12 gap-6">
+  @for(course of courseList(); track course.courseName) {
+  <div class="col-span-12 sm:col-span-6 lg:col-span-4">
+    <mat-card class="cardWithShadow overflow-hidden mb-0!">
+      <div class="course-header text-white p-3 bg-{{
+          course.courseType
+        }} flex justify-between">
+        <mat-card-title class="mb-0 text-base">
+          {{ course.courseFramework }}
+        </mat-card-title>
+        <span class="flex items-center gap-1 text-sm"><i-tabler name="clock" class="size-4! flex"></i-tabler>{{
+          course.Time }}</span>
+      </div>
+      <mat-card-content class="text-center">
+        <h3 class="mborder text-base font-semibold">
+          {{ course.courseName }}
+        </h3>
+        <span class="text-xs">{{ course.Update }}</span>
+      </mat-card-content>
+      <mat-divider></mat-divider>
+      <div class="text-center py-2 px-3">
+        <a mat-button [routerLink]="['/apps/courses/coursesdetail/', course.Id]" class="w-full">
+          Start
+        </a>
+      </div>
+    </mat-card>
+  </div>
+  }
+</div>

@@ -1,0 +1,89 @@
+Voce será meu desenvolvedor, um eximio desenvolvedor fullstack, eu serei o analista, nossa missão será desenvolver uma erp exclusivo
+para farmacias.
+
+quero que vc crie uma pasta chamada ContextDocuments, nessa pasta vc ira gravar tudo que vc precisar para sempre se manter a par do conexto/memoria
+do desenvolvimento/projeto, para quando fechar o chat e abrir de novo, vc saiba as tratativas, para nao se perder
+
+A parte inicial é bem chata de definir, então como start iremos construir a base/estrutura do erp/sistema.
+
+o nome do nosso projeto sera zulexPharma, depois poderemos mudar, começaremos criando a tela de login, tela inicial do erp, cadastro de usuarios, 
+definição de perfil de usuarios, tela de configurações gerais do sistema, cadastro de filiais
+
+Aparencia
+ - existe um framework chamado devexpress, ele possui um esquema de tiles, a tela inicial quero esse esquema de tiles, vou anexar um foto para vc 
+   ver
+   
+Tela de login 
+- fica a teu criterio criar uma tela bem bonita
+
+Tela inicial do erp
+- Anexo tem uma foto
+
+Esquema de usuarios
+- teremos um ambiente/tela chamado Config Usuários onde criaremos um grupo de usuarios
+- cada usuário fara parte de um grupo
+- cada grupo podera ser configurado para ter permissão ou restrição
+- o menu principal terá bloco de Movimentação, Cadastros, Relatorios, Manutenção, então para cada grupo de usuário eu 
+  quero configurar por bloco, ou seja, quando entrar na tela de grupo de usuarios, as permissões/liberações estarão separadas por bloco
+  ao selecionar um bloco eu posso ver as possibilidades de liberar ou restringir
+- cada tela tera opções de restrição/liberação de crud e opções adicionais
+
+Multi filiais
+- Esse erp precisará ser multi filiais
+- esse erp rodará na nuvem ou localmente, criando um servidor localmente
+- 
+
+Replicação de dados
+- precisamos analisar o esquema de replicação de dados, o erp podera estar na nuvem ou em um servidor na local na farmacias
+- eu penso que cada farmacia terá seu banco de dados separado, mesmo estando na nuvem, creio que ficaria mais seguro, tanto quando a "confusão de dados"
+  ou seja, nao misturar dados em caso de erros, quanto a atualizações, pois se liberar uma atualização de banco problematica nao afetaria geral
+- como o erp é multi filiais, e eu preciso de alta disponibilidade estou pensando se sempre maantenho o servidor local, e crio um esquema de replicação de dados
+- temos que analisar se é tranquilo criar esse esquema de replicação de dados, todas as filiais tem que ter os dados de todas as filiais
+
+Banco de dados
+- estou pensando em usar o postgres
+- eu sempre gostei de usar o mysql, muito porque ele tem o mysqlworkbanch para criar o DER, criando visualmente o banco de dados fica mais facil de iremos
+  entendendo, mas creio que o Postgres seria mais indicado
+- eu preciso encontrar uma forma facil de quando for criar as telas, te passar os campos que irei precisar e o relacionamento entre as tabelas
+- talvez eu possa criar usando o mysql workbanch, vc interpretaria e traduziria para o postgres  
+
+Arquitetura
+- eu penso em usar restfull c# no backend e no front quero sua sugestão, como eu sempre desenvolvi em c#, creio que seria um bom caminho continuar,
+  então usariamos para o backend asp.net mvc, deixariamos tudo muito bem organizado
+  
+Logs e erros
+- eu quero desde o inicio um esquema de tratamento de erros, tudo dentro de bloco try catch, e sempre gerando logs de erros, mostrando usuario, 
+  data/hora, tela, função e o erro
+ 
+Logs de ações
+- eu quero uma tela onde eu possa ver tudo o que um usuario fez, poderá ser por tela
+- quero saber o que ele incluiu, alterou, como era e como ficou
+- mostrando a data/hora, usuario que fez, usuario que liberou por senha, em caso de liberação por senha
+
+Configurações gerais do sistema
+- ao longo do desenvolvimento iremos criar configurações de comportamento do erp/sistema
+- essa tela de configurações podera tambem ser mostrada por bloco igual ao menu iicial
+- nela iremos definir por area, poe exemplo, vendas, caixa, compras, estoque, etc, por enquanto só crie o ambiente, logo avançaremos nela
+
+faça uma analise disso tudo, seja direto e objetivo, faça suas considerações e sugestões de forma objetiva, apos a gente passar pela
+analise, meteremos a mão na massa e iremos para o codigo
+
+41-98501-5666
+
+Backend:
+cd c:/repositorios/ErpPharma/backend/dotnet run --urls "http://localhost:5000"
+
+
+Frontend
+cd c:/repositorios/ErpPharma/frontend
+npm start
+
+Para pegar a senha do SISTEMA, expanda GET /api/auth/senha-sistema, clique Try it out, preencha key com zulex-suporte-2026 e execute.
+
+- log geral
+- multifiliais
+  - esquema de logs de eliminação/exclusão/log geral
+  - exclusões/eliminações
+  - eliminação/desativação em todas as filiais
+  
+  ok, vamos ainda padronizar mais uma coisa, na tela de Filiais, tem o botão excluir, que atualmente ele apenas inativa. Vamos fazr assim, ao clicar em excluir, se o registro nao estiver sendo utilizado em algum outro registro, vamos eliminar do bano, deletar de verdade, porem devemos registrar um log, para futuras pesquisas, dai a gente sabera quando que foi excluido, e quem que excluiu, se ele estiver sendo utilizado (se der erro de integridade relacional), personalise uma mensagem que irá apenas desativar, se estiver de acordo implemente, senão faça suas sugestões

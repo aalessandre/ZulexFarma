@@ -1,0 +1,86 @@
+@use "variables" as *;
+
+*,
+:after,
+:before {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: $font-family;
+  line-height: 1.334rem;
+  overflow-x: hidden;
+  color: var(--mat-sys-on-background);
+}
+
+.mainWrapper {
+  display: flex;
+  min-height: calc(100vh - 60px);
+  width: 100%;
+  flex: 1;
+  height: 100%;
+}
+
+.container {
+  max-width: $boxedWidth;
+  padding-left: 24px;
+  padding-right: 24px;
+  margin: 0 auto;
+
+  &.full-width {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+}
+
+.pageWrapper {
+  padding: 24px;
+  min-height: calc(100vh - 60px);
+
+  margin: 0 auto;
+
+  &.maxWidth {
+    max-width: $boxedWidth;
+  }
+}
+
+a {
+  color: var(--mat-sys-on-background);
+
+  &:hover {
+    color: $primary;
+  }
+}
+
+.filter-sidebar {
+  width: 290px !important;
+  position: fixed !important;
+  right: 0;
+  top: 0;
+  z-index: 9 !important;
+  height: 100% !important;
+  background-color: var(--mat-sys-surface);
+}
+
+pre {
+  margin: 0;
+  white-space: nowrap;
+}
+
+td.hljs-ln-line.hljs-ln-numbers {
+  padding-right: 10px;
+}
+
+.text-muted {
+  color: var(--mat-sys-surface-container-lowest);
+}
+
+.mat-drawer[style*="visibility: hidden"] {
+  display: none;
+}
+
+.ng-scroll-viewport[_nghost-ng-c2407083653]>.ng-scroll-content[_ngcontent-ng-c2407083653],
+.ng-scrollbar-external-viewport[_nghost-ng-c2407083653] .ng-scroll-viewport>.ng-scroll-content {
+  width: 100% !important;
+}

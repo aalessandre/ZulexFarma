@@ -1,0 +1,70 @@
+.card-slider-content {
+  .row-content {
+    .right-side-content {
+      mat-card-content {
+        padding: 0px !important;
+      }
+
+      .slider-track {
+        transition: transform 0.5s ease-in-out;
+      }
+
+      .testimonial-slide {
+        min-width: 100%;
+        padding-right: 1rem;
+      }
+
+      .dots {
+        .dot {
+          width: 12px;
+          height: 12px;
+          background-color: var(--mat-sys-primary);
+          border-radius: 50%;
+          transition: all 0.3s ease;
+          opacity: 0.6;
+        }
+
+        .active-dot {
+          width: 30px;
+          border-radius: 8px;
+          background-color: var(--mat-sys-primary);
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  .slider-content {
+    .demo-slider {
+      .demo-slide {
+        height: 64px;
+        animation: slide3d 15s linear infinite;
+      }
+
+      .demo-slide-two {
+        height: 64px;
+        animation: slide3dTwo 15s linear infinite;
+      }
+    }
+  }
+}
+
+@keyframes slide3d {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-2028px, 0, 0); // adjust based on actual slide width
+  }
+}
+
+@keyframes slide3dTwo {
+  from {
+    transform: translate3d(-2028px, 0, 0); // Rightward (starts left)
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}

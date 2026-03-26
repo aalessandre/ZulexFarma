@@ -1,0 +1,186 @@
+﻿<div class="w-full relative">
+  @if(ms.selectedMail()) {
+  <div class="flex items-center px-4 py-2">
+    <button mat-icon-button (click)="removeClass()" class="block lg:hidden!">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+
+    <button mat-icon-button [matMenuTriggerFor]="menu">
+      <i-tabler name="arrow-badge-right" class="size-5!"></i-tabler>
+    </button>
+
+    <mat-menu #menu="matMenu" class="cardWithShadow">
+      <button mat-menu-item class="ps-0!">
+        @if(ms.selectedMail()?.label?.indexOf('Personal') !== -1) {
+        <span>
+          <mat-radio-button (click)="labelClick('Personal')" [checked]="true">Personal</mat-radio-button>
+        </span>
+
+        } @if(ms.selectedMail()?.label?.indexOf('Personal') === -1) {
+        <span>
+          <mat-radio-button (click)="labelClick('Personal')">Personal</mat-radio-button>
+        </span>
+        }
+      </button>
+      <button mat-menu-item class="ps-0">
+        @if(ms.selectedMail()?.label?.indexOf('Work') !== -1) {
+        <span>
+          <mat-radio-button (click)="labelClick('Work')" [checked]="true">Work</mat-radio-button>
+        </span>
+        } @if(ms.selectedMail()?.label?.indexOf('Work') === -1) {
+
+        <span>
+          <mat-radio-button (click)="labelClick('Work')">Work</mat-radio-button>
+        </span>
+        }
+      </button>
+      <button mat-menu-item class="ps-0">
+        @if(ms.selectedMail()?.label?.indexOf('Payments') !== -1) {
+        <span>
+          <mat-radio-button (click)="labelClick('Payments')" [checked]="true">Payments</mat-radio-button>
+        </span>
+        } @if(ms.selectedMail()?.label?.indexOf('Payments') === -1) {
+        <span>
+          <mat-radio-button (click)="labelClick('Payments')">Payments</mat-radio-button>
+        </span>
+        }
+      </button>
+      <button mat-menu-item class="ps-0">
+        @if(ms.selectedMail()?.label?.indexOf('Accounts') !== -1) {
+        <span>
+          <mat-radio-button (click)="labelClick('Accounts')" [checked]="true">Accounts</mat-radio-button>
+        </span>
+        } @if(ms.selectedMail()?.label?.indexOf('Accounts') === -1) {
+        <span>
+          <mat-radio-button (click)="labelClick('Accounts')">Accounts</mat-radio-button>
+        </span>
+        }
+      </button>
+    </mat-menu>
+
+    <button mat-icon-button (click)="iconsClick('Important')" class="flex! items-center justify-center">
+      @if(ms.selectedMail()?.filter?.includes('Important')){
+      <i-tabler name="alert-circle" class="size-4.5! flex! items-center text-error">
+      </i-tabler>
+      }@else {
+      <i-tabler name="alert-circle" class="size-4.5! flex! items-center"></i-tabler>
+      }
+    </button>
+
+    <button mat-icon-button class="flex! items-center justify-center" (click)="iconsClick('Star')">
+      @if(ms.selectedMail()?.filter?.includes('Star')){
+      <i-tabler name="star" class="size-4.5! fill-warning flex! items-center">
+      </i-tabler>
+      } @else {
+      <i-tabler name="star" class="size-4.5! flex! items-center"></i-tabler>
+      }
+    </button>
+
+    <div class="ms-auto flex">
+      <button mat-icon-button [matMenuTriggerFor]="menu1" class="flex justify-center">
+        <i-tabler name="dots-vertical" class="size-5! flex"></i-tabler>
+      </button>
+      <mat-menu #menu1="matMenu" class="cardWithShadow">
+        <button mat-menu-item (click)="ddlRemoveClick('Read')">
+          <div class="flex items-center gap-2">
+            <i-tabler name="mail" class="size-4.5!"></i-tabler>
+            @if(ms.selectedMail()?.seen) {
+            <span>Mark as unread</span>
+            } @if(!ms.selectedMail()?.seen) {
+            <span>Mark as read</span>
+            }
+          </div>
+        </button>
+        <button mat-menu-item (click)="ddlRemoveClick('Spam')">
+          <div class="flex items-center gap-2">
+            <i-tabler name="alert-triangle" class="size-4.5!"></i-tabler>
+            Spam
+          </div>
+        </button>
+        <button mat-menu-item (click)="ddlRemoveClick('Trash')">
+          <div class="flex items-center gap-2">
+            <i-tabler name="trash" class="size-4.5!"></i-tabler>Trash
+          </div>
+        </button>
+      </mat-menu>
+    </div>
+  </div>
+  }
+
+  <mat-divider></mat-divider>
+
+  <!-- -------------------------------------------------------------- -->
+  <!-- if mail is selected -->
+  <!-- -------------------------------------------------------------- -->
+  @if(ms.selectedMail()) {
+  <ng-scrollbar style="height: calc(100vh - 320px)" class="relative">
+    <div class="p-6">
+      <div class="flex items-center mb-2 gap-2">
+        <img [src]="ms.selectedUser().imagePath" class="rounded-full" alt="userimg" width="40px" height="40px" />
+        <div>
+          <h5 class="m-0 font-semibold text-base">
+            {{ ms.selectedUser().name }}
+          </h5>
+          <span class="text-sm">{{ ms.selectedUser().email }}</span>
+        </div>
+        <div class="ms-auto hidden sm:flex items-center gap-4">
+          @for(l of ms.selectedMail()?.label; track l) {
+          <span class="flex items-center gap-4">
+            @if(l === 'Personal') {
+            <span class="bg-primary rounded-md px-2 py-0.5 text-white text-xs">
+              Personal
+            </span>
+            } @if(l === 'Work') {
+            <span class="bg-secondary rounded-md px-2 py-0.5 text-white text-xs">
+              Work
+            </span>
+            } @if(l === 'Payments') {
+            <span class="bg-error rounded-md px-2 py-0.5 text-white text-xs">
+              Payment
+            </span>
+            } @if(l === 'Accounts') {
+            <span class="bg-warning rounded-md px-2 py-0.5 text-white text-xs">
+              Account
+            </span>
+            }
+          </span>
+          }
+        </div>
+      </div>
+      <div class="text-[21px] py-6 font-medium">
+        {{ ms.selectedMail()?.Subject }}
+      </div>
+      <div class="mb-6 text-sm">
+        {{ ms.selectedMail()?.Message }}
+      </div>
+      <div class="mt-2.5">
+        <!-- -------------------------------------------------------------- -->
+        <!-- toggle reply -->
+        <!-- -------------------------------------------------------------- -->
+
+        @if(ms.replyShow()) {
+        <div>
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Type your reply here</mat-label>
+            <textarea matInput rows="5"></textarea>
+          </mat-form-field>
+          <div class="flex items-center gap-2.5">
+            <button mat-flat-button class="bg-error text-white!" (click)="sendButtonClick()">
+              Discard
+            </button>
+            <button mat-flat-button (click)="sendButtonClick()">
+              Send
+            </button>
+          </div>
+        </div>
+        } @if(!ms.replyShow()) {
+        <div class="flex items-center gap-2.5">
+          <button mat-flat-button (click)="reply()">Reply</button>
+          <button mat-stroked-button (click)="reply()">Forward</button>
+        </div>
+        }
+      </div>
+    </div>
+  </ng-scrollbar>
+  }
+</div>

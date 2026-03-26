@@ -1,0 +1,133 @@
+<mat-card class="cardWithShadow">
+  <mat-card-content class="p-6">
+    <mat-card-title>Sample Page</mat-card-title>
+    <mat-card-subtitle class="mb-2.5!">This is test page</mat-card-subtitle>
+
+    <div class="flex flex-wrap gap-2.5">
+      <button mat-flat-button>Primary</button>
+      <button mat-flat-button class="bg-success">Success</button>
+      <button mat-flat-button class="bg-secondary">Secondary</button>
+      <button mat-flat-button class="bg-warning">Warning</button>
+      <button mat-flat-button class="bg-error">Error</button>
+
+      <button mat-flat-button class="bg-light-primary text-primary">
+        Light Primary
+      </button>
+      <button mat-flat-button class="bg-light-success text-success">
+        Light Success
+      </button>
+      <button mat-flat-button class="bg-light-secondary text-secondary">
+        Light Secondary
+      </button>
+      <button mat-flat-button class="bg-light-warning text-warning">
+        Light Warning
+      </button>
+      <button mat-flat-button class="bg-light-error text-error">
+        Light Error
+      </button>
+    </div>
+
+    <div class="flex flex-wrap gap-2.5 mt-3">
+      <button mat-raised-button>Basic</button>
+      <button mat-stroked-button>Basic</button>
+      <button mat-button>Basic</button>
+      <button mat-icon-button aria-label="Example icon button with a vertical three dot icon">
+        <mat-icon>more_vert</mat-icon>
+      </button>
+      <button mat-fab aria-label="Example icon button with a delete icon">
+        <mat-icon>delete</mat-icon>
+      </button>
+      <button mat-mini-fab aria-label="Example icon button with a menu icon">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <button mat-fab extended>
+        <mat-icon>favorite</mat-icon>
+        Basic
+      </button>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<mat-card class="cardWithShadow">
+  <mat-card-header class="p-4!">
+    <mat-card-title class="mb-0 text-xl font-semibold">Ordinary Form</mat-card-title>
+  </mat-card-header>
+
+  <mat-card-content class="border-t border-border p-6!">
+    <p class="mb-4">this is test</p>
+    <form>
+      <mat-label class="font-medium mb-2 block">Email</mat-label>
+      <mat-form-field appearance="outline" class="w-full" color="primary">
+        <input matInput />
+        <mat-hint>We'll never share your email with anyone else.</mat-hint>
+      </mat-form-field>
+
+      <mat-label class="font-medium mb-2 block mt-3">Password</mat-label>
+      <mat-form-field appearance="outline" class="w-full" color="primary">
+        <input matInput type="password" />
+      </mat-form-field>
+
+      <mat-checkbox color="primary" class="mt-2">Check Me Out!</mat-checkbox>
+      <div class="mt-3">
+        <button mat-flat-button color="primary">Submit</button>
+      </div>
+    </form>
+  </mat-card-content>
+</mat-card>
+
+<mat-card class="cardWithShadow overflow-hidden">
+  <mat-card-content class="p-0">
+    <div class="relative overflow-auto">
+      <table mat-table [dataSource]="dataSource" class="min-w-full text-left">
+
+        <ng-container matColumnDef="position">
+          <th mat-header-cell *matHeaderCellDef class="font-bold px-4 py-3">No.</th>
+          <td class="whitespace-nowrap" mat-cell *matCellDef="let element">{{ element.position }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef class="font-bold px-4 py-3">Name</th>
+          <td class="whitespace-nowrap" mat-cell *matCellDef="let element">{{ element.name }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="weight">
+          <th mat-header-cell *matHeaderCellDef class="font-bold px-4 py-3">Weight</th>
+          <td class="whitespace-nowrap" mat-cell *matCellDef="let element">{{ element.weight }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="symbol">
+          <th mat-header-cell *matHeaderCellDef class="font-bold px-4 py-3">Symbol</th>
+          <td class="whitespace-nowrap" mat-cell *matCellDef="let element">{{ element.symbol }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-header class="p-4!">
+    <mat-card-title class="mb-0 text-xl font-semibold">Chip</mat-card-title>
+  </mat-card-header>
+  <mat-card-content class="border-t border-border p-6!">
+    <mat-chip-set aria-label="Dog selection" class="gap-2">
+      <mat-chip>
+        <img matChipAvatar src="https://material.angular.io/assets/img/examples/shiba1.jpg"
+          alt="Photo of a Shiba Inu" />
+        Dog one
+      </mat-chip>
+      <mat-chip>
+        <img matChipAvatar src="https://material.angular.io/assets/img/examples/shiba1.jpg"
+          alt="Photo of a Shiba Inu" />
+        Dog two
+      </mat-chip>
+      <mat-chip>
+        <img matChipAvatar src="https://material.angular.io/assets/img/examples/shiba1.jpg"
+          alt="Photo of a Shiba Inu" />
+        Dog three
+      </mat-chip>
+    </mat-chip-set>
+  </mat-card-content>
+</mat-card>

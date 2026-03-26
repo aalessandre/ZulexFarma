@@ -1,0 +1,232 @@
+﻿<div class="profile-content">
+  <div class="grid grid-cols-12 gap-6">
+    <div class="lg:col-span-4 col-span-12">
+      <mat-card class="cardWithShadow shadow-none! border border-border">
+        <mat-card-content>
+          <h5 class="text-xl font-semibold mb-4">Introduction</h5>
+          <p class="text-sm mb-4 mt-0">
+            Hello, I am Markarn Doe. I love making websites and graphics.
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+          </p>
+          <div class="flex items-center gap-4 mborder.5">
+            <i-tabler name="briefcase" class="size-5!"></i-tabler>
+            <h6 class="text-base font-semibold">Sir, P P Institute Of Science</h6>
+          </div>
+          <div class="flex items-center gap-4 mborder.5">
+            <i-tabler name="mail" class="size-5!"></i-tabler>
+            <h6 class="text-base font-semibold">xyzjonathan&#64;gmail.com</h6>
+          </div>
+          <div class="flex items-center gap-4 mborder.5">
+            <i-tabler name="device-desktop" class="size-5!"></i-tabler>
+            <h6 class="text-base font-semibold">www.xyz.com</h6>
+          </div>
+          <div class="flex items-center gap-4">
+            <i-tabler name="map-pin" class="size-5!"></i-tabler>
+            <h6 class="text-base font-semibold">Newyork, USA - 100001</h6>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="cardWithShadow shadow-none! border border-border">
+        <mat-card-content>
+          <h5 class="text-base font-semibold mborder!">Photos</h5>
+          <div class="grid grid-cols-12 gap-3">
+            @for (topcard of topcards; track topcard; let i = $index) {
+            @if (i % 3 === 0 || (i - 1) % 3 === 0 || (i - 2) % 3 === 0) {
+            <div class="col-span-4">
+              <img [src]="topcard.img" alt="users" class="img-fluid w-full rounded-md" />
+            </div>
+            }
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <div class="lg:col-span-8 col-span-12">
+      <!--first card-->
+      <mat-card class="cardWithShadow shadow-none! border! border-border!">
+        <mat-card-content>
+          <mat-form-field appearance="outline" class="w-full" color="primary">
+            <textarea matInput rows="5" placeholder="Share your thoughts"></textarea>
+          </mat-form-field>
+          <!-- FLEX CONTAINER FOR BUTTONS -->
+          <div class="flex justify-between items-center gap-3 ">
+            <!-- LEFT SIDE: Photo / Video + Article -->
+            <div class="flex items-center gap-2">
+              <!-- Photo / Video -->
+              <div class="flex items-center">
+                <button mat-mini-fab class="bg-primary text-white! size-7.5! flex">
+                  <i-tabler name="photo" class="size-4.5! flex!"></i-tabler>
+                </button>
+                <button mat-button (click)="openFilePicker()"> Photo / Video</button>
+                <input type="file" #fileInput style="display: none" (change)="onFileSelected($event)" />
+              </div>
+              <!-- Article -->
+              <div class="flex items-center">
+                <button mat-mini-fab class="bg-secondary text-white! size-7.5! flex">
+                  <i-tabler name="file-text" class="size-4.5! flex!"></i-tabler>
+                </button>
+                <button mat-button> Article</button>
+              </div>
+            </div>
+            <!-- RIGHT SIDE: Post -->
+            <button mat-flat-button class="ms-auto">Post</button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+      <!--first end card-->
+      @for(post of posts;track post.id){
+      <mat-card class="cardWithShadow shadow-none! border! border-border!">
+        <mat-card-content>
+          <div class="flex items-center gap-4">
+            <img [src]="post.profile.avatar" alt="user" width="40" class="rounded-full" />
+            <h6 class="text-base font-semibold">{{
+              post.profile.name
+              }}</h6>
+            <span class="text-xs flex items-center gap-4 leading-5">
+              <i-tabler class="opacity-50 flex size-1.5!" name="circle-filled"></i-tabler>
+              {{ post.profile.time }}
+            </span>
+          </div>
+
+          <p class="text-sm mt-4">{{ post.data.content }}</p>
+
+          <!-- Display Featured Images -->
+          @if (hasFeaturedImages(post)) {
+          @for (image of getFeaturedImages(post); track i; let i = $index) {
+          <img [src]="image.img" alt="featured image" class="commentImg object-cover w-full rounded-md mb-4"
+            height="360" />
+          }
+          }
+
+
+          <!-- Display Other Images -->
+          @if (hasOtherImages(post)) {
+          <div class="grid grid-cols-12 gap-4 mb-3">
+            @for (image of getOtherImages(post); track i; let i = $index) {
+            <div class="lg:col-span-6 col-span-12">
+              <img [src]="image.img" alt="regular image" class="commentImg w-full rounded-md img-fluid" />
+            </div>
+            }
+          </div>
+          }
+
+          @if(post.data.video){
+          <iframe width="100%" height="300" [src]="getSafeVideoUrl(post.data.video)" frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen class="rounded-md mb-3">
+          </iframe>
+          }
+
+          <!-- Like and Comment Buttons -->
+          <div class="flex items-center justify-between gap-2">
+            <div class="left-buttons flex items-center gap-4">
+              <div class="flex items-center gap-2">
+                <button mat-mini-fab class="bg-primary text-white! size-7.5! flex" aria-label="Like"
+                  #tooltip="matTooltip" matTooltip="Like">
+                  <i-tabler class="size-4.5! block" name="thumb-up" class="flex! size-4.5!"></i-tabler>
+                </button>
+                <span class="text-sm font-semibold">{{ post.data.likes.value }}</span>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button mat-mini-fab class="bg-secondary text-white! size-7.5! flex" aria-label="Comment"
+                  #tooltip="matTooltip" matTooltip="Comment">
+                  <i-tabler class="size-4.5! block" name="message-circle" class="flex! size-4.5!"></i-tabler>
+                </button>
+                <span class="text-sm font-semibold">{{ post.data.comments.length }}</span>
+              </div>
+            </div>
+
+            <!-- Share Button -->
+            <div class="right-button flex items-center">
+              <button mat-icon-button class="flex! text-primary" aria-label="Share" #tooltip="matTooltip"
+                matTooltip="Share">
+                <i-tabler class="size-4.5! flex!" name="share"></i-tabler>
+              </button>
+            </div>
+          </div>
+
+          <!-- Comments Section -->
+          @for(comment of post.data.comments; track comment){
+          <mat-card class="cardWithShadow shadow-none! border! border-border! mt-6">
+            <mat-card-content>
+              <div class="flex items-center gap-2">
+                <img [src]="comment.profile.avatar" alt="user" width="33" class="rounded-full" />
+                <span class="text-base font-medium ms-1">{{
+                  comment.profile.name
+                  }}</span>
+                <span class="text-xs flex items-center gap-4 leading-5">
+                  <i-tabler class="opacity-50 flex size-1.5!" name="circle-filled"
+                    style="height: 5px; width: 5px"></i-tabler>
+                  {{ comment.profile.time }}
+                </span>
+              </div>
+              <p class="text-sm mt-4">{{ comment.data.comment }}</p>
+              <!-- Comment Likes -->
+              <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                  <button mat-mini-fab class="bg-primary text-white! size-7.5! flex" aria-label="Like"
+                    #tooltip="matTooltip" matTooltip="Like">
+                    <i-tabler class="size-4.5! block" name="thumb-up" class="flex! size-4.5!"></i-tabler>
+                  </button>
+                  <span class="text-sm font-semibold">{{ comment.data.likes.value }}</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <!-- Comment Replies -->
+                  <button mat-mini-fab class="bg-secondary text-white! size-7.5! flex" aria-label="Reply"
+                    #tooltip="matTooltip" matTooltip="Reply">
+                    <i-tabler class="size-4.5! block" name="arrow-back-up" class="flex! size-4.5!"></i-tabler>
+                  </button>
+                  <span class="text-sm font-semibold">{{ comment.data.replies.length }}</span>
+                </div>
+              </div>
+            </mat-card-content>
+
+          </mat-card>
+          <!-- Replies Section -->
+          @for (reply of comment.data.replies; track reply.id) {
+          <mat-card class="cardWithShadow shadow-none! border! border-border! mt-6 ms-8">
+            <mat-card-content>
+              <div class="flex items-center gap-2">
+                <img [src]="reply.profile.avatar" alt="user" width="40" class="rounded-full" />
+                <span class="text-base font-medium ms-1">{{ reply.profile.name }}</span>
+                <span class="text-xs flex items-center gap-4 leading-5">
+                  <i-tabler class="opacity-50 flex size-1.5!" name="circle-filled"></i-tabler>
+                  {{ reply.profile.time }}
+                </span>
+              </div>
+
+              <p class="text-sm mt-4">{{ reply.data.comment }}</p>
+
+              <!-- Reply Likes -->
+              <div class="flex items-center gap-2">
+                <button mat-mini-fab class="bg-primary text-white! size-7.5! flex" aria-label="Like"
+                  #tooltip="matTooltip" matTooltip="Like">
+                  <i-tabler class="size-4.5! flex!" name="thumb-up"></i-tabler>
+                </button>
+                <span class="text-sm font-semibold">{{ reply.data.likes.value }}</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          }
+          }
+        </mat-card-content>
+        <!-- Comment Input Box -->
+        <div class="border-t border-border">
+          <div class="flex items-center p-4 gap-4">
+            <img [src]="post.profile.avatar" alt="user" width="33" class="rounded-full" />
+            <mat-form-field appearance="outline" class="w-full hide-hint search-bar-style">
+              <input matInput placeholder="Comment" />
+            </mat-form-field>
+            <button mat-flat-button class="ms-auto">Comment</button>
+          </div>
+        </div>
+
+      </mat-card>
+      }
+    </div>
+  </div>
+</div>

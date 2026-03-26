@@ -1,0 +1,11 @@
+.profileContent {
+  .profileCard {
+    .profileTabs {
+      .mat-mdc-tab.mdc-tab-indicator--active {
+        .mdc-tab__text-label {
+          color: var(--mat-sys-primary);
+        }
+      }
+    }
+  }
+}

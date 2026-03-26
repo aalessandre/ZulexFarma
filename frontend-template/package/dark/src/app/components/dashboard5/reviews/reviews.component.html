@@ -1,0 +1,64 @@
+<mat-card class="cardWithShadow mb-0!">
+  <div class="grid grid-cols-12 gap-7.5">
+    <div class="col-span-12 lg:col-span-6">
+      <mat-card-content class="p-7.5!">
+        <mat-card-title class="mb-4!">Reviews</mat-card-title>
+        <p class="text-[40px] mb-1.5">31,560</p>
+        <p class="text-base">April the product got 234 reviews</p>
+
+        <div class="flex items-center gap-3 mb-6">
+          <a href="javascript:void(0)">
+            <img width="50" height="50" class="rounded-full" src="/assets/images/profile/user-2.jpg" />
+          </a>
+          <a href="javascript:void(0)">
+            <img width="50" height="50" class="rounded-full" src="/assets/images/profile/user-3.jpg" />
+          </a>
+          <a href="javascript:void(0)">
+            <img width="50" height="50" class="rounded-full" src="/assets/images/profile/user-4.jpg" />
+          </a>
+          <a href="javascript:void(0)">
+            <img width="50" height="50" class="rounded-full" src="/assets/images/profile/user-5.jpg" />
+          </a>
+        </div>
+
+        <button mat-flat-button>Read reviews</button>
+      </mat-card-content>
+    </div>
+    <div class="col-span-12 lg:col-span-6">
+      <div class="flex flex-col gap-4 p-7.5">
+        <div class="py-4 w-full">
+          <div class="flex items-center gap-2 mb-1">
+            <i-tabler name="mood-smile-beam" class="size-12! flex"></i-tabler>
+            <div>
+              <h6 class="text-lg font-medium">Positive Reviews</h6>
+              <span class="text-sm">25,547 Reviews</span>
+            </div>
+          </div>
+          <mat-progress-bar mode="determinate" class="mat-secondary" value="65"></mat-progress-bar>
+        </div>
+        <!-- 2 -->
+        <div class="py-4 w-full">
+          <div class="flex items-center gap-2 mb-1">
+            <i-tabler name="mood-sad" class="size-12! flex"></i-tabler>
+            <div>
+              <h6 class="text-lg font-medium">Negative Reviews</h6>
+              <span class="text-sm">5,478 Reviews</span>
+            </div>
+          </div>
+          <mat-progress-bar mode="determinate" class="mat-error" value="65"></mat-progress-bar>
+        </div>
+        <!-- 3 -->
+        <div class="py-4 w-full">
+          <div class="flex items-center gap-2 mb-1">
+            <i-tabler name="mood-empty" class="size-12! flex"></i-tabler>
+            <div>
+              <h6 class="text-lg font-medium">Neutral Reviews</h6>
+              <span class="text-sm">457 Reviews</span>
+            </div>
+          </div>
+          <mat-progress-bar mode="determinate" value="65"></mat-progress-bar>
+        </div>
+      </div>
+    </div>
+  </div>
+</mat-card>

@@ -1,0 +1,46 @@
+<div class="images-container md:pb-20 pb-6">
+  <div class="container">
+    <div class="grid grid-cols-12 gap-6 items-center">
+      <div class="col-span-12 md:col-span-7">
+        <h2 class="text-2xl sm:text-3xl md:text-[44px] font-bold">Meet our team</h2>
+      </div>
+      <div class="col-span-12 md:col-span-5">
+        <p class="text-base m-0">
+          Our robust analytics offer rich insights into the
+          information buyers want, informing where teams
+        </p>
+      </div>
+    </div>
+    <div class="grid grid-cols-12 gap-6 mt-12">
+      @for (member of visibleTeam; track member.id) {
+      <div class="col-span-12 md:col-span-3 sm:col-span-6">
+        <div class="meet-our-team relative rounded-lg overflow-hidden">
+          <img [src]="member.image" alt="{{ member.name }}" class="img-fluid w-full h-full rounded-xl block" />
+          <mat-card class="leadership-card text-center m-3 p-4 w-full">
+            <h3 class="font-semibold mb-2 text-lg">{{ member.name }}</h3>
+            <p class="text-sm my-0">{{ member.position }}</p>
+          </mat-card>
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+</div>
+@if(hideToolbar){
+<div class="toolBar bg-primary py-4">
+  <div class="container">
+    <div class="flex items-center justify-center flex-wrap gap-4">
+      <div class="shrink-0 flex items-center">
+        <img src="assets/images/profile/user-2.jpg" width="44" height="44" alt="social"
+          class="rounded-full -ml-2.5 border-2 border-white first:ml-0" />
+        <img src="assets/images/profile/user-3.jpg" width="44" height="44" alt="social"
+          class="rounded-full -ml-2.5 border-2 border-white" />
+      </div>
+      <span class="text-white text-base">
+        Save valuable time and effort spent searching for a solution.
+        <a class="text-white! font-semibold underline" [routerLink]="['/front-pages/contact']">Contact us now</a>
+      </span>
+    </div>
+  </div>
+</div>
+}

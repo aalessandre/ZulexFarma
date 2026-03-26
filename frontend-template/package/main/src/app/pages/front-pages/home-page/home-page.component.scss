@@ -1,0 +1,25 @@
+.home-page {
+  .toolbar {
+    height: 46px;
+    background-image: url("../../../../assets/images/front-end/topbar-bg.png");
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
+
+  .topbar {
+    .navigation-tab {
+      .mat-mdc-button {
+        &.selected {
+          background-color: var(--mat-sys-primary-fixed-dim);
+          color: var(--mat-sys-primary);
+          transition: background-color 0.3s ease;
+        }
+
+        &:hover {
+          color: var(--mat-sys-primary);
+          transition: color 0.3s ease;
+        }
+      }
+    }
+  }
+}

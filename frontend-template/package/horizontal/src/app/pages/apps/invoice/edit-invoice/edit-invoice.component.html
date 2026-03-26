@@ -1,0 +1,158 @@
+﻿<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    @if( invoice()) {
+    <span>
+      <form #invoiceForm="ngForm">
+        <div class="mb-6 flex justify-between items-center flex-wrap">
+          <div class="flex items-center">
+            <h4 class="text-lg font-semibold">
+              #
+              <span name="id" [(ngModel)]="invoice().id" ngDefaultControl>
+                {{ invoice().id }}</span>
+            </h4>
+          </div>
+          <div>
+            <a routerLink="/apps/invoice/list" mat-flat-button class="bg-error text-white! mr-2.5">
+              Cancel
+            </a>
+            <button mat-flat-button color="primary" (click)="saveDetail($event)">
+              Save Invoice
+            </button>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <div class="flex items-center flex-wrap py-6 justify-between">
+          <div>
+            <span class="font-semibold text-sm block mb-2"> Order Status: </span>
+            <mat-form-field appearance="outline" class="w-full theme-select">
+              <mat-select name="satus" [(ngModel)]="invoice().status">
+                <mat-option value="Pending"> Pending </mat-option>
+                <mat-option value="Shipped"> Shipped </mat-option>
+                <mat-option value="Delivered"> Delivered </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div>
+            <span class="font-semibold text-sm block mb-2"> Order Date </span>
+            <h6 name="date" class="my-0! font-medium text-base" [(ngModel)]="invoice().orderDate" ngDefaultControl>
+              {{ invoice().orderDate | date : "dd-MM-yyyy" }}
+            </h6>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <div class="grid grid-cols-12 gap-x-6 my-6 pt-6">
+          <div class="sm:col-span-6 col-span-12">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Bill From</mat-label>
+              <input matInput placeholder="Bill From" name="from" [(ngModel)]="invoice().billFrom" />
+            </mat-form-field>
+          </div>
+          <div class="sm:col-span-6 col-span-12">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Bill To</mat-label>
+              <input matInput placeholder="Bill To" name="to" [(ngModel)]="invoice().billTo" />
+            </mat-form-field>
+          </div>
+          <div class="sm:col-span-6 col-span-12">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Enter From Address</mat-label>
+              <input matInput placeholder="Enter From Address" name="fromAddress"
+                [(ngModel)]="invoice().billFromAddress" />
+            </mat-form-field>
+          </div>
+          <div class="sm:col-span-6 col-span-12">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Enter To Address</mat-label>
+              <input matInput placeholder="Enter To Address" name="toAddress" [(ngModel)]="invoice().billToAddress" />
+            </mat-form-field>
+          </div>
+        </div>
+      </form>
+    </span>
+    }
+
+    <form [formGroup]="addForm" class="edit-invoice-list">
+      <div class="relative overflow-auto">
+        <table id="tblAdd"
+          class="table table-hover border border-border no-wrap min-w-full rounded-md text-left rtl:text-right">
+          <thead>
+            <tr>
+              <th class="p-4">#</th>
+              <th class="p-4">Item Name</th>
+              <th class="p-4">Unit Price</th>
+              <th class="p-4">Units</th>
+              <th class="p-4">Unit Total Price</th>
+              <th class="p-4"></th>
+            </tr>
+          </thead>
+
+          @for(a of addForm.get('item')['controls']; track a; let i =$index) {
+          <tbody formArrayName="item">
+            <tr [formGroupName]="i">
+              <td class="p-4 whitespace-nowrap">
+                {{ i + 1 }}
+              </td>
+              <td class="p-4 whitespace-nowrap">
+                <mat-form-field appearance="outline" class="w-full hide-hint">
+                  <input matInput type="text" [id]="'txtNameControl' + i" class="form-control"
+                    placeholder="Enter Item Name" formControlName="itemName" (input)="itemsChanged()" />
+                </mat-form-field>
+              </td>
+              <td class="p-4 whitespace-nowrap">
+                <mat-form-field appearance="outline" class="w-full hide-hint">
+                  <input matInput type="number" [id]="'txtCostControl' + i" class="form-control"
+                    placeholder="Enter Item Price" formControlName="itemCost" (input)="itemsChanged()" />
+                </mat-form-field>
+              </td>
+              <td class="p-4 whitespace-nowrap">
+                <mat-form-field appearance="outline" class="w-full hide-hint">
+                  <input matInput type="number" [id]="'txtTotalControl' + i" class="form-control"
+                    placeholder="Enter Item" formControlName="itemSold" (input)="itemsChanged()" />
+                </mat-form-field>
+              </td>
+              <td class="p-4 whitespace-nowrap">
+                <mat-form-field appearance="outline" class="w-full hide-hint">
+                  <input matInput type="number" [id]="'txtitemTotalControl' + i" [value]="
+                      (addForm.get('item')?.value[i]?.itemCost || 0) *
+                      (addForm.get('item')?.value[i]?.itemSold || 0)
+                    " class="form-control" [disabled]="true" />
+                </mat-form-field>
+              </td>
+              <td class="whitespace-nowrap">
+                <button mat-icon-button color="primary" (click)="btnAddItemClick()"
+                  class="flex! justify-center size-9.5! p-2" [disabled]="addForm.get('item')?.invalid">
+                  <i-tabler name="circle-plus" class="size-4.5! flex!"></i-tabler>
+                </button>
+              </td>
+              <td class="whitespace-nowrap">
+                @if(addForm.get('item')?.length > 1) {
+                <button mat-icon-button (click)="btnRemoveClick(i)" class="flex! justify-center size-9.5! p-2">
+                  <i-tabler name="trash" class="size-4.5! flex!"></i-tabler>
+                </button>
+                }
+              </td>
+            </tr>
+          </tbody>
+          }
+        </table>
+      </div>
+
+      <div class="text-right rtl:text-left mt-8">
+        @if(addForm.get('rows')) {
+        <button color="accent" mat-flat-button [disabled]="addForm.invalid">
+          Add row
+        </button>
+        }
+
+        <h5 class="mborder! font-semibold text-base">Sub total: {{ subTotal() }}</h5>
+        <h5 class="font-semibold text-base mb-6!">Total Vat: {{ vat() }}%</h5>
+        <mat-divider></mat-divider>
+        <h3 class="mb-0! pt-5! text-xl">Grand Total: {{ grandTotal() }}</h3>
+      </div>
+    </form>
+  </mat-card-content>
+</mat-card>

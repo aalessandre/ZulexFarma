@@ -1,0 +1,23 @@
+<mat-card class="cardWithShadow overflow-hidden mb-0!">
+  <div class="py-2 px-7.5 border-b border-border flex items-center justify-between">
+    <mat-card-title>Discount</mat-card-title>
+    <div>
+      <button class="flex items-center justify-center" mat-icon-button [matMenuTriggerFor]="beforeMenu">
+        <i-tabler name="dots" class="text-body flex"></i-tabler>
+      </button>
+      <mat-menu #beforeMenu="matMenu" xPosition="before">
+        <button mat-menu-item>Item 1</button>
+        <button mat-menu-item>Item 2</button>
+        <button mat-menu-item>Item 3</button>
+      </mat-menu>
+    </div>
+  </div>
+  <mat-card-content class="bg-secondary pt-7.5">
+    <i-tabler name="shopping-cart" class="flex text-white"></i-tabler>
+    <p class=" text-white mb-4 mt-1">25th Jan</p>
+    <h4 class=" text-2xl font-light text-white mb-4">
+      Now Get 50% Off <br />on buy
+    </h4>
+    <i class="text-white">- Ecommerce site</i>
+  </mat-card-content>
+</mat-card>

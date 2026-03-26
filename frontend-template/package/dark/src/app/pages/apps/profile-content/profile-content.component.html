@@ -1,0 +1,129 @@
+﻿<div class="profileContent">
+  <div class="profileCard">
+    <mat-card class="cardWithShadow overflow-hidden">
+      <!-- Cover Image -->
+      <img mat-card-image src="assets/images/backgrounds/profilebg.jpg" alt="Profile Cover"
+        class="w-full relative z-0" />
+
+      <div class="grid grid-cols-12 items-center relative z-1">
+        <div class="col-span-12 lg:col-span-4 order-2 xl:order-1">
+          <div class="flex items-center justify-around m-6">
+            <div class="text-center">
+              <tabler-icon class="size-5! mborder" name="file-description"></tabler-icon>
+              <h6 class="mb-0 text-[21px] font-medium">938</h6>
+              <p class="my-0 text-sm">Posts</p>
+            </div>
+            <div class="text-center">
+              <tabler-icon class="size-5! mborder" name="user-circle"></tabler-icon>
+              <h6 class="mb-0 text-[21px] font-medium">3,586</h6>
+              <p class="my-0 text-sm">Followers</p>
+            </div>
+            <div class="text-center">
+              <tabler-icon class="size-5! mborder" name="user-check"></tabler-icon>
+              <h6 class="mb-0 text-[21px] font-medium">2,659</h6>
+              <p class="my-0 text-sm">Following</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-span-12 lg:col-span-4 order-1 xl:order-2">
+          <div class="profile-img-container text-center -mt-12">
+            <div
+              class="profile-border-bg bg-linear-to-b from-[#50b2fc] to-[#f44c66] w-[110px] h-[110px] flex items-center justify-center rounded-full mx-auto">
+              <div
+                class="profile-border w-[100px] h-[100px] border-4 border-white flex items-center justify-center rounded-full">
+                <img src="assets/images/profile/user-1.jpg" class="profile-pic rounded-full w-full h-full object-cover"
+                  alt="user" />
+              </div>
+            </div>
+            <div class="text-center mt-0.5">
+              <h4 class="text-lg font-semibold">Markarn Doe</h4>
+              <p class="my-0">info@materialpro.com</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-span-12 lg:col-span-4 order-3">
+          <div class="flex items-center justify-center gap-4 social-btns my-4">
+            <button mat-mini-fab class="bg-primary text-white! size-8!"
+              aria-label="Example icon button with a bookmark icon">
+              <i-tabler class="size-4.5! flex!" name="brand-facebook"></i-tabler>
+            </button>
+            <button mat-mini-fab class="bg-secondary text-white! size-8!"
+              aria-label="Example icon button with a home icon">
+              <i-tabler class="size-4.5! flex!" name="brand-twitter"></i-tabler>
+            </button>
+            <button mat-mini-fab class="bg-success text-white! size-8!"
+              aria-label="Example icon button with a home icon">
+              <i-tabler class="size-4.5! flex!" name="brand-dribbble"></i-tabler>
+            </button>
+            <button mat-mini-fab class="bg-error text-white! size-8!" aria-label="Example icon button with a home icon">
+              <i-tabler class="size-4.5! flex!" name="brand-youtube"></i-tabler>
+            </button>
+            <button mat-flat-button>
+              Add To Story
+            </button>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- Navigation Tabs -->
+      <div class="profileTabs bg-(--mat-sys-surface-bright) mt-4">
+        <mat-tab-group [(selectedIndex)]="selectedTab" mat-stretch-tabs="false" mat-align-tabs="end">
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <tabler-icon name="user-circle" class="me-2 size-5!"></tabler-icon>
+              Profile
+            </ng-template>
+          </mat-tab>
+
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <tabler-icon name="heart" class="me-2 size-5!"></tabler-icon>
+              Followers
+            </ng-template>
+          </mat-tab>
+
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <tabler-icon name="user-circle" class="me-2 size-5!"></tabler-icon>
+              Friends
+            </ng-template>
+          </mat-tab>
+
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <tabler-icon name="photo" class="me-2 size-5!"></tabler-icon>
+              Gallery
+            </ng-template>
+          </mat-tab>
+        </mat-tab-group>
+      </div>
+    </mat-card>
+
+    <div class="tabContent">
+      @switch (selectedTab) {
+      @case (0) {
+      <div>
+        <app-profile></app-profile>
+      </div>
+      }
+      @case (1) {
+      <div>
+        <app-followers></app-followers>
+      </div>
+      }
+      @case (2) {
+      <div>
+        <app-friends></app-friends>
+      </div>
+      }
+      @case (3) {
+      <div>
+        <app-gallery></app-gallery>
+      </div>
+      }
+      }
+    </div>
+  </div>
+</div>

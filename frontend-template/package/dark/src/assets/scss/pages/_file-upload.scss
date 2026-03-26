@@ -1,0 +1,28 @@
+@use "../variables" as *;
+
+// dropzone
+html dropzone>.dropzone.dz-wrapper .dz-message {
+    background-color: var(--mat-sys-primary-fixed-dim);
+    border: 1px dashed var(--mat-sys-primary);
+    min-height: 250px;
+    border-radius: $border-radius;
+}
+
+html dropzone>.dropzone.dz-wrapper.dz-single .dz-preview {
+    width: 150px;
+    height: 150px;
+}
+
+html .dropzone .dz-preview {
+    min-height: 100%;
+}
+
+html dropzone>.dropzone.dz-wrapper.dz-single .dz-preview .dz-image {
+    border-radius: $border-radius;
+    border: 1px solid var(--mat-divider-color);
+}
+
+html dropzone>.dropzone.dz-wrapper.dz-single .dz-preview .dz-image {
+    height: auto;
+    width: auto;
+}

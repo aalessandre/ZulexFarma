@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd.exe /c \"taskkill /F /PID 10640 2>&1\")",
+      "Bash(cmd.exe /c \"wmic process where name=''ZulexPharma.API.exe'' get ProcessId,Name 2>&1\")",
+      "Bash(cmd.exe /c \"wmic process where \"\"name=''ZulexPharma.API.exe''\"\" get ProcessId,Name\")",
+      "Bash(cmd.exe /c \"tasklist /FI \"\"IMAGENAME eq ZulexPharma.API.exe\"\"\")",
+      "Bash(cmd.exe /c \"tasklist /FI \"\"PID eq 10640\"\"\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 10640 -Force; Start-Sleep 1; Get-Process -Name ''ZulexPharma.API'' -ErrorAction SilentlyContinue | Select-Object Id, Name\")",
+      "Bash(powershell.exe -Command \"Get-Process -Name ''ZulexPharma.API'' -ErrorAction SilentlyContinue | Select-Object Id, Name\")",
+      "Bash(dotnet ef:*)",
+      "Bash(dotnet build:*)",
+      "Bash(powershell -Command \"& { $env:PGPASSWORD=''postgres''; & ''psql'' -U postgres -h localhost -d zulexpharma_db -c ''\\\\dt'' 2>&1 }\")",
+      "Bash(powershell -Command \"Get-ChildItem ''C:\\\\Program Files\\\\PostgreSQL'' -ErrorAction SilentlyContinue | Select-Object Name\")",
+      "Bash(powershell -Command \"& ''C:\\\\Program Files\\\\PostgreSQL\\\\16\\\\bin\\\\psql.exe'' -U postgres -h localhost -d zulexpharma_db -c ''\\\\dt'' 2>&1\")",
+      "Bash(powershell -Command \"Test-Path ''C:/Program Files/PostgreSQL/16/bin/psql.exe''\")",
+      "Bash(powershell -Command \"Get-ChildItem ''C:/Program Files/PostgreSQL/16/bin/'' -Filter ''psql*'' -ErrorAction SilentlyContinue\")",
+      "Bash(npx ng:*)",
+      "Bash(powershell -Command \"Get-Process -Name ''''ZulexPharma.API'''' -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(curl -s http://localhost:5000/api/filiais -o /dev/null -w \"%{http_code}\")",
+      "Bash(powershell -Command \"Stop-Process -Id 19184 -Force\")"
+    ]
+  }
+}

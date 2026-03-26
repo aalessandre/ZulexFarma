@@ -1,0 +1,305 @@
+<mat-card class="cardWithShadow mb-0!">
+  <mat-card-content>
+    <mat-card-title>Profile Activitiy</mat-card-title>
+    <mat-card-subtitle>Ample Admin Vs Pixel Admin</mat-card-subtitle>
+    <mat-tab-group animationDuration="0ms" class="profile-tabs">
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <div class="flex items-center gap-3 flex-col">
+            <i-tabler name="user-circle" class="flex"></i-tabler>
+            Profile
+          </div>
+        </ng-template>
+        <mat-card-content>
+          <div class="grid grid-cols-12 gap-6">
+            <div class="col-span-12 md:col-span-6 lg:col-span-3 border-r border-border">
+              <h5 class="font-semibold text-base">Full Name</h5>
+              <p class="text-base">Johnathan Deo</p>
+            </div>
+            <div class="col-span-12 md:col-span-6 lg:col-span-3 border-r border-border">
+              <h5 class="font-semibold text-base">Mobile</h5>
+              <p class="text-base">(123) 456 7890</p>
+            </div>
+            <div class="col-span-12 md:col-span-6 lg:col-span-3 border-r border-border">
+              <h5 class="font-semibold text-base">Email</h5>
+              <p class="text-base">john&#64;admin.com</p>
+            </div>
+            <div class="col-span-12 md:col-span-6 lg:col-span-3">
+              <h5 class="font-semibold text-base">Location</h5>
+              <p class="text-base">London</p>
+            </div>
+          </div>
+
+          <p class="text-sm my-3.5 border-t border-border pt-3.5">
+            Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu.
+            In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo.
+            Nullam dictum felis eu pede mollis pretium. Integer tincidunt.Cras
+            dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend
+            tellus. Aenean leo ligula, porttitor eu, consequat vitae, eleifend
+            ac, enim.
+          </p>
+          <p class="text-sm mb-4">
+            Lorem Ipsum is simply dummy text of the printing and typesetting
+            industry. Lorem Ipsum has been the industry's standard dummy text
+            ever since the 1500s, when an unknown printer took a galley of type
+            and scrambled it to make a type specimen book. It has survived not
+            only five centuries
+          </p>
+
+          <h5 class="font-medium text-lg mt-6 border-b border-border pb-4">Skill Set</h5>
+          <div class="flex flex-col gap-1 mt-4">
+            <div class="flex justify-between mb-1">
+              <span class="text-base font-medium">Wordpress</span>
+              <span class="text-base font-medium">80%</span>
+            </div>
+            <mat-progress-bar mode="determinate" value="80"></mat-progress-bar>
+          </div>
+          <div class="flex flex-col gap-1 mt-4">
+            <div class="flex justify-between mb-1">
+              <span class="text-base font-medium">HTML 5</span>
+              <span class="text-base font-medium">90%</span>
+            </div>
+            <mat-progress-bar mode="determinate" class="mat-secondary" value="90"></mat-progress-bar>
+          </div>
+          <div class="flex flex-col gap-1 mt-4">
+            <div class="flex justify-between mb-1">
+              <span class="text-base font-medium">jQuery</span>
+              <span class="text-base font-medium">50%</span>
+            </div>
+            <mat-progress-bar mode="determinate" class="mat-warning" value="50"></mat-progress-bar>
+          </div>
+          <div class="flex flex-col gap-1 mt-4">
+            <div class="flex justify-between mb-1">
+              <span class="text-base font-medium">Photoshop</span>
+              <span class="text-base font-medium">70%</span>
+            </div>
+            <mat-progress-bar mode="determinate" class="mat-error" value="70"></mat-progress-bar>
+          </div>
+        </mat-card-content>
+      </mat-tab>
+
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <div class="flex items-center gap-3 flex-col">
+            <i-tabler name="activity" class="flex"></i-tabler>
+            Activity
+          </div>
+        </ng-template>
+        <mat-card-content>
+          <div class="profiletimeline relative pl-8 ml-7 border-l border-border">
+            <div class="sl-item mt-2 mb-7.5 flex">
+              <div class="sl-left -ml-15 z-1 mr-[15px] float-left">
+                <img src="assets/images/profile/user-1.jpg" width="56" height="56" alt="user" class="rounded-full" />
+              </div>
+              <div class="sl-right w-full">
+                <div>
+                  <div class="flex items-center justify-between gap-3 mb-1">
+                    <div class="flex items-center gap-3">
+                      <h3 class="text-base font-medium">John Doe</h3>
+                      <div class="sl-date text-xs">5 minutes ago</div>
+                    </div>
+                    <i-tabler name="dots" class="flex"></i-tabler>
+                  </div>
+
+                  <p class="mt-0 mb-3 text-base">
+                    assign a new task
+                    <a href="" class="text-primary no-underline">
+                      Design web layout</a>
+                  </p>
+                  <div class="grid grid-cols-12 gap-6 mt-3">
+                    <div class="col-span-12 md:col-span-6 lg:col-span-3 mb-2">
+                      <img src="assets/images/blog/blog-img1.jpg" width="100%" height="80" alt="user"
+                        class="rounded-lg" />
+                    </div>
+                    <div class="col-span-12 md:col-span-6 lg:col-span-3 mb-2">
+                      <img src="assets/images/blog/blog-img2.jpg" width="100%" height="80" alt="user"
+                        class="rounded-lg" />
+                    </div>
+                    <div class="col-span-12 md:col-span-6 lg:col-span-3 mb-2">
+                      <img src="assets/images/blog/blog-img3.jpg" width="100%" height="80" alt="user"
+                        class="rounded-lg" />
+                    </div>
+                    <div class="col-span-12 md:col-span-6 lg:col-span-3 mb-2">
+                      <img src="assets/images/blog/blog-img4.jpg" width="100%" height="80" alt="user"
+                        class="rounded-lg" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sl-item mt-2 mb-7.5 flex">
+              <div class="sl-left -ml-15 z-1 mr-[15px] float-left">
+                <img src="assets/images/profile/user-2.jpg" width="56" height="56" alt="user" class="rounded-full" />
+              </div>
+              <div class="sl-right w-full">
+                <div>
+                  <div class="flex items-center justify-between gap-3 mb-3">
+                    <div class="flex flex-row items-center gap-3">
+                      <h3 class="text-base font-medium">Canry Smith</h3>
+                      <div class="sl-date text-xs">5 minutes ago</div>
+                    </div>
+                    <i-tabler name="dots" class="flex"></i-tabler>
+                  </div>
+                  <div class="bg-light-primary p-5 rounded-lg">
+                    <p class="m-0 text-sm">
+                      Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                      Integer nec odio. Praesent libero. Sed cursus ante dapibus
+                      diam. Sed nisi. Nulla quis sem at nibh elementum
+                      imperdiet. Duis sagittis ipsum. Praesent mauris.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sl-item mt-2 flex">
+              <div class="sl-left -ml-15 z-1 mr-[15px] float-left">
+                <img src="assets/images/profile/user-2.jpg" width="56" height="56" alt="user" class="rounded-full" />
+              </div>
+              <div class="sl-right w-full">
+                <div>
+                  <div class="flex items-center justify-between gap-3 mb-3">
+                    <div class="flex flex-row items-center gap-3">
+                      <h3 class="text-base font-medium">James Smith</h3>
+                      <div class="sl-date text-xs">5 minutes ago</div>
+                    </div>
+                    <i-tabler name="dots" class="flex"></i-tabler>
+                  </div>
+                  <div class="grid grid-cols-12 gap-6 mb-5">
+                    <div class="col-span-12 lg:col-span-5">
+                      <div class="flex items-center rounded-lg border border-border py-5 px-7.5 gap-4">
+                        <img src="assets/images/svgs/icon-zip.svg" alt="" class="shrink-0" />
+                        <div>
+                          <h3 class="text-base font-medium">Payments.zip</h3>
+                          <p class="text-sm m-0">150kb</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-span-12 lg:col-span-5">
+                      <div class="flex items-center rounded-lg border border-border py-5 px-7.5 gap-4">
+                        <img src="assets/images/svgs/icon-figma2.svg" alt="" class="shrink-0" />
+                        <div>
+                          <h3 class="text-base font-medium">Figma.zip</h3>
+                          <p class="text-sm m-0">150kb</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-span-12 lg:col-span-2">
+                      <div
+                        class="flex items-center justify-center bg-light-primary rounded-lg font-medium h-full text-lg ">
+                        +2
+                      </div>
+                    </div>
+                  </div>
+                  <p class="text-base m-0">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                    Integer nec odio. Praesent libero.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-tab>
+
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <div class="flex items-center gap-3 flex-col">
+            <i-tabler name="mail" class="flex"></i-tabler>
+            Inbox
+          </div>
+        </ng-template>
+        <mat-card-content>
+          <!-- ============================================================== -->
+          <!-- column -->
+          <!-- ============================================================== -->
+          <form class="basic-form">
+            <div class="grid grid-cols-12 gap-6">
+              <div class="col-span-12">
+                <label class="text-sm font-medium mb-1 block">Name</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <input matInput placeholder="Name" value="John Deo" />
+                </mat-form-field>
+                <!-- 2 -->
+                <label class="text-sm font-medium mb-1 block">Email</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <input matInput placeholder="EmailId" type="email" />
+                </mat-form-field>
+                <!-- 3 -->
+                <label class="text-sm font-medium mb-1 block">Password</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <input matInput placeholder="Password" type="password" />
+                </mat-form-field>
+                <!-- 4 -->
+                <label class="text-sm font-medium mb-1 block">Select</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <mat-select placeholder="Select">
+                    <mat-option value="option">Option</mat-option>
+                    <mat-option value="option">Option2</mat-option>
+                    <mat-option value="option">Option3</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <!-- 5 -->
+                <label class="text-sm font-medium mb-1 block">Address</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <textarea matInput placeholder="Address"></textarea>
+                </mat-form-field>
+                <button mat-flat-button>Update Profile</button>
+              </div>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-tab>
+
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <div class="flex items-center gap-3 flex-col">
+            <i-tabler name="settings" class="flex"></i-tabler>
+            Settings
+          </div>
+        </ng-template>
+        <mat-card-content>
+          <!-- ============================================================== -->
+          <!-- column -->
+          <!-- ============================================================== -->
+          <form class="basic-form">
+            <div class="grid grid-cols-12 gap-6">
+              <div class="col-span-12">
+                <label class="text-sm font-medium mb-1 block">Name</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <input matInput placeholder="Name" value="John Deo" />
+                </mat-form-field>
+                <!-- 2 -->
+                <label class="text-sm font-medium mb-1 block">Email</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <input matInput placeholder="Email Id" type="email" />
+                </mat-form-field>
+                <!-- 3 -->
+                <label class="text-sm font-medium mb-1 block">Password</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <input matInput placeholder="Password" type="password" />
+                </mat-form-field>
+                <!-- 4 -->
+                <label class="text-sm font-medium mb-1 block">Select</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <mat-select placeholder="Select">
+                    <mat-option value="option">Option</mat-option>
+                    <mat-option value="option">Option2</mat-option>
+                    <mat-option value="option">Option3</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <!-- 5 -->
+                <label class="text-sm font-medium mb-1 block">Address</label>
+                <mat-form-field class="w-full" appearance="outline">
+                  <textarea matInput placeholder="Address"></textarea>
+                </mat-form-field>
+                <button mat-flat-button color="primary">Update Profile</button>
+              </div>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-tab>
+    </mat-tab-group>
+  </mat-card-content>
+</mat-card>

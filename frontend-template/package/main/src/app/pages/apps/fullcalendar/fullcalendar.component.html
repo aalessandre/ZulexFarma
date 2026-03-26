@@ -1,0 +1,78 @@
+<mat-card class="cardWithShadow">
+  <mat-card-content>
+    <div class="flex items-center">
+      <mat-card-title class="mb-0">Angular Calendar</mat-card-title>
+      <div class="ms-auto">
+        <button mat-flat-button color="primary" (click)="addEvent()">
+          Add Event
+        </button>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<mat-card class="cardWithShadow overflow-hidden mb-0!">
+  <mat-toolbar class="bg-primary text-white no-shadow">
+    <mat-toolbar-row>
+      <div class="flex items-center justify-between w-full">
+        <span class="text-white">{{
+          viewDate() | calendarDate : view() + "ViewTitle" : "en"
+          }}</span>
+        <div class="flex items-center">
+          <button mat-button class="text-white!" (click)="setView('month')" [class.active]="view() === 'month'">
+            Month
+          </button>
+          <button mat-button class="text-white!" (click)="setView('week')" [class.active]="view() === 'week'">
+            Week
+          </button>
+          <button mat-button class="text-white!" (click)="setView('day')" [class.active]="view() === 'day'">
+            Day
+          </button>
+          <button mat-icon-button class="text-white!" (click)="setView('month')" [class.active]="view() === 'month'">
+            <mat-icon>view_module</mat-icon>
+          </button>
+          <button mat-icon-button class="text-white!" (click)="setView('week')" [class.active]="view() === 'week'">
+            <mat-icon>view_week</mat-icon>
+          </button>
+          <button mat-icon-button class="text-white!" (click)="setView('day')" [class.active]="view() === 'day'">
+            <mat-icon>view_day</mat-icon>
+          </button>
+          <button mat-icon-button class="text-white!" mwlCalendarPreviousView (click)="goToPreviousMonth()">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <button mat-icon-button mwlCalendarToday class="text-white!" (click)="goToToday()">
+            <mat-icon>today</mat-icon>
+          </button>
+          <button mat-icon-button mwlCalendarNextView class="text-white!" (click)="goToNextMonth()">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    </mat-toolbar-row>
+  </mat-toolbar>
+  <mat-card-content>
+    <div>
+      @switch (view()) {
+      <!-- month view -->
+      @case ('month') {
+      <mwl-calendar-month-view [viewDate]="viewDate()" [events]="events()" [refresh]="refresh"
+        [activeDayIsOpen]="activeDayIsOpen()" (dayClicked)="dayClicked($event.day)"
+        (eventClicked)="handleEvent('Clicked', $event.event)" (eventTimesChanged)="eventTimesChanged($event)">
+      </mwl-calendar-month-view>
+      }
+      <!-- week view -->
+      @case ('week') {
+      <mwl-calendar-week-view [viewDate]="viewDate()" [events]="events()" [refresh]="refresh"
+        (eventClicked)="handleEvent('Clicked', $event.event)" (eventTimesChanged)="eventTimesChanged($event)">
+      </mwl-calendar-week-view>
+      }
+      <!-- day view -->
+      @case ('day') {
+      <mwl-calendar-day-view [viewDate]="viewDate()" [events]="events()" [refresh]="refresh"
+        (eventClicked)="handleEvent('Clicked', $event.event)" (eventTimesChanged)="eventTimesChanged($event)">
+      </mwl-calendar-day-view>
+      }
+      }
+    </div>
+  </mat-card-content>
+</mat-card>
