@@ -188,18 +188,18 @@
 /* ── Main (launcher style) ────────────────────────────────────── */
 .dash-main {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 40px 32px;
+  padding: 40px 16px;
   transition: background 0.3s;
 }
 
 .tiles-area {
   display: flex;
-  gap: 28px;
-  flex-wrap: wrap;
+  gap: 24px;
+  flex-wrap: nowrap;
   justify-content: center;
   align-items: flex-start;
   max-width: 1400px;
@@ -223,13 +223,13 @@
 
 .tiles-grid {
   display: grid;
-  grid-template-columns: repeat(2, 150px);
-  gap: 6px;
+  grid-template-columns: repeat(2, 170px);
+  gap: 8px;
 }
 
 .tile {
-  width: 150px;
-  height: 95px;
+  width: 170px;
+  height: 105px;
   border-radius: 10px;
   display: flex;
   flex-direction: column;
