@@ -32,4 +32,5 @@ public class Pessoa : BaseEntity
     public ICollection<PessoaEndereco> Enderecos { get; set; } = new List<PessoaEndereco>();
 
     public Colaborador? Colaborador { get; set; }
+    public Fornecedor? Fornecedor { get; set; }
 }

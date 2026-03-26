@@ -1,0 +1,576 @@
+<div class="tela-erp">
+
+  <!-- ── SIDEBAR ESQUERDA ─────────────────────────────────────────── -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()">
+      <span>Procurar</span>
+      <span class="sidebar-sub">Consulta</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()">
+      <span>Adicionar</span>
+      <span class="sidebar-sub">Novo cadastro</span>
+    </div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!fornecedorSelecionado()" (click)="editar()">
+      <span>Editar</span>
+      <span class="sidebar-sub">Alterar registro</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+
+    @if (abasEdicao().length > 0) {
+      <div class="sidebar-divider"></div>
+      @for (aba of abasEdicao(); track aba.fornecedor.id) {
+        <div class="sidebar-aba"
+             [class.ativo]="abaAtivaId() === aba.fornecedor.id && modo() === 'form'"
+             (click)="ativarAba(aba.fornecedor.id!)">
+          <div class="sidebar-aba-topo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span class="sidebar-aba-id">#{{ aba.fornecedor.id }}</span>
+            @if (aba.isDirty) { <span class="sidebar-aba-dirty">●</span> }
+          </div>
+          <span class="sidebar-aba-nome">{{ aba.fornecedor.nome }}</span>
+          <button class="sidebar-aba-fechar"
+                  (click)="$event.stopPropagation(); fecharAba(aba.fornecedor.id!)"
+                  title="Fechar">×</button>
+        </div>
+      }
+    }
+  </aside>
+
+  <!-- ── AREA PRINCIPAL ───────────────────────────────────────────── -->
+  <div class="tela-main">
+
+    @if (modo() === 'lista') {
+      <!-- LISTA -->
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="Digite ao menos 3 caracteres..."
+                   [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            @if (busca()) {
+              <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="lista-filtro">
+          <label>SITUACAO</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header">
+                <span>Personalizar Colunas</span>
+                <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrao</button>
+              </div>
+              <div class="col-picker-lista">
+                @for (col of colunas(); track col.campo) {
+                  <label class="col-picker-item">
+                    <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                    <span>{{ col.label }}</span>
+                    @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              @for (col of colunasVisiveis(); track col.campo) {
+                <th class="th-sort th-resize"
+                    [style.width.px]="col.largura"
+                    [style.min-width.px]="col.minLargura"
+                    (click)="ordenar(col.campo)">
+                  {{ col.label }}
+                  <span class="sort-icon">{{ sortColuna() === col.campo ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span>
+                  <div class="resize-handle"
+                       (mousedown)="iniciarResize($event, col.campo, col.largura)"
+                       (click)="$event.stopPropagation()"></div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+            } @else if (fornecedoresFiltrados().length === 0) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+            } @else {
+              @for (f of fornecedoresFiltrados(); track f.id) {
+                <tr [class.selecionado]="fornecedorSelecionado()?.id === f.id"
+                    (click)="selecionar(f)" (dblclick)="editar()">
+                  <td class="td-arrow">
+                    @if (fornecedorSelecionado()?.id === f.id) { <span>▶</span> }
+                  </td>
+                  @for (col of colunasVisiveis(); track col.campo) {
+                    <td>{{ getCellValue(f, col.campo) }}</td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ fornecedoresFiltrados().length }}</strong></span>
+      </div>
+    }
+
+    @if (modo() === 'form') {
+      <!-- FORMULARIO -->
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar Fornecedor' : 'Novo Fornecedor' }}</div>
+
+        <!-- CODIGO / DATA CADASTRO (somente edicao) -->
+        @if (modoEdicao()) {
+          <div class="form-grid form-grid-info">
+            <div class="field">
+              <label>CODIGO</label>
+              <input type="text" [value]="fornecedorForm().id" disabled class="field-disabled" />
+            </div>
+            <div class="field">
+              <label>DATA CADASTRO</label>
+              <input type="text" [value]="fornecedorForm().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" />
+            </div>
+          </div>
+        }
+
+        @if (erro()) {
+          <div class="form-erro">{{ erro() }}</div>
+        }
+
+        <!-- ── ABAS DO FORMULARIO ──────────────────────────────────── -->
+        <div class="form-tabs">
+          <button class="form-tab" [class.ativo]="abaFormAtiva() === 'dados'" (click)="abaFormAtiva.set('dados')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            Dados Pessoais
+          </button>
+          <button class="form-tab" [class.ativo]="abaFormAtiva() === 'endereco'" (click)="abaFormAtiva.set('endereco')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Endereco
+            @if (erroCampo('enderecos') || hasEnderecoErrors()) { <span class="tab-erro">!</span> }
+          </button>
+          <button class="form-tab" [class.ativo]="abaFormAtiva() === 'contato'" (click)="abaFormAtiva.set('contato')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Contato
+          </button>
+        </div>
+
+        <!-- ── ABA: DADOS PESSOAIS ─────────────────────────────────── -->
+        @if (abaFormAtiva() === 'dados') {
+          <div class="form-secao">Tipo de Pessoa</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>TIPO</label>
+              <select [value]="fornecedorForm().tipo" (change)="onTipoChange($any($event.target).value)">
+                <option value="J">Pessoa Juridica</option>
+                <option value="F">Pessoa Fisica</option>
+              </select>
+            </div>
+          </div>
+
+          @if (fornecedorForm().tipo === 'J') {
+            <!-- PESSOA JURIDICA -->
+            <div class="form-secao">Identificacao</div>
+            <div class="form-grid">
+              <div class="field field-3" [class.field-invalido]="erroCampo('nome')">
+                <label>NOME FANTASIA *</label>
+                <input type="text" [value]="fornecedorForm().nome"
+                       (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
+                @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
+              </div>
+
+              <div class="field field-3" [class.field-invalido]="erroCampo('razaoSocial')">
+                <label>RAZAO SOCIAL *</label>
+                <input type="text" [value]="fornecedorForm().razaoSocial || ''"
+                       (input)="updateForm('razaoSocial', $any($event.target).value)" maxlength="200" />
+                @if (erroCampo('razaoSocial')) { <span class="field-erro">{{ erroCampo('razaoSocial') }}</span> }
+              </div>
+
+              <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')">
+                <label>CNPJ *</label>
+                <input type="text" [value]="fornecedorForm().cpfCnpj"
+                       (input)="onCpfCnpjInput($event)" maxlength="18" placeholder="00.000.000/0000-00" />
+                @if (erroCampo('cpfCnpj')) { <span class="field-erro">{{ erroCampo('cpfCnpj') }}</span> }
+              </div>
+
+              <div class="field">
+                <label>INSCRICAO ESTADUAL</label>
+                <input type="text" [value]="fornecedorForm().inscricaoEstadual || ''"
+                       (input)="updateForm('inscricaoEstadual', $any($event.target).value)" maxlength="20" />
+              </div>
+            </div>
+          }
+
+          @if (fornecedorForm().tipo === 'F') {
+            <!-- PESSOA FISICA -->
+            <div class="form-secao">Identificacao</div>
+            <div class="form-grid">
+              <div class="field field-3" [class.field-invalido]="erroCampo('nome')">
+                <label>NOME *</label>
+                <input type="text" [value]="fornecedorForm().nome"
+                       (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
+                @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
+              </div>
+
+              <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')">
+                <label>CPF *</label>
+                <input type="text" [value]="fornecedorForm().cpfCnpj"
+                       (input)="onCpfCnpjInput($event)" maxlength="14" placeholder="000.000.000-00" />
+                @if (erroCampo('cpfCnpj')) { <span class="field-erro">{{ erroCampo('cpfCnpj') }}</span> }
+              </div>
+
+              <div class="field">
+                <label>RG</label>
+                <input type="text" [value]="fornecedorForm().rg || ''"
+                       (input)="updateForm('rg', $any($event.target).value)" maxlength="20" />
+              </div>
+
+              <div class="field">
+                <label>DATA NASCIMENTO</label>
+                <input type="date" [value]="fornecedorForm().dataNascimento ? fornecedorForm().dataNascimento!.slice(0,10) : ''"
+                       (input)="updateForm('dataNascimento', $any($event.target).value)" />
+              </div>
+            </div>
+          }
+
+          <div class="form-secao">Observacoes</div>
+          <div class="form-grid">
+            <div class="field field-full">
+              <label>OBSERVACAO</label>
+              <textarea rows="3" [value]="fornecedorForm().observacao || ''"
+                        (input)="updateForm('observacao', $any($event.target).value)" maxlength="500"></textarea>
+            </div>
+
+            <div class="field field-check">
+              <label class="check-label">
+                <input type="checkbox" [checked]="fornecedorForm().ativo"
+                       (change)="updateForm('ativo', $any($event.target).checked)" />
+                <span>Ativo</span>
+              </label>
+            </div>
+          </div>
+        }
+
+        <!-- ── ABA: ENDERECO ───────────────────────────────────────── -->
+        @if (abaFormAtiva() === 'endereco') {
+          <div class="form-secao-toolbar">
+            <span>Enderecos ({{ fornecedorForm().enderecos.length }})</span>
+            <button class="btn-add-item" (click)="adicionarEndereco()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Adicionar
+            </button>
+          </div>
+
+          @if (erroCampo('enderecos')) {
+            <div class="form-erro">{{ erroCampo('enderecos') }}</div>
+          }
+
+          @for (end of fornecedorForm().enderecos; track $index; let i = $index) {
+            <div class="item-card">
+              <div class="item-card-header">
+                <span class="item-card-titulo">Endereco {{ i + 1 }}</span>
+                <label class="check-label check-sm">
+                  <input type="checkbox" [checked]="end.principal"
+                         (change)="updateEndereco(i, 'principal', $any($event.target).checked)" />
+                  <span>Principal</span>
+                </label>
+                <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label>TIPO</label>
+                  <select [value]="end.tipo" (change)="updateEndereco(i, 'tipo', $any($event.target).value)">
+                    @for (t of tiposEndereco; track t) { <option [value]="t">{{ t }}</option> }
+                  </select>
+                </div>
+
+                <div class="field" [class.field-invalido]="erroCampo('end_cep_' + i)">
+                  <label>CEP *</label>
+                  <div class="input-icon-wrap">
+                    <input type="text" [value]="end.cep"
+                           (input)="onCepEnderecoInput($event, i)" maxlength="9" placeholder="00000-000" />
+                    @if (buscandoCep()) { <span class="input-spinner">⟳</span> }
+                  </div>
+                  @if (erroCampo('end_cep_' + i)) { <span class="field-erro">{{ erroCampo('end_cep_' + i) }}</span> }
+                </div>
+
+                <div class="field field-3" [class.field-invalido]="erroCampo('end_rua_' + i)">
+                  <label>RUA *</label>
+                  <input type="text" [value]="end.rua"
+                         (input)="updateEndereco(i, 'rua', $any($event.target).value)" maxlength="200" />
+                  @if (erroCampo('end_rua_' + i)) { <span class="field-erro">{{ erroCampo('end_rua_' + i) }}</span> }
+                </div>
+
+                <div class="field" [class.field-invalido]="erroCampo('end_numero_' + i)">
+                  <label>NUMERO *</label>
+                  <input type="text" [value]="end.numero"
+                         (input)="updateEndereco(i, 'numero', $any($event.target).value)" maxlength="10" />
+                  @if (erroCampo('end_numero_' + i)) { <span class="field-erro">{{ erroCampo('end_numero_' + i) }}</span> }
+                </div>
+
+                <div class="field">
+                  <label>COMPLEMENTO</label>
+                  <input type="text" [value]="end.complemento || ''"
+                         (input)="updateEndereco(i, 'complemento', $any($event.target).value)" maxlength="100" />
+                </div>
+
+                <div class="field field-2" [class.field-invalido]="erroCampo('end_bairro_' + i)">
+                  <label>BAIRRO *</label>
+                  <input type="text" [value]="end.bairro"
+                         (input)="updateEndereco(i, 'bairro', $any($event.target).value)" maxlength="100" />
+                  @if (erroCampo('end_bairro_' + i)) { <span class="field-erro">{{ erroCampo('end_bairro_' + i) }}</span> }
+                </div>
+
+                <div class="field field-2" [class.field-invalido]="erroCampo('end_cidade_' + i)">
+                  <label>CIDADE *</label>
+                  <input type="text" [value]="end.cidade"
+                         (input)="updateEndereco(i, 'cidade', $any($event.target).value)" maxlength="100" />
+                  @if (erroCampo('end_cidade_' + i)) { <span class="field-erro">{{ erroCampo('end_cidade_' + i) }}</span> }
+                </div>
+
+                <div class="field" [class.field-invalido]="erroCampo('end_uf_' + i)">
+                  <label>UF *</label>
+                  <input type="text" [value]="end.uf"
+                         (input)="updateEndereco(i, 'uf', $any($event.target).value.toUpperCase())" maxlength="2"
+                         style="text-transform:uppercase" />
+                  @if (erroCampo('end_uf_' + i)) { <span class="field-erro">{{ erroCampo('end_uf_' + i) }}</span> }
+                </div>
+              </div>
+            </div>
+          }
+        }
+
+        <!-- ── ABA: CONTATO ────────────────────────────────────────── -->
+        @if (abaFormAtiva() === 'contato') {
+          <div class="form-secao-toolbar">
+            <span>Contatos ({{ fornecedorForm().contatos.length }})</span>
+            <button class="btn-add-item" (click)="adicionarContato()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Adicionar
+            </button>
+          </div>
+
+          @if (fornecedorForm().contatos.length === 0) {
+            <div class="item-vazio">Nenhum contato cadastrado. Clique em "Adicionar" para incluir.</div>
+          }
+
+          @for (ct of fornecedorForm().contatos; track $index; let i = $index) {
+            <div class="item-card">
+              <div class="item-card-header">
+                <span class="item-card-titulo">Contato {{ i + 1 }}</span>
+                <label class="check-label check-sm">
+                  <input type="checkbox" [checked]="ct.principal"
+                         (change)="updateContato(i, 'principal', $any($event.target).checked)" />
+                  <span>Principal</span>
+                </label>
+                <button class="btn-remove-item" (click)="removerContato(i)" title="Remover">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label>TIPO</label>
+                  <select [value]="ct.tipo" (change)="updateContato(i, 'tipo', $any($event.target).value)">
+                    @for (t of tiposContato; track t) { <option [value]="t">{{ t }}</option> }
+                  </select>
+                </div>
+
+                <div class="field field-2">
+                  <label>VALOR *</label>
+                  <input type="text" [value]="ct.valor"
+                         (input)="onContatoValorInput($event, i)" maxlength="150"
+                         [placeholder]="ct.tipo === 'EMAIL' ? 'email@exemplo.com' : '(00) 00000-0000'" />
+                </div>
+
+                <div class="field field-2">
+                  <label>DESCRICAO</label>
+                  <input type="text" [value]="ct.descricao || ''"
+                         (input)="updateContato(i, 'descricao', $any($event.target).value)" maxlength="100"
+                         placeholder="Ex.: Pessoal, Comercial" />
+                </div>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    }
+
+    <!-- ── TOOLBAR INFERIOR ──────────────────────────────────────────── -->
+    @if (modo() === 'form') {
+    <footer class="tela-toolbar">
+      @if (isDirty()) {
+        <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          {{ salvando() ? 'Salvando...' : 'Salvar' }}
+        </button>
+      }
+      @if (isDirty()) {
+        <button class="tb-btn tb-cancelar" (click)="cancelarEdicao()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Cancelar
+        </button>
+      }
+      <button class="tb-btn tb-fechar" (click)="fecharForm()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Fechar
+      </button>
+      @if (modoEdicao()) {
+        <button class="tb-btn tb-log" (click)="abrirLog()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Historico
+        </button>
+        <div class="tb-separador"></div>
+        <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          Excluir
+        </button>
+      }
+    </footer>
+    }
+
+  </div>
+</div>
+
+<!-- ── MODAL HISTORICO DE ALTERACOES ────────────────────────────────── -->
+@if (modalLog()) {
+  <div class="modal-overlay" (click)="fecharLog()">
+    <div class="modal-log-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-log-header">
+        <div class="modal-log-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Historico de Alteracoes — {{ fornecedorSelecionado()?.nome }}
+        </div>
+        <button class="modal-log-fechar" (click)="fecharLog()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-log-filtros">
+        <div class="log-filtro-campo">
+          <label>DATA INICIAL</label>
+          <input type="date" [value]="logDataInicio()" (change)="logDataInicio.set($any($event.target).value)" />
+        </div>
+        <div class="log-filtro-campo">
+          <label>DATA FINAL</label>
+          <input type="date" [value]="logDataFim()" (change)="logDataFim.set($any($event.target).value)" />
+        </div>
+        <button class="log-btn-filtrar" (click)="filtrarLog()" [disabled]="carregandoLog()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          {{ carregandoLog() ? 'Buscando...' : 'Filtrar' }}
+        </button>
+        <span class="log-total">
+          @if (!carregandoLog()) { {{ logRegistros().length }} registro(s) }
+        </span>
+      </div>
+
+      <div class="modal-log-body">
+        @if (carregandoLog()) {
+          <div class="log-loading">Carregando historico...</div>
+        } @else if (logRegistros().length === 0) {
+          <div class="log-vazio">Nenhum registro de historico encontrado.</div>
+        } @else {
+          <div class="log-painel-wrap">
+            <div class="log-painel-lista">
+              @for (entry of logRegistros(); track entry.id) {
+                <div class="log-lista-item" [class.ativo]="logSelecionado()?.id === entry.id"
+                     (click)="selecionarLogEntry(entry)">
+                  <div class="log-lista-data">{{ entry.realizadoEm | date:'dd/MM/yyyy HH:mm:ss' }}</div>
+                  <div class="log-lista-info">
+                    <span class="log-badge" [class]="acaoCss(entry.acao)">{{ entry.acao }}</span>
+                    <span class="log-lista-usuario">{{ entry.nomeUsuario }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="log-painel-detalhe">
+              @if (logSelecionado()) {
+                @if (logSelecionado()!.campos.length === 0) {
+                  <div class="log-detalhe-vazio">Nenhum campo registrado para esta acao.</div>
+                } @else {
+                  <table class="log-campos">
+                    <thead><tr><th>Campo</th><th>Valor Anterior</th><th>Valor Atual</th></tr></thead>
+                    <tbody>
+                      @for (c of logSelecionado()!.campos; track c.campo) {
+                        <tr>
+                          <td class="campo-nome">{{ c.campo }}</td>
+                          <td class="campo-anterior">{{ c.valorAnterior ?? '—' }}</td>
+                          <td class="campo-atual">{{ c.valorAtual ?? '—' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="modal-log-footer">
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharLog()">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+}

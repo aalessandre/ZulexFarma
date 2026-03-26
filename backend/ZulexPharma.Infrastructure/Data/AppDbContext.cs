@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<PessoaContato> PessoasContato => Set<PessoaContato>();
     public DbSet<PessoaEndereco> PessoasEndereco => Set<PessoaEndereco>();
     public DbSet<Colaborador> Colaboradores => Set<Colaborador>();
+    public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
     public DbSet<UsuarioFilialGrupo> UsuarioFilialGrupos => Set<UsuarioFilialGrupo>();
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<SyncControle> SyncControles => Set<SyncControle>();
@@ -149,6 +150,17 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Pessoa)
              .WithOne(x => x.Colaborador)
              .HasForeignKey<Colaborador>(x => x.PessoaId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── Fornecedor ──────────────────────────────────────────────
+        modelBuilder.Entity<Fornecedor>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Pessoa)
+             .WithOne(x => x.Fornecedor)
+             .HasForeignKey<Fornecedor>(x => x.PessoaId)
              .OnDelete(DeleteBehavior.Restrict);
         });
 

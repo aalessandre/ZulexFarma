@@ -18,6 +18,7 @@ public class SyncService
         ["PessoasContato"] = typeof(PessoaContato),
         ["PessoasEndereco"] = typeof(PessoaEndereco),
         ["Colaboradores"] = typeof(Colaborador),
+        ["Fornecedores"] = typeof(Fornecedor),
         ["Usuarios"] = typeof(Usuario),
         ["UsuariosGrupos"] = typeof(GrupoUsuario),
         ["UsuariosGruposPermissao"] = typeof(GrupoPermissao),
