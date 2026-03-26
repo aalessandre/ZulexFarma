@@ -198,7 +198,7 @@
 
 .tiles-area {
   display: flex;
-  gap: 40px;
+  gap: 28px;
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
@@ -223,13 +223,13 @@
 
 .tiles-grid {
   display: grid;
-  grid-template-columns: repeat(2, 170px);
-  gap: 8px;
+  grid-template-columns: repeat(2, 150px);
+  gap: 6px;
 }
 
 .tile {
-  width: 170px;
-  height: 105px;
+  width: 150px;
+  height: 95px;
   border-radius: 10px;
   display: flex;
   flex-direction: column;
