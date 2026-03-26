@@ -213,7 +213,7 @@
 
 .bloco-titulo {
   font-family: 'Poppins', sans-serif;
-  font-size: 16px;
+  font-size: var(--erp-fs-body, 16px);
   font-weight: 500;
   color: rgba(255,255,255,0.6);
   margin: 0;
@@ -223,14 +223,14 @@
 
 .tiles-grid {
   display: grid;
-  grid-template-columns: repeat(2, 140px);
-  gap: 10px;
+  grid-template-columns: repeat(2, 170px);
+  gap: 8px;
 }
 
 .tile {
-  width: 140px;
-  height: 110px;
-  border-radius: 16px;
+  width: 170px;
+  height: 105px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -247,7 +247,7 @@
     inset: 0;
     background: rgba(255,255,255,0);
     transition: background 0.15s;
-    border-radius: 16px;
+    border-radius: 10px;
   }
 
   &:hover {
@@ -271,14 +271,14 @@
 }
 
 .tile-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255,255,255,0.85);
+  font-size: var(--erp-fs-sm, 14px);
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
   text-align: center;
   line-height: 1.2;
   position: relative;
   z-index: 1;
-  max-width: 120px;
+  max-width: 150px;
 }
 
 /* ── Modal alterar senha ──────────────────────────────────────── */
