@@ -284,9 +284,23 @@ public class AppDbContext : DbContext
 
     /// <summary>
     /// Quando true, SaveChangesAsync NÃO incrementa VersaoSync nem altera FilialOrigemId.
-    /// Usado pelo SyncService ao aplicar registros recebidos do servidor central.
+    /// Usado pelo SyncBackgroundService ao aplicar registros recebidos do servidor central.
     /// </summary>
     public bool SuspenderAutoSync { get; set; }
+
+    // Garante VersaoSync monotonicamente crescente (mesmo em saves no mesmo milissegundo)
+    private static long _lastVersaoSync = 0;
+    private static readonly object _versaoLock = new();
+
+    private static long ProximaVersaoSync()
+    {
+        lock (_versaoLock)
+        {
+            var agora = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _lastVersaoSync = Math.Max(agora, _lastVersaoSync + 1);
+            return _lastVersaoSync;
+        }
+    }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -299,11 +313,11 @@ public class AppDbContext : DbContext
                 if (entry.State == EntityState.Modified)
                 {
                     entry.Entity.AtualizadoEm = DateTime.UtcNow;
-                    entry.Entity.VersaoSync++;
+                    entry.Entity.VersaoSync = ProximaVersaoSync();
                 }
                 else if (entry.State == EntityState.Added)
                 {
-                    entry.Entity.VersaoSync = 1;
+                    entry.Entity.VersaoSync = ProximaVersaoSync();
                     if (entry.Entity.FilialOrigemId == null && filialId > 0)
                         entry.Entity.FilialOrigemId = filialId;
                 }
