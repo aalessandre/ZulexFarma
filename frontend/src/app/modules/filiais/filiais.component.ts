@@ -459,6 +459,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   fechar() {
     this.salvarEstadoAbaAtiva();
     this.modo.set('lista');
+    this.carregar();
   }
 
   async excluir() {

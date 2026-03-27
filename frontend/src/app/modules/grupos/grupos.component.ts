@@ -396,11 +396,8 @@ export class GruposComponent implements OnInit, OnDestroy {
   }
 
   fechar() {
-    if (this.modo() === 'form' && !this.modoEdicao()) {
-      this.modo.set('lista');
-      return;
-    }
     this.modo.set('lista');
+    this.carregar();
   }
 
   private salvarEstadoAbaAtiva() {

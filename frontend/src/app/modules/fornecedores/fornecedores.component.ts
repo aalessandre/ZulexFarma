@@ -471,7 +471,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     this.modo.set('lista');
   }
 
-  fechar() { this.salvarEstadoAbaAtiva(); this.modo.set('lista'); }
+  fechar() { this.salvarEstadoAbaAtiva(); this.modo.set('lista'); this.carregar(); }
 
   // ── Excluir ───────────────────────────────────────────────────────
   async excluir() {

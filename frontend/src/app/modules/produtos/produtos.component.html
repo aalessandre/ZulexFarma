@@ -2,7 +2,7 @@
 
   <!-- SIDEBAR -->
   <aside class="tela-sidebar">
-    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="modo.set('lista')">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="modo.set('lista'); carregar()">
       <span>Procurar</span>
       <span class="sidebar-sub">Consulta</span>
     </div>
