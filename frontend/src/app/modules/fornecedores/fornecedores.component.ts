@@ -659,13 +659,79 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     this.updateContato(idx, 'valor', mascarado);
   }
 
-  // ── Mascaras ──────────────────────────────────────────────────────
+  // ── Busca CNPJ ───────────────────────────────────────────────────
+  buscandoCnpj = signal(false);
+
   onCpfCnpjInput(event: Event) {
     const input = event.target as HTMLInputElement;
     const tipo = this.fornecedorForm().tipo;
     const mascarado = tipo === 'F' ? this.mascaraCpf(input.value) : this.mascaraCnpj(input.value);
     input.value = mascarado;
     this.updateForm('cpfCnpj', mascarado);
+
+    // Auto-busca CNPJ quando completo (14 dígitos)
+    if (tipo === 'J') {
+      const digits = mascarado.replace(/\D/g, '');
+      if (digits.length === 14) this.buscarCnpj(digits);
+    }
+  }
+
+  private buscarCnpj(cnpj: string) {
+    this.buscandoCnpj.set(true);
+
+    // Serviço 1: BrasilAPI
+    this.http.get<any>(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`).subscribe({
+      next: r => {
+        this.buscandoCnpj.set(false);
+        if (r.razao_social) {
+          this.aplicarDadosCnpj(r.razao_social, r.nome_fantasia, r.cep, r.logradouro,
+            r.numero, r.complemento, r.bairro, r.municipio, r.uf);
+        }
+      },
+      error: () => {
+        // Fallback: ReceitaWS
+        this.http.get<any>(`https://receitaws.com.br/v1/cnpj/${cnpj}`).subscribe({
+          next: r => {
+            this.buscandoCnpj.set(false);
+            if (r.nome && r.status !== 'ERROR') {
+              this.aplicarDadosCnpj(r.nome, r.fantasia, r.cep, r.logradouro,
+                r.numero, r.complemento, r.bairro, r.municipio, r.uf);
+            }
+          },
+          error: () => this.buscandoCnpj.set(false)
+        });
+      }
+    });
+  }
+
+  private aplicarDadosCnpj(razaoSocial: string, nomeFantasia: string, cep: string,
+    rua: string, numero: string, complemento: string, bairro: string, cidade: string, uf: string) {
+    this.fornecedorForm.update(f => ({
+      ...f,
+      razaoSocial: razaoSocial?.toUpperCase() || f.razaoSocial,
+      nome: nomeFantasia?.toUpperCase() || razaoSocial?.toUpperCase() || f.nome,
+    }));
+    this.isDirty.set(true);
+
+    // Preencher endereço se houver dados e endereço vazio
+    if (cep && this.fornecedorForm().enderecos.length > 0) {
+      const end = this.fornecedorForm().enderecos[0];
+      if (!end.cep || !end.rua) {
+        this.fornecedorForm.update(f => ({
+          ...f,
+          enderecos: f.enderecos.map((e, i) => i === 0 ? {
+            ...e,
+            cep: this.mascaraCep(cep || ''),
+            rua: rua?.toUpperCase() || e.rua,
+            numero: numero || e.numero,
+            complemento: complemento?.toUpperCase() || e.complemento,
+            bairro: bairro?.toUpperCase() || e.bairro,
+            cidade: cidade?.toUpperCase() || e.cidade,
+            uf: uf?.toUpperCase() || e.uf,
+          } : e)
+        }));
+      }
+    }
   }
 
   private mascaraCpf(v: string): string {
@@ -703,23 +769,36 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   private validar(): boolean {
     const f = this.fornecedorForm();
     const erros: Record<string, string> = {};
-    if (!f.nome?.trim()) erros['nome'] = 'Obrigatorio';
-    if (!f.cpfCnpj?.trim()) erros['cpfCnpj'] = 'Obrigatorio';
-    if (f.tipo === 'J' && !f.razaoSocial?.trim()) erros['razaoSocial'] = 'Obrigatorio';
-    if (f.enderecos.length === 0) erros['enderecos'] = 'Informe pelo menos um endereco';
+
+    // Campos obrigatórios da aba Dados
+    if (!f.nome?.trim()) erros['nome'] = 'Obrigatório';
+    if (!f.cpfCnpj?.trim()) erros['cpfCnpj'] = 'Obrigatório';
+    if (f.tipo === 'J' && !f.razaoSocial?.trim()) erros['razaoSocial'] = 'Obrigatório';
+
+    // Endereço NÃO é obrigatório para fornecedores
+    // Mas se preencheu parcialmente, valida os campos preenchidos
     for (let i = 0; i < f.enderecos.length; i++) {
       const e = f.enderecos[i];
-      if (!e.cep?.trim())    erros[`end_cep_${i}`]    = 'Obrigatorio';
-      if (!e.rua?.trim())    erros[`end_rua_${i}`]    = 'Obrigatorio';
-      if (!e.numero?.trim()) erros[`end_numero_${i}`] = 'Obrigatorio';
-      if (!e.bairro?.trim()) erros[`end_bairro_${i}`] = 'Obrigatorio';
-      if (!e.cidade?.trim()) erros[`end_cidade_${i}`] = 'Obrigatorio';
-      if (!e.uf?.trim())     erros[`end_uf_${i}`]     = 'Obrigatorio';
+      const temAlgo = e.cep || e.rua || e.numero || e.bairro || e.cidade || e.uf;
+      if (temAlgo) {
+        if (!e.cep?.trim())    erros[`end_cep_${i}`]    = 'Obrigatório';
+        if (!e.rua?.trim())    erros[`end_rua_${i}`]    = 'Obrigatório';
+        if (!e.numero?.trim()) erros[`end_numero_${i}`] = 'Obrigatório';
+        if (!e.bairro?.trim()) erros[`end_bairro_${i}`] = 'Obrigatório';
+        if (!e.cidade?.trim()) erros[`end_cidade_${i}`] = 'Obrigatório';
+        if (!e.uf?.trim())     erros[`end_uf_${i}`]     = 'Obrigatório';
+      }
     }
+
     this.errosCampos.set(erros);
     if (Object.keys(erros).length > 0) {
-      this.erro.set('Preencha todos os campos obrigatorios.');
-      if (erros['enderecos'] || Object.keys(erros).some(k => k.startsWith('end_'))) {
+      this.erro.set('Preencha todos os campos obrigatórios.');
+      // Priorizar: primeiro volta para aba Dados se tem erros lá
+      const temErroDados = erros['nome'] || erros['cpfCnpj'] || erros['razaoSocial'];
+      const temErroEndereco = Object.keys(erros).some(k => k.startsWith('end_'));
+      if (temErroDados) {
+        this.abaFormAtiva.set('dados');
+      } else if (temErroEndereco) {
         this.abaFormAtiva.set('endereco');
       }
       return false;

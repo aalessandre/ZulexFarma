@@ -208,31 +208,34 @@
 
           @if (fornecedorForm().tipo === 'J') {
             <!-- PESSOA JURIDICA -->
-            <div class="form-secao">Identificacao</div>
+            <div class="form-secao">Identificação</div>
             <div class="form-grid">
-              <div class="field field-3" [class.field-invalido]="erroCampo('nome')">
+              <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')">
+                <label>CNPJ *</label>
+                <div class="input-icon-wrap">
+                  <input type="text" [value]="fornecedorForm().cpfCnpj"
+                         (input)="onCpfCnpjInput($event)" maxlength="18" placeholder="00.000.000/0000-00" />
+                  @if (buscandoCnpj()) { <span class="input-spinner">⟳</span> }
+                </div>
+                @if (erroCampo('cpfCnpj')) { <span class="field-erro">{{ erroCampo('cpfCnpj') }}</span> }
+              </div>
+
+              <div class="field field-2" [class.field-invalido]="erroCampo('razaoSocial')">
+                <label>RAZÃO SOCIAL *</label>
+                <input type="text" [value]="fornecedorForm().razaoSocial || ''"
+                       (input)="updateForm('razaoSocial', $any($event.target).value)" maxlength="200" />
+                @if (erroCampo('razaoSocial')) { <span class="field-erro">{{ erroCampo('razaoSocial') }}</span> }
+              </div>
+
+              <div class="field field-2" [class.field-invalido]="erroCampo('nome')">
                 <label>NOME FANTASIA *</label>
                 <input type="text" [value]="fornecedorForm().nome"
                        (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
                 @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
               </div>
 
-              <div class="field field-3" [class.field-invalido]="erroCampo('razaoSocial')">
-                <label>RAZAO SOCIAL *</label>
-                <input type="text" [value]="fornecedorForm().razaoSocial || ''"
-                       (input)="updateForm('razaoSocial', $any($event.target).value)" maxlength="200" />
-                @if (erroCampo('razaoSocial')) { <span class="field-erro">{{ erroCampo('razaoSocial') }}</span> }
-              </div>
-
-              <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')">
-                <label>CNPJ *</label>
-                <input type="text" [value]="fornecedorForm().cpfCnpj"
-                       (input)="onCpfCnpjInput($event)" maxlength="18" placeholder="00.000.000/0000-00" />
-                @if (erroCampo('cpfCnpj')) { <span class="field-erro">{{ erroCampo('cpfCnpj') }}</span> }
-              </div>
-
               <div class="field">
-                <label>INSCRICAO ESTADUAL</label>
+                <label>INSCRIÇÃO ESTADUAL</label>
                 <input type="text" [value]="fornecedorForm().inscricaoEstadual || ''"
                        (input)="updateForm('inscricaoEstadual', $any($event.target).value)" maxlength="20" />
               </div>
