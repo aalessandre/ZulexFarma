@@ -150,16 +150,17 @@ export class FiliaisComponent implements OnInit, OnDestroy {
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const f = this.filiais().find(x => x.id === id);
-          if (f) { this.filialSelecionada.set(f); this.editar(); }
-        }
-        if (state.abaAtivaId) {
-          setTimeout(() => {
-            const temAba = this.abasEdicao().find(a => a.filial.id === state.abaAtivaId);
-            if (temAba) this.ativarAba(state.abaAtivaId);
-          }, 100);
+          if (f) this.restaurarAba(f, id === state.abaAtivaId);
         }
       }
     } catch {}
+  }
+
+  private restaurarAba(f: Filial, ativar: boolean) {
+    if (this.abasEdicao().find(a => a.filial.id === f.id)) return;
+    const novaAba: AbaEdicao = { filial: { ...f }, form: { ...f }, isDirty: false };
+    this.abasEdicao.update(tabs => [...tabs, novaAba]);
+    if (ativar) this.ativarAba(f.id!);
   }
 
   // ── Dados ─────────────────────────────────────────────────────────

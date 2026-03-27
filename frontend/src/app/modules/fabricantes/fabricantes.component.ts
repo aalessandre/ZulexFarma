@@ -137,19 +137,17 @@ export class FabricantesComponent implements OnInit, OnDestroy {
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const f = this.fabricantes().find(x => x.id === id);
-          if (f) {
-            this.fabricanteSelecionado.set(f);
-            this.editar();
-          }
-        }
-        if (state.abaAtivaId) {
-          setTimeout(() => {
-            const temAba = this.abasEdicao().find(a => a.fabricante.id === state.abaAtivaId);
-            if (temAba) this.ativarAba(state.abaAtivaId);
-          }, 100);
+          if (f) this.restaurarAba(f, id === state.abaAtivaId);
         }
       }
     } catch {}
+  }
+
+  private restaurarAba(f: Fabricante, ativar: boolean) {
+    if (this.abasEdicao().find(a => a.fabricante.id === f.id)) return;
+    const aba: AbaEdicao = { fabricante: { ...f }, form: this.clonar(f), isDirty: false };
+    this.abasEdicao.update(abas => [...abas, aba]);
+    if (ativar) this.ativarAba(f.id!);
   }
 
   // ── Data ───────────────────────────────────────────────────────────

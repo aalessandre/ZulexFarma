@@ -152,16 +152,17 @@ export class SubstanciasComponent implements OnInit, OnDestroy {
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const s = this.substancias().find(x => x.id === id);
-          if (s) { this.substanciaSelecionada.set(s); this.editar(); }
-        }
-        if (state.abaAtivaId) {
-          setTimeout(() => {
-            const temAba = this.abasEdicao().find(a => a.substancia.id === state.abaAtivaId);
-            if (temAba) this.ativarAba(state.abaAtivaId);
-          }, 100);
+          if (s) this.restaurarAba(s, id === state.abaAtivaId);
         }
       }
     } catch {}
+  }
+
+  private restaurarAba(s: Substancia, ativar: boolean) {
+    if (this.abasEdicao().find(a => a.substancia.id === s.id)) return;
+    const aba: AbaEdicao = { substancia: { ...s }, form: this.clonar(s), isDirty: false };
+    this.abasEdicao.update(abas => [...abas, aba]);
+    if (ativar) this.ativarAba(s.id!);
   }
 
   // ── Data ─────────────────────────────────────────────────────────

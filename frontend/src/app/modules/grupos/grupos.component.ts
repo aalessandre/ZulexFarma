@@ -140,19 +140,19 @@ export class GruposComponent implements OnInit, OnDestroy {
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const g = this.grupos().find(x => x.id === id);
-          if (g) {
-            this.grupoSelecionado.set(g);
-            this.editar();
-          }
-        }
-        if (state.abaAtivaId) {
-          setTimeout(() => {
-            const temAba = this.abasEdicao().find(a => a.grupo.id === state.abaAtivaId);
-            if (temAba) this.ativarAba(state.abaAtivaId);
-          }, 100);
+          if (g) this.restaurarAba(g, id === state.abaAtivaId);
         }
       }
     } catch {}
+  }
+
+  private restaurarAba(g: Grupo, ativar: boolean) {
+    if (this.abasEdicao().find(a => a.grupo.id === g.id)) return;
+    const detalhe: GrupoDetalhe = { ...g, permissoes: this.criarPermissoesVazias() };
+    const aba: AbaEdicao = { grupo: { ...g }, form: this.clonar(detalhe), isDirty: false };
+    this.abasEdicao.update(abas => [...abas, aba]);
+    this.carregarPermissoes(g.id!);
+    if (ativar) this.ativarAba(g.id!);
   }
 
   // ── Data ───────────────────────────────────────────────────────────
