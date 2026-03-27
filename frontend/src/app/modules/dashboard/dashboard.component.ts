@@ -105,6 +105,7 @@ export class DashboardComponent {
         { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },
         { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
         { label: 'Configurações',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
+        { label: 'Help',              sigla: 'HP', iconKey: 'log',      rota: '/erp/help' },
       ]
     }
   ];
