@@ -112,7 +112,7 @@
                     [style.min-width.px]="col.minLargura"
                     (click)="ordenar(col.campo)">
                   {{ col.label }}
-                  <span class="sort-icon">{{ sortColuna() === col.campo ? (sortDirecao() === 'asc' ? '&#9650;' : '&#9660;') : '&#8693;' }}</span>
+                  <span class="sort-icon">@if (sortColuna() === col.campo) { @if (sortDirecao() === 'asc') { <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 8H4z"/></svg> } @else { <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20l-8-8h16z"/></svg> } } @else { <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l5 5H7zM12 21l-5-5h10z"/></svg> }</span>
                   <div class="resize-handle"
                        (mousedown)="iniciarResize($event, col.campo, col.largura)"
                        (click)="$event.stopPropagation()"></div>
@@ -130,7 +130,7 @@
                 <tr [class.selecionado]="substanciaSelecionada()?.id === s.id"
                     (click)="selecionar(s)" (dblclick)="editar()">
                   <td class="td-arrow">
-                    @if (substanciaSelecionada()?.id === s.id) { <span>&#9654;</span> }
+                    @if (substanciaSelecionada()?.id === s.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }
                   </td>
                   @for (col of colunasVisiveis(); track col.campo) {
                     <td>{{ getCellValue(s, col.campo) }}</td>
