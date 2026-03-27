@@ -75,6 +75,7 @@ export class DashboardComponent {
         { label: 'Colaboradores',    sigla: 'CO', iconKey: 'user',      rota: '/erp/colaboradores' },
         { label: 'Produtos',         sigla: 'PR', iconKey: 'pill',      rota: '/erp/produtos' },
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
+        { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
       ]
     },
     {
