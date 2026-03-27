@@ -282,22 +282,31 @@ public class AppDbContext : DbContext
         });
     }
 
+    /// <summary>
+    /// Quando true, SaveChangesAsync NÃO incrementa VersaoSync nem altera FilialOrigemId.
+    /// Usado pelo SyncService ao aplicar registros recebidos do servidor central.
+    /// </summary>
+    public bool SuspenderAutoSync { get; set; }
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var filialId = GetFilialIdFromContext();
-
-        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        if (!SuspenderAutoSync)
         {
-            if (entry.State == EntityState.Modified)
+            var filialId = GetFilialIdFromContext();
+
+            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
             {
-                entry.Entity.AtualizadoEm = DateTime.UtcNow;
-                entry.Entity.VersaoSync++;
-            }
-            else if (entry.State == EntityState.Added)
-            {
-                entry.Entity.VersaoSync = 1;
-                if (entry.Entity.FilialOrigemId == null && filialId > 0)
-                    entry.Entity.FilialOrigemId = filialId;
+                if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.AtualizadoEm = DateTime.UtcNow;
+                    entry.Entity.VersaoSync++;
+                }
+                else if (entry.State == EntityState.Added)
+                {
+                    entry.Entity.VersaoSync = 1;
+                    if (entry.Entity.FilialOrigemId == null && filialId > 0)
+                        entry.Entity.FilialOrigemId = filialId;
+                }
             }
         }
         return base.SaveChangesAsync(cancellationToken);

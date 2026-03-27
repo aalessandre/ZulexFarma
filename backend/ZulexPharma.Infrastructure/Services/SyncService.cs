@@ -37,7 +37,8 @@ public class SyncService
 
     /// <summary>
     /// Gets records from a table that have changed since a given version.
-    /// Used by: remote filial pulling changes from central server.
+    /// Used by: central server sending changes to a filial (PULL).
+    /// Excludes records that originated from the requesting filial (to avoid echo).
     /// </summary>
     public async Task<SyncPacote> ObterAlteracoes(string tabela, long versaoDesde, long? filialId = null, int limite = 500)
     {
@@ -53,6 +54,41 @@ public class SyncService
             query = query.Where(e => e.FilialOrigemId == null || e.FilialOrigemId != filialId);
 
         var registros = await query
+            .OrderBy(e => e.VersaoSync)
+            .Take(limite)
+            .ToListAsync();
+
+        var maxVersao = registros.Count > 0 ? registros.Max(e => e.VersaoSync) : versaoDesde;
+
+        return new SyncPacote
+        {
+            Tabela = tabela,
+            VersaoDesde = versaoDesde,
+            VersaoAte = maxVersao,
+            TotalRegistros = registros.Count,
+            Registros = registros.Select(r => JsonSerializer.Serialize(r, r.GetType(), new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = false
+            })).ToList()
+        };
+    }
+
+    /// <summary>
+    /// Gets LOCAL records from a table that originated from a specific filial.
+    /// Used by: local background service to PUSH only this filial's changes to central.
+    /// </summary>
+    public async Task<SyncPacote> ObterAlteracoesLocais(string tabela, long versaoDesde, long filialOrigemId, int limite = 500)
+    {
+        if (!_tabelasSyncaveis.ContainsKey(tabela))
+            throw new ArgumentException($"Tabela '{tabela}' não é sincronizável.");
+
+        var tipo = _tabelasSyncaveis[tabela];
+        var dbSet = GetDbSetAsQueryable(tipo);
+
+        // Only get records that originated from THIS filial
+        var registros = await dbSet
+            .Where(e => e.VersaoSync > versaoDesde && e.FilialOrigemId == filialOrigemId)
             .OrderBy(e => e.VersaoSync)
             .Take(limite)
             .ToListAsync();
@@ -127,7 +163,16 @@ public class SyncService
             }
         }
 
-        await _db.SaveChangesAsync();
+        // Suspender auto-increment de VersaoSync para não alterar os registros recebidos
+        _db.SuspenderAutoSync = true;
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        finally
+        {
+            _db.SuspenderAutoSync = false;
+        }
 
         return new SyncResultado
         {

@@ -169,8 +169,8 @@ public class SyncBackgroundService : BackgroundService
         var status = statusList.FirstOrDefault(s => s.Tabela == tabela);
         var ultimaVersaoEnviada = status?.UltimaVersaoEnviada ?? 0;
 
-        // Get local changes since that version
-        var pacote = await syncService.ObterAlteracoes(tabela, ultimaVersaoEnviada);
+        // Get local changes since that version (only records from THIS filial)
+        var pacote = await syncService.ObterAlteracoesLocais(tabela, ultimaVersaoEnviada, _filialLocalId);
         if (pacote.TotalRegistros == 0)
             return 0;
 
