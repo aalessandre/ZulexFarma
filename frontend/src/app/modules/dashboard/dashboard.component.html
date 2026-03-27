@@ -16,6 +16,68 @@
       </div>
     </div>
 
+    <!-- BUSCA GLOBAL -->
+    <div class="topbar-busca" [class.focada]="buscaFocada()">
+      <div class="busca-input-wrap">
+        <svg class="busca-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          #inputBusca
+          class="busca-input"
+          type="text"
+          placeholder="Buscar tela..."
+          [value]="buscaGlobal()"
+          (input)="onBuscaInput($any($event.target).value)"
+          (focus)="buscaFocada.set(true)"
+          (blur)="$event.relatedTarget ? null : buscaFocada.set(false)"
+          (keydown)="onBuscaKeydown($event)"
+          autocomplete="off"
+        />
+        @if (buscaGlobal()) {
+          <button class="busca-limpar" (mousedown)="$event.preventDefault(); fecharBusca()" tabindex="-1">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        } @else {
+          <span class="busca-atalho">Ctrl+K</span>
+        }
+      </div>
+
+      @if (mostrarDropdown()) {
+        <div class="busca-dropdown" (mousedown)="$event.preventDefault()">
+          @if (resultadosBusca().length === 0) {
+            <div class="busca-vazio">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <span>Nenhuma tela encontrada</span>
+            </div>
+          } @else {
+            <div class="busca-dropdown-header">
+              {{ resultadosBusca().length }} resultado{{ resultadosBusca().length > 1 ? 's' : '' }}
+            </div>
+            @for (r of resultadosBusca(); track r.tile.rota; let i = $index) {
+              <button class="busca-resultado"
+                      [class.ativo]="indiceBusca() === i"
+                      (mouseenter)="indiceBusca.set(i)"
+                      (click)="navegarBusca(r)">
+                <span class="resultado-sigla" [style.background]="r.cor">{{ r.tile.sigla }}</span>
+                <span class="resultado-info">
+                  <span class="resultado-label">{{ r.tile.label }}</span>
+                  <span class="resultado-bloco">{{ r.bloco }}</span>
+                </span>
+                <svg class="resultado-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            }
+          }
+        </div>
+      }
+    </div>
+
     <div class="topbar-actions">
       @if (usuario()) {
         <div class="topbar-user" (click)="toggleMenuUsuario()">

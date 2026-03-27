@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, HostListener, ElementRef, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -40,6 +40,12 @@ export interface BlocoTiles {
   nome: string;
   cor: string;
   tiles: TileItem[];
+}
+
+interface ResultadoBusca {
+  tile: TileItem;
+  bloco: string;
+  cor: string;
 }
 
 @Component({
@@ -103,6 +109,82 @@ export class DashboardComponent {
     }
   ];
 
+  // ── Busca global ────────────────────────────────────────────────
+  @ViewChild('inputBusca') inputBuscaRef!: ElementRef<HTMLInputElement>;
+  buscaGlobal     = signal('');
+  buscaFocada     = signal(false);
+  indiceBusca     = signal(-1);
+
+  resultadosBusca = computed<ResultadoBusca[]>(() => {
+    const termo = this.normalizar(this.buscaGlobal());
+    if (termo.length < 1) return [];
+    const results: ResultadoBusca[] = [];
+    for (const bloco of this.blocos) {
+      for (const tile of bloco.tiles) {
+        if (
+          this.normalizar(tile.label).includes(termo) ||
+          this.normalizar(tile.sigla).includes(termo) ||
+          this.normalizar(bloco.nome).includes(termo)
+        ) {
+          results.push({ tile, bloco: bloco.nome, cor: bloco.cor });
+        }
+      }
+    }
+    return results;
+  });
+
+  mostrarDropdown = computed(() =>
+    this.buscaFocada() && this.buscaGlobal().trim().length > 0
+  );
+
+  private normalizar(s: string): string {
+    return (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  }
+
+  onBuscaInput(valor: string) {
+    this.buscaGlobal.set(valor);
+    this.indiceBusca.set(-1);
+  }
+
+  onBuscaKeydown(e: KeyboardEvent) {
+    const total = this.resultadosBusca().length;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this.indiceBusca.update(i => Math.min(i + 1, total - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.indiceBusca.update(i => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter') {
+      const idx = this.indiceBusca();
+      const results = this.resultadosBusca();
+      const alvo = idx >= 0 ? results[idx] : results[0];
+      if (alvo) this.navegarBusca(alvo);
+    } else if (e.key === 'Escape') {
+      this.fecharBusca();
+    }
+  }
+
+  navegarBusca(r: ResultadoBusca) {
+    this.fecharBusca();
+    this.navegar(r.tile);
+  }
+
+  fecharBusca() {
+    this.buscaGlobal.set('');
+    this.buscaFocada.set(false);
+    this.indiceBusca.set(-1);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKeydown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      this.inputBuscaRef?.nativeElement.focus();
+      this.buscaFocada.set(true);
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────
   menuUsuarioAberto = signal(false);
   painelConfig = signal(false);
   modalSenhaAberta = signal(false);
