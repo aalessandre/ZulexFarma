@@ -51,16 +51,10 @@
       <form [formGroup]="form" (ngSubmit)="submit()">
 
         <div class="field-group">
-          <label class="field-label">EMPRESA</label>
-          <select class="field-select" [value]="filialSelecionada">
-            <option value="001">{{ nomeFilial }}</option>
-          </select>
-        </div>
-
-        <div class="field-group">
           <label class="field-label">USUÁRIO</label>
           <input class="field-input" formControlName="uname"
-                 placeholder="Login" autocomplete="username" />
+                 placeholder="Login" autocomplete="username"
+                 (blur)="buscarFilial()" />
           @if (f['uname'].touched && f['uname'].invalid) {
             <span class="field-error">Campo obrigatório</span>
           }
@@ -73,6 +67,19 @@
           @if (f['password'].touched && f['password'].invalid) {
             <span class="field-error">Campo obrigatório</span>
           }
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">EMPRESA</label>
+          <div class="field-filial">
+            @if (filialCarregando()) {
+              <span class="filial-loading">Buscando...</span>
+            } @else if (filialNome()) {
+              <span class="filial-nome">{{ filialNome() }}</span>
+            } @else {
+              <span class="filial-vazio">Informe o usuário acima</span>
+            }
+          </div>
         </div>
 
         <div class="field-group">

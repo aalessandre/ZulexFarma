@@ -34,6 +34,7 @@ interface Acesso {
   isAdministrador: boolean;
   sessaoMaximaMinutos: number;
   inatividadeMinutos: number;
+  filialPadraoId?: number;
   filialGrupos: FilialGrupoItem[];
 }
 
@@ -702,7 +703,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     if (habilitado && !this.colaboradorForm().acesso) {
       this.colaboradorForm.update(f => ({
         ...f,
-        acesso: { login: '', senha: '', isAdministrador: false, sessaoMaximaMinutos: 0, inatividadeMinutos: 0, filialGrupos: [] }
+        acesso: { login: '', senha: '', isAdministrador: false, sessaoMaximaMinutos: 0, inatividadeMinutos: 0, filialPadraoId: 0, filialGrupos: [] }
       }));
     }
     this.isDirty.set(true);

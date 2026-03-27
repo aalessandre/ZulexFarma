@@ -27,6 +27,30 @@ public class AuthController : ControllerBase
         _db = db;
     }
 
+    /// <summary>
+    /// Retorna a filial padrão do usuário pelo login. Usado na tela de login.
+    /// </summary>
+    [HttpGet("filial-usuario/{login}")]
+    public async Task<IActionResult> FilialUsuario(string login)
+    {
+        try
+        {
+            var usuario = await _db.Usuarios
+                .Include(u => u.Filial)
+                .FirstOrDefaultAsync(u => u.Login == login && u.Ativo);
+
+            if (usuario == null)
+                return Ok(new { success = true, filialId = 0, nomeFilial = "" });
+
+            return Ok(new { success = true, filialId = usuario.FilialId, nomeFilial = usuario.Filial.NomeFantasia });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao buscar filial do usuario {Login}", login);
+            return Ok(new { success = true, filialId = 0, nomeFilial = "" });
+        }
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {

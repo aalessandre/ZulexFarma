@@ -3,7 +3,9 @@ import { CoreService } from 'src/app/services/core.service';
 import { FormGroup, FormControl, Validators, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-side-login',
@@ -17,8 +19,8 @@ export class AppSideLoginComponent {
 
   carregando = signal(false);
   erroLogin = signal('');
-  nomeFilial = 'ZULEX FARMA';
-  filialSelecionada = '001';
+  filialNome = signal('');
+  filialCarregando = signal(false);
 
   form = new FormGroup({
     uname:    new FormControl('', [Validators.required]),
@@ -31,8 +33,26 @@ export class AppSideLoginComponent {
   constructor(
     private settings: CoreService,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private http: HttpClient
   ) {}
+
+  buscarFilial() {
+    const login = this.f['uname'].value?.trim();
+    if (!login) { this.filialNome.set(''); return; }
+
+    this.filialCarregando.set(true);
+    this.http.get<any>(`${environment.apiUrl}/auth/filial-usuario/${login}`).subscribe({
+      next: r => {
+        this.filialCarregando.set(false);
+        this.filialNome.set(r.nomeFilial || '');
+      },
+      error: () => {
+        this.filialCarregando.set(false);
+        this.filialNome.set('');
+      }
+    });
+  }
 
   submit() {
     if (this.form.invalid) return;

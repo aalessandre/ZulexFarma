@@ -184,6 +184,32 @@
 
 .field-select { cursor: pointer; }
 
+.field-filial {
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid #e0e4eb;
+  border-radius: 8px;
+  background: #f5f7fa;
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+}
+
+.filial-nome {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.filial-loading {
+  color: #7a8899;
+  font-style: italic;
+}
+
+.filial-vazio {
+  color: #aab5c2;
+  font-style: italic;
+}
+
 .field-error {
   font-size: 11px;
   color: #e74c3c;

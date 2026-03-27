@@ -448,6 +448,16 @@
                            placeholder="Nome de usuário" />
                   </div>
                   <div class="field field-full">
+                    <label>FILIAL PADRÃO *</label>
+                    <select [value]="colaboradorForm().acesso?.filialPadraoId || 0"
+                            (change)="updateAcesso('filialPadraoId', +$any($event.target).value)">
+                      <option [value]="0" disabled>Selecione...</option>
+                      @for (f of filiais(); track f.id) {
+                        <option [value]="f.id">{{ f.nomeFantasia }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field field-full">
                     <label>{{ colaboradorForm().acesso?.usuarioId ? 'NOVA SENHA (em branco = manter)' : 'SENHA *' }}</label>
                     <input type="password" [value]="colaboradorForm().acesso?.senha || ''"
                            (input)="updateAcesso('senha', $any($event.target).value)" maxlength="100"

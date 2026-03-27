@@ -74,6 +74,8 @@ public class AcessoFormDto
     public int SessaoMaximaMinutos { get; set; }
     public int InatividadeMinutos { get; set; }
 
+    public long FilialPadraoId { get; set; }
+
     /// <summary>Para cada filial, qual grupo está atribuído. Ausência = SEM ACESSO.</summary>
     public List<FilialGrupoFormDto> FilialGrupos { get; set; } = new();
 }
@@ -92,6 +94,9 @@ public class AcessoDetalheDto
 
     public int SessaoMaximaMinutos { get; set; }
     public int InatividadeMinutos { get; set; }
+
+    public long FilialPadraoId { get; set; }
+    public string NomeFilialPadrao { get; set; } = string.Empty;
 
     public List<FilialGrupoDetalheDto> FilialGrupos { get; set; } = new();
 }

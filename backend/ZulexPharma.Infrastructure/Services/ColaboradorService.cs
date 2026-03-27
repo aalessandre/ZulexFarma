@@ -131,6 +131,8 @@ public class ColaboradorService : IColaboradorService
                 IsAdministrador = c.Usuario.IsAdministrador,
                 SessaoMaximaMinutos = c.Usuario.SessaoMaximaMinutos,
                 InatividadeMinutos  = c.Usuario.InatividadeMinutos,
+                FilialPadraoId  = c.Usuario.FilialId,
+                NomeFilialPadrao = c.Usuario.Filial?.NomeFantasia ?? string.Empty,
                 FilialGrupos    = filialGrupos.Select(fg => new FilialGrupoDetalheDto
                 {
                     FilialId       = fg.FilialId,
@@ -481,7 +483,7 @@ public class ColaboradorService : IColaboradorService
                 Nome            = pessoa.Nome,
                 Login           = acesso.Login.Trim(),
                 SenhaHash       = BCrypt.Net.BCrypt.HashPassword(acesso.Senha ?? throw new ArgumentException("Senha é obrigatória para novo acesso.")),
-                FilialId        = primeiroAcesso?.FilialId ?? (await _db.Filiais.Select(f => f.Id).FirstAsync()),
+                FilialId        = acesso.FilialPadraoId > 0 ? acesso.FilialPadraoId : (primeiroAcesso?.FilialId ?? (await _db.Filiais.Select(f => f.Id).FirstAsync())),
                 GrupoUsuarioId  = primeiroAcesso?.GrupoUsuarioId ?? (await _db.UsuariosGrupos.Select(g => g.Id).FirstAsync()),
                 IsAdministrador = acesso.IsAdministrador,
                 ColaboradorId   = colaborador.Id,
@@ -502,11 +504,13 @@ public class ColaboradorService : IColaboradorService
             usuario.SessaoMaximaMinutos = acesso.SessaoMaximaMinutos;
             usuario.InatividadeMinutos  = acesso.InatividadeMinutos;
 
+            if (acesso.FilialPadraoId > 0)
+                usuario.FilialId = acesso.FilialPadraoId;
+            else if (primeiroAcesso != null)
+                usuario.FilialId = primeiroAcesso.FilialId;
+
             if (primeiroAcesso != null)
-            {
-                usuario.FilialId       = primeiroAcesso.FilialId;
                 usuario.GrupoUsuarioId = primeiroAcesso.GrupoUsuarioId;
-            }
 
             if (!string.IsNullOrWhiteSpace(acesso.Senha))
                 usuario.SenhaHash = BCrypt.Net.BCrypt.HashPassword(acesso.Senha);
