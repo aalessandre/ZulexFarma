@@ -350,6 +350,8 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.http.get<any>(`${this.apiUrl}/${c.id}`).subscribe({
       next: r => {
         this.carregando.set(false);
+        // Re-check duplicata (outra chamada async pode ter adicionado enquanto esperava o HTTP)
+        if (this.abasEdicao().find(a => a.colaborador.id === c.id)) { this.ativarAba(c.id!); return; }
         const detalhe: ColaboradorDetalhe = {
           ...c,
           enderecos: r.data.enderecos ?? [],
@@ -725,8 +727,16 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     return (this.colaboradorForm().acesso?.filialGrupos || []).some(x => x.filialId === filialId && x.grupoUsuarioId === grupoId);
   }
 
-  toggleMultiselect(filialId: number) {
+  toggleMultiselect(filialId: number, event?: MouseEvent) {
     this.multiSelectAberto.update(v => v === filialId ? null : filialId);
+  }
+
+  devemAbrirCima(filialId: number): boolean {
+    const row = document.querySelector(`.acesso-grid tbody tr:has(.multiselect-wrap [class*="display"]:focus-within), .acesso-grid tbody tr:nth-child(${this.filiais().findIndex(f => f.id === filialId) + 1})`);
+    if (!row) return false;
+    const rect = row.getBoundingClientRect();
+    const espacoAbaixo = window.innerHeight - rect.bottom;
+    return espacoAbaixo < 220;
   }
 
   getGrupoNome(grupoId: number): string {

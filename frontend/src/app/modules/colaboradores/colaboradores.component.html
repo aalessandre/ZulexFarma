@@ -448,6 +448,12 @@
                            placeholder="Nome de usuário" />
                   </div>
                   <div class="field field-full">
+                    <label>{{ colaboradorForm().acesso?.usuarioId ? 'NOVA SENHA (em branco = manter)' : 'SENHA *' }}</label>
+                    <input type="password" [value]="colaboradorForm().acesso?.senha || ''"
+                           (input)="updateAcesso('senha', $any($event.target).value)" maxlength="100"
+                           [placeholder]="colaboradorForm().acesso?.usuarioId ? '••••••••' : 'Digite a senha'" />
+                  </div>
+                  <div class="field field-full">
                     <label>FILIAL PADRÃO *</label>
                     <select [value]="colaboradorForm().acesso?.filialPadraoId || 0"
                             (change)="updateAcesso('filialPadraoId', +$any($event.target).value)">
@@ -456,12 +462,6 @@
                         <option [value]="f.id">{{ f.nomeFantasia }}</option>
                       }
                     </select>
-                  </div>
-                  <div class="field field-full">
-                    <label>{{ colaboradorForm().acesso?.usuarioId ? 'NOVA SENHA (em branco = manter)' : 'SENHA *' }}</label>
-                    <input type="password" [value]="colaboradorForm().acesso?.senha || ''"
-                           (input)="updateAcesso('senha', $any($event.target).value)" maxlength="100"
-                           [placeholder]="colaboradorForm().acesso?.usuarioId ? '••••••••' : 'Digite a senha'" />
                   </div>
                   <div class="field field-full field-check">
                     <label class="check-label">
@@ -518,7 +518,7 @@
                               <svg class="multiselect-arrow" width="12" height="8" viewBox="0 0 12 8"><path fill="currentColor" d="M6 8L0 0h12z"/></svg>
                             </div>
                             @if (multiSelectAberto() === f.id) {
-                              <div class="multiselect-dropdown">
+                              <div class="multiselect-dropdown" [class.abrir-cima]="devemAbrirCima(f.id)">
                                 @for (g of grupos(); track g.id) {
                                   <label class="multiselect-option" (click)="$event.stopPropagation()">
                                     <input type="checkbox"

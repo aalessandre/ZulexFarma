@@ -566,7 +566,6 @@
 
 .multiselect-dropdown {
   position: absolute;
-  bottom: calc(100% + 2px);
   left: 0;
   right: 0;
   background: var(--erp-surface);
@@ -577,6 +576,12 @@
   max-height: 200px;
   overflow-y: auto;
   animation: modal-in 0.12s ease-out;
+  top: calc(100% + 2px);
+
+  &.abrir-cima {
+    top: auto;
+    bottom: calc(100% + 2px);
+  }
 }
 
 .multiselect-option {
