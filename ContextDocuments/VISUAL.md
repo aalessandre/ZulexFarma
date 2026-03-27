@@ -33,6 +33,13 @@
 - Icone circular, titulo bold, mensagem, botoes
 - Animacao scale-in
 
+## Icones
+- **Padrao**: SVG inline em todos os modulos do ERP
+- Nao usar Unicode characters (×, &#9432;, &#9650;, etc.) — sempre SVG
+- Nao usar icon fonts (Material Icons, Font Awesome) nas telas do ERP
+- SVGs: `stroke="currentColor"` para herdar cor do contexto
+- Tamanhos comuns: 10px (sort/seta), 12px (check), 14px (fechar/info/warning)
+
 ## Enter -> Tab
 - Diretiva `EnterTabDirective` em todos os formularios
 - Enter pula para proximo campo focusavel

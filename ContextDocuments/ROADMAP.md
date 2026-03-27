@@ -18,14 +18,18 @@
 - [x] Dashboard estilo launcher (tiles, fundo configuravel)
 - [x] Infraestrutura multi-filial (VersaoSync, FilialOrigemId)
 - [x] Infraestrutura de sync (API + background service + tela)
+- [x] SyncBackgroundService completo (push/pull automatico com Railway)
+- [x] Replicacao testada entre 2 PCs (PC1↔Railway↔PC2)
 - [x] Infraestrutura de atualizacao (versionamento + tela sistema)
 - [x] Deploy (Railway + GitHub)
 - [x] Enter -> Tab em todas as telas
 - [x] Login com filial padrao automatica
 - [x] Alterar senha propria
+- [x] Icones SVG inline em todos os modulos ERP
+- [x] Botao Procurar recarrega dados em todos os modulos
 
 ## Em andamento
-- [ ] Testes de replicacao entre filiais
+- [ ] Lapidar processo de replicacao e tela de sync
 
 ## Proximos passos
 - [ ] Cadastro de Produtos (aba principal)
