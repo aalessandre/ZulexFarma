@@ -11,6 +11,7 @@ export const TELAS_SISTEMA: TelaSistema[] = [
   { bloco: 2, blocoNome: 'Cadastros', codigo: 'colaboradores', nome: 'Colaboradores' },
   { bloco: 2, blocoNome: 'Cadastros', codigo: 'fornecedores', nome: 'Fornecedores' },
   { bloco: 2, blocoNome: 'Cadastros', codigo: 'fabricantes', nome: 'Fabricantes' },
+  { bloco: 2, blocoNome: 'Cadastros', codigo: 'gerenciar-produtos', nome: 'Gerenciar Produtos' },
   // Manutenção
   { bloco: 4, blocoNome: 'Manutenção', codigo: 'grupos', nome: 'Grupo de Usuários' },
   { bloco: 4, blocoNome: 'Manutenção', codigo: 'log-geral', nome: 'Log de Auditoria' },

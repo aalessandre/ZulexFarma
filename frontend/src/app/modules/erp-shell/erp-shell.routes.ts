@@ -58,6 +58,11 @@ export const ErpRoutes: Routes = [
         loadComponent: () =>
           import('../fabricantes/fabricantes.component').then(m => m.FabricantesComponent),
       },
+      {
+        path: 'gerenciar-produtos',
+        loadComponent: () =>
+          import('../produtos/produtos.component').then(m => m.ProdutosComponent),
+      },
       // Placeholders — módulos futuros
       {
         path: '**',

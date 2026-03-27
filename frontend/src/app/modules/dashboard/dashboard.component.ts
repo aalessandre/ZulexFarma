@@ -73,7 +73,7 @@ export class DashboardComponent {
       tiles: [
         { label: 'Clientes',         sigla: 'CL', iconKey: 'users',     rota: '/erp/clientes' },
         { label: 'Colaboradores',    sigla: 'CO', iconKey: 'user',      rota: '/erp/colaboradores' },
-        { label: 'Produtos',         sigla: 'PR', iconKey: 'pill',      rota: '/erp/produtos' },
+        { label: 'Gerenciar Produtos', sigla: 'GP', iconKey: 'pill',    rota: '/erp/gerenciar-produtos' },
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
       ]

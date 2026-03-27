@@ -1,0 +1,148 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+/* -- Layout ERP padrao ---------------------------------------------------- */
+.tela-erp {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: var(--erp-bg);
+}
+
+/* -- Sidebar esquerda (tiles coloridos) ----------------------------------- */
+.tela-sidebar {
+  width: 180px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.sidebar-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 14px 16px;
+  color: #fff;
+  cursor: pointer;
+  border-radius: var(--erp-radius-sm);
+  font-size: var(--erp-fs-body);
+  font-weight: 700;
+  text-align: left;
+  line-height: 1.3;
+  transition: filter 0.15s, transform 0.08s;
+  background: linear-gradient(135deg, #2980b9, #3498db);
+
+  svg { width: 0; height: 0; display: none; }
+
+  .sidebar-sub { font-size: var(--erp-fs-xs); font-weight: 400; opacity: 0.85; }
+
+  &:hover { filter: brightness(1.08); }
+  &:active { transform: scale(0.98); }
+  &.ativo  { filter: brightness(0.92); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
+  &.disabled { opacity: 0.35; pointer-events: none; }
+
+  /* Cores por tipo */
+  &.tile-procurar  { background: linear-gradient(135deg, #2471a3, #2e86c1); }
+  &.tile-adicionar { background: linear-gradient(135deg, #1abc9c, #16a085); }
+  &.tile-editar    { background: linear-gradient(135deg, #2980b9, #3498db); }
+  &.tile-sair      { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+}
+
+/* -- Area principal ------------------------------------------------------- */
+.tela-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* -- Abas coloridas (estilo separadores de caderno) ----------------------- */
+.produto-abas {
+  display: flex;
+  gap: 4px;
+  padding: 16px 16px 0;
+  flex-shrink: 0;
+}
+
+.produto-aba {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px 10px 0 0;
+  font-size: var(--erp-fs-body, 15px);
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  background: var(--aba-cor);
+  opacity: 0.65;
+  transition: opacity 0.15s, transform 0.1s;
+  position: relative;
+  top: 1px;
+
+  &:hover { opacity: 0.85; }
+
+  &.ativo {
+    opacity: 1;
+    transform: scaleY(1.05);
+    transform-origin: bottom;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    z-index: 1;
+  }
+}
+
+/* -- Conteudo da aba ------------------------------------------------------ */
+.produto-conteudo {
+  flex: 1;
+  margin: 0 16px 16px;
+  background: var(--erp-surface, #fff);
+  border-radius: 0 16px 16px 16px;
+  border: 1px solid #e8ecf1;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* -- Placeholder ---------------------------------------------------------- */
+.aba-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--erp-text-muted, #6a7888);
+
+  h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--erp-text, #2c3e50);
+    margin: 16px 0 8px;
+  }
+
+  p {
+    font-size: 15px;
+    max-width: 400px;
+    line-height: 1.5;
+  }
+}
+
+.placeholder-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #f0f4f8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--erp-blue, #2c5fad);
+}
