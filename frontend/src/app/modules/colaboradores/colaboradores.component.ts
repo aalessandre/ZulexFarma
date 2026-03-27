@@ -162,19 +162,33 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const c = this.colaboradores().find(x => x.id === id);
-          if (c) {
-            this.colaboradorSelecionado.set(c);
-            this.editar();
-          }
-        }
-        if (state.abaAtivaId) {
-          setTimeout(() => {
-            const temAba = this.abasEdicao().find(a => a.colaborador.id === state.abaAtivaId);
-            if (temAba) this.ativarAba(state.abaAtivaId);
-          }, 100);
+          if (c) this.restaurarAba(c, id === state.abaAtivaId);
         }
       }
     } catch {}
+  }
+
+  private restaurarAba(c: any, ativar: boolean) {
+    this.http.get<any>(`${this.apiUrl}/${c.id}`).subscribe({
+      next: r => {
+        if (this.abasEdicao().find(a => a.colaborador.id === c.id)) return;
+        const detalhe: ColaboradorDetalhe = {
+          ...c,
+          enderecos: r.data.enderecos ?? [],
+          contatos: r.data.contatos ?? [],
+          observacao: r.data.observacao,
+          cargo: r.data.cargo,
+          dataAdmissao: r.data.dataAdmissao,
+          salario: r.data.salario,
+          rg: r.data.rg,
+          dataNascimento: r.data.dataNascimento,
+          acesso: r.data.acesso ?? null
+        };
+        const novaAba: AbaEdicao = { colaborador: { ...c }, form: this.clonarDetalhe(detalhe), isDirty: false };
+        this.abasEdicao.update(tabs => [...tabs, novaAba]);
+        if (ativar) this.ativarAba(c.id!);
+      }
+    });
   }
 
   private carregarFiliais() {

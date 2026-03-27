@@ -15,6 +15,7 @@ export interface ColunaDef {
 }
 
 export const FILIAIS_COLUNAS: ColunaDef[] = [
+  { campo: 'id',                label: 'ID',             padrao: true,  largura: 60,  minLargura: 50  },
   { campo: 'razaoSocial',       label: 'Razão Social',   padrao: true,  largura: 220, minLargura: 100 },
   { campo: 'nomeFantasia',      label: 'Nome Fantasia',  padrao: true,  largura: 180, minLargura: 80  },
   { campo: 'nomeFilial',        label: 'Apelido',        padrao: true,  largura: 140, minLargura: 80  },

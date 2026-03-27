@@ -39,6 +39,7 @@ interface ColunaEstado extends ColunaDef {
 type Modo = 'lista' | 'form';
 
 const FABRICANTES_COLUNAS: ColunaDef[] = [
+  { campo: 'id', label: 'ID', largura: 60, minLargura: 50, padrao: true },
   { campo: 'nome', label: 'Nome', largura: 200, minLargura: 100, padrao: true },
   { campo: 'ativo', label: 'Ativo', largura: 60, minLargura: 50, padrao: true },
 ];

@@ -139,19 +139,31 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const f = this.fornecedores().find(x => x.id === id);
-          if (f) {
-            this.fornecedorSelecionado.set(f);
-            this.editar();
-          }
-        }
-        if (state.abaAtivaId) {
-          setTimeout(() => {
-            const temAba = this.abasEdicao().find(a => a.fornecedor.id === state.abaAtivaId);
-            if (temAba) this.ativarAba(state.abaAtivaId);
-          }, 100);
+          if (f) this.restaurarAba(f, id === state.abaAtivaId);
         }
       }
     } catch {}
+  }
+
+  private restaurarAba(f: any, ativar: boolean) {
+    this.http.get<any>(`${this.apiUrl}/${f.id}`).subscribe({
+      next: r => {
+        if (this.abasEdicao().find(a => a.fornecedor.id === f.id)) return;
+        const detalhe: FornecedorDetalhe = {
+          ...f,
+          enderecos: r.data.enderecos ?? [],
+          contatos: r.data.contatos ?? [],
+          observacao: r.data.observacao,
+          dataNascimento: r.data.dataNascimento,
+          razaoSocial: r.data.razaoSocial,
+          inscricaoEstadual: r.data.inscricaoEstadual,
+          rg: r.data.rg
+        };
+        const novaAba: AbaEdicao = { fornecedor: { ...f }, form: this.clonarDetalhe(detalhe), isDirty: false };
+        this.abasEdicao.update(tabs => [...tabs, novaAba]);
+        if (ativar) this.ativarAba(f.id!);
+      }
+    });
   }
 
   private primeiroCarregamento = true;

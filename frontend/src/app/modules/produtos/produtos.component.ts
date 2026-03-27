@@ -65,6 +65,7 @@ interface LogEntry {
 }
 
 const CLASSIFICACAO_COLUNAS: ColunaDef[] = [
+  { campo: 'id',                label: 'ID',           largura: 60,  minLargura: 50,  padrao: true },
   { campo: 'nome',              label: 'Nome',         largura: 250, minLargura: 150, padrao: true },
   { campo: 'comissaoPercentual', label: '% Comissão',  largura: 100, minLargura: 70,  padrao: true },
   { campo: 'markupPadrao',      label: '% Markup',     largura: 100, minLargura: 70,  padrao: true },

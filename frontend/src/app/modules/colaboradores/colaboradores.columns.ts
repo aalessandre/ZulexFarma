@@ -7,6 +7,7 @@ export interface ColunaDef {
 }
 
 export const COLABORADORES_COLUNAS: ColunaDef[] = [
+  { campo: 'id',            label: 'ID',              largura: 60,  minLargura: 50,  padrao: true },
   { campo: 'nome',           label: 'Nome',            largura: 220, minLargura: 120, padrao: true },
   { campo: 'cpf',            label: 'CPF',             largura: 140, minLargura: 120, padrao: true },
   { campo: 'rg',             label: 'RG',              largura: 120, minLargura: 80,  padrao: false },
