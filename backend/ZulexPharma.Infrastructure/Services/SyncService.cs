@@ -236,6 +236,24 @@ public class SyncService
         await _db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Resets the PostgreSQL auto-increment sequence for a table to MAX(Id)+1.
+    /// Must be called after inserting records with explicit IDs (from sync).
+    /// </summary>
+    public async Task ResetarSequence(string tabela)
+    {
+        try
+        {
+            // PostgreSQL sequence name convention: "TableName_Id_seq"
+            var sql = $"SELECT setval(pg_get_serial_sequence('\"{tabela}\"', 'Id'), COALESCE((SELECT MAX(\"Id\") FROM \"{tabela}\"), 0) + 1, false)";
+            await _db.Database.ExecuteSqlRawAsync(sql);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Erro ao resetar sequence da tabela {Tabela}", tabela);
+        }
+    }
+
     private IQueryable<BaseEntity> GetDbSetAsQueryable(Type tipo)
     {
         // Use reflection to get the DbSet for the given type

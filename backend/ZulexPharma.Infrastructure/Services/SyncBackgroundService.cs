@@ -249,6 +249,9 @@ public class SyncBackgroundService : BackgroundService
             db.SuspenderAutoSync = false;
         }
 
+        // Reset PostgreSQL sequence to avoid PK conflicts on new local inserts
+        await syncService.ResetarSequence(tabela);
+
         // Update local SyncControle with last received version (from central's perspective)
         await syncService.AtualizarControle(_filialLocalId, tabela, versaoRecebida: pacote.VersaoAte, status: "OK");
 
