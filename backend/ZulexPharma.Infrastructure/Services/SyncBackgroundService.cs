@@ -236,8 +236,18 @@ public class SyncBackgroundService : BackgroundService
         if (pacote == null || pacote.TotalRegistros == 0)
             return 0;
 
-        // Apply received changes locally
-        var resultado = await syncService.AplicarAlteracoes(tabela, pacote.Registros);
+        // Apply received changes locally (suspend VersaoSync auto-increment to avoid echo loop)
+        var db = scope.ServiceProvider.GetRequiredService<Data.AppDbContext>();
+        db.SuspenderAutoSync = true;
+        SyncResultado resultado;
+        try
+        {
+            resultado = await syncService.AplicarAlteracoes(tabela, pacote.Registros);
+        }
+        finally
+        {
+            db.SuspenderAutoSync = false;
+        }
 
         // Update local SyncControle with last received version (from central's perspective)
         await syncService.AtualizarControle(_filialLocalId, tabela, versaoRecebida: pacote.VersaoAte, status: "OK");

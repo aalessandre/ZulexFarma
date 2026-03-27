@@ -163,16 +163,7 @@ public class SyncService
             }
         }
 
-        // Suspender auto-increment de VersaoSync para não alterar os registros recebidos
-        _db.SuspenderAutoSync = true;
-        try
-        {
-            await _db.SaveChangesAsync();
-        }
-        finally
-        {
-            _db.SuspenderAutoSync = false;
-        }
+        await _db.SaveChangesAsync();
 
         return new SyncResultado
         {
