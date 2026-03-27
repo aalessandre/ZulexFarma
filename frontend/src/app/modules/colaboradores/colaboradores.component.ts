@@ -7,6 +7,7 @@ import { COLABORADORES_COLUNAS, ColunaDef } from './colaboradores.columns';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
+import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 
 interface LogCampo { campo: string; valorAnterior?: string; valorAtual?: string; }
 interface LogEntry { id: number; realizadoEm: string; acao: string; nomeUsuario: string; campos: LogCampo[]; }
@@ -54,7 +55,7 @@ type AbaForm = 'dados' | 'endereco' | 'contato' | 'acesso';
 @Component({
   selector: 'app-colaboradores',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EnterTabDirective],
   templateUrl: './colaboradores.component.html',
   styleUrl: './colaboradores.component.scss'
 })

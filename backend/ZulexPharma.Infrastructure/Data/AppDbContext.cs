@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<UsuarioFilialGrupo> UsuarioFilialGrupos => Set<UsuarioFilialGrupo>();
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<SyncControle> SyncControles => Set<SyncControle>();
+    public DbSet<Fabricante> Fabricantes => Set<Fabricante>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -220,6 +221,14 @@ public class AppDbContext : DbContext
              .WithMany(x => x.Enderecos)
              .HasForeignKey(x => x.PessoaId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Fabricante ──────────────────────────────────────────────
+        modelBuilder.Entity<Fabricante>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
         });
 
         // ── SyncControle ─────────────────────────────────────────────

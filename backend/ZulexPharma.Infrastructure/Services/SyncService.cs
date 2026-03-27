@@ -23,6 +23,7 @@ public class SyncService
         ["UsuariosGrupos"] = typeof(GrupoUsuario),
         ["UsuariosGruposPermissao"] = typeof(GrupoPermissao),
         ["UsuarioFilialGrupos"] = typeof(UsuarioFilialGrupo),
+        ["Fabricantes"] = typeof(Fabricante),
     };
 
     public SyncService(AppDbContext db) => _db = db;

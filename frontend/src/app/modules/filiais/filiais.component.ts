@@ -7,6 +7,7 @@ import { FILIAIS_COLUNAS, ColunaDef } from './filiais.columns';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
+import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 
 interface LogCampo {
   campo: string;
@@ -56,7 +57,7 @@ type Modo = 'lista' | 'form';
 @Component({
   selector: 'app-filiais',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EnterTabDirective],
   templateUrl: './filiais.component.html',
   styleUrl: './filiais.component.scss'
 })

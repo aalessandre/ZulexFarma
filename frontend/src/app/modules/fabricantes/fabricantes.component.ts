@@ -3,40 +3,33 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { GRUPOS_COLUNAS, ColunaDef } from './grupos.columns';
-import { TELAS_SISTEMA, getBlocos } from './telas-sistema';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 
-interface Grupo {
+interface LogCampo { campo: string; valorAnterior?: string; valorAtual?: string; }
+interface LogEntry { id: number; realizadoEm: string; acao: string; nomeUsuario: string; campos: LogCampo[]; }
+
+interface Fabricante {
   id?: number;
   nome: string;
-  descricao?: string;
-  totalUsuarios?: number;
   ativo: boolean;
   criadoEm?: string;
 }
 
-interface Permissao {
-  bloco: number;
-  codigoTela: string;
-  nomeTela: string;
-  podeConsultar: boolean;
-  podeIncluir: boolean;
-  podeAlterar: boolean;
-  podeExcluir: boolean;
-}
-
-interface GrupoDetalhe extends Grupo {
-  permissoes: Permissao[];
-}
-
 interface AbaEdicao {
-  grupo: Grupo;
-  form: GrupoDetalhe;
+  fabricante: Fabricante;
+  form: Fabricante;
   isDirty: boolean;
+}
+
+interface ColunaDef {
+  campo: string;
+  label: string;
+  largura: number;
+  minLargura: number;
+  padrao: boolean;
 }
 
 interface ColunaEstado extends ColunaDef {
@@ -45,21 +38,26 @@ interface ColunaEstado extends ColunaDef {
 
 type Modo = 'lista' | 'form';
 
+const FABRICANTES_COLUNAS: ColunaDef[] = [
+  { campo: 'nome', label: 'Nome', largura: 200, minLargura: 100, padrao: true },
+  { campo: 'ativo', label: 'Ativo', largura: 60, minLargura: 50, padrao: true },
+];
+
 @Component({
-  selector: 'app-grupos',
+  selector: 'app-fabricantes',
   standalone: true,
   imports: [CommonModule, FormsModule, EnterTabDirective],
-  templateUrl: './grupos.component.html',
-  styleUrl: './grupos.component.scss'
+  templateUrl: './fabricantes.component.html',
+  styleUrl: './fabricantes.component.scss'
 })
-export class GruposComponent implements OnInit, OnDestroy {
-  private readonly STATE_KEY = 'zulex_grupos_state';
-  private readonly STORAGE_KEY_COLUNAS = 'zulex_colunas_grupos';
+export class FabricantesComponent implements OnInit, OnDestroy {
+  private readonly STATE_KEY = 'zulex_fabricantes_state';
+  private readonly STORAGE_KEY_COLUNAS = 'zulex_colunas_fabricantes';
 
   modo = signal<Modo>('lista');
-  grupos = signal<Grupo[]>([]);
-  grupoSelecionado = signal<Grupo | null>(null);
-  grupoForm = signal<GrupoDetalhe>(this.novoGrupo());
+  fabricantes = signal<Fabricante[]>([]);
+  fabricanteSelecionado = signal<Fabricante | null>(null);
+  fabricanteForm = signal<Fabricante>(this.novoFabricante());
   carregando = signal(false);
   salvando = signal(false);
   excluindo = signal(false);
@@ -73,12 +71,7 @@ export class GruposComponent implements OnInit, OnDestroy {
   isDirty = signal(false);
   erro = signal('');
   errosCampos = signal<Record<string, string>>({});
-  private formOriginal: GrupoDetalhe | null = null;
-
-  // TreeView
-  buscaPermissao = signal('');
-  nosAbertos = signal<Set<string>>(new Set());
-
+  private formOriginal: Fabricante | null = null;
 
   // Colunas
   colunas = signal<ColunaEstado[]>(this.carregarColunas());
@@ -86,19 +79,22 @@ export class GruposComponent implements OnInit, OnDestroy {
   painelColunas = signal(false);
   private resizeState: { campo: string; startX: number; startWidth: number } | null = null;
 
-  // Permissoes
-  blocos = getBlocos();
-  // blocos expandidos por padrão na edição
+  // Log
+  modalLog = signal(false);
+  logRegistros = signal<LogEntry[]>([]);
+  logSelecionado = signal<LogEntry | null>(null);
+  logDataInicio = signal('');
+  logDataFim = signal('');
+  carregandoLog = signal(false);
 
-  private apiUrl = `${environment.apiUrl}/grupos`;
-
+  private apiUrl = `${environment.apiUrl}/fabricantes`;
   private tokenLiberacao: string | null = null;
 
   constructor(private http: HttpClient, private tabService: TabService, private auth: AuthService, private modal: ModalService) {}
 
   private async verificarPermissao(acao: string): Promise<boolean> {
-    if (this.auth.temPermissao('grupos', acao)) return true;
-    const resultado = await this.modal.permissao('grupos', acao);
+    if (this.auth.temPermissao('fabricantes', acao)) return true;
+    const resultado = await this.modal.permissao('fabricantes', acao);
     if (resultado.tokenLiberacao) this.tokenLiberacao = resultado.tokenLiberacao;
     return resultado.confirmado;
   }
@@ -126,7 +122,7 @@ export class GruposComponent implements OnInit, OnDestroy {
     const abas = this.abasEdicao();
     if (abas.length === 0) { sessionStorage.removeItem(this.STATE_KEY); return; }
     sessionStorage.setItem(this.STATE_KEY, JSON.stringify({
-      abasIds: abas.map(a => a.grupo.id),
+      abasIds: abas.map(a => a.fabricante.id),
       abaAtivaId: this.abaAtivaId()
     }));
   }
@@ -139,15 +135,15 @@ export class GruposComponent implements OnInit, OnDestroy {
       sessionStorage.removeItem(this.STATE_KEY);
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
-          const g = this.grupos().find(x => x.id === id);
-          if (g) {
-            this.grupoSelecionado.set(g);
+          const f = this.fabricantes().find(x => x.id === id);
+          if (f) {
+            this.fabricanteSelecionado.set(f);
             this.editar();
           }
         }
         if (state.abaAtivaId) {
           setTimeout(() => {
-            const temAba = this.abasEdicao().find(a => a.grupo.id === state.abaAtivaId);
+            const temAba = this.abasEdicao().find(a => a.fabricante.id === state.abaAtivaId);
             if (temAba) this.ativarAba(state.abaAtivaId);
           }, 100);
         }
@@ -162,7 +158,7 @@ export class GruposComponent implements OnInit, OnDestroy {
     this.carregando.set(true);
     this.http.get<any>(this.apiUrl).subscribe({
       next: r => {
-        this.grupos.set(r.data ?? []);
+        this.fabricantes.set(r.data ?? []);
         this.carregando.set(false);
         if (this.primeiroCarregamento) {
           this.primeiroCarregamento = false;
@@ -172,7 +168,7 @@ export class GruposComponent implements OnInit, OnDestroy {
       error: (e) => {
         this.carregando.set(false);
         if (e.status === 403) {
-          this.modal.permissao('grupos', 'c').then(r => {
+          this.modal.permissao('fabricantes', 'c').then(r => {
             if (r.confirmado) this.carregar();
             else this.tabService.fecharTabAtiva();
           });
@@ -181,20 +177,17 @@ export class GruposComponent implements OnInit, OnDestroy {
     });
   }
 
-  gruposFiltrados = computed(() => {
+  fabricantesFiltrados = computed(() => {
     const termo = this.normalizar(this.busca());
     const status = this.filtroStatus();
     const col = this.sortColuna();
     const dir = this.sortDirecao();
 
-    const lista = this.grupos().filter(g => {
-      if (status === 'ativos'   && !g.ativo) return false;
-      if (status === 'inativos' &&  g.ativo) return false;
+    const lista = this.fabricantes().filter(f => {
+      if (status === 'ativos'   && !f.ativo) return false;
+      if (status === 'inativos' &&  f.ativo) return false;
       if (termo.length < 2) return true;
-      return (
-        this.normalizar(g.nome).includes(termo) ||
-        this.normalizar(g.descricao ?? '').includes(termo)
-      );
+      return this.normalizar(f.nome).includes(termo);
     });
 
     if (!col) return lista;
@@ -214,13 +207,13 @@ export class GruposComponent implements OnInit, OnDestroy {
     return (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   }
 
-  getCellValue(g: Grupo, campo: string): string {
-    const v = (g as any)[campo];
-    if (typeof v === 'boolean') return v ? 'Sim' : 'N\u00e3o';
+  getCellValue(f: Fabricante, campo: string): string {
+    const v = (f as any)[campo];
+    if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
     return v ?? '';
   }
 
-  selecionar(g: Grupo) { this.grupoSelecionado.set(g); }
+  selecionar(f: Fabricante) { this.fabricanteSelecionado.set(f); }
 
   ordenar(coluna: string) {
     if (this.sortColuna() === coluna) {
@@ -237,13 +230,13 @@ export class GruposComponent implements OnInit, OnDestroy {
       const json = localStorage.getItem(this.STORAGE_KEY_COLUNAS);
       if (json) {
         const saved: ColunaEstado[] = JSON.parse(json);
-        return GRUPOS_COLUNAS.map(def => {
+        return FABRICANTES_COLUNAS.map(def => {
           const s = saved.find(c => c.campo === def.campo);
           return { ...def, visivel: s ? s.visivel : def.padrao, largura: s?.largura ?? def.largura };
         });
       }
     } catch {}
-    return GRUPOS_COLUNAS.map(c => ({ ...c, visivel: c.padrao }));
+    return FABRICANTES_COLUNAS.map(c => ({ ...c, visivel: c.padrao }));
   }
 
   private salvarColunasStorage() {
@@ -256,7 +249,7 @@ export class GruposComponent implements OnInit, OnDestroy {
   }
 
   restaurarPadrao() {
-    this.colunas.set(GRUPOS_COLUNAS.map(c => ({ ...c, visivel: c.padrao })));
+    this.colunas.set(FABRICANTES_COLUNAS.map(c => ({ ...c, visivel: c.padrao })));
     this.salvarColunasStorage();
   }
 
@@ -271,7 +264,7 @@ export class GruposComponent implements OnInit, OnDestroy {
   onMouseMove(e: MouseEvent) {
     if (!this.resizeState) return;
     const delta = e.clientX - this.resizeState.startX;
-    const def = GRUPOS_COLUNAS.find(c => c.campo === this.resizeState!.campo);
+    const def = FABRICANTES_COLUNAS.find(c => c.campo === this.resizeState!.campo);
     const min = def?.minLargura ?? 50;
     const novaLargura = Math.max(min, this.resizeState.startWidth + delta);
     this.colunas.update(cols =>
@@ -292,102 +285,58 @@ export class GruposComponent implements OnInit, OnDestroy {
   // ── CRUD ───────────────────────────────────────────────────────────
   async incluir() {
     if (!await this.verificarPermissao('i')) return;
-    this.grupoForm.set(this.novoGrupo());
-    this.formOriginal = this.clonar(this.novoGrupo());
+    this.fabricanteForm.set(this.novoFabricante());
+    this.formOriginal = this.clonar(this.novoFabricante());
     this.modoEdicao.set(false);
     this.isDirty.set(false);
     this.erro.set('');
     this.errosCampos.set({});
-
     this.modo.set('form');
   }
 
   async editar() {
     if (!await this.verificarPermissao('a')) return;
-    const g = this.grupoSelecionado();
-    if (!g?.id) return;
+    const f = this.fabricanteSelecionado();
+    if (!f?.id) return;
 
-    // Check if tab already open
-    const jaAberta = this.abasEdicao().find(a => a.grupo.id === g.id);
+    const jaAberta = this.abasEdicao().find(a => a.fabricante.id === f.id);
     if (jaAberta) {
-      this.ativarAba(g.id);
+      this.ativarAba(f.id);
       return;
     }
 
-    const detalhe: GrupoDetalhe = { ...g, permissoes: this.criarPermissoesVazias() };
-    const aba: AbaEdicao = { grupo: { ...g }, form: this.clonar(detalhe), isDirty: false };
+    const aba: AbaEdicao = { fabricante: { ...f }, form: this.clonar(f), isDirty: false };
     this.abasEdicao.update(abas => [...abas, aba]);
-    this.abaAtivaId.set(g.id!);
-    this.grupoForm.set(this.clonar(detalhe));
-    this.formOriginal = this.clonar(detalhe);
+    this.abaAtivaId.set(f.id!);
+    this.fabricanteForm.set(this.clonar(f));
+    this.formOriginal = this.clonar(f);
     this.modoEdicao.set(true);
     this.isDirty.set(false);
     this.erro.set('');
     this.errosCampos.set({});
-
     this.modo.set('form');
-
-    // Load permissions from API
-    this.carregarPermissoes(g.id!);
-  }
-
-  private carregarPermissoes(grupoId: number) {
-    this.http.get<any>(`${this.apiUrl}/${grupoId}/permissoes`).subscribe({
-      next: r => {
-        const permsApi: Permissao[] = r.data ?? [];
-        const merged = this.mergePermissoes(permsApi);
-        this.grupoForm.update(f => ({ ...f, permissoes: merged }));
-        this.formOriginal = this.clonar(this.grupoForm());
-        // Update tab
-        this.abasEdicao.update(abas =>
-          abas.map(a => a.grupo.id === grupoId ? { ...a, form: this.clonar(this.grupoForm()) } : a)
-        );
-      }
-    });
-  }
-
-  private mergePermissoes(permsApi: Permissao[]): Permissao[] {
-    return TELAS_SISTEMA.map(t => {
-      const existing = permsApi.find(p => p.codigoTela === t.codigo && p.bloco === t.bloco);
-      return existing
-        ? { ...existing }
-        : { bloco: t.bloco, codigoTela: t.codigo, nomeTela: t.nome, podeConsultar: false, podeIncluir: false, podeAlterar: false, podeExcluir: false };
-    });
-  }
-
-  private criarPermissoesVazias(): Permissao[] {
-    return TELAS_SISTEMA.map(t => ({
-      bloco: t.bloco,
-      codigoTela: t.codigo,
-      nomeTela: t.nome,
-      podeConsultar: false,
-      podeIncluir: false,
-      podeAlterar: false,
-      podeExcluir: false
-    }));
   }
 
   ativarAba(id: number) {
     this.salvarEstadoAbaAtiva();
-    const aba = this.abasEdicao().find(a => a.grupo.id === id);
+    const aba = this.abasEdicao().find(a => a.fabricante.id === id);
     if (!aba) return;
     this.abaAtivaId.set(id);
-    this.grupoForm.set(this.clonar(aba.form));
+    this.fabricanteForm.set(this.clonar(aba.form));
     this.formOriginal = this.clonar(aba.form);
     this.isDirty.set(aba.isDirty);
     this.modoEdicao.set(true);
     this.erro.set('');
     this.errosCampos.set({});
-
     this.modo.set('form');
   }
 
   fecharAba(id: number) {
-    this.abasEdicao.update(abas => abas.filter(a => a.grupo.id !== id));
+    this.abasEdicao.update(abas => abas.filter(a => a.fabricante.id !== id));
     if (this.abaAtivaId() === id) {
       const restantes = this.abasEdicao();
       if (restantes.length > 0) {
-        this.ativarAba(restantes[restantes.length - 1].grupo.id!);
+        this.ativarAba(restantes[restantes.length - 1].fabricante.id!);
       } else {
         this.modo.set('lista');
         this.abaAtivaId.set(null);
@@ -403,12 +352,30 @@ export class GruposComponent implements OnInit, OnDestroy {
     this.modo.set('lista');
   }
 
+  fecharForm() {
+    if (this.modoEdicao()) {
+      const id = this.abaAtivaId();
+      if (id) this.fecharAba(id);
+      else this.modo.set('lista');
+    } else {
+      this.modo.set('lista');
+    }
+  }
+
+  cancelarEdicao() {
+    if (this.formOriginal) {
+      this.fabricanteForm.set(this.clonar(this.formOriginal));
+      this.isDirty.set(false);
+      this.atualizarDirtyAba();
+    }
+  }
+
   private salvarEstadoAbaAtiva() {
     const id = this.abaAtivaId();
     if (!id || this.modo() !== 'form') return;
     this.abasEdicao.update(abas =>
-      abas.map(a => a.grupo.id === id
-        ? { ...a, form: this.clonar(this.grupoForm()), isDirty: this.isDirty() }
+      abas.map(a => a.fabricante.id === id
+        ? { ...a, form: this.clonar(this.fabricanteForm()), isDirty: this.isDirty() }
         : a
       )
     );
@@ -416,20 +383,18 @@ export class GruposComponent implements OnInit, OnDestroy {
 
   async salvar() {
     if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
-    // Validate
     const erros: Record<string, string> = {};
-    const f = this.grupoForm();
-    if (!f.nome.trim()) erros['nome'] = 'Nome \u00e9 obrigat\u00f3rio.';
+    const f = this.fabricanteForm();
+    if (!f.nome.trim()) erros['nome'] = 'Nome é obrigatório.';
     if (Object.keys(erros).length) {
       this.errosCampos.set(erros);
-  
       return;
     }
     this.errosCampos.set({});
     this.salvando.set(true);
 
     const headers = this.headerLiberacao();
-    const body: any = { nome: f.nome, descricao: f.descricao, ativo: f.ativo };
+    const body: any = { nome: f.nome, ativo: f.ativo };
 
     const salvarDados$ = this.modoEdicao()
       ? this.http.put(`${this.apiUrl}/${f.id}`, body, { headers })
@@ -437,56 +402,32 @@ export class GruposComponent implements OnInit, OnDestroy {
 
     salvarDados$.subscribe({
       next: (r: any) => {
-        const grupoId = this.modoEdicao() ? f.id! : r.data?.id;
-
-        // Save permissions if we have a grupoId
-        if (grupoId) {
-          const permissoes = f.permissoes.map(p => ({
-            bloco: p.bloco,
-            codigoTela: p.codigoTela,
-            nomeTela: p.nomeTela,
-            podeConsultar: p.podeConsultar,
-            podeIncluir: p.podeIncluir,
-            podeAlterar: p.podeAlterar,
-            podeExcluir: p.podeExcluir
-          }));
-
-          this.http.put(`${this.apiUrl}/${grupoId}/permissoes`, { permissoes }).subscribe({
-            next: () => {
-              this.finalizarSalvar(grupoId);
-            },
-            error: () => {
-              this.erro.set('Grupo salvo, mas houve erro ao salvar permiss\u00f5es.');
-              this.salvando.set(false);
-            }
-          });
-        } else {
-          this.finalizarSalvar(grupoId);
-        }
+        const fabricanteId = this.modoEdicao() ? f.id! : r.data?.id;
+        this.finalizarSalvar(fabricanteId);
       },
       error: () => {
-        this.erro.set('Erro ao salvar grupo.');
+        this.erro.set('Erro ao salvar fabricante.');
         this.salvando.set(false);
       }
     });
   }
 
-  private finalizarSalvar(grupoId: number) {
+  private finalizarSalvar(fabricanteId: number) {
     this.salvando.set(false);
     this.isDirty.set(false);
     if (this.modoEdicao()) {
-      this.fecharAba(grupoId);
+      this.fecharAba(fabricanteId);
     }
     this.carregar();
     this.modo.set('lista');
   }
 
   async excluir() {
-    const g = this.grupoSelecionado();
-    if (!g?.id) return;
+    const f = this.fabricanteSelecionado();
+    if (!f?.id) return;
     const resultado = await this.modal.confirmar(
       'Confirmar Exclusão',
-      `Deseja excluir o grupo ${g.nome}? O registro será removido permanentemente. Se estiver em uso, será apenas desativado.`,
+      `Deseja excluir o fabricante ${f.nome}? O registro será removido permanentemente. Se estiver em uso, será apenas desativado.`,
       'Sim, excluir',
       'Não, manter'
     );
@@ -494,24 +435,26 @@ export class GruposComponent implements OnInit, OnDestroy {
     if (!await this.verificarPermissao('e')) return;
     const headers = this.headerLiberacao();
     this.excluindo.set(true);
-    this.http.delete(`${this.apiUrl}/${g.id}`, { headers }).subscribe({
-      next: async () => {
+    this.http.delete<any>(`${this.apiUrl}/${f.id}`, { headers }).subscribe({
+      next: async (r: any) => {
         this.excluindo.set(false);
-        this.grupoSelecionado.set(null);
-        this.fecharAba(g.id!);
+        this.fabricanteSelecionado.set(null);
+        this.fecharAba(f.id!);
         this.carregar();
-        await this.modal.aviso('Desativado', 'O registro está em uso e foi apenas desativado.');
+        if (r.resultado === 'desativado') {
+          await this.modal.aviso('Desativado', 'O registro está em uso e foi apenas desativado.');
+        }
       },
       error: () => {
         this.excluindo.set(false);
-        this.modal.erro('Erro', 'Erro ao excluir grupo.');
+        this.modal.erro('Erro', 'Erro ao excluir fabricante.');
       }
     });
   }
 
   // ── Form helpers ───────────────────────────────────────────────────
-  upd(campo: keyof Grupo, v: any) {
-    this.grupoForm.update(f => ({ ...f, [campo]: v }));
+  upd(campo: keyof Fabricante, v: any) {
+    this.fabricanteForm.update(f => ({ ...f, [campo]: v }));
     this.isDirty.set(true);
     this.atualizarDirtyAba();
   }
@@ -520,104 +463,61 @@ export class GruposComponent implements OnInit, OnDestroy {
     return this.errosCampos()[campo] ?? '';
   }
 
-  // ── TreeView Permissões ────────────────────────────────────────────
-  toggleNo(key: string) {
-    this.nosAbertos.update(s => {
-      const ns = new Set(s);
-      if (ns.has(key)) ns.delete(key); else ns.add(key);
-      return ns;
-    });
-  }
-
-  isNoAberto(key: string): boolean {
-    return this.nosAbertos().has(key);
-  }
-
-  getPermissoesBloco(bloco: number): Permissao[] {
-    const termo = this.normalizar(this.buscaPermissao());
-    return this.grupoForm().permissoes.filter(p => {
-      if (p.bloco !== bloco) return false;
-      if (termo.length < 2) return true;
-      return this.normalizar(p.nomeTela).includes(termo) ||
-             this.normalizar(p.codigoTela).includes(termo);
-    });
-  }
-
-  blocoTemResultados(bloco: number): boolean {
-    return this.getPermissoesBloco(bloco).length > 0;
-  }
-
-  temAlgumaPermissao(p: Permissao): boolean {
-    return p.podeConsultar || p.podeIncluir || p.podeAlterar || p.podeExcluir;
-  }
-
-  contarPermissoesBloco(bloco: number): number {
-    return this.grupoForm().permissoes.filter(p => p.bloco === bloco && this.temAlgumaPermissao(p)).length;
-  }
-
-  totalTelasBloco(bloco: number): number {
-    return this.grupoForm().permissoes.filter(p => p.bloco === bloco).length;
-  }
-
-  togglePermissao(codigo: string, campo: 'podeConsultar' | 'podeIncluir' | 'podeAlterar' | 'podeExcluir') {
-    this.grupoForm.update(f => ({
-      ...f,
-      permissoes: f.permissoes.map(p =>
-        p.codigoTela === codigo ? { ...p, [campo]: !p[campo] } : p
-      )
-    }));
-    this.isDirty.set(true);
-    this.atualizarDirtyAba();
-  }
-
-  marcarTodosBloco(bloco: number, valor: boolean) {
-    this.grupoForm.update(f => ({
-      ...f,
-      permissoes: f.permissoes.map(p =>
-        p.bloco === bloco
-          ? { ...p, podeConsultar: valor, podeIncluir: valor, podeAlterar: valor, podeExcluir: valor }
-          : p
-      )
-    }));
-    this.isDirty.set(true);
-    this.atualizarDirtyAba();
-  }
-
-  marcarTodosTela(codigo: string, valor: boolean) {
-    this.grupoForm.update(f => ({
-      ...f,
-      permissoes: f.permissoes.map(p =>
-        p.codigoTela === codigo
-          ? { ...p, podeConsultar: valor, podeIncluir: valor, podeAlterar: valor, podeExcluir: valor }
-          : p
-      )
-    }));
-    this.isDirty.set(true);
-    this.atualizarDirtyAba();
-  }
-
-  expandirTodos() {
-    const keys = new Set<string>();
-    for (const b of this.blocos) keys.add(`bloco_${b.bloco}`);
-    for (const p of this.grupoForm().permissoes) keys.add(`tela_${p.codigoTela}`);
-    this.nosAbertos.set(keys);
-  }
-
-  recolherTodos() {
-    this.nosAbertos.set(new Set());
-  }
-
   private atualizarDirtyAba() {
     const id = this.abaAtivaId();
     if (!id) return;
     this.abasEdicao.update(abas =>
-      abas.map(a => a.grupo.id === id ? { ...a, isDirty: true } : a)
+      abas.map(a => a.fabricante.id === id ? { ...a, isDirty: true } : a)
     );
   }
 
+  // ── Log ────────────────────────────────────────────────────────────
+  abrirLog() {
+    const f = this.fabricanteSelecionado();
+    if (!f?.id) return;
+    this.modalLog.set(true);
+    this.logRegistros.set([]);
+    this.logSelecionado.set(null);
+    this.filtrarLog();
+  }
+
+  fecharLog() { this.modalLog.set(false); }
+
+  filtrarLog() {
+    const f = this.fabricanteSelecionado();
+    if (!f?.id) return;
+    this.carregandoLog.set(true);
+    let url = `${this.apiUrl}/${f.id}/log`;
+    const params: string[] = [];
+    if (this.logDataInicio()) params.push(`dataInicio=${this.logDataInicio()}`);
+    if (this.logDataFim()) params.push(`dataFim=${this.logDataFim()}`);
+    if (params.length) url += '?' + params.join('&');
+
+    this.http.get<any>(url).subscribe({
+      next: r => {
+        this.logRegistros.set(r.data ?? []);
+        this.carregandoLog.set(false);
+        if (r.data?.length > 0) this.selecionarLogEntry(r.data[0]);
+      },
+      error: () => this.carregandoLog.set(false)
+    });
+  }
+
+  selecionarLogEntry(entry: LogEntry) { this.logSelecionado.set(entry); }
+
+  acaoCss(acao: string): string {
+    const map: Record<string, string> = {
+      'CRIAÇÃO': 'log-badge badge-criacao',
+      'ALTERAÇÃO': 'log-badge badge-alteracao',
+      'EXCLUSÃO': 'log-badge badge-exclusao',
+      'DESATIVAÇÃO': 'log-badge badge-desativacao'
+    };
+    return map[acao] ?? 'log-badge';
+  }
+
   // ── Utils ──────────────────────────────────────────────────────────
-  private novoGrupo(): GrupoDetalhe {
-    return { nome: '', descricao: '', ativo: true, permissoes: this.criarPermissoesVazias() };
+  private novoFabricante(): Fabricante {
+    return { nome: '', ativo: true };
   }
 
   private clonar<T>(obj: T): T {

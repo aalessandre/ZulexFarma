@@ -80,6 +80,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IColaboradorServic
                             ZulexPharma.Infrastructure.Services.ColaboradorService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFornecedorService,
                             ZulexPharma.Infrastructure.Services.FornecedorService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFabricanteService,
+                            ZulexPharma.Infrastructure.Services.FabricanteService>();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.SyncService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();

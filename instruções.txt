@@ -78,7 +78,14 @@ Frontend
 cd c:/repositorios/ErpPharma/frontend
 npm start
 
+http://localhost:5000/swagger
 Para pegar a senha do SISTEMA, expanda GET /api/auth/senha-sistema, clique Try it out, preencha key com zulex-suporte-2026 e execute.
+
+Frontend: a URL do Vercel (tipo https://zulex-farma.vercel.app)
+Backend Swagger: https://zulexfarma-production.up.railway.app/swagger
+https://giving-art-production-6f68.up.railway.app
+https://giving-art-production-6f68.up.railway.app/authentication/login
+
 
 - log geral
 - multifiliais
@@ -86,4 +93,33 @@ Para pegar a senha do SISTEMA, expanda GET /api/auth/senha-sistema, clique Try i
   - exclusões/eliminações
   - eliminação/desativação em todas as filiais
   
-  ok, vamos ainda padronizar mais uma coisa, na tela de Filiais, tem o botão excluir, que atualmente ele apenas inativa. Vamos fazr assim, ao clicar em excluir, se o registro nao estiver sendo utilizado em algum outro registro, vamos eliminar do bano, deletar de verdade, porem devemos registrar um log, para futuras pesquisas, dai a gente sabera quando que foi excluido, e quem que excluiu, se ele estiver sendo utilizado (se der erro de integridade relacional), personalise uma mensagem que irá apenas desativar, se estiver de acordo implemente, senão faça suas sugestões
+- liberação remota
+- teclas de atalho
+- F5
+- topo das telas
+- dropdown de grupos some pra cima
+- login no minimo 2
+- ao cadastrar um novo colaborador, esta tarzendo uma senha automatica
+- esta faltando campo em colaborador para definir a filial
+- padrão de datas dd/mm/yyyy
+- nome das telas tem q vir numa combo - log de auditoria
+- esta carregando a senha na modal de liberação
+- log de alditoria pucha tudo, poderia puchar só o que alterei
+- exportar 
+- tenho a impressão de que abro cadastro e vem algum ja em edição, pode ser que esta herdando de algum colaborador por causa da storage
+
+O que podemos fazer agora (sem criar Clientes/Produtos):
+1 Infraestrutura de multi-filial — preparar o terreno:
+
+Filial padrão no Colaborador/Usuário
+Contexto de filial no login (qual filial estou operando)
+Serviço de filtro automático por filial
+Infraestrutura de sync — criar as colunas base:
+
+2 VersaoSync, FilialOrigemId, SincronizadoEm como campos padrão
+Tabela de controle de sync
+
+3 Infraestrutura de atualização — criar o mecanismo:
+ Endpoint de verificação de versão
+Serviço de auto-update
+Quer que eu comece por qual? Sugiro a infraestrutura multi-filial primeiro (filial padrão + contexto de filial no login), porque é o que mais impacta o uso diário e não depende de criar novas entidades de negócio.

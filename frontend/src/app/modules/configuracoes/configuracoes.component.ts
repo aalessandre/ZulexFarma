@@ -5,13 +5,14 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { TabService } from '../../core/services/tab.service';
 import { ModalService } from '../../core/services/modal.service';
+import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 
 interface ConfigItem { chave: string; valor: string; descricao?: string; }
 
 @Component({
   selector: 'app-configuracoes',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EnterTabDirective],
   templateUrl: './configuracoes.component.html',
   styleUrl: './configuracoes.component.scss'
 })

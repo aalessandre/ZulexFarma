@@ -7,6 +7,7 @@ import { FORNECEDORES_COLUNAS, ColunaDef } from './fornecedores.columns';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
+import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 
 interface LogCampo { campo: string; valorAnterior?: string; valorAtual?: string; }
 interface LogEntry { id: number; realizadoEm: string; acao: string; nomeUsuario: string; campos: LogCampo[]; }
@@ -40,7 +41,7 @@ type AbaForm = 'dados' | 'endereco' | 'contato';
 @Component({
   selector: 'app-fornecedores',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EnterTabDirective],
   templateUrl: './fornecedores.component.html',
   styleUrl: './fornecedores.component.scss'
 })
