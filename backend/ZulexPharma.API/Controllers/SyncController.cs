@@ -24,6 +24,25 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
+    /// Retorna o status do serviço de sync em background.
+    /// </summary>
+    [HttpGet("servico")]
+    public IActionResult StatusServico()
+    {
+        return Ok(new
+        {
+            success = true,
+            data = new
+            {
+                rodando = SyncBackgroundService.Rodando,
+                ultimaExecucao = SyncBackgroundService.UltimaExecucao,
+                ultimoStatus = SyncBackgroundService.UltimoStatus,
+                ultimoErro = SyncBackgroundService.UltimoErro
+            }
+        });
+    }
+
+    /// <summary>
     /// Obtém alterações de uma tabela desde uma versão específica.
     /// Usado pela filial para RECEBER dados do servidor central.
     /// </summary>

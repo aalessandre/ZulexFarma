@@ -28,6 +28,7 @@ public class SyncService
         ["GruposProdutos"] = typeof(GrupoProduto),
         ["SubGrupos"] = typeof(SubGrupo),
         ["Secoes"] = typeof(Secao),
+        ["Substancias"] = typeof(Substancia),
     };
 
     public SyncService(AppDbContext db) => _db = db;
