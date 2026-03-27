@@ -25,9 +25,30 @@
    - `.html` — sidebar tiles, grid, form, toolbar, modais
    - `.scss` — copiar de filiais.component.scss (estilo clean)
 2. **Columns**: definicao de colunas inline ou em arquivo separado
+   - **Sempre incluir coluna ID** como primeira coluna: `{ campo: 'id', label: 'ID', largura: 60, minLargura: 50, padrao: true }`
 3. **Rota**: adicionar em `erp-shell.routes.ts`
 4. **Dashboard**: adicionar tile com sigla
 5. **Imports**: CommonModule, FormsModule, EnterTabDirective
+
+### Padroes obrigatorios para telas CRUD
+
+#### Botao Procurar (sidebar)
+- O metodo `fechar()` DEVE chamar `this.carregar()` apos `this.modo.set('lista')`
+- Garante que a grid recarrega dados frescos do backend ao voltar para a lista
+
+#### Restauracao de abas (sessionStorage)
+- Usar `restaurarAba(registro, ativar)` como metodo separado — NUNCA chamar `editar()` em loop
+- `restaurarEstado()` itera os IDs salvos e chama `restaurarAba()` para cada um
+- `restaurarAba()` recebe o registro DIRETO como parametro (nao depende do signal selecionado)
+- Para modulos com HTTP async (colaboradores, fornecedores): faz GET individual por aba
+- Para modulos sync (filiais, fabricantes, grupos, substancias): cria aba direto do dado local
+- Skip de `verificarPermissao()` na restauracao (abas ja foram autorizadas)
+- Sempre checar duplicata antes de adicionar: `if (this.abasEdicao().find(...)) return`
+
+#### Icones
+- **Sempre usar SVG inline** — nunca Unicode (×, &#9432;, &#9650;, etc.)
+- **Nunca usar icon fonts** (Material Icons, Font Awesome) nas telas do ERP
+- SVGs com `stroke="currentColor"` ou `fill="currentColor"` para herdar cor do contexto
 
 ### Convencoes de nomes
 - Entidades: PascalCase singular (Filial, Colaborador)
