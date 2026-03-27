@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using ZulexPharma.Domain.Entities;
 
 namespace ZulexPharma.Infrastructure.Data;
@@ -7,10 +8,12 @@ namespace ZulexPharma.Infrastructure.Data;
 public class AppDbContext : DbContext
 {
     private readonly IHttpContextAccessor? _http;
+    private readonly long _filialLocalId;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? http = null) : base(options)
+    public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? http = null, IConfiguration? config = null) : base(options)
     {
         _http = http;
+        _filialLocalId = long.TryParse(config?["Sync:FilialLocalId"], out var f) ? f : 0;
     }
 
     public DbSet<Filial> Filiais => Set<Filial>();
@@ -306,7 +309,9 @@ public class AppDbContext : DbContext
     {
         if (!SuspenderAutoSync)
         {
-            var filialId = GetFilialIdFromContext();
+            // FilialOrigemId: usa FilialLocalId da config (identifica a farmácia/servidor),
+            // com fallback para o filialId do JWT do usuário
+            var filialId = _filialLocalId > 0 ? _filialLocalId : GetFilialIdFromContext();
 
             foreach (var entry in ChangeTracker.Entries<BaseEntity>())
             {
