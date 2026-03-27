@@ -28,6 +28,10 @@ public class AppDbContext : DbContext
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<SyncControle> SyncControles => Set<SyncControle>();
     public DbSet<Fabricante> Fabricantes => Set<Fabricante>();
+    public DbSet<GrupoPrincipal> GruposPrincipais => Set<GrupoPrincipal>();
+    public DbSet<GrupoProduto> GruposProdutos => Set<GrupoProduto>();
+    public DbSet<SubGrupo> SubGrupos => Set<SubGrupo>();
+    public DbSet<Secao> Secoes => Set<Secao>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -240,6 +244,29 @@ public class AppDbContext : DbContext
             e.Property(x => x.Status).HasMaxLength(20).IsRequired();
             e.Property(x => x.MensagemErro).HasMaxLength(500);
             e.HasIndex(x => new { x.FilialId, x.Tabela }).IsUnique();
+        });
+
+        // ── Classificações de Produto ────────────────────────────────
+        ConfigurarClassificacao<GrupoPrincipal>(modelBuilder);
+        ConfigurarClassificacao<GrupoProduto>(modelBuilder);
+        ConfigurarClassificacao<SubGrupo>(modelBuilder);
+        ConfigurarClassificacao<Secao>(modelBuilder);
+    }
+
+    private static void ConfigurarClassificacao<T>(ModelBuilder mb) where T : ClassificacaoProdutoBase
+    {
+        mb.Entity<T>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Priorizar).HasMaxLength(20);
+            e.Property(x => x.ComissaoPercentual).HasColumnType("numeric(5,2)");
+            e.Property(x => x.DescontoMinimo).HasColumnType("numeric(5,2)");
+            e.Property(x => x.DescontoMaximo).HasColumnType("numeric(5,2)");
+            e.Property(x => x.DescontoMaximoComSenha).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ProjecaoLucro).HasColumnType("numeric(5,2)");
+            e.Property(x => x.MarkupPadrao).HasColumnType("numeric(5,2)");
         });
     }
 

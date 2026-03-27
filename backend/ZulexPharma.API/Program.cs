@@ -82,6 +82,22 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFornecedorService
                             ZulexPharma.Infrastructure.Services.FornecedorService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFabricanteService,
                             ZulexPharma.Infrastructure.Services.FabricanteService>();
+builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoPrincipal>(
+    sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "GrupoPrincipal"));
+
+builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoProduto>(
+    sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "GrupoProduto"));
+
+builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.SubGrupo>(
+    sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "SubGrupo"));
+
+builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.Secao>(
+    sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "Secao"));
+
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.SyncService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
