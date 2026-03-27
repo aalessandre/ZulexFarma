@@ -80,15 +80,17 @@
   color: #2c3e50;
 }
 
-.topbar-btn-sair {
+.topbar-btn-config, .topbar-btn-sair {
   width: 36px; height: 36px;
   border: none; background: transparent;
   border-radius: 8px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   color: #7a8899;
   transition: background 0.15s, color 0.15s;
+}
 
-  &:hover { background: #fff5f5; color: #c0392b; }
+.topbar-btn-config:hover { background: #f0f4f8; color: #2c5fad; }
+.topbar-btn-sair:hover { background: #fff5f5; color: #c0392b;
 }
 
 /* ── User dropdown menu ────────────────────────────────────────── */
@@ -353,3 +355,66 @@
 
 .modal-btn-cancelar { background: #f5f6f8; color: #2c3e50; border: 1px solid #e0e4eb; }
 .modal-btn-confirmar { background: var(--erp-blue, #2c5fad); color: #fff; }
+
+/* ── Painel de Configurações ──────────────────────────────────── */
+.config-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 900; backdrop-filter: blur(1px);
+}
+
+.config-painel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 320px;
+  background: #fff; box-shadow: -8px 0 32px rgba(0,0,0,0.15);
+  z-index: 901; overflow-y: auto; animation: configIn 0.2s ease-out;
+}
+
+@keyframes configIn { from { transform: translateX(320px); } to { transform: translateX(0); } }
+
+.config-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px; border-bottom: 1px solid #e8ecf1;
+}
+
+.config-header-titulo { font-size: 18px; font-weight: 700; color: #2c3e50; }
+
+.config-fechar {
+  background: none; border: none; font-size: 24px; color: #7a8899; cursor: pointer;
+  &:hover { color: #c0392b; }
+}
+
+.config-secao { padding: 20px; border-bottom: 1px solid #f0f2f5; }
+.config-secao-nome { font-size: 15px; font-weight: 700; color: #2c3e50; margin-bottom: 4px; }
+.config-secao-desc { font-size: 13px; color: #7a8899; margin-bottom: 14px; }
+
+.config-opcoes { display: flex; gap: 10px; }
+.config-opcoes-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.config-op {
+  flex: 1; padding: 12px 8px; background: #f5f6f8; border: 2px solid #e8ecf1;
+  border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; color: #7a8899;
+  transition: border-color 0.15s, color 0.15s;
+  &:hover { color: #2c3e50; }
+  &.ativo { border-color: var(--erp-blue, #2c5fad); color: var(--erp-blue, #2c5fad); font-weight: 700; }
+}
+
+.config-color-picker { display: flex; align-items: center; gap: 12px; }
+
+.config-color-input {
+  width: 44px; height: 44px; border: 2px solid #e8ecf1; border-radius: 10px;
+  cursor: pointer; padding: 2px; background: #f5f6f8;
+  &::-webkit-color-swatch-wrapper { padding: 0; }
+  &::-webkit-color-swatch { border: none; border-radius: 6px; }
+}
+
+.config-color-presets { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.config-color-dot {
+  width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; transition: transform 0.1s;
+  &:hover { transform: scale(1.1); }
+  &.ativo { border-color: #2c3e50; transform: scale(1.15); }
+}
+
+.config-color-reset {
+  background: #f5f6f8; border: 2px dashed #ccc; display: flex; align-items: center;
+  justify-content: center; color: #7a8899; font-size: 14px;
+}

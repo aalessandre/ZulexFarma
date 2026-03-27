@@ -103,6 +103,7 @@ export class DashboardComponent {
   ];
 
   menuUsuarioAberto = signal(false);
+  painelConfig = signal(false);
   modalSenhaAberta = signal(false);
   senhaAtual = signal('');
   novaSenha = signal('');
