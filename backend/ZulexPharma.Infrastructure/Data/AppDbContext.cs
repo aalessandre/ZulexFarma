@@ -28,6 +28,7 @@ public class AppDbContext : DbContext
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<SyncControle> SyncControles => Set<SyncControle>();
     public DbSet<Fabricante> Fabricantes => Set<Fabricante>();
+    public DbSet<Substancia> Substancias => Set<Substancia>();
     public DbSet<GrupoPrincipal> GruposPrincipais => Set<GrupoPrincipal>();
     public DbSet<GrupoProduto> GruposProdutos => Set<GrupoProduto>();
     public DbSet<SubGrupo> SubGrupos => Set<SubGrupo>();
@@ -233,6 +234,17 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+        });
+
+        // ── Substancia ───────────────────────────────────────────────
+        modelBuilder.Entity<Substancia>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Dcb).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Cas).HasMaxLength(50).IsRequired();
+            e.Property(x => x.ClasseTerapeutica).HasMaxLength(100);
         });
 
         // ── SyncControle ─────────────────────────────────────────────

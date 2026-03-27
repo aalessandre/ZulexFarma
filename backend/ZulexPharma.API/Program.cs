@@ -82,6 +82,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFornecedorService
                             ZulexPharma.Infrastructure.Services.FornecedorService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFabricanteService,
                             ZulexPharma.Infrastructure.Services.FabricanteService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISubstanciaService,
+                            ZulexPharma.Infrastructure.Services.SubstanciaService>();
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoPrincipal>(
     sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
     sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "GrupoPrincipal"));

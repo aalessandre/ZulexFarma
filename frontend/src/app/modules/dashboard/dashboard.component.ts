@@ -76,6 +76,7 @@ export class DashboardComponent {
         { label: 'Gerenciar Produtos', sigla: 'GP', iconKey: 'pill',    rota: '/erp/gerenciar-produtos' },
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
+        { label: 'Substâncias',      sigla: 'SB', iconKey: 'pill',      rota: '/erp/substancias' },
       ]
     },
     {

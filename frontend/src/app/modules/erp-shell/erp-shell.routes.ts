@@ -59,6 +59,11 @@ export const ErpRoutes: Routes = [
           import('../fabricantes/fabricantes.component').then(m => m.FabricantesComponent),
       },
       {
+        path: 'substancias',
+        loadComponent: () =>
+          import('../substancias/substancias.component').then(m => m.SubstanciasComponent),
+      },
+      {
         path: 'gerenciar-produtos',
         loadComponent: () =>
           import('../produtos/produtos.component').then(m => m.ProdutosComponent),
