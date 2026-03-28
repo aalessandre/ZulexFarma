@@ -104,6 +104,25 @@
   color: var(--erp-text);
 }
 
+.sync-indicator {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: default;
+  transition: background 0.15s;
+
+  &.verde { color: #27ae60; }
+  &.amarelo { color: #f39c12; }
+  &.vermelho { color: #e74c3c; animation: pulse-red 1.5s infinite; }
+  &.offline { color: #95a5a6; }
+  &.desabilitado { color: #d5d8dc; }
+}
+
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .topbar-icon {
   width: 36px; height: 36px;
   background: transparent;

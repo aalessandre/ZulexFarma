@@ -1,4 +1,4 @@
-import { Component, computed, signal, HostListener, ElementRef, ViewChild } from '@angular/core';
+import { Component, computed, signal, HostListener, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -37,8 +37,34 @@ interface ResultadoBusca {
   templateUrl: './erp-shell.component.html',
   styleUrl: './erp-shell.component.scss'
 })
-export class ErpShellComponent {
+export class ErpShellComponent implements OnDestroy {
   usuario = computed(() => this.authService.usuarioLogado());
+
+  // ── Sync status ────────────────────────────────────────────────
+  syncStatus = signal<any>(null);
+  private syncIntervalId: any = null;
+
+  syncIndicador = computed<'verde' | 'amarelo' | 'vermelho' | 'offline' | 'desabilitado'>(() => {
+    const s = this.syncStatus();
+    if (!s || !s.rodando) return 'desabilitado';
+    if (s.falhasConsecutivas >= 3) return 'offline';
+    if (s.ultimoStatus === 'ERRO' || s.falhasConsecutivas >= 1) return 'vermelho';
+    if (s.tempoUltimoCicloMs >= 15000) return 'amarelo';
+    if (s.ultimoStatus === 'OK' && s.tempoUltimoCicloMs < 15000 && s.falhasConsecutivas === 0) return 'verde';
+    return 'desabilitado';
+  });
+
+  syncTooltip = computed(() => {
+    const ind = this.syncIndicador();
+    const s = this.syncStatus();
+    switch (ind) {
+      case 'verde': return `Sync OK — ultimo ciclo em ${s?.tempoUltimoCicloMs}ms`;
+      case 'amarelo': return `Sync lento — ultimo ciclo em ${s?.tempoUltimoCicloMs}ms`;
+      case 'vermelho': return `Sync com erro — ${s?.falhasConsecutivas} falha(s) consecutiva(s)`;
+      case 'offline': return `Sync offline — ${s?.falhasConsecutivas} falhas consecutivas`;
+      case 'desabilitado': return 'Sync desabilitado ou nao configurado';
+    }
+  });
   painelAberto = signal(false);
 
   tituloAtual = computed(() => {
@@ -153,7 +179,23 @@ export class ErpShellComponent {
     private router: Router,
     public settings: ErpSettingsService,
     private http: HttpClient
-  ) {}
+  ) {
+    this.carregarStatusSync();
+    this.syncIntervalId = setInterval(() => this.carregarStatusSync(), 30000);
+  }
+
+  ngOnDestroy() {
+    if (this.syncIntervalId) {
+      clearInterval(this.syncIntervalId);
+    }
+  }
+
+  carregarStatusSync() {
+    this.http.get<any>(`${environment.apiUrl}/sync/servico`).subscribe({
+      next: (data) => this.syncStatus.set(data),
+      error: () => this.syncStatus.set(null)
+    });
+  }
 
   irHome() { this.router.navigate(['/erp']); }
   logout()  { this.authService.logout(); }

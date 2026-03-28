@@ -33,11 +33,13 @@ public class SyncBackgroundService : BackgroundService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    // Static properties for status monitoring from SistemaController/SyncController
+    // Static properties for status monitoring
     public static bool Rodando { get; private set; }
     public static DateTime? UltimaExecucao { get; private set; }
     public static string? UltimoStatus { get; private set; }
     public static string? UltimoErro { get; private set; }
+    public static long TempoUltimoCicloMs { get; private set; }
+    public static int FalhasConsecutivas { get; private set; }
 
     public SyncBackgroundService(IServiceProvider services, IConfiguration config)
     {
@@ -79,12 +81,16 @@ public class SyncBackgroundService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 await ExecutarCicloSync(stoppingToken);
+                sw.Stop();
+                TempoUltimoCicloMs = sw.ElapsedMilliseconds;
                 UltimaExecucao = DateTime.UtcNow;
                 UltimoStatus = "OK";
                 UltimoErro = null;
+                FalhasConsecutivas = 0;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -92,10 +98,13 @@ public class SyncBackgroundService : BackgroundService
             }
             catch (Exception ex)
             {
+                sw.Stop();
+                TempoUltimoCicloMs = sw.ElapsedMilliseconds;
                 Log.Error(ex, "Erro no ciclo de sync");
                 UltimaExecucao = DateTime.UtcNow;
                 UltimoStatus = "ERRO";
                 UltimoErro = ex.Message;
+                FalhasConsecutivas++;
             }
 
             await Task.Delay(_intervaloSegundos * 1000, stoppingToken);

@@ -138,6 +138,13 @@ public class SyncService
 
                 if (existente == null)
                 {
+                    // Check unique fields before inserting
+                    if (await TemDuplicataUnica(tabela, tipo, entidade))
+                    {
+                        conflitos++;
+                        Log.Warning("Sync: registro duplicado por campo unico na tabela {Tabela}, Id={Id}", tabela, entidade.Id);
+                        continue;
+                    }
                     // New record - insert
                     _db.Add(entidade);
                     aplicados++;
@@ -252,6 +259,53 @@ public class SyncService
         {
             Log.Warning(ex, "Erro ao resetar sequence da tabela {Tabela}", tabela);
         }
+    }
+
+    /// <summary>
+    /// Verifica se um registro remoto tem duplicata por campo unico (CPF, CNPJ, Login, etc).
+    /// Le os campos marcados como unicos no Dicionario de Dados.
+    /// </summary>
+    private async Task<bool> TemDuplicataUnica(string tabela, Type tipo, BaseEntity entidade)
+    {
+        try
+        {
+            // Get unique fields from DD
+            var camposUnicos = await _db.DicionarioRevisoes
+                .Where(r => r.Tabela == tabela && r.Unico == true)
+                .Select(r => r.Coluna)
+                .ToListAsync();
+
+            if (camposUnicos.Count == 0) return false;
+
+            var dbSet = GetDbSetAsQueryable(tipo);
+
+            foreach (var campo in camposUnicos)
+            {
+                if (campo == "Id") continue; // PK already handled
+
+                var prop = tipo.GetProperty(campo);
+                if (prop == null) continue;
+
+                var valor = prop.GetValue(entidade);
+                if (valor == null || (valor is string s && string.IsNullOrWhiteSpace(s))) continue;
+
+                // Check if any local record (with different Id) has the same value
+                var registrosLocais = await dbSet.Where(e => e.Id != entidade.Id).ToListAsync();
+                var duplicata = registrosLocais.Any(e =>
+                {
+                    var v = prop.GetValue(e);
+                    return v != null && v.ToString()?.Equals(valor.ToString(), StringComparison.OrdinalIgnoreCase) == true;
+                });
+
+                if (duplicata) return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Erro ao verificar duplicatas unicas em {Tabela}", tabela);
+        }
+
+        return false;
     }
 
     private IQueryable<BaseEntity> GetDbSetAsQueryable(Type tipo)

@@ -269,6 +269,42 @@
         }
       </section>
 
+      <!-- PENDENCIAS PARA PRODUCAO -->
+      <section class="help-secao">
+        <div class="secao-header pendencias" [class.aberto]="isAberta('pendencias')" (click)="toggleSecao('pendencias')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Pendencias para Producao</span>
+        </div>
+        @if (isAberta('pendencias')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">SYNC_PROFILE automatico</div>
+              <span class="cmd-obs">Em producao, o SYNC_PROFILE sera configurado pelo instalador/setup da farmacia. Nao sera necessario setar manualmente via PowerShell.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Esconder bloco Dev</div>
+              <span class="cmd-obs">O bloco Dev (Help, Dicionario de Dados) deve ser escondido em producao. Visivel apenas em ambiente de desenvolvimento.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Certificado SSL</div>
+              <span class="cmd-obs">Configurar certificado SSL valido para o backend local (atualmente usa DangerousAcceptAnyServerCertificateValidator).</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Senha SISTEMA</div>
+              <span class="cmd-obs">Revisar a chave SistemaKey usada para gerar a senha rotativa do usuario SISTEMA. Em producao deve ser unica por cliente.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">API Key Cassi</div>
+              <span class="cmd-obs">Definir estrategia de distribuicao da API key do ChatGPT para cada instalacao. Considerar limites de uso e custo.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Backup automatico</div>
+              <span class="cmd-obs">Implementar rotina de backup automatico do PostgreSQL local de cada farmacia.</span>
+            </div>
+          </div>
+        }
+      </section>
+
     </div>
   </main>
 </div>

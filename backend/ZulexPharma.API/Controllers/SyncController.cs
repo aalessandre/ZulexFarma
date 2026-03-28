@@ -37,7 +37,9 @@ public class SyncController : ControllerBase
                 rodando = SyncBackgroundService.Rodando,
                 ultimaExecucao = SyncBackgroundService.UltimaExecucao,
                 ultimoStatus = SyncBackgroundService.UltimoStatus,
-                ultimoErro = SyncBackgroundService.UltimoErro
+                ultimoErro = SyncBackgroundService.UltimoErro,
+                tempoUltimoCicloMs = SyncBackgroundService.TempoUltimoCicloMs,
+                falhasConsecutivas = SyncBackgroundService.FalhasConsecutivas
             }
         });
     }

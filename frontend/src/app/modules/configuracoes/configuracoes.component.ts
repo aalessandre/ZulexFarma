@@ -28,6 +28,13 @@ export class ConfiguracoesComponent implements OnInit {
 
   sairDaTela() { this.tabService.fecharTabAtiva(); }
 
+  formatarIntervalo(segundos: number): string {
+    if (segundos < 60) return `${segundos}s`;
+    const min = Math.floor(segundos / 60);
+    const sec = segundos % 60;
+    return sec > 0 ? `${min}min ${sec}s` : `${min}min`;
+  }
+
   carregar() {
     this.carregando.set(true);
     this.http.get<any>(this.apiUrl).subscribe({

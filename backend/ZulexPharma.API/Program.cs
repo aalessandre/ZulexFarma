@@ -65,6 +65,13 @@ builder.Services.AddCors(options =>
               .AllowCredentials());
 });
 
+// ─── Compressão gzip ──────────────────────────────────────────────────────
+builder.Services.AddResponseCompression(opts =>
+{
+    opts.EnableForHttps = true;
+    opts.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes;
+});
+
 // ─── Controllers + OpenAPI ─────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -137,6 +144,7 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+app.UseResponseCompression();
 app.UseMiddleware<ZulexPharma.API.Middleware.ErrorHandlingMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseCors("FrontendPolicy");
