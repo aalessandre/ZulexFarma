@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<UsuarioFilialGrupo> UsuarioFilialGrupos => Set<UsuarioFilialGrupo>();
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<SyncControle> SyncControles => Set<SyncControle>();
+    public DbSet<DicionarioRevisao> DicionarioRevisoes => Set<DicionarioRevisao>();
     public DbSet<Fabricante> Fabricantes => Set<Fabricante>();
     public DbSet<Substancia> Substancias => Set<Substancia>();
     public DbSet<GrupoPrincipal> GruposPrincipais => Set<GrupoPrincipal>();
@@ -259,6 +260,17 @@ public class AppDbContext : DbContext
             e.Property(x => x.Status).HasMaxLength(20).IsRequired();
             e.Property(x => x.MensagemErro).HasMaxLength(500);
             e.HasIndex(x => new { x.FilialId, x.Tabela }).IsUnique();
+        });
+
+        // ── DicionarioRevisao ────────────────────────────────────────
+        modelBuilder.Entity<DicionarioRevisao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Coluna).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasIndex(x => new { x.Tabela, x.Coluna }).IsUnique();
         });
 
         // ── Classificações de Produto ────────────────────────────────

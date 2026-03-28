@@ -74,6 +74,11 @@ export const ErpRoutes: Routes = [
           import('../produtos/produtos.component').then(m => m.ProdutosComponent),
       },
       {
+        path: 'dicionario-dados',
+        loadComponent: () =>
+          import('../dicionario-dados/dicionario-dados.component').then(m => m.DicionarioDadosComponent),
+      },
+      {
         path: 'help',
         loadComponent: () =>
           import('../help/help.component').then(m => m.HelpComponent),

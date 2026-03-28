@@ -1,0 +1,157 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="carregar()">
+      <span>Atualizar</span>
+      <span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-expandir" (click)="expandirTodas()">
+      <span>Expandir</span>
+      <span class="sidebar-sub">Todas</span>
+    </div>
+    <div class="sidebar-item tile-recolher" (click)="recolherTodas()">
+      <span>Recolher</span>
+      <span class="sidebar-sub">Todas</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <main class="tela-conteudo">
+    <!-- Header com stats e filtro -->
+    <div class="dd-header">
+      <div class="dd-stats">
+        <div class="stat">
+          <span class="stat-valor">{{ totalTabelas() }}</span>
+          <span class="stat-label">Tabelas</span>
+        </div>
+        <div class="stat">
+          <span class="stat-valor">{{ totalColunas() }}</span>
+          <span class="stat-label">Campos</span>
+        </div>
+        <div class="stat revisados">
+          <span class="stat-valor">{{ totalRevisados() }}</span>
+          <span class="stat-label">Revisados</span>
+        </div>
+        <div class="stat pendentes">
+          <span class="stat-valor">{{ totalColunas() - totalRevisados() }}</span>
+          <span class="stat-label">Pendentes</span>
+        </div>
+      </div>
+      <div class="dd-filtro">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" placeholder="Filtrar tabela ou campo..." [ngModel]="filtro()" (ngModelChange)="filtro.set($event)" />
+      </div>
+    </div>
+
+    @if (carregando()) {
+      <div class="dd-loading">Carregando estrutura do banco...</div>
+    }
+
+    <!-- Tabelas expansíveis -->
+    <div class="dd-tabelas">
+      @for (tabela of tabelasFiltradas(); track tabela.nome) {
+        <div class="dd-tabela" [class.expandida]="tabela.expandida" [class.toda-revisada]="getRevisadosTabela(tabela) === tabela.colunas.length">
+          <div class="dd-tabela-header" (click)="toggleTabela(tabela)">
+            <div class="dd-tabela-left">
+              <svg class="dd-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+              <span class="dd-tabela-nome">{{ tabela.nome }}</span>
+              <span class="dd-tabela-count">{{ tabela.colunas.length }} campos</span>
+            </div>
+            <div class="dd-tabela-right">
+              <span class="dd-tabela-badge" [class.completa]="getRevisadosTabela(tabela) === tabela.colunas.length">
+                {{ getRevisadosTabela(tabela) }}/{{ tabela.colunas.length }}
+              </span>
+            </div>
+          </div>
+
+          @if (tabela.expandida) {
+            <div class="dd-tabela-body">
+              <table class="dd-grid">
+                <thead>
+                  <tr>
+                    <th class="col-revisado">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                    </th>
+                    <th class="col-campo">Campo</th>
+                    <th class="col-tipo">Tipo</th>
+                    <th class="col-check">PK</th>
+                    <th class="col-check">Obrig.</th>
+                    <th class="col-check">Unico</th>
+                    <th class="col-check">Replica</th>
+                    <th class="col-default">Default</th>
+                    <th class="col-obs">Observacao</th>
+                    <th class="col-status"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (col of tabela.colunas; track col.nome) {
+                    <tr [class.revisado]="col.revisado" [class.pk]="col.nome === 'Id'">
+                      <td class="col-revisado">
+                        <button class="btn-check" [class.checked]="col.revisado" (click)="toggleRevisado(tabela.nome, col)">
+                          @if (col.revisado) {
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                          }
+                        </button>
+                      </td>
+                      <td class="col-campo">
+                        <span class="campo-nome">{{ col.nome }}</span>
+                      </td>
+                      <td class="col-tipo">
+                        <span class="tipo-badge">{{ getTipoDisplay(col) }}</span>
+                      </td>
+                      <td class="col-check">
+                        @if (col.nome === 'Id') {
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="#e67e22" stroke="none"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                        }
+                      </td>
+                      <td class="col-check">
+                        <button class="btn-toggle" [class.ativo]="col.obrigatorioCustom ?? col.obrigatorio" (click)="toggleObrigatorio(tabela.nome, col)">
+                          @if (col.obrigatorioCustom ?? col.obrigatorio) {
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                          }
+                        </button>
+                      </td>
+                      <td class="col-check">
+                        <button class="btn-toggle" [class.ativo]="col.unicoCustom ?? col.unico" (click)="toggleUnico(tabela.nome, col)">
+                          @if (col.unicoCustom ?? col.unico) {
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                          }
+                        </button>
+                      </td>
+                      <td class="col-check">
+                        <button class="btn-toggle" [class.ativo]="col.replica" (click)="toggleReplica(tabela.nome, col)">
+                          @if (col.replica) {
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                          }
+                        </button>
+                      </td>
+                      <td class="col-default">
+                        <span class="default-valor">{{ col.valorPadrao || '-' }}</span>
+                      </td>
+                      <td class="col-obs">
+                        <input type="text" class="obs-input" [value]="col.observacao || ''"
+                               (blur)="col.observacao = $any($event.target).value; salvarCampo(tabela.nome, col)"
+                               placeholder="..." />
+                      </td>
+                      <td class="col-status">
+                        @if (salvando() === tabela.nome + '.' + col.nome) {
+                          <span class="status-salvando">Salvando...</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </main>
+</div>
