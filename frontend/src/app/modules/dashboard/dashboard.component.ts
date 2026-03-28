@@ -98,8 +98,14 @@ export class DashboardComponent {
         { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },
         { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
         { label: 'Configuracoes',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
-        { label: 'Help',              sigla: 'HP', iconKey: 'log',      rota: '/erp/help' },
-        { label: 'Dic. de Dados',    sigla: 'DD', iconKey: 'log',      rota: '/erp/dicionario-dados' },
+      ]
+    },
+    {
+      nome: 'Dev',
+      cor: '#546e7a',
+      tiles: [
+        { label: 'Help',            sigla: 'HP', iconKey: 'log',      rota: '/erp/help' },
+        { label: 'Dic. de Dados',   sigla: 'DD', iconKey: 'log',      rota: '/erp/dicionario-dados' },
       ]
     }
   ];
