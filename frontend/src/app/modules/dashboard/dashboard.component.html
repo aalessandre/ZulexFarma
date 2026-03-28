@@ -1,19 +1,5 @@
 <div class="dash-wrapper">
 
-  <!-- TABS -->
-  @if (tabService.tabs().length > 0) {
-    <div class="dash-tabs">
-      @for (tab of tabService.tabs(); track tab.id) {
-        <div class="tab-item"
-             [class.tab-ativa]="tabService.tabAtiva() === tab.id"
-             (click)="tabService.ativarTab(tab.id, tab.rota)">
-          <span class="tab-titulo">{{ tab.titulo }}</span>
-          <button class="tab-close" (click)="tabService.fecharTab(tab.id, $event)">&times;</button>
-        </div>
-      }
-    </div>
-  }
-
   <!-- TILES -->
   <main class="dash-main" [style.background]="settings.fundoDash()">
     <div class="tiles-area">
