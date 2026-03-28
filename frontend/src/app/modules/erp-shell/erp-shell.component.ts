@@ -67,10 +67,12 @@ export class ErpShellComponent implements OnDestroy {
   });
   painelAberto = signal(false);
 
-  tituloAtual = computed(() => {
+  nomeSistema = 'ZulexPharma';
+
+  telaAtual = computed(() => {
     const id = this.tabService.tabAtiva();
     const tab = this.tabService.tabs().find(t => t.id === id);
-    return tab ? tab.titulo : 'ZulexPharma';
+    return tab ? tab.titulo : '';
   });
 
   // ── Blocos (tiles data for search) ──────────────────────────────

@@ -149,9 +149,25 @@ public class SyncService
                     _db.Add(entidade);
                     aplicados++;
                 }
+                else if (existente.FilialOrigemId != entidade.FilialOrigemId
+                         && existente.FilialOrigemId != null && entidade.FilialOrigemId != null)
+                {
+                    // Same Id but DIFFERENT filial — these are different records!
+                    // Insert as new record with auto-generated Id
+                    entidade.Id = 0; // Reset Id so EF generates a new one
+                    if (await TemDuplicataUnica(tabela, tipo, entidade))
+                    {
+                        conflitos++;
+                        continue;
+                    }
+                    _db.Add(entidade);
+                    aplicados++;
+                    Log.Information("Sync: registro Id conflitante em {Tabela}, inserido com novo Id (FilialOrigem local={Local} remoto={Remoto})",
+                        tabela, existente.FilialOrigemId, entidade.FilialOrigemId);
+                }
                 else
                 {
-                    // Existing record - last-write-wins
+                    // Same record, same filial - last-write-wins
                     if (entidade.AtualizadoEm >= existente.AtualizadoEm || existente.AtualizadoEm == null)
                     {
                         _db.Entry(existente).CurrentValues.SetValues(entidade);

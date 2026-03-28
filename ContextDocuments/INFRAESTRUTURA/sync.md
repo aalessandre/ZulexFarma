@@ -53,6 +53,19 @@ Filiais, Pessoas, PessoasContato, PessoasEndereco, Colaboradores, Usuarios, Usua
 - Apos PULL, reseta `pg_get_serial_sequence` para `MAX(Id)+1`
 - Evita conflito de PK quando registros sincronizados tem IDs explicitos
 
+## Colisao de IDs entre filiais
+- Dois PCs podem gerar o mesmo Id (sequences independentes)
+- O sync detecta: mesmo Id, FilialOrigemId diferente = registros DIFERENTES
+- Quando isso ocorre, o registro remoto recebe um novo Id local (Id=0, EF gera)
+- Nao eh erro — eh comportamento esperado em bancos distribuidos
+- O registro original mantem seu Id, o remoto ganha Id novo
+- Log: "registro Id conflitante, inserido com novo Id"
+
+## Validacao de campos unicos no sync
+- Antes de inserir registro remoto, verifica campos marcados como Unico no DD
+- Se CPF/CNPJ/Login ja existe localmente, rejeita e loga como conflito
+- Usa reflection para ler os campos do DD dinamicamente
+
 ## Resolucao de conflitos
 - Last-write-wins baseado em `AtualizadoEm`
 

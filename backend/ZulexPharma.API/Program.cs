@@ -131,6 +131,7 @@ using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await DatabaseSeeder.SeedAsync(db);
+
         Log.Information("Banco de dados inicializado com sucesso.");
     }
     catch (Exception ex)
