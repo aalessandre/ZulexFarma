@@ -1,9 +1,11 @@
 # Infraestrutura: Multi-filial
 
 ## Conceito geral
-- Todas as tabelas terao o campo **FilialId** para identificar a filial dona do registro
-- **Tabelas globais**: FilialId pode ser null (dados compartilhados entre todas as filiais)
-- **Tabelas por filial**: FilialId identifica a filial dona
+- Existem DOIS campos diferentes: **FilialOrigemId** (tecnico/sync) e **FilialId** (negocio)
+- **FilialOrigemId**: automatico, existe em toda tabela que herda BaseEntity. Identifica de qual PC/servidor o registro foi criado. Invisivel para o usuario. Usado pelo sync.
+- **FilialId**: existe APENAS em tabelas onde o registro precisa pertencer a uma filial por regra de negocio (Usuarios, UsuarioFilialGrupos, futuras Estoque/Vendas/Caixa)
+- **Tabelas globais** (Fabricantes, Substancias): tem FilialOrigemId (sync) mas NAO tem FilialId (nao pertencem a uma filial)
+- **Tabelas por filial** (Configuracoes, Estoque, Vendas): tem FilialOrigemId (sync) E FilialId (negocio)
 - **Escrita**: so a filial dona edita seus registros
 - **Leitura**: qualquer filial consulta dados de qualquer outra via combo de selecao
 - Quase todas as tabelas replicam. Excecoes: SyncControle, DicionarioTabelas/Revisoes
