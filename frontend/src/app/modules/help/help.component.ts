@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TabService } from '../../core/services/tab.service';
 
@@ -10,7 +10,17 @@ import { TabService } from '../../core/services/tab.service';
   styleUrl: './help.component.scss'
 })
 export class HelpComponent {
+  secaoAberta = signal<string | null>(null);
+
   constructor(private tabService: TabService) {}
+
+  toggleSecao(id: string) {
+    this.secaoAberta.update(v => v === id ? null : id);
+  }
+
+  isAberta(id: string): boolean {
+    return this.secaoAberta() === id;
+  }
 
   sairDaTela() {
     this.tabService.fecharTabAtiva();

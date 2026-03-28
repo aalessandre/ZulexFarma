@@ -12,241 +12,257 @@
 
       <!-- GIT -->
       <section class="help-secao">
-        <div class="secao-header git">
+        <div class="secao-header git" [class.aberto]="isAberta('git')" (click)="toggleSecao('git')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 012 2v7"/><path d="M6 9v12"/></svg>
           <span>Git</span>
         </div>
-        <div class="secao-corpo">
-          <div class="cmd-grupo">
-            <div class="cmd-label">Puxar atualizações da main</div>
-            <code class="cmd">git pull origin main</code>
+        @if (isAberta('git')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Puxar atualizações da main</div>
+              <code class="cmd">git pull origin main</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Ver status das alterações</div>
+              <code class="cmd">git status</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Trocar para branch main</div>
+              <code class="cmd">git checkout main</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Voltar para branch de desenvolvimento</div>
+              <code class="cmd">git checkout dev-pc1</code>
+              <code class="cmd">git checkout dev-pc2</code>
+            </div>
           </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Ver status das alterações</div>
-            <code class="cmd">git status</code>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Trocar para branch main</div>
-            <code class="cmd">git checkout main</code>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Voltar para branch de desenvolvimento</div>
-            <code class="cmd">git checkout dev-pc1</code>
-            <code class="cmd">git checkout dev-pc2</code>
-          </div>
-        </div>
+        }
       </section>
 
       <!-- BACKEND -->
       <section class="help-secao">
-        <div class="secao-header backend">
+        <div class="secao-header backend" [class.aberto]="isAberta('backend')" (click)="toggleSecao('backend')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
           <span>Backend (.NET)</span>
         </div>
-        <div class="secao-corpo">
-          <div class="cmd-grupo">
-            <div class="cmd-label">Rodar o backend (da pasta raiz)</div>
-            <code class="cmd">dotnet run --project backend/ZulexPharma.API</code>
+        @if (isAberta('backend')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Rodar o backend (da pasta raiz)</div>
+              <code class="cmd">dotnet run --project backend/ZulexPharma.API</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Rodar o backend (de dentro da pasta API)</div>
+              <code class="cmd">cd backend\ZulexPharma.API</code>
+              <code class="cmd">dotnet run</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Aplicar migrations no banco</div>
+              <code class="cmd">cd backend\ZulexPharma.Infrastructure</code>
+              <code class="cmd">dotnet ef database update --startup-project ..\ZulexPharma.API</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Matar processos dotnet travados</div>
+              <code class="cmd">taskkill /f /im dotnet.exe</code>
+              <span class="cmd-obs">PowerShell: Stop-Process -Name dotnet -Force</span>
+            </div>
           </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Rodar o backend (de dentro da pasta API)</div>
-            <code class="cmd">cd backend\ZulexPharma.API</code>
-            <code class="cmd">dotnet run</code>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Aplicar migrations no banco</div>
-            <code class="cmd">cd backend\ZulexPharma.Infrastructure</code>
-            <code class="cmd">dotnet ef database update --startup-project ..\ZulexPharma.API</code>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Matar processos dotnet travados</div>
-            <code class="cmd">taskkill /f /im dotnet.exe</code>
-            <span class="cmd-obs">PowerShell: Stop-Process -Name dotnet -Force</span>
-          </div>
-        </div>
+        }
       </section>
 
       <!-- SINCRONISMO -->
       <section class="help-secao">
-        <div class="secao-header sync">
+        <div class="secao-header sync" [class.aberto]="isAberta('sync-cmd')" (click)="toggleSecao('sync-cmd')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 2v6h-6M3 12a9 9 0 0115.3-6.4L21 8M3 22v-6h6M21 12a9 9 0 01-15.3 6.4L3 16"/></svg>
           <span>Sincronismo</span>
         </div>
-        <div class="secao-corpo">
-          <div class="cmd-grupo">
-            <div class="cmd-label">Ativar sync no PC1 (Filial 1)</div>
-            <code class="cmd">$env:SYNC_PROFILE = "pc1"</code>
-            <code class="cmd">dotnet run</code>
+        @if (isAberta('sync-cmd')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Ativar sync no PC1 (Filial 1)</div>
+              <code class="cmd">$env:SYNC_PROFILE = "pc1"</code>
+              <code class="cmd">dotnet run</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Ativar sync no PC2 (Filial 2)</div>
+              <code class="cmd">$env:SYNC_PROFILE = "pc2"</code>
+              <code class="cmd">dotnet run</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Limpar controle de sync (SQL)</div>
+              <code class="cmd">DELETE FROM "SyncControles";</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Central (Railway)</div>
+              <span class="cmd-obs">O Railway sobe automaticamente ao dar push na main. Ele NÃO roda o sync — só recebe e envia dados.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Intervalo do sync</div>
+              <span class="cmd-obs">30 segundos (configurável em appsettings.pcX.json)</span>
+            </div>
           </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Ativar sync no PC2 (Filial 2)</div>
-            <code class="cmd">$env:SYNC_PROFILE = "pc2"</code>
-            <code class="cmd">dotnet run</code>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Limpar controle de sync (SQL)</div>
-            <code class="cmd">DELETE FROM "SyncControles";</code>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Central (Railway)</div>
-            <span class="cmd-obs">O Railway sobe automaticamente ao dar push na main. Ele NÃO roda o sync — só recebe e envia dados.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Intervalo do sync</div>
-            <span class="cmd-obs">30 segundos (configurável em appsettings.pcX.json)</span>
-          </div>
-        </div>
+        }
       </section>
 
       <!-- FRONTEND -->
       <section class="help-secao">
-        <div class="secao-header frontend">
+        <div class="secao-header frontend" [class.aberto]="isAberta('frontend')" (click)="toggleSecao('frontend')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><path d="M12 22v-6.5M22 8.5l-10 5.5L2 8.5"/></svg>
           <span>Frontend (Angular)</span>
         </div>
-        <div class="secao-corpo">
-          <div class="cmd-grupo">
-            <div class="cmd-label">Rodar o frontend</div>
-            <code class="cmd">cd frontend</code>
-            <code class="cmd">ng serve</code>
+        @if (isAberta('frontend')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Rodar o frontend</div>
+              <code class="cmd">cd frontend</code>
+              <code class="cmd">ng serve</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Acessar no navegador</div>
+              <code class="cmd">http://localhost:4200</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Build de produção</div>
+              <code class="cmd">ng build --configuration=production</code>
+            </div>
           </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Acessar no navegador</div>
-            <code class="cmd">http://localhost:4200</code>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Build de produção</div>
-            <code class="cmd">ng build --configuration=production</code>
-          </div>
-        </div>
+        }
       </section>
 
       <!-- PASSO A PASSO -->
       <section class="help-secao">
-        <div class="secao-header passos">
+        <div class="secao-header passos" [class.aberto]="isAberta('passos')" (click)="toggleSecao('passos')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
           <span>Passo a Passo Completo</span>
         </div>
-        <div class="secao-corpo">
-          <div class="cmd-grupo">
-            <div class="cmd-label">Iniciar tudo do zero (PC1)</div>
-            <code class="cmd">cd C:\repositorios\ErpPharma</code>
-            <code class="cmd">git pull origin main</code>
-            <code class="cmd">cd backend\ZulexPharma.API</code>
-            <code class="cmd">$env:SYNC_PROFILE = "pc1"</code>
-            <code class="cmd">dotnet run</code>
-            <span class="cmd-obs">Em outro terminal:</span>
-            <code class="cmd">cd C:\repositorios\ErpPharma\frontend</code>
-            <code class="cmd">ng serve</code>
-            <span class="cmd-obs">Abrir http://localhost:4200 — Login: admin / admin123</span>
+        @if (isAberta('passos')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Iniciar tudo do zero (PC1)</div>
+              <code class="cmd">cd C:\repositorios\ErpPharma</code>
+              <code class="cmd">git pull origin main</code>
+              <code class="cmd">cd backend\ZulexPharma.API</code>
+              <code class="cmd">$env:SYNC_PROFILE = "pc1"</code>
+              <code class="cmd">dotnet run</code>
+              <span class="cmd-obs">Em outro terminal:</span>
+              <code class="cmd">cd C:\repositorios\ErpPharma\frontend</code>
+              <code class="cmd">ng serve</code>
+              <span class="cmd-obs">Abrir http://localhost:4200 — Login: admin / admin123</span>
+            </div>
           </div>
-        </div>
+        }
       </section>
 
       <!-- SINCRONISMO E MULTIFILIAIS -->
       <section class="help-secao">
-        <div class="secao-header sync-doc">
+        <div class="secao-header sync-doc" [class.aberto]="isAberta('sync-doc')" (click)="toggleSecao('sync-doc')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 2v6h-6M3 12a9 9 0 0115.3-6.4L21 8M3 22v-6h6M21 12a9 9 0 01-15.3 6.4L3 16"/></svg>
           <span>Sincronismo e Multifiliais</span>
         </div>
-        <div class="secao-corpo">
-          <div class="cmd-grupo">
-            <div class="cmd-label">Arquitetura</div>
-            <span class="cmd-obs">Railway (nuvem) = servidor central passivo. Cada farmacia roda backend + PostgreSQL local. Sync bidirecional: PC local -> Railway -> outros PCs.</span>
+        @if (isAberta('sync-doc')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Arquitetura</div>
+              <span class="cmd-obs">Railway (nuvem) = servidor central passivo. Cada farmacia roda backend + PostgreSQL local. Sync bidirecional: PC local -> Railway -> outros PCs.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">VersaoSync</div>
+              <span class="cmd-obs">Cada registro tem um campo VersaoSync (timestamp em milissegundos, monotonicamente crescente). Usado para detectar alteracoes pendentes de envio/recebimento.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">FilialOrigemId</div>
+              <span class="cmd-obs">Identifica de qual farmacia/servidor o registro foi criado. Fonte primaria: Sync:FilialLocalId da config do servidor. PUSH envia apenas registros onde FilialOrigemId == FilialLocalId. PULL filtra registros de outras filiais (evita echo).</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">SuspenderAutoSync</div>
+              <span class="cmd-obs">Flag no AppDbContext. Quando true, SaveChangesAsync NAO incrementa VersaoSync. Usado APENAS no PULL local para preservar a versao do central e evitar loop infinito. O Railway NAO usa essa flag.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Ciclo de Sync (a cada 30s)</div>
+              <span class="cmd-obs">1. Autentica no Railway como usuario SISTEMA (senha rotativa diaria). 2. Para cada tabela: PUSH (envia locais) depois PULL (recebe remotos). 3. Apos PULL, reseta sequences do PostgreSQL (evita conflito de PK). 4. Atualiza SyncControle com versoes enviadas/recebidas.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Resolucao de Conflitos</div>
+              <span class="cmd-obs">Last-write-wins baseado em AtualizadoEm. Se PC1 e PC2 alteram o mesmo registro, o ultimo a sincronizar ganha. Futuramente: tabela SyncConflitos para registrar e revisar.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tabelas: Global vs Por Filial</div>
+              <span class="cmd-obs">Global: replica inteira, todos veem igual (Fabricantes, Substancias, Produtos). Por Filial: cada filial tem seus registros filtrados por FilialId (Estoque, Caixa, Vendas, Configuracoes). Definido no Dicionario de Dados.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tabelas que NAO replicam</div>
+              <span class="cmd-obs">Configuracoes (cada filial define a sua), LogsErro (local), SyncControle (controle interno), DicionarioTabelas/Revisoes (ferramenta dev).</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Campos unicos no sync</div>
+              <span class="cmd-obs">CPF, CNPJ e Login devem ser validados antes de aplicar registros remotos. Se PC1 cadastra CPF "123" e PC2 tambem, gera conflito. Definido no Dicionario de Dados (coluna Unico).</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Reset de Sequences</div>
+              <span class="cmd-obs">Apos PULL, o sync reseta a sequence auto-increment de cada tabela para MAX(Id)+1. Necessario porque registros sincronizados vem com IDs explicitos que o PostgreSQL nao rastreia.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Configs por PC</div>
+              <span class="cmd-obs">Arquivos appsettings.pc1.json e pc2.json (no .gitignore, nao sobem pro Git). Contem: Sync:Habilitado, IntervaloSegundos, FilialLocalId, UrlCentral e Cassi:ApiKey.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Queda de internet</div>
+              <span class="cmd-obs">O sistema continua funcionando normalmente offline (banco local). O sync falha silenciosamente e tenta novamente no proximo ciclo. Quando a internet volta, sincroniza automaticamente de onde parou.</span>
+            </div>
           </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">VersaoSync</div>
-            <span class="cmd-obs">Cada registro tem um campo VersaoSync (timestamp em milissegundos, monotonicamente crescente). Usado para detectar alteracoes pendentes de envio/recebimento.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">FilialOrigemId</div>
-            <span class="cmd-obs">Identifica de qual farmacia/servidor o registro foi criado. Fonte primaria: Sync:FilialLocalId da config do servidor. PUSH envia apenas registros onde FilialOrigemId == FilialLocalId. PULL filtra registros de outras filiais (evita echo).</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">SuspenderAutoSync</div>
-            <span class="cmd-obs">Flag no AppDbContext. Quando true, SaveChangesAsync NAO incrementa VersaoSync. Usado APENAS no PULL local para preservar a versao do central e evitar loop infinito. O Railway NAO usa essa flag.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Ciclo de Sync (a cada 30s)</div>
-            <span class="cmd-obs">1. Autentica no Railway como usuario SISTEMA (senha rotativa diaria). 2. Para cada tabela: PUSH (envia locais) depois PULL (recebe remotos). 3. Apos PULL, reseta sequences do PostgreSQL (evita conflito de PK). 4. Atualiza SyncControle com versoes enviadas/recebidas.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Resolucao de Conflitos</div>
-            <span class="cmd-obs">Last-write-wins baseado em AtualizadoEm. Se PC1 e PC2 alteram o mesmo registro, o ultimo a sincronizar ganha. Futuramente: tabela SyncConflitos para registrar e revisar.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Tabelas: Global vs Por Filial</div>
-            <span class="cmd-obs">Global: replica inteira, todos veem igual (Fabricantes, Substancias, Produtos). Por Filial: cada filial tem seus registros filtrados por FilialId (Estoque, Caixa, Vendas, Configuracoes). Definido no Dicionario de Dados.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Tabelas que NAO replicam</div>
-            <span class="cmd-obs">Configuracoes (cada filial define a sua), LogsErro (local), SyncControle (controle interno), DicionarioTabelas/Revisoes (ferramenta dev).</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Campos unicos no sync</div>
-            <span class="cmd-obs">CPF, CNPJ e Login devem ser validados antes de aplicar registros remotos. Se PC1 cadastra CPF "123" e PC2 tambem, gera conflito. Definido no Dicionario de Dados (coluna Unico).</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Reset de Sequences</div>
-            <span class="cmd-obs">Apos PULL, o sync reseta a sequence auto-increment de cada tabela para MAX(Id)+1. Necessario porque registros sincronizados vem com IDs explicitos que o PostgreSQL nao rastreia.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Configs por PC</div>
-            <span class="cmd-obs">Arquivos appsettings.pc1.json e pc2.json (no .gitignore, nao sobem pro Git). Contem: Sync:Habilitado, IntervaloSegundos, FilialLocalId, UrlCentral e Cassi:ApiKey.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Queda de internet</div>
-            <span class="cmd-obs">O sistema continua funcionando normalmente offline (banco local). O sync falha silenciosamente e tenta novamente no proximo ciclo. Quando a internet volta, sincroniza automaticamente de onde parou.</span>
-          </div>
-        </div>
+        }
       </section>
 
       <!-- CASSI -->
       <section class="help-secao">
-        <div class="secao-header cassi-doc">
+        <div class="secao-header cassi-doc" [class.aberto]="isAberta('cassi')" (click)="toggleSecao('cassi')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
           <span>Cassi (Assistente IA)</span>
         </div>
-        <div class="secao-corpo">
-          <div class="cmd-grupo">
-            <div class="cmd-label">Como funciona</div>
-            <span class="cmd-obs">Backend proxy para OpenAI (gpt-4o-mini). API key no appsettings.pcX.json (nunca no Git). System prompt fixo + instrucoes dinamicas do Dicionario de Dados.</span>
+        @if (isAberta('cassi')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Como funciona</div>
+              <span class="cmd-obs">Backend proxy para OpenAI (gpt-4o-mini). API key no appsettings.pcX.json (nunca no Git). System prompt fixo + instrucoes dinamicas do Dicionario de Dados.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Instrucoes IA</div>
+              <span class="cmd-obs">Definidas no Dicionario de Dados por tabela e por campo. A Cassi le antes de cada conversa. Ao atualizar o DD, a Cassi fica mais inteligente automaticamente.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Acoes automaticas</div>
+              <span class="cmd-obs">A Cassi pode abrir telas automaticamente. Responde em JSON com {{ '{' }} mensagem, acao {{ '}' }}. Se acao tem uma rota, o frontend navega automaticamente.</span>
+            </div>
           </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Instrucoes IA</div>
-            <span class="cmd-obs">Definidas no Dicionario de Dados por tabela e por campo. A Cassi le antes de cada conversa. Ao atualizar o DD, a Cassi fica mais inteligente automaticamente.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Acoes automaticas</div>
-            <span class="cmd-obs">A Cassi pode abrir telas automaticamente. Responde em JSON com {{ '{' }} mensagem, acao {{ '}' }}. Se acao tem uma rota, o frontend navega automaticamente.</span>
-          </div>
-        </div>
+        }
       </section>
 
       <!-- DICIONARIO DE DADOS -->
       <section class="help-secao">
-        <div class="secao-header dd-doc">
+        <div class="secao-header dd-doc" [class.aberto]="isAberta('dd')" (click)="toggleSecao('dd')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
           <span>Dicionario de Dados</span>
         </div>
-        <div class="secao-corpo">
-          <div class="cmd-grupo">
-            <div class="cmd-label">Proposito</div>
-            <span class="cmd-obs">Documentacao viva da estrutura do banco. NAO altera o banco, apenas registra como deveria ser. Serve como base para implementar sync, validacoes e multifiliais.</span>
+        @if (isAberta('dd')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Proposito</div>
+              <span class="cmd-obs">Documentacao viva da estrutura do banco. NAO altera o banco, apenas registra como deveria ser. Serve como base para implementar sync, validacoes e multifiliais.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Por tabela</div>
+              <span class="cmd-obs">Escopo (Global/Por Filial), Replica (Sim/Nao), Instrucao IA. Define o comportamento da tabela no sincronismo.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Por campo</div>
+              <span class="cmd-obs">Revisado, Obrigatorio, Unico, Instrucao IA, Observacao. Quando todos os campos estao revisados, a tabela fica com borda verde.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Backup JSON</div>
+              <span class="cmd-obs">Cada alteracao grava automaticamente em ContextDocuments/dicionario-dados.json. Vai pro Git como backup. Se perder o banco, importa pelo endpoint POST /api/dicionario-dados/importar.</span>
+            </div>
           </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Por tabela</div>
-            <span class="cmd-obs">Escopo (Global/Por Filial), Replica (Sim/Nao), Instrucao IA. Define o comportamento da tabela no sincronismo.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Por campo</div>
-            <span class="cmd-obs">Revisado, Obrigatorio, Unico, Instrucao IA, Observacao. Quando todos os campos estao revisados, a tabela fica com borda verde.</span>
-          </div>
-          <div class="cmd-grupo">
-            <div class="cmd-label">Backup JSON</div>
-            <span class="cmd-obs">Cada alteracao grava automaticamente em ContextDocuments/dicionario-dados.json. Vai pro Git como backup. Se perder o banco, importa pelo endpoint POST /api/dicionario-dados/importar.</span>
-          </div>
-        </div>
+        }
       </section>
 
     </div>
