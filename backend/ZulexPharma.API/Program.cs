@@ -146,6 +146,16 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 app.UseResponseCompression();
+
+// ─── No-cache: ERP não pode servir dados em cache ─────────────────────────
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    context.Response.Headers["Pragma"] = "no-cache";
+    context.Response.Headers["Expires"] = "0";
+    await next();
+});
+
 app.UseMiddleware<ZulexPharma.API.Middleware.ErrorHandlingMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseCors("FrontendPolicy");

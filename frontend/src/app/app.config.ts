@@ -3,6 +3,7 @@ import { registerLocaleData } from '@angular/common';
 import localePt from '@angular/common/locales/pt';
 import { provideHttpClient, HttpClient, withInterceptorsFromDi, withInterceptors } from '@angular/common/http';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { noCacheInterceptor } from './core/interceptors/no-cache.interceptor';
 import { Observable } from 'rxjs';
 import { routes } from './app.routes';
 import {
@@ -72,7 +73,7 @@ export const appConfig: ApplicationConfig = {
       }),
       withComponentInputBinding()
     ),
-    provideHttpClient(withInterceptorsFromDi(), withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptorsFromDi(), withInterceptors([authInterceptor, noCacheInterceptor])),
     provideClientHydration(),
     provideAnimationsAsync(),
     importProvidersFrom(
