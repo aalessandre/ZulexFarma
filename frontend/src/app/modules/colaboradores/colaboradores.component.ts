@@ -402,6 +402,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.colaboradorSelecionado.set(aba.colaborador);
     this.colaboradorForm.set(this.clonarDetalhe(aba.form));
     this.formOriginal = this.clonarDetalhe(aba.form);
+    this.acessoHabilitado.set(!!aba.form.acesso);
     this.isDirty.set(aba.isDirty);
     this.errosCampos.set({}); this.erro.set('');
     this.modoEdicao.set(true); this.modo.set('form');
