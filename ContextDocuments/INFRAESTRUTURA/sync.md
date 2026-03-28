@@ -46,7 +46,14 @@ Filiais, Pessoas, PessoasContato, PessoasEndereco, Colaboradores, Usuarios, Usua
 - Identifica de qual farmacia/servidor o registro foi criado
 - Fonte primaria: `Sync:FilialLocalId` da config (identifica o servidor)
 - Fallback: `filialId` do JWT do usuario
-- PUSH envia apenas registros onde `FilialOrigemId == FilialLocalId`
+- NAO muda quando outro PC edita o registro (preserva a origem)
+
+## PUSH: tabelas globais vs por filial
+- **Tabelas globais** (escopo=global no DD): PUSH envia TODOS os registros alterados,
+  independente de FilialOrigemId. Qualquer filial pode editar qualquer registro.
+- **Tabelas por filial** (escopo=filial no DD): PUSH envia apenas registros onde
+  `FilialOrigemId == FilialLocalId`
+- O escopo eh lido do DicionarioTabelas em cada ciclo de sync
 - PULL filtra registros onde `FilialOrigemId != filialId` solicitante (evita echo)
 
 ## Reset de sequences

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -167,19 +168,35 @@ public class SyncBackgroundService : BackgroundService
 
     /// <summary>
     /// PUSH: Gets local changes since last sent version and POSTs them to central server.
+    /// For global tables: sends ALL changed records (any filial can edit).
+    /// For per-filial tables: sends only records from THIS filial.
     /// </summary>
     private async Task<int> EnviarAlteracoes(HttpClient httpClient, string tabela, CancellationToken ct)
     {
         using var scope = _services.CreateScope();
         var syncService = scope.ServiceProvider.GetRequiredService<SyncService>();
+        var db = scope.ServiceProvider.GetRequiredService<Data.AppDbContext>();
 
         // Get last sent version from SyncControle
         var statusList = await syncService.ObterStatus(_filialLocalId);
         var status = statusList.FirstOrDefault(s => s.Tabela == tabela);
         var ultimaVersaoEnviada = status?.UltimaVersaoEnviada ?? 0;
 
-        // Get local changes since that version (only records from THIS filial)
-        var pacote = await syncService.ObterAlteracoesLocais(tabela, ultimaVersaoEnviada, _filialLocalId);
+        // Check if table is global (from DD) - global tables send ALL changes
+        var isGlobal = await db.DicionarioTabelas
+            .AnyAsync(d => d.Tabela == tabela && d.Escopo == "global", ct);
+
+        SyncPacote pacote;
+        if (isGlobal)
+        {
+            // Global: send ALL changed records regardless of FilialOrigemId
+            pacote = await syncService.ObterAlteracoes(tabela, ultimaVersaoEnviada);
+        }
+        else
+        {
+            // Per-filial: send only THIS filial's records
+            pacote = await syncService.ObterAlteracoesLocais(tabela, ultimaVersaoEnviada, _filialLocalId);
+        }
         if (pacote.TotalRegistros == 0)
             return 0;
 
