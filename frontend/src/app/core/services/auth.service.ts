@@ -38,6 +38,9 @@ export class AuthService {
     ).pipe(
       tap(response => {
         if (response.success) {
+          // Limpar estado anterior (abas abertas, forms em edição)
+          sessionStorage.clear();
+
           const usuario: UsuarioLogado = {
             ...response.data,
             expiracao: new Date(response.data.expiracao)
