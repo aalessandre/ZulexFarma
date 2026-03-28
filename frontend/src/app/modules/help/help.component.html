@@ -187,11 +187,15 @@
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">Tabelas: Global vs Por Filial</div>
-              <span class="cmd-obs">Global: replica inteira, todos veem igual (Fabricantes, Substancias, Produtos). Por Filial: cada filial tem seus registros filtrados por FilialId (Estoque, Caixa, Vendas, Configuracoes). Definido no Dicionario de Dados.</span>
+              <span class="cmd-obs">Global: nao tem FilialId, todos veem igual (Fabricantes, Substancias, Produtos). Por Filial: tem FilialId, cada filial tem seus registros mas todos ficam visiveis de qualquer filial via combo de selecao. Definido no Dicionario de Dados.</span>
             </div>
             <div class="cmd-grupo">
-              <div class="cmd-label">Tabelas que NAO replicam</div>
-              <span class="cmd-obs">Configuracoes (cada filial define a sua), LogsErro (local), SyncControle (controle interno), DicionarioTabelas/Revisoes (ferramenta dev).</span>
+              <div class="cmd-label">Padrao: FilialId em todas as tabelas</div>
+              <span class="cmd-obs">Todas as tabelas terao o campo FilialId. Tabelas globais: FilialId pode ser null. Tabelas por filial: FilialId identifica a filial dona. Escrita: so a filial dona edita seus registros. Leitura: qualquer filial consulta via combo.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Replica: quase tudo replica</div>
+              <span class="cmd-obs">A grande maioria das tabelas replica para que todas as filiais tenham visibilidade completa. Excecoes que NAO replicam: SyncControle (controle interno de cada PC) e DicionarioTabelas/Revisoes (ferramenta dev, backup via JSON no Git).</span>
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">Campos unicos no sync</div>
