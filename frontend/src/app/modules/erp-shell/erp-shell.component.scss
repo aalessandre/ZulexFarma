@@ -16,12 +16,14 @@
   justify-content: space-between;
   padding: 0 32px;
   flex-shrink: 0;
+  gap: 16px;
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-shrink: 0;
 }
 
 .btn-home {
@@ -54,6 +56,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .topbar-filial {
@@ -67,6 +70,10 @@
   font-weight: 600;
 }
 
+.topbar-user-wrap {
+  position: relative;
+}
+
 .topbar-user {
   display: flex;
   align-items: center;
@@ -77,6 +84,10 @@
   padding: 6px 14px;
   border: 1px solid var(--erp-border);
   border-radius: 24px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: var(--erp-bg); }
 }
 
 .user-avatar {
@@ -85,6 +96,12 @@
   color: #fff;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
+}
+
+.user-nome {
+  font-size: var(--erp-fs-sm);
+  font-weight: 600;
+  color: var(--erp-text);
 }
 
 .topbar-icon {
@@ -97,6 +114,248 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   &:hover { background: var(--erp-bg); color: var(--erp-text); }
+}
+
+/* ── Busca global (topbar center) ──────────────────────────────── */
+.topbar-busca {
+  position: relative;
+  flex: 0 0 auto;
+  width: 360px;
+}
+
+.busca-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--erp-bg);
+  border: 1.5px solid var(--erp-border);
+  border-radius: 20px;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+
+  .topbar-busca.focada & {
+    background: var(--erp-surface);
+    border-color: var(--erp-blue);
+    box-shadow: 0 0 0 3px rgba(44, 95, 173, 0.1);
+  }
+}
+
+.busca-icon {
+  color: var(--erp-text-muted);
+  flex-shrink: 0;
+  transition: color 0.15s;
+
+  .topbar-busca.focada & { color: var(--erp-blue); }
+}
+
+.busca-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: var(--erp-fs-sm);
+  color: var(--erp-text);
+  font-family: inherit;
+
+  &::placeholder { color: var(--erp-text-muted); opacity: 0.6; }
+}
+
+.busca-atalho {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--erp-text-muted);
+  background: var(--erp-border);
+  border-radius: 5px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.busca-limpar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: var(--erp-border);
+  border-radius: 50%;
+  color: var(--erp-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+
+  &:hover { background: var(--erp-border-input); color: var(--erp-text); }
+}
+
+.busca-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 440px;
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14), 0 4px 12px rgba(0, 0, 0, 0.06);
+  z-index: 2000;
+  overflow: hidden;
+  animation: dropdownIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.busca-dropdown-header {
+  padding: 10px 16px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--erp-text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--erp-border);
+}
+
+.busca-resultado {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+
+  &:last-child { border-radius: 0 0 16px 16px; }
+
+  &:hover,
+  &.ativo { background: var(--erp-bg); }
+
+  &.ativo .resultado-seta { opacity: 1; }
+}
+
+.resultado-sigla {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.resultado-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.resultado-label {
+  font-size: var(--erp-fs-sm);
+  font-weight: 600;
+  color: var(--erp-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultado-bloco {
+  font-size: 12px;
+  color: var(--erp-text-muted);
+  font-weight: 500;
+}
+
+.resultado-seta {
+  color: var(--erp-text-muted);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s, transform 0.1s;
+
+  .busca-resultado.ativo & { transform: translateX(2px); }
+}
+
+.busca-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 20px;
+  color: var(--erp-text-muted);
+  font-size: var(--erp-fs-sm);
+  font-weight: 500;
+}
+
+/* ── User dropdown menu ────────────────────────────────────────── */
+.user-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+}
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  min-width: 220px;
+  z-index: 501;
+  overflow: hidden;
+  animation: menuIn 0.15s ease-out;
+}
+
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.user-menu-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--erp-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  strong { font-size: 15px; color: var(--erp-text); }
+  span { font-size: 13px; color: var(--erp-text-muted); }
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 18px;
+  border: none;
+  background: transparent;
+  font-size: var(--erp-fs-sm);
+  color: var(--erp-text);
+  cursor: pointer;
+  transition: background 0.12s;
+  text-align: left;
+
+  &:hover { background: var(--erp-bg); }
+
+  &.logout {
+    color: #c0392b;
+    border-top: 1px solid var(--erp-border);
+    &:hover { background: #fff5f5; }
+  }
 }
 
 /* ── Barra de abas (clean) ─────────────────────────────────────────── */
@@ -167,7 +426,7 @@
   &:hover { background: #fde8e8; color: #c0392b; }
 }
 
-/* ── Conteúdo ──────────────────────────────────────────────────────── */
+/* ── Conteudo ──────────────────────────────────────────────────────── */
 .shell-content {
   flex: 1;
   overflow: hidden;
@@ -175,7 +434,7 @@
   flex-direction: column;
   min-height: 0;
 
-  /* O router-outlet injeta o componente como irmão — garantir que ocupe o espaço */
+  /* O router-outlet injeta o componente como irmao — garantir que ocupe o espaco */
   > *:not(router-outlet) {
     flex: 1;
     display: flex;
@@ -184,7 +443,7 @@
   }
 }
 
-/* ── Painel de configurações ───────────────────────────────────────── */
+/* ── Painel de configuracoes ───────────────────────────────────────── */
 .config-overlay {
   position: fixed;
   inset: 0;
@@ -355,7 +614,81 @@
   }
 }
 
-/* ── Aviso de sessão ──────────────────────────────────────────────── */
+/* ── Modal alterar senha ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-box {
+  background: var(--erp-surface);
+  border-radius: 16px;
+  padding: 36px 40px 32px;
+  width: 420px; max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  display: flex; flex-direction: column;
+  align-items: center; text-align: center;
+  animation: scaleIn 0.18s ease-out;
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92) translateY(-8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-icon {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: #e3f2fd; color: #1565c0;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px;
+}
+
+.modal-titulo { font-size: 20px; font-weight: 700; color: var(--erp-text); margin-bottom: 16px; }
+
+.modal-erro {
+  width: 100%; padding: 8px 14px; border-radius: 8px;
+  background: #fde8e8; color: #c62828; border: 1px solid #ef9a9a;
+  font-size: 13px; margin-bottom: 12px; text-align: left;
+}
+
+.modal-sucesso {
+  width: 100%; padding: 8px 14px; border-radius: 8px;
+  background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7;
+  font-size: 13px; margin-bottom: 12px; text-align: left;
+}
+
+.modal-campo {
+  width: 100%; text-align: left; margin-bottom: 12px;
+  display: flex; flex-direction: column; gap: 4px;
+
+  label { font-size: 12px; font-weight: 700; color: var(--erp-text-muted); letter-spacing: 0.7px; }
+
+  input {
+    height: 40px; padding: 0 12px;
+    border: 1px solid var(--erp-border); border-radius: 8px;
+    font-size: 15px; color: var(--erp-text); outline: none;
+    background: var(--erp-surface);
+    &:focus { border-color: var(--erp-blue); }
+  }
+}
+
+.modal-acoes { display: flex; gap: 10px; width: 100%; margin-top: 8px; }
+
+.modal-btn {
+  flex: 1; height: 44px; border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+  transition: filter 0.15s;
+  &:hover:not(:disabled) { filter: brightness(1.06); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.modal-btn-cancelar { background: var(--erp-bg); color: var(--erp-text); border: 1px solid var(--erp-border); }
+.modal-btn-confirmar { background: var(--erp-blue); color: #fff; }
+
+/* ── Aviso de sessao ──────────────────────────────────────────────── */
 .aviso-sessao {
   position: fixed;
   top: 12px;

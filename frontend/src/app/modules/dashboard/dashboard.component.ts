@@ -1,12 +1,10 @@
-import { Component, computed, signal, HostListener, ElementRef, ViewChild } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AuthService } from '../../core/services/auth.service';
 import { TabService } from '../../core/services/tab.service';
 import { ErpSettingsService } from '../../core/services/erp-settings.service';
-import { environment } from '../../../environments/environment';
 
 const ICONS: Record<string, string> = {
   cart:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
@@ -42,12 +40,6 @@ export interface BlocoTiles {
   tiles: TileItem[];
 }
 
-interface ResultadoBusca {
-  tile: TileItem;
-  bloco: string;
-  cor: string;
-}
-
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -57,6 +49,7 @@ interface ResultadoBusca {
 })
 export class DashboardComponent {
   usuario = computed(() => this.authService.usuarioLogado());
+  painelConfig = signal(false);
 
   blocos: BlocoTiles[] = [
     {
@@ -64,7 +57,7 @@ export class DashboardComponent {
       cor: '#00acc1',
       tiles: [
         { label: 'Vendas',           sigla: 'VE', iconKey: 'cart',      rota: '/erp/vendas' },
-        { label: 'Empréstimo',       sigla: 'EP', iconKey: 'handshake', rota: '/erp/emprestimo' },
+        { label: 'Emprestimo',       sigla: 'EP', iconKey: 'handshake', rota: '/erp/emprestimo' },
         { label: 'Mov. de Estoque',  sigla: 'ME', iconKey: 'box',       rota: '/erp/movimentacao-estoque' },
         { label: 'Carteira Digital', sigla: 'CD', iconKey: 'wallet',    rota: '/erp/carteira' },
         { label: 'Conta do Cliente', sigla: 'CC', iconKey: 'user',      rota: '/erp/conta-cliente' },
@@ -82,127 +75,40 @@ export class DashboardComponent {
         { label: 'Gerenciar Produtos', sigla: 'GP', iconKey: 'pill',    rota: '/erp/gerenciar-produtos' },
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
-        { label: 'Substâncias',      sigla: 'SB', iconKey: 'pill',      rota: '/erp/substancias' },
+        { label: 'Substancias',      sigla: 'SB', iconKey: 'pill',      rota: '/erp/substancias' },
       ]
     },
     {
-      nome: 'Relatórios',
+      nome: 'Relatorios',
       cor: '#6a1b9a',
       tiles: [
-        { label: 'Análise de Vendas',   sigla: 'AV', iconKey: 'chart', rota: '/erp/rel/vendas' },
-        { label: 'Análise de Produtos', sigla: 'AP', iconKey: 'chart', rota: '/erp/rel/produtos' },
+        { label: 'Analise de Vendas',   sigla: 'AV', iconKey: 'chart', rota: '/erp/rel/vendas' },
+        { label: 'Analise de Produtos', sigla: 'AP', iconKey: 'chart', rota: '/erp/rel/produtos' },
         { label: 'Log de Auditoria',    sigla: 'LA', iconKey: 'log',   rota: '/erp/log-geral' },
       ]
     },
     {
-      nome: 'Manutenção',
+      nome: 'Manutencao',
       cor: '#f9a825',
       tiles: [
-        { label: 'Manutenção',        sigla: 'MT', iconKey: 'wrench',   rota: '/erp/manutencao' },
-        { label: 'Sincronização',     sigla: 'SI', iconKey: 'wrench',   rota: '/erp/sync' },
-        { label: 'Grupo de Usuários', sigla: 'GU', iconKey: 'lock',     rota: '/erp/grupos' },
-        { label: 'Usuários',          sigla: 'US', iconKey: 'users',    rota: '/erp/usuarios' },
+        { label: 'Manutencao',        sigla: 'MT', iconKey: 'wrench',   rota: '/erp/manutencao' },
+        { label: 'Sincronizacao',     sigla: 'SI', iconKey: 'wrench',   rota: '/erp/sync' },
+        { label: 'Grupo de Usuarios', sigla: 'GU', iconKey: 'lock',     rota: '/erp/grupos' },
+        { label: 'Usuarios',          sigla: 'US', iconKey: 'users',    rota: '/erp/usuarios' },
         { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },
         { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
-        { label: 'Configurações',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
+        { label: 'Configuracoes',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
         { label: 'Help',              sigla: 'HP', iconKey: 'log',      rota: '/erp/help' },
       ]
     }
   ];
-
-  // ── Busca global ────────────────────────────────────────────────
-  @ViewChild('inputBusca') inputBuscaRef!: ElementRef<HTMLInputElement>;
-  buscaGlobal     = signal('');
-  buscaFocada     = signal(false);
-  indiceBusca     = signal(-1);
-
-  resultadosBusca = computed<ResultadoBusca[]>(() => {
-    const termo = this.normalizar(this.buscaGlobal());
-    if (termo.length < 1) return [];
-    const results: ResultadoBusca[] = [];
-    for (const bloco of this.blocos) {
-      for (const tile of bloco.tiles) {
-        if (
-          this.normalizar(tile.label).includes(termo) ||
-          this.normalizar(tile.sigla).includes(termo) ||
-          this.normalizar(bloco.nome).includes(termo)
-        ) {
-          results.push({ tile, bloco: bloco.nome, cor: bloco.cor });
-        }
-      }
-    }
-    return results;
-  });
-
-  mostrarDropdown = computed(() =>
-    this.buscaFocada() && this.buscaGlobal().trim().length > 0
-  );
-
-  private normalizar(s: string): string {
-    return (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-  }
-
-  onBuscaInput(valor: string) {
-    this.buscaGlobal.set(valor);
-    this.indiceBusca.set(-1);
-  }
-
-  onBuscaKeydown(e: KeyboardEvent) {
-    const total = this.resultadosBusca().length;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      this.indiceBusca.update(i => Math.min(i + 1, total - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      this.indiceBusca.update(i => Math.max(i - 1, -1));
-    } else if (e.key === 'Enter') {
-      const idx = this.indiceBusca();
-      const results = this.resultadosBusca();
-      const alvo = idx >= 0 ? results[idx] : results[0];
-      if (alvo) this.navegarBusca(alvo);
-    } else if (e.key === 'Escape') {
-      this.fecharBusca();
-    }
-  }
-
-  navegarBusca(r: ResultadoBusca) {
-    this.fecharBusca();
-    this.navegar(r.tile);
-  }
-
-  fecharBusca() {
-    this.buscaGlobal.set('');
-    this.buscaFocada.set(false);
-    this.indiceBusca.set(-1);
-  }
-
-  @HostListener('document:keydown', ['$event'])
-  onGlobalKeydown(e: KeyboardEvent) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-      e.preventDefault();
-      this.inputBuscaRef?.nativeElement.focus();
-      this.buscaFocada.set(true);
-    }
-  }
-
-  // ────────────────────────────────────────────────────────────────
-  menuUsuarioAberto = signal(false);
-  painelConfig = signal(false);
-  modalSenhaAberta = signal(false);
-  senhaAtual = signal('');
-  novaSenha = signal('');
-  confirmarSenha = signal('');
-  erroSenha = signal('');
-  sucessoSenha = signal('');
-  salvandoSenha = signal(false);
 
   constructor(
     private authService: AuthService,
     public tabService: TabService,
     public settings: ErpSettingsService,
     private router: Router,
-    private sanitizer: DomSanitizer,
-    private http: HttpClient
+    private sanitizer: DomSanitizer
   ) {}
 
   getIcon(key: string): SafeHtml {
@@ -215,66 +121,6 @@ export class DashboardComponent {
       titulo: tile.label,
       rota: tile.rota,
       iconKey: tile.iconKey,
-    });
-  }
-
-  logout() {
-    this.authService.logout();
-  }
-
-  toggleMenuUsuario() {
-    this.menuUsuarioAberto.update(v => !v);
-  }
-
-  abrirAlterarSenha() {
-    this.menuUsuarioAberto.set(false);
-    this.senhaAtual.set('');
-    this.novaSenha.set('');
-    this.confirmarSenha.set('');
-    this.erroSenha.set('');
-    this.sucessoSenha.set('');
-    this.modalSenhaAberta.set(true);
-  }
-
-  fecharModalSenha() {
-    this.modalSenhaAberta.set(false);
-  }
-
-  alterarSenha() {
-    this.erroSenha.set('');
-    this.sucessoSenha.set('');
-
-    if (!this.senhaAtual()) {
-      this.erroSenha.set('Informe a senha atual.');
-      return;
-    }
-    if (!this.novaSenha() || this.novaSenha().length < 4 || this.novaSenha().length > 12) {
-      this.erroSenha.set('A nova senha deve ter entre 4 e 12 caracteres.');
-      return;
-    }
-    if (this.novaSenha() !== this.confirmarSenha()) {
-      this.erroSenha.set('A nova senha e a confirmação não coincidem.');
-      return;
-    }
-
-    this.salvandoSenha.set(true);
-    this.http.post<any>(`${environment.apiUrl}/auth/alterar-senha`, {
-      senhaAtual: this.senhaAtual(),
-      novaSenha: this.novaSenha()
-    }).subscribe({
-      next: r => {
-        this.salvandoSenha.set(false);
-        if (r.success) {
-          this.sucessoSenha.set('Senha alterada com sucesso!');
-          setTimeout(() => this.fecharModalSenha(), 2000);
-        } else {
-          this.erroSenha.set(r.message || 'Erro ao alterar senha.');
-        }
-      },
-      error: () => {
-        this.salvandoSenha.set(false);
-        this.erroSenha.set('Erro ao comunicar com o servidor.');
-      }
     });
   }
 }

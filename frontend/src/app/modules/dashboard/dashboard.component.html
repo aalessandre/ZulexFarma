@@ -1,132 +1,5 @@
 <div class="dash-wrapper">
 
-  <!-- TOPBAR -->
-  <header class="dash-topbar">
-    <div class="topbar-brand">
-      <div class="topbar-logo">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-      </div>
-      <div>
-        <div class="brand-name">ZULEXFARMA</div>
-        @if (usuario()) {
-          <div class="brand-filial">{{ usuario()!.nomeFilial }}</div>
-        }
-      </div>
-    </div>
-
-    <!-- BUSCA GLOBAL -->
-    <div class="topbar-busca" [class.focada]="buscaFocada()">
-      <div class="busca-input-wrap">
-        <svg class="busca-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input
-          #inputBusca
-          class="busca-input"
-          type="text"
-          placeholder="Buscar tela..."
-          [value]="buscaGlobal()"
-          (input)="onBuscaInput($any($event.target).value)"
-          (focus)="buscaFocada.set(true)"
-          (blur)="$event.relatedTarget ? null : buscaFocada.set(false)"
-          (keydown)="onBuscaKeydown($event)"
-          autocomplete="off"
-        />
-        @if (buscaGlobal()) {
-          <button class="busca-limpar" (mousedown)="$event.preventDefault(); fecharBusca()" tabindex="-1">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        } @else {
-          <span class="busca-atalho">Ctrl+K</span>
-        }
-      </div>
-
-      @if (mostrarDropdown()) {
-        <div class="busca-dropdown" (mousedown)="$event.preventDefault()">
-          @if (resultadosBusca().length === 0) {
-            <div class="busca-vazio">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <span>Nenhuma tela encontrada</span>
-            </div>
-          } @else {
-            <div class="busca-dropdown-header">
-              {{ resultadosBusca().length }} resultado{{ resultadosBusca().length > 1 ? 's' : '' }}
-            </div>
-            @for (r of resultadosBusca(); track r.tile.rota; let i = $index) {
-              <button class="busca-resultado"
-                      [class.ativo]="indiceBusca() === i"
-                      (mouseenter)="indiceBusca.set(i)"
-                      (click)="navegarBusca(r)">
-                <span class="resultado-sigla" [style.background]="r.cor">{{ r.tile.sigla }}</span>
-                <span class="resultado-info">
-                  <span class="resultado-label">{{ r.tile.label }}</span>
-                  <span class="resultado-bloco">{{ r.bloco }}</span>
-                </span>
-                <svg class="resultado-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              </button>
-            }
-          }
-        </div>
-      }
-    </div>
-
-    <div class="topbar-actions">
-      @if (usuario()) {
-        <div class="topbar-user" (click)="toggleMenuUsuario()">
-          <div class="user-avatar">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-            </svg>
-          </div>
-          <span class="user-nome">{{ usuario()!.login.toUpperCase() }}</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-
-        @if (menuUsuarioAberto()) {
-          <div class="user-menu-overlay" (click)="menuUsuarioAberto.set(false)"></div>
-          <div class="user-menu">
-            <div class="user-menu-header">
-              <strong>{{ usuario()!.nome }}</strong>
-              <span>{{ usuario()!.login }}</span>
-            </div>
-            <button class="user-menu-item" (click)="abrirAlterarSenha()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              Alterar Senha
-            </button>
-            <button class="user-menu-item logout" (click)="logout()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              Sair do Sistema
-            </button>
-          </div>
-        }
-      }
-      <button class="topbar-btn-config" title="Configurações" (click)="painelConfig.set(true)">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </button>
-      <button class="topbar-btn-sair" title="Sair" (click)="logout()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-      </button>
-    </div>
-  </header>
-
   <!-- TABS -->
   @if (tabService.tabs().length > 0) {
     <div class="dash-tabs">
@@ -163,12 +36,12 @@
   </main>
 </div>
 
-<!-- PAINEL CONFIGURAÇÕES -->
+<!-- PAINEL CONFIGURACOES -->
 @if (painelConfig()) {
   <div class="config-overlay" (click)="painelConfig.set(false)"></div>
   <div class="config-painel">
     <div class="config-header">
-      <div class="config-header-titulo">Configurações</div>
+      <div class="config-header-titulo">Configuracoes</div>
       <button class="config-fechar" (click)="painelConfig.set(false)">&times;</button>
     </div>
 
@@ -183,7 +56,7 @@
 
     <div class="config-secao">
       <div class="config-secao-nome">Tamanho da Fonte</div>
-      <div class="config-secao-desc">Ajuste para melhor visualização</div>
+      <div class="config-secao-desc">Ajuste para melhor visualizacao</div>
       <div class="config-opcoes config-opcoes-4">
         <button class="config-op" [class.ativo]="settings.fonte() === 'normal'" (click)="settings.fonte.set('normal')">Normal</button>
         <button class="config-op" [class.ativo]="settings.fonte() === 'grande'" (click)="settings.fonte.set('grande')">Grande</button>
@@ -201,7 +74,7 @@
           @for (c of settings.coresPreset; track c.valor) {
             <button class="config-color-dot" [class.ativo]="settings.cor() === c.valor" [style.background]="c.valor" (click)="settings.cor.set(c.valor)"></button>
           }
-          <button class="config-color-dot config-color-reset" [class.ativo]="!settings.cor()" (click)="settings.cor.set('')">↺</button>
+          <button class="config-color-dot config-color-reset" [class.ativo]="!settings.cor()" (click)="settings.cor.set('')">&#8634;</button>
         </div>
       </div>
     </div>
@@ -218,47 +91,6 @@
           <button class="config-color-dot" [class.ativo]="settings.fundoDash() === '#1b3a2d'" style="background:#1b3a2d" (click)="settings.fundoDash.set('#1b3a2d')"></button>
           <button class="config-color-dot" [class.ativo]="settings.fundoDash() === '#ffffff'" style="background:#ffffff; border:1px solid #ddd" (click)="settings.fundoDash.set('#ffffff')"></button>
         </div>
-      </div>
-    </div>
-  </div>
-}
-
-<!-- MODAL ALTERAR SENHA -->
-@if (modalSenhaAberta()) {
-  <div class="modal-overlay" (click)="fecharModalSenha()">
-    <div class="modal-box" (click)="$event.stopPropagation()">
-      <div class="modal-icon">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-      </div>
-      <div class="modal-titulo">Alterar Senha</div>
-
-      @if (erroSenha()) {
-        <div class="modal-erro">{{ erroSenha() }}</div>
-      }
-      @if (sucessoSenha()) {
-        <div class="modal-sucesso">{{ sucessoSenha() }}</div>
-      }
-
-      <div class="modal-campo">
-        <label>SENHA ATUAL</label>
-        <input type="password" [value]="senhaAtual()" (input)="senhaAtual.set($any($event.target).value)" placeholder="Digite sua senha atual" />
-      </div>
-      <div class="modal-campo">
-        <label>NOVA SENHA</label>
-        <input type="password" [value]="novaSenha()" (input)="novaSenha.set($any($event.target).value)" placeholder="4 a 12 caracteres" />
-      </div>
-      <div class="modal-campo">
-        <label>CONFIRMAR NOVA SENHA</label>
-        <input type="password" [value]="confirmarSenha()" (input)="confirmarSenha.set($any($event.target).value)" placeholder="Repita a nova senha" (keydown.enter)="alterarSenha()" />
-      </div>
-
-      <div class="modal-acoes">
-        <button class="modal-btn modal-btn-cancelar" (click)="fecharModalSenha()">Cancelar</button>
-        <button class="modal-btn modal-btn-confirmar" [disabled]="salvandoSenha()" (click)="alterarSenha()">
-          {{ salvandoSenha() ? 'Alterando...' : 'Alterar Senha' }}
-        </button>
       </div>
     </div>
   </div>
