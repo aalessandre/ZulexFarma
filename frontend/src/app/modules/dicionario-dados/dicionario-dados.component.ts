@@ -150,5 +150,13 @@ export class DicionarioDadosComponent implements OnInit {
     return coluna.tipo;
   }
 
+  exportarJson() {
+    this.salvando.set('exportando');
+    this.http.get<any>(`${this.apiUrl}/exportar`).subscribe({
+      next: () => { this.salvando.set(null); alert('JSON exportado para ContextDocuments/dicionario-dados.json'); },
+      error: () => this.salvando.set(null)
+    });
+  }
+
   sairDaTela() { this.tabService.fecharTabAtiva(); }
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using System.Text.Json;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
@@ -12,8 +13,20 @@ namespace ZulexPharma.API.Controllers;
 public class DicionarioDadosController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IWebHostEnvironment _env;
 
-    public DicionarioDadosController(AppDbContext db) => _db = db;
+    private static readonly JsonSerializerOptions _jsonOpts = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
+    public DicionarioDadosController(AppDbContext db, IWebHostEnvironment env)
+    {
+        _db = db;
+        _env = env;
+    }
 
     [HttpGet("estrutura")]
     public async Task<IActionResult> ObterEstrutura()
@@ -142,6 +155,7 @@ public class DicionarioDadosController : ControllerBase
             existente.RevisadoEm = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
+            await AutoExportarJson();
             return Ok(new { success = true });
         }
         catch (Exception ex)
@@ -171,6 +185,7 @@ public class DicionarioDadosController : ControllerBase
             existente.AtualizadoEm = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
+            await AutoExportarJson();
             return Ok(new { success = true });
         }
         catch (Exception ex)
@@ -212,6 +227,153 @@ public class DicionarioDadosController : ControllerBase
             return StatusCode(500, new { success = false, message = ex.Message });
         }
     }
+    /// <summary>
+    /// Exporta o DD para JSON e retorna o conteúdo.
+    /// Também salva automaticamente em ContextDocuments/dicionario-dados.json.
+    /// </summary>
+    [HttpGet("exportar")]
+    public async Task<IActionResult> Exportar()
+    {
+        try
+        {
+            var dados = await MontarExportacao();
+            await SalvarJsonNoDisco(dados);
+            return Ok(new { success = true, data = dados });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao exportar DD");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Importa o DD de um JSON, substituindo todas as definições.
+    /// </summary>
+    [HttpPost("importar")]
+    public async Task<IActionResult> Importar([FromBody] DicionarioExportacao dados)
+    {
+        try
+        {
+            // Limpar existentes
+            _db.DicionarioTabelas.RemoveRange(await _db.DicionarioTabelas.ToListAsync());
+            _db.DicionarioRevisoes.RemoveRange(await _db.DicionarioRevisoes.ToListAsync());
+            await _db.SaveChangesAsync();
+
+            // Inserir importados
+            foreach (var t in dados.Tabelas)
+            {
+                _db.DicionarioTabelas.Add(new Domain.Entities.DicionarioTabela
+                {
+                    Tabela = t.Tabela,
+                    Escopo = t.Escopo,
+                    Replica = t.Replica,
+                    InstrucaoIA = t.InstrucaoIA,
+                    AtualizadoEm = DateTime.UtcNow
+                });
+            }
+
+            foreach (var c in dados.Campos)
+            {
+                _db.DicionarioRevisoes.Add(new Domain.Entities.DicionarioRevisao
+                {
+                    Tabela = c.Tabela,
+                    Coluna = c.Coluna,
+                    Revisado = c.Revisado,
+                    Unico = c.Unico,
+                    Obrigatorio = c.Obrigatorio,
+                    Observacao = c.Observacao,
+                    InstrucaoIA = c.InstrucaoIA,
+                    RevisadoEm = DateTime.UtcNow
+                });
+            }
+
+            await _db.SaveChangesAsync();
+            return Ok(new { success = true, message = $"Importado: {dados.Tabelas.Count} tabelas, {dados.Campos.Count} campos" });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao importar DD");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    private async Task<DicionarioExportacao> MontarExportacao()
+    {
+        var tabelas = await _db.DicionarioTabelas.OrderBy(t => t.Tabela).ToListAsync();
+        var campos = await _db.DicionarioRevisoes.OrderBy(r => r.Tabela).ThenBy(r => r.Coluna).ToListAsync();
+
+        return new DicionarioExportacao
+        {
+            ExportadoEm = DateTime.UtcNow,
+            Tabelas = tabelas.Select(t => new DdTabela
+            {
+                Tabela = t.Tabela, Escopo = t.Escopo, Replica = t.Replica, InstrucaoIA = t.InstrucaoIA
+            }).ToList(),
+            Campos = campos.Select(c => new DdCampo
+            {
+                Tabela = c.Tabela, Coluna = c.Coluna, Revisado = c.Revisado,
+                Unico = c.Unico, Obrigatorio = c.Obrigatorio,
+                Observacao = c.Observacao, InstrucaoIA = c.InstrucaoIA
+            }).ToList()
+        };
+    }
+
+    private async Task SalvarJsonNoDisco(DicionarioExportacao dados)
+    {
+        try
+        {
+            // Salvar na pasta ContextDocuments (relativo à raiz do projeto)
+            var rootPath = Path.GetFullPath(Path.Combine(_env.ContentRootPath, "..", ".."));
+            var filePath = Path.Combine(rootPath, "ContextDocuments", "dicionario-dados.json");
+            var json = JsonSerializer.Serialize(dados, _jsonOpts);
+            await System.IO.File.WriteAllTextAsync(filePath, json);
+            Log.Debug("DD exportado para {Path}", filePath);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Não foi possível salvar DD no disco");
+        }
+    }
+
+    private async Task AutoExportarJson()
+    {
+        try
+        {
+            var dados = await MontarExportacao();
+            await SalvarJsonNoDisco(dados);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Auto-export DD falhou");
+        }
+    }
+}
+
+public class DicionarioExportacao
+{
+    public DateTime ExportadoEm { get; set; }
+    public List<DdTabela> Tabelas { get; set; } = new();
+    public List<DdCampo> Campos { get; set; } = new();
+}
+
+public class DdTabela
+{
+    public string Tabela { get; set; } = "";
+    public string Escopo { get; set; } = "global";
+    public bool Replica { get; set; }
+    public string? InstrucaoIA { get; set; }
+}
+
+public class DdCampo
+{
+    public string Tabela { get; set; } = "";
+    public string Coluna { get; set; } = "";
+    public bool Revisado { get; set; }
+    public bool? Unico { get; set; }
+    public bool? Obrigatorio { get; set; }
+    public string? Observacao { get; set; }
+    public string? InstrucaoIA { get; set; }
 }
 
 public class TabelaInfo
