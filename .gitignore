@@ -19,6 +19,7 @@ yarn-error.log
 .env
 *.local
 appsettings.Development.json
+appsettings.pc*.json
 
 # ── OS ────────────────────────────────────────────
 .DS_Store
