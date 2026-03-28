@@ -9,6 +9,11 @@ export const ErpRoutes: Routes = [
     canActivate: [authGuard],
     children: [
       {
+        path: '',
+        loadComponent: () =>
+          import('../dashboard/dashboard.component').then(m => m.DashboardComponent),
+      },
+      {
         path: 'filiais',
         loadComponent: () =>
           import('../filiais/filiais.component').then(m => m.FiliaisComponent),

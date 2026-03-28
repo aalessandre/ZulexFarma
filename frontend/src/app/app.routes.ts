@@ -10,16 +10,18 @@ export const routes: Routes = [
       import('./modules/erp-shell/erp-shell.routes').then(m => m.ErpRoutes),
   },
 
+  // ── Redirect /dashboard para /erp (unificado) ───────────────────
+  {
+    path: 'dashboard',
+    redirectTo: 'erp',
+    pathMatch: 'full',
+  },
+
   // ── Rotas sem sidebar ────────────────────────────────────────────
   {
     path: '',
     component: BlankComponent,
     children: [
-      {
-        path: 'dashboard',
-        loadChildren: () =>
-          import('./modules/dashboard/dashboard.routes').then((m) => m.DashboardRoutes),
-      },
       {
         path: 'authentication',
         loadChildren: () =>

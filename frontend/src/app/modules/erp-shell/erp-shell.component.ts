@@ -148,7 +148,7 @@ export class ErpShellComponent {
     private http: HttpClient
   ) {}
 
-  irHome() { this.router.navigate(['/dashboard']); }
+  irHome() { this.router.navigate(['/erp']); }
   logout()  { this.authService.logout(); }
 
   abrirPainel()  { this.painelAberto.set(true); }

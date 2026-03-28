@@ -40,7 +40,7 @@ export class TabService {
         this.router.navigate([proxima.rota]);
       } else {
         this.tabAtiva.set('');
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/erp']);
       }
     }
   }
@@ -61,7 +61,7 @@ export class TabService {
       this.router.navigate([proxima.rota]);
     } else {
       this.tabAtiva.set('');
-      this.router.navigate(['/dashboard']);
+      this.router.navigate(['/erp']);
     }
   }
 

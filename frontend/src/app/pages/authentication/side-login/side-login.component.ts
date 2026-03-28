@@ -66,7 +66,7 @@ export class AppSideLoginComponent {
     }).subscribe({
       next: () => {
         this.carregando.set(false);
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/erp']);
       },
       error: (err) => {
         this.carregando.set(false);
