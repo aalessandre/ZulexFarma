@@ -17,11 +17,14 @@ interface Coluna {
   observacao: string | null;
   unicoCustom: boolean | null;
   obrigatorioCustom: boolean | null;
-  replica: boolean | null;
+  instrucaoIA: string | null;
 }
 
 interface Tabela {
   nome: string;
+  escopo: string;
+  replica: boolean;
+  instrucaoIA: string | null;
   colunas: Coluna[];
   expandida?: boolean;
 }
@@ -77,25 +80,35 @@ export class DicionarioDadosComponent implements OnInit {
     ));
   }
 
-  expandirTodas() {
-    this.tabelas.update(ts => ts.map(t => ({ ...t, expandida: true })));
-  }
+  expandirTodas() { this.tabelas.update(ts => ts.map(t => ({ ...t, expandida: true }))); }
+  recolherTodas() { this.tabelas.update(ts => ts.map(t => ({ ...t, expandida: false }))); }
 
-  recolherTodas() {
-    this.tabelas.update(ts => ts.map(t => ({ ...t, expandida: false })));
-  }
-
+  // ── Salvar campo ──────────────────────────────────────────────
   salvarCampo(tabela: string, coluna: Coluna) {
     const key = `${tabela}.${coluna.nome}`;
     this.salvando.set(key);
-    this.http.post<any>(`${this.apiUrl}/revisar`, {
+    this.http.post<any>(`${this.apiUrl}/revisar-campo`, {
       tabela,
       coluna: coluna.nome,
       revisado: coluna.revisado,
       observacao: coluna.observacao,
       unico: coluna.unicoCustom,
       obrigatorio: coluna.obrigatorioCustom,
-      replica: coluna.replica
+      instrucaoIA: coluna.instrucaoIA
+    }).subscribe({
+      next: () => setTimeout(() => this.salvando.set(null), 500),
+      error: () => this.salvando.set(null)
+    });
+  }
+
+  // ── Salvar tabela ─────────────────────────────────────────────
+  salvarTabela(tabela: Tabela) {
+    this.salvando.set(tabela.nome);
+    this.http.post<any>(`${this.apiUrl}/revisar-tabela`, {
+      tabela: tabela.nome,
+      escopo: tabela.escopo,
+      replica: tabela.replica,
+      instrucaoIA: tabela.instrucaoIA
     }).subscribe({
       next: () => setTimeout(() => this.salvando.set(null), 500),
       error: () => this.salvando.set(null)
@@ -105,7 +118,6 @@ export class DicionarioDadosComponent implements OnInit {
   toggleRevisado(tabela: string, coluna: Coluna) {
     coluna.revisado = !coluna.revisado;
     this.salvarCampo(tabela, coluna);
-    // Trigger signal update
     this.tabelas.update(ts => [...ts]);
   }
 
@@ -119,9 +131,14 @@ export class DicionarioDadosComponent implements OnInit {
     this.salvarCampo(tabela, coluna);
   }
 
-  toggleReplica(tabela: string, coluna: Coluna) {
-    coluna.replica = coluna.replica ? false : true;
-    this.salvarCampo(tabela, coluna);
+  onEscopoChange(tabela: Tabela, valor: string) {
+    tabela.escopo = valor;
+    this.salvarTabela(tabela);
+  }
+
+  toggleReplica(tabela: Tabela) {
+    tabela.replica = !tabela.replica;
+    this.salvarTabela(tabela);
   }
 
   getRevisadosTabela(tabela: Tabela): number {
@@ -133,7 +150,5 @@ export class DicionarioDadosComponent implements OnInit {
     return coluna.tipo;
   }
 
-  sairDaTela() {
-    this.tabService.fecharTabAtiva();
-  }
+  sairDaTela() { this.tabService.fecharTabAtiva(); }
 }

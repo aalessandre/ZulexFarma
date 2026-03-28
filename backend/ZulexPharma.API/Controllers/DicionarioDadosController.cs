@@ -24,14 +24,13 @@ public class DicionarioDadosController : ControllerBase
             if (conn.State != System.Data.ConnectionState.Open)
                 await conn.OpenAsync();
 
-            // 1. Get all columns
             var resultado = new List<TabelaInfo>();
+
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = @"
                     SELECT t.table_name, c.column_name, c.data_type,
-                           c.character_maximum_length,
-                           c.is_nullable, c.column_default, c.ordinal_position
+                           c.character_maximum_length, c.is_nullable, c.column_default, c.ordinal_position
                     FROM information_schema.tables t
                     JOIN information_schema.columns c ON c.table_name = t.table_name AND c.table_schema = t.table_schema
                     WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
@@ -51,7 +50,6 @@ public class DicionarioDadosController : ControllerBase
                         resultado.Add(tabela);
                         tabelaAtual = nomeTabela;
                     }
-
                     tabela!.Colunas.Add(new ColunaInfo
                     {
                         Nome = reader.GetString(1),
@@ -64,7 +62,7 @@ public class DicionarioDadosController : ControllerBase
                 }
             }
 
-            // 2. Get unique/pk constraints
+            // Unique/PK constraints
             var unicos = new HashSet<string>();
             using (var cmd2 = conn.CreateCommand())
             {
@@ -84,7 +82,20 @@ public class DicionarioDadosController : ControllerBase
                 foreach (var c in t.Colunas)
                     c.Unico = unicos.Contains($"{t.Nome}.{c.Nome}");
 
-            // 3. Load saved reviews
+            // Load table definitions
+            var defTabelas = await _db.DicionarioTabelas.ToListAsync();
+            foreach (var t in resultado)
+            {
+                var def = defTabelas.FirstOrDefault(d => d.Tabela == t.Nome);
+                if (def != null)
+                {
+                    t.Escopo = def.Escopo;
+                    t.Replica = def.Replica;
+                    t.InstrucaoIA = def.InstrucaoIA;
+                }
+            }
+
+            // Load field reviews
             var revisoes = await _db.DicionarioRevisoes.ToListAsync();
             foreach (var t in resultado)
                 foreach (var c in t.Colunas)
@@ -96,7 +107,7 @@ public class DicionarioDadosController : ControllerBase
                         c.Observacao = rev.Observacao;
                         c.UnicoCustom = rev.Unico;
                         c.ObrigatorioCustom = rev.Obrigatorio;
-                        c.Replica = rev.Replica;
+                        c.InstrucaoIA = rev.InstrucaoIA;
                     }
                 }
 
@@ -109,8 +120,8 @@ public class DicionarioDadosController : ControllerBase
         }
     }
 
-    [HttpPost("revisar")]
-    public async Task<IActionResult> Revisar([FromBody] RevisaoCampoDto dto)
+    [HttpPost("revisar-campo")]
+    public async Task<IActionResult> RevisarCampo([FromBody] RevisaoCampoDto dto)
     {
         try
         {
@@ -127,7 +138,7 @@ public class DicionarioDadosController : ControllerBase
             existente.Observacao = dto.Observacao;
             existente.Unico = dto.Unico;
             existente.Obrigatorio = dto.Obrigatorio;
-            existente.Replica = dto.Replica;
+            existente.InstrucaoIA = dto.InstrucaoIA;
             existente.RevisadoEm = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
@@ -135,7 +146,69 @@ public class DicionarioDadosController : ControllerBase
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Erro ao salvar revisão");
+            Log.Error(ex, "Erro ao salvar revisão de campo");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpPost("revisar-tabela")]
+    public async Task<IActionResult> RevisarTabela([FromBody] RevisaoTabelaDto dto)
+    {
+        try
+        {
+            var existente = await _db.DicionarioTabelas
+                .FirstOrDefaultAsync(d => d.Tabela == dto.Tabela);
+
+            if (existente == null)
+            {
+                existente = new Domain.Entities.DicionarioTabela { Tabela = dto.Tabela };
+                _db.DicionarioTabelas.Add(existente);
+            }
+
+            existente.Escopo = dto.Escopo;
+            existente.Replica = dto.Replica;
+            existente.InstrucaoIA = dto.InstrucaoIA;
+            existente.AtualizadoEm = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao salvar definição de tabela");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Retorna instruções IA do dicionário para montar o system prompt da Cassi.
+    /// </summary>
+    [HttpGet("instrucoes-ia")]
+    public async Task<IActionResult> ObterInstrucoesIA()
+    {
+        try
+        {
+            var tabelas = await _db.DicionarioTabelas
+                .Where(t => t.InstrucaoIA != null && t.InstrucaoIA != "")
+                .ToListAsync();
+
+            var campos = await _db.DicionarioRevisoes
+                .Where(r => r.InstrucaoIA != null && r.InstrucaoIA != "")
+                .ToListAsync();
+
+            var instrucoes = new List<string>();
+
+            foreach (var t in tabelas)
+                instrucoes.Add($"Tabela {t.Tabela} ({t.Escopo}): {t.InstrucaoIA}");
+
+            foreach (var c in campos)
+                instrucoes.Add($"Campo {c.Tabela}.{c.Coluna}: {c.InstrucaoIA}");
+
+            return Ok(new { success = true, data = instrucoes });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao obter instruções IA");
             return StatusCode(500, new { success = false, message = ex.Message });
         }
     }
@@ -144,6 +217,9 @@ public class DicionarioDadosController : ControllerBase
 public class TabelaInfo
 {
     public string Nome { get; set; } = "";
+    public string Escopo { get; set; } = "global";
+    public bool Replica { get; set; } = true;
+    public string? InstrucaoIA { get; set; }
     public List<ColunaInfo> Colunas { get; set; } = new();
 }
 
@@ -160,7 +236,8 @@ public class ColunaInfo
     public string? Observacao { get; set; }
     public bool? UnicoCustom { get; set; }
     public bool? ObrigatorioCustom { get; set; }
-    public bool? Replica { get; set; }
+    public string? InstrucaoIA { get; set; }
 }
 
-public record RevisaoCampoDto(string Tabela, string Coluna, bool Revisado, string? Observacao, bool? Unico, bool? Obrigatorio, bool? Replica);
+public record RevisaoCampoDto(string Tabela, string Coluna, bool Revisado, string? Observacao, bool? Unico, bool? Obrigatorio, string? InstrucaoIA);
+public record RevisaoTabelaDto(string Tabela, string Escopo, bool Replica, string? InstrucaoIA);

@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<UsuarioFilialGrupo> UsuarioFilialGrupos => Set<UsuarioFilialGrupo>();
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<SyncControle> SyncControles => Set<SyncControle>();
+    public DbSet<DicionarioTabela> DicionarioTabelas => Set<DicionarioTabela>();
     public DbSet<DicionarioRevisao> DicionarioRevisoes => Set<DicionarioRevisao>();
     public DbSet<Fabricante> Fabricantes => Set<Fabricante>();
     public DbSet<Substancia> Substancias => Set<Substancia>();
@@ -262,6 +263,17 @@ public class AppDbContext : DbContext
             e.HasIndex(x => new { x.FilialId, x.Tabela }).IsUnique();
         });
 
+        // ── DicionarioTabela ─────────────────────────────────────────
+        modelBuilder.Entity<DicionarioTabela>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Escopo).HasMaxLength(20).HasDefaultValue("global");
+            e.Property(x => x.InstrucaoIA).HasMaxLength(1000);
+            e.HasIndex(x => x.Tabela).IsUnique();
+        });
+
         // ── DicionarioRevisao ────────────────────────────────────────
         modelBuilder.Entity<DicionarioRevisao>(e =>
         {
@@ -270,6 +282,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
             e.Property(x => x.Coluna).HasMaxLength(100).IsRequired();
             e.Property(x => x.Observacao).HasMaxLength(500);
+            e.Property(x => x.InstrucaoIA).HasMaxLength(1000);
             e.HasIndex(x => new { x.Tabela, x.Coluna }).IsUnique();
         });
 

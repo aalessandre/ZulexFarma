@@ -1,8 +1,20 @@
 namespace ZulexPharma.Domain.Entities;
 
 /// <summary>
-/// Armazena revisões e definições customizadas dos campos do banco.
-/// Usado pela tela Dicionário de Dados para marcar campos como revisados.
+/// Definições por TABELA: escopo (global/filial), replica, instrução IA.
+/// </summary>
+public class DicionarioTabela
+{
+    public long Id { get; set; }
+    public string Tabela { get; set; } = "";
+    public string Escopo { get; set; } = "global"; // "global" ou "filial"
+    public bool Replica { get; set; } = true;
+    public string? InstrucaoIA { get; set; }
+    public DateTime? AtualizadoEm { get; set; }
+}
+
+/// <summary>
+/// Definições por CAMPO: revisado, obrigatório, único, instrução IA.
 /// </summary>
 public class DicionarioRevisao
 {
@@ -12,7 +24,7 @@ public class DicionarioRevisao
     public bool Revisado { get; set; }
     public bool? Unico { get; set; }
     public bool? Obrigatorio { get; set; }
-    public bool? Replica { get; set; }
     public string? Observacao { get; set; }
+    public string? InstrucaoIA { get; set; }
     public DateTime? RevisadoEm { get; set; }
 }

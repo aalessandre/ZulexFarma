@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Text;
 using System.Text.Json;
@@ -68,22 +69,38 @@ Exemplos:
 - Pergunta: ""onde vejo o log?""
   {""mensagem"": ""O log de auditoria registra todas as ações dos usuários no sistema. Você pode filtrar por data, tela, ação e usuário."", ""acao"": ""/erp/log-geral""}";
 
-    public AssistenteController(IConfiguration config) => _config = config;
+    private readonly Infrastructure.Data.AppDbContext _db;
+
+    public AssistenteController(IConfiguration config, Infrastructure.Data.AppDbContext db)
+    {
+        _config = config;
+        _db = db;
+    }
 
     [HttpPost("chat")]
     public async Task<IActionResult> Chat([FromBody] ChatRequest request)
     {
         try
         {
-            var apiKey = _config["Cassi:ApiKey"];
+            var apiKey = _config["Cassi:ApiKey"] ?? Environment.GetEnvironmentVariable("CASSI_API_KEY");
             var modelo = _config["Cassi:Modelo"] ?? "gpt-4o-mini";
 
             if (string.IsNullOrEmpty(apiKey))
                 return Ok(new { success = true, data = new { mensagem = "A Cassi ainda não foi configurada. Peça ao administrador para adicionar a API key.", acao = (string?)null } });
 
+            // Build dynamic system prompt with DD instructions
+            var promptCompleto = SYSTEM_PROMPT;
+            try
+            {
+                var instrucoes = await ObterInstrucoesDoDicionario();
+                if (instrucoes.Count > 0)
+                    promptCompleto += "\n\nCONHECIMENTO DETALHADO DO BANCO DE DADOS:\n" + string.Join("\n", instrucoes);
+            }
+            catch { /* fallback: usa prompt base se DD falhar */ }
+
             var messages = new List<object>
             {
-                new { role = "system", content = SYSTEM_PROMPT }
+                new { role = "system", content = promptCompleto }
             };
 
             // Add conversation history (last 10 messages)
@@ -136,6 +153,27 @@ Exemplos:
             Log.Error(ex, "Erro no AssistenteController.Chat");
             return Ok(new { success = true, data = new { mensagem = "Ops, algo deu errado. Tente novamente!", acao = (string?)null } });
         }
+    }
+
+    private async Task<List<string>> ObterInstrucoesDoDicionario()
+    {
+        var instrucoes = new List<string>();
+
+        var tabelas = await _db.DicionarioTabelas
+            .Where(t => t.InstrucaoIA != null && t.InstrucaoIA != "")
+            .ToListAsync();
+
+        var campos = await _db.DicionarioRevisoes
+            .Where(r => r.InstrucaoIA != null && r.InstrucaoIA != "")
+            .ToListAsync();
+
+        foreach (var t in tabelas)
+            instrucoes.Add($"- Tabela {t.Tabela} ({t.Escopo}): {t.InstrucaoIA}");
+
+        foreach (var c in campos)
+            instrucoes.Add($"- Campo {c.Tabela}.{c.Coluna}: {c.InstrucaoIA}");
+
+        return instrucoes;
     }
 }
 
