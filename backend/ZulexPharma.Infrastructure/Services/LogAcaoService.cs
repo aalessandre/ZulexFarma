@@ -37,7 +37,16 @@ public class LogAcaoService : ILogAcaoService
         };
 
         _db.LogsAcao.Add(log);
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            // Log de auditoria não pode impedir a operação principal
+            _db.LogsAcao.Remove(log);
+            Serilog.Log.Warning(ex, "Falha ao registrar log de auditoria (UsuarioId={UserId})", log.UsuarioId);
+        }
     }
 
     public async Task<List<LogAcaoListDto>> ListarPorRegistroAsync(string entidade, long registroId,
