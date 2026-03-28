@@ -194,7 +194,7 @@ export class ErpShellComponent implements OnDestroy {
 
   carregarStatusSync() {
     this.http.get<any>(`${environment.apiUrl}/sync/servico`).subscribe({
-      next: (data) => this.syncStatus.set(data),
+      next: (r) => this.syncStatus.set(r?.data ?? null),
       error: () => this.syncStatus.set(null)
     });
   }
