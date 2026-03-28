@@ -1,0 +1,336 @@
+{
+  "exportadoEm": "2026-03-28T10:47:45.5395033Z",
+  "tabelas": [
+    {
+      "tabela": "Colaboradores",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Funcionarios da farmacia. Cargo, admissao, salario. Aba Acesso configura login/senha."
+    },
+    {
+      "tabela": "Configuracoes",
+      "escopo": "filial",
+      "replica": false,
+      "instrucaoIA": "Configuracoes do sistema por filial. Chave-valor. Sessao, inatividade, nome."
+    },
+    {
+      "tabela": "DicionarioRevisoes",
+      "escopo": "filial",
+      "replica": false,
+      "instrucaoIA": "Revisoes do dicionario de dados por campo."
+    },
+    {
+      "tabela": "DicionarioTabelas",
+      "escopo": "filial",
+      "replica": false,
+      "instrucaoIA": "Definicoes do dicionario de dados por tabela."
+    },
+    {
+      "tabela": "Fabricantes",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Fabricantes de medicamentos e produtos farmaceuticos. Cadastro simples com nome."
+    },
+    {
+      "tabela": "Filiais",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Filiais sao as lojas/farmacias da rede. Cada filial tem CNPJ, endereco e dados proprios."
+    },
+    {
+      "tabela": "Fornecedores",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Fornecedores de produtos. PF ou PJ. CNPJ com busca automatica na Receita Federal."
+    },
+    {
+      "tabela": "GruposPrincipais",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Primeiro nivel de classificacao de produtos. Ex: Medicamentos, Perfumaria."
+    },
+    {
+      "tabela": "GruposProdutos",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Segundo nivel de classificacao. Ex: Analgesicos, Antibioticos."
+    },
+    {
+      "tabela": "LogsAcao",
+      "escopo": "filial",
+      "replica": false,
+      "instrucaoIA": "Log de auditoria. Registra acoes dos usuarios com valores antes/depois."
+    },
+    {
+      "tabela": "LogsErro",
+      "escopo": "filial",
+      "replica": false,
+      "instrucaoIA": "Log de erros do sistema. Exceptions com stacktrace."
+    },
+    {
+      "tabela": "Pessoas",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Tabela base de pessoas fisicas/juridicas. Compartilhada entre Colaboradores e Fornecedores."
+    },
+    {
+      "tabela": "PessoasContato",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Contatos de uma pessoa (telefone, celular, email, WhatsApp)."
+    },
+    {
+      "tabela": "PessoasEndereco",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Enderecos de uma pessoa. CEP, rua, cidade, UF."
+    },
+    {
+      "tabela": "Secoes",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Quarto nivel de classificacao de produtos."
+    },
+    {
+      "tabela": "SubGrupos",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Terceiro nivel de classificacao de produtos."
+    },
+    {
+      "tabela": "Substancias",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Substancias ativas. Codigo DCB (ANVISA), CAS (internacional), controle SNGPC."
+    },
+    {
+      "tabela": "SyncControles",
+      "escopo": "filial",
+      "replica": false,
+      "instrucaoIA": "Controle interno do sincronismo. Versoes enviadas/recebidas por tabela."
+    },
+    {
+      "tabela": "UsuarioFilialGrupos",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Associacao usuario x filial x grupo. Permite grupos diferentes por filial."
+    },
+    {
+      "tabela": "Usuarios",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Usuarios do sistema (login/senha). Filial padrao, grupo de permissoes e sessao."
+    },
+    {
+      "tabela": "UsuariosGrupos",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Grupos de usuarios para controle de permissoes (Administrador, Gerente, Caixa)."
+    },
+    {
+      "tabela": "UsuariosGruposPermissao",
+      "escopo": "global",
+      "replica": true,
+      "instrucaoIA": "Permissoes por tela para cada grupo. Consultar, incluir, alterar, excluir."
+    }
+  ],
+  "campos": [
+    {
+      "tabela": "Colaboradores",
+      "coluna": "Ativo",
+      "revisado": true
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "AtualizadoEm",
+      "revisado": true
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "Cargo",
+      "revisado": true,
+      "instrucaoIA": "Funcao/cargo do funcionario na farmacia. Ex: Farmaceutico, Balconista."
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "CriadoEm",
+      "revisado": true
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "DataAdmissao",
+      "revisado": true,
+      "instrucaoIA": "Data de admissao do funcionario."
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "FilialOrigemId",
+      "revisado": true,
+      "obrigatorio": true
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "Id",
+      "revisado": true,
+      "observacao": ""
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "Observacao",
+      "revisado": true
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "PessoaId",
+      "revisado": true
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "Salario",
+      "revisado": true,
+      "instrucaoIA": "Salario do funcionario. Campo monetario com mascara."
+    },
+    {
+      "tabela": "Colaboradores",
+      "coluna": "VersaoSync",
+      "revisado": true
+    },
+    {
+      "tabela": "Configuracoes",
+      "coluna": "Id",
+      "revisado": true
+    },
+    {
+      "tabela": "Fabricantes",
+      "coluna": "Nome",
+      "revisado": false,
+      "instrucaoIA": "Nome do fabricante. Ex: EMS, Medley, Eurofarma."
+    },
+    {
+      "tabela": "Filiais",
+      "coluna": "Cep",
+      "revisado": false,
+      "instrucaoIA": "CEP do endereco. Ao digitar, preenche rua, bairro, cidade e UF automaticamente."
+    },
+    {
+      "tabela": "Filiais",
+      "coluna": "Cnpj",
+      "revisado": false,
+      "instrucaoIA": "CNPJ da filial. Validado com digitos verificadores. Unico por filial."
+    },
+    {
+      "tabela": "Filiais",
+      "coluna": "InscricaoEstadual",
+      "revisado": false,
+      "instrucaoIA": "Inscricao estadual para fins fiscais. Opcional."
+    },
+    {
+      "tabela": "Filiais",
+      "coluna": "NomeFantasia",
+      "revisado": false,
+      "instrucaoIA": "Nome comercial da farmacia como o cliente conhece."
+    },
+    {
+      "tabela": "Filiais",
+      "coluna": "NomeFilial",
+      "revisado": false,
+      "instrucaoIA": "Apelido curto da filial. Ex: FILIAL SP, FILIAL RJ."
+    },
+    {
+      "tabela": "Filiais",
+      "coluna": "RazaoSocial",
+      "revisado": false,
+      "instrucaoIA": "Nome juridico oficial da empresa."
+    },
+    {
+      "tabela": "Fornecedores",
+      "coluna": "PessoaId",
+      "revisado": false,
+      "instrucaoIA": "Vinculo com a tabela Pessoas. O fornecedor herda nome, CPF/CNPJ, contatos e enderecos."
+    },
+    {
+      "tabela": "Pessoas",
+      "coluna": "Cnpj",
+      "revisado": false,
+      "instrucaoIA": "CNPJ da pessoa juridica. Validado. Busca automatica na ReceitaWS/BrasilAPI."
+    },
+    {
+      "tabela": "Pessoas",
+      "coluna": "Cpf",
+      "revisado": false,
+      "instrucaoIA": "CPF da pessoa fisica. Validado com digitos verificadores. Unico."
+    },
+    {
+      "tabela": "Pessoas",
+      "coluna": "Nome",
+      "revisado": false,
+      "instrucaoIA": "Nome completo da pessoa (PF) ou razao social (PJ)."
+    },
+    {
+      "tabela": "Pessoas",
+      "coluna": "Tipo",
+      "revisado": false,
+      "instrucaoIA": "Tipo da pessoa: PF (pessoa fisica) ou PJ (pessoa juridica). Muda os campos visiveis."
+    },
+    {
+      "tabela": "Substancias",
+      "coluna": "Cas",
+      "revisado": false,
+      "instrucaoIA": "Numero CAS. Registro quimico internacional unico para cada substancia."
+    },
+    {
+      "tabela": "Substancias",
+      "coluna": "ClasseTerapeutica",
+      "revisado": false,
+      "instrucaoIA": "Classificacao terapeutica da substancia. Ex: Analgesico, Antibiotico."
+    },
+    {
+      "tabela": "Substancias",
+      "coluna": "ControleEspecialSngpc",
+      "revisado": false,
+      "instrucaoIA": "Se marcado, a substancia requer controle especial (SNGPC). Medicamentos controlados."
+    },
+    {
+      "tabela": "Substancias",
+      "coluna": "Dcb",
+      "revisado": false,
+      "instrucaoIA": "Denominacao Comum Brasileira. Codigo oficial da ANVISA para substancias ativas."
+    },
+    {
+      "tabela": "Usuarios",
+      "coluna": "FilialId",
+      "revisado": false,
+      "instrucaoIA": "Filial padrao do usuario. Usada no login automatico."
+    },
+    {
+      "tabela": "Usuarios",
+      "coluna": "InatividadeMinutos",
+      "revisado": false,
+      "instrucaoIA": "Tempo de inatividade em minutos antes de deslogar. 0 = herda do sistema."
+    },
+    {
+      "tabela": "Usuarios",
+      "coluna": "IsAdministrador",
+      "revisado": false,
+      "instrucaoIA": "Se marcado, o usuario tem acesso total sem restricao de permissoes."
+    },
+    {
+      "tabela": "Usuarios",
+      "coluna": "Login",
+      "revisado": false,
+      "instrucaoIA": "Nome de usuario para acesso ao sistema. Minimo 6 caracteres. Unico."
+    },
+    {
+      "tabela": "Usuarios",
+      "coluna": "SenhaHash",
+      "revisado": false,
+      "instrucaoIA": "Senha criptografada com BCrypt. Nunca armazena texto puro."
+    },
+    {
+      "tabela": "Usuarios",
+      "coluna": "SessaoMaximaMinutos",
+      "revisado": false,
+      "instrucaoIA": "Tempo maximo de sessao em minutos. 0 = herda das configuracoes do sistema."
+    }
+  ]
+}
