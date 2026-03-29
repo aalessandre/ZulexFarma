@@ -455,11 +455,10 @@
                   </div>
                   <div class="field field-full">
                     <label>FILIAL PADRÃO *</label>
-                    <select [value]="colaboradorForm().acesso?.filialPadraoId || 0"
-                            (change)="updateAcesso('filialPadraoId', +$any($event.target).value)">
-                      <option [value]="0" disabled>Selecione...</option>
+                    <select (change)="updateAcesso('filialPadraoId', +$any($event.target).value)">
+                      <option value="0" disabled [selected]="!colaboradorForm().acesso?.filialPadraoId">Selecione...</option>
                       @for (f of filiais(); track f.id) {
-                        <option [value]="f.id">{{ f.nomeFantasia }}</option>
+                        <option [value]="f.id" [selected]="f.id === colaboradorForm().acesso?.filialPadraoId">{{ f.nomeFantasia }}</option>
                       }
                     </select>
                   </div>
