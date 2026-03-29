@@ -7,13 +7,6 @@ using ZulexPharma.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ─── Profile de sync (pc1/pc2) - carrega appsettings.pc1.json ou pc2.json ─
-var syncProfile = Environment.GetEnvironmentVariable("SYNC_PROFILE");
-if (!string.IsNullOrEmpty(syncProfile))
-{
-    builder.Configuration.AddJsonFile($"appsettings.{syncProfile}.json", optional: true, reloadOnChange: true);
-}
-
 // ─── Serilog ───────────────────────────────────────────────────────────────
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
@@ -114,8 +107,6 @@ builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.Classif
     sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
     sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "Secao"));
 
-builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.SyncService>();
-builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
 
 

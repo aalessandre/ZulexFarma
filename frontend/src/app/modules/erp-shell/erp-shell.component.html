@@ -79,9 +79,6 @@
       @if (usuario()) {
         <span class="topbar-filial">{{ usuario()!.nomeFilial }}</span>
       }
-      <div class="sync-indicator" [class]="syncIndicador()" [title]="syncTooltip()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 2v6h-6M3 12a9 9 0 0115.3-6.4L21 8M3 22v-6h6M21 12a9 9 0 01-15.3 6.4L3 16"/></svg>
-      </div>
       <app-cassi></app-cassi>
       <button class="topbar-icon" title="Configuracoes" (click)="abrirPainel()">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">

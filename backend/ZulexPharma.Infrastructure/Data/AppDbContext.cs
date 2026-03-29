@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using ZulexPharma.Domain.Entities;
 
 namespace ZulexPharma.Infrastructure.Data;
@@ -8,12 +7,10 @@ namespace ZulexPharma.Infrastructure.Data;
 public class AppDbContext : DbContext
 {
     private readonly IHttpContextAccessor? _http;
-    private readonly long _filialLocalId;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? http = null, IConfiguration? config = null) : base(options)
+    public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? http = null) : base(options)
     {
         _http = http;
-        _filialLocalId = long.TryParse(config?["Sync:FilialLocalId"], out var f) ? f : 0;
     }
 
     public DbSet<Filial> Filiais => Set<Filial>();
@@ -29,7 +26,6 @@ public class AppDbContext : DbContext
     public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
     public DbSet<UsuarioFilialGrupo> UsuarioFilialGrupos => Set<UsuarioFilialGrupo>();
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
-    public DbSet<SyncControle> SyncControles => Set<SyncControle>();
     public DbSet<DicionarioTabela> DicionarioTabelas => Set<DicionarioTabela>();
     public DbSet<DicionarioRevisao> DicionarioRevisoes => Set<DicionarioRevisao>();
     public DbSet<Fabricante> Fabricantes => Set<Fabricante>();
@@ -252,17 +248,6 @@ public class AppDbContext : DbContext
             e.Property(x => x.ClasseTerapeutica).HasMaxLength(100);
         });
 
-        // ── SyncControle ─────────────────────────────────────────────
-        modelBuilder.Entity<SyncControle>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Id).UseIdentityByDefaultColumn();
-            e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
-            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
-            e.Property(x => x.MensagemErro).HasMaxLength(500);
-            e.HasIndex(x => new { x.FilialId, x.Tabela }).IsUnique();
-        });
-
         // ── DicionarioTabela ─────────────────────────────────────────
         modelBuilder.Entity<DicionarioTabela>(e =>
         {
@@ -310,47 +295,20 @@ public class AppDbContext : DbContext
         });
     }
 
-    /// <summary>
-    /// Quando true, SaveChangesAsync NÃO incrementa VersaoSync nem altera FilialOrigemId.
-    /// Usado pelo SyncBackgroundService ao aplicar registros recebidos do servidor central.
-    /// </summary>
-    public bool SuspenderAutoSync { get; set; }
-
-    // Garante VersaoSync monotonicamente crescente (mesmo em saves no mesmo milissegundo)
-    private static long _lastVersaoSync = 0;
-    private static readonly object _versaoLock = new();
-
-    private static long ProximaVersaoSync()
-    {
-        lock (_versaoLock)
-        {
-            var agora = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            _lastVersaoSync = Math.Max(agora, _lastVersaoSync + 1);
-            return _lastVersaoSync;
-        }
-    }
-
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        if (!SuspenderAutoSync)
-        {
-            // FilialOrigemId: usa FilialLocalId da config (identifica a farmácia/servidor),
-            // com fallback para o filialId do JWT do usuário
-            var filialId = _filialLocalId > 0 ? _filialLocalId : GetFilialIdFromContext();
+        var filialId = GetFilialIdFromContext();
 
-            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        {
+            if (entry.State == EntityState.Modified)
             {
-                if (entry.State == EntityState.Modified)
-                {
-                    entry.Entity.AtualizadoEm = DateTime.UtcNow;
-                    entry.Entity.VersaoSync = ProximaVersaoSync();
-                }
-                else if (entry.State == EntityState.Added)
-                {
-                    entry.Entity.VersaoSync = ProximaVersaoSync();
-                    if (entry.Entity.FilialOrigemId == null && filialId > 0)
-                        entry.Entity.FilialOrigemId = filialId;
-                }
+                entry.Entity.AtualizadoEm = DateTime.UtcNow;
+            }
+            else if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.FilialOrigemId == null && filialId > 0)
+                    entry.Entity.FilialOrigemId = filialId;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

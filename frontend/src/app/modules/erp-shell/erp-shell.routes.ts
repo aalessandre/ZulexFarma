@@ -44,11 +44,6 @@ export const ErpRoutes: Routes = [
           import('../log-geral/log-geral.component').then(m => m.LogGeralComponent),
       },
       {
-        path: 'sync',
-        loadComponent: () =>
-          import('../sync/sync.component').then(m => m.SyncComponent),
-      },
-      {
         path: 'sistema',
         loadComponent: () =>
           import('../sistema/sistema.component').then(m => m.SistemaComponent),
