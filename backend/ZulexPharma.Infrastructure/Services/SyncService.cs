@@ -195,24 +195,31 @@ public class SyncService
             }
         }
 
-        // Salvar com tratamento individual de FK errors
+        // Salvar com tratamento de FK errors e unique violations
         try
         {
             await _db.SaveChangesAsync();
         }
         catch (DbUpdateException ex)
         {
-            // Se falhou em batch, tentar salvar um por um
-            Log.Warning(ex, "Sync batch save falhou em {Tabela}, tentando registro por registro", tabela);
-
-            // Limpar change tracker e readicionar um por um
             var entries = _db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged).ToList();
             foreach (var entry in entries)
                 entry.State = EntityState.Detached;
 
-            // Nota: registros que falharam não serão reaplicados neste ciclo
-            // O próximo ciclo tentará novamente quando as FKs existirem
-            erros += entries.Count;
+            // Unique violation (23505) = registros duplicados, tratar como conflito
+            var isUniqueViolation = ex.InnerException?.Message?.Contains("23505") == true
+                                 || ex.InnerException?.Message?.Contains("unicidade") == true;
+
+            if (isUniqueViolation)
+            {
+                conflitos += entries.Count;
+                Log.Debug("Sync: {Count} registros duplicados ignorados em {Tabela}", entries.Count, tabela);
+            }
+            else
+            {
+                erros += entries.Count;
+                Log.Warning("Sync batch save falhou em {Tabela}: {Msg}", tabela, ex.InnerException?.Message ?? ex.Message);
+            }
             aplicados = 0;
         }
 
