@@ -11,24 +11,33 @@ public class SyncService
     private readonly AppDbContext _db;
 
     // Map of sync-able table names to their DbSet accessors
+    // ORDEM IMPORTA: tabelas pai antes das filhas (respeitar FKs)
+    // 1. Tabelas sem FK externa
+    // 2. Tabelas que outras referenciam
+    // 3. Tabelas dependentes
     private static readonly Dictionary<string, Type> _tabelasSyncaveis = new()
     {
+        // Nível 1: sem dependências
         ["Filiais"] = typeof(Filial),
-        ["Pessoas"] = typeof(Pessoa),
-        ["PessoasContato"] = typeof(PessoaContato),
-        ["PessoasEndereco"] = typeof(PessoaEndereco),
-        ["Colaboradores"] = typeof(Colaborador),
-        ["Fornecedores"] = typeof(Fornecedor),
-        ["Usuarios"] = typeof(Usuario),
-        ["UsuariosGrupos"] = typeof(GrupoUsuario),
-        ["UsuariosGruposPermissao"] = typeof(GrupoPermissao),
-        ["UsuarioFilialGrupos"] = typeof(UsuarioFilialGrupo),
         ["Fabricantes"] = typeof(Fabricante),
+        ["Substancias"] = typeof(Substancia),
         ["GruposPrincipais"] = typeof(GrupoPrincipal),
         ["GruposProdutos"] = typeof(GrupoProduto),
         ["SubGrupos"] = typeof(SubGrupo),
         ["Secoes"] = typeof(Secao),
-        ["Substancias"] = typeof(Substancia),
+        ["UsuariosGrupos"] = typeof(GrupoUsuario),
+        // Nível 2: dependem de Filiais e/ou UsuariosGrupos
+        ["UsuariosGruposPermissao"] = typeof(GrupoPermissao),
+        ["Pessoas"] = typeof(Pessoa),
+        // Nível 3: dependem de Pessoas
+        ["PessoasContato"] = typeof(PessoaContato),
+        ["PessoasEndereco"] = typeof(PessoaEndereco),
+        ["Colaboradores"] = typeof(Colaborador),
+        ["Fornecedores"] = typeof(Fornecedor),
+        // Nível 4: dependem de Colaboradores + Filiais + UsuariosGrupos
+        ["Usuarios"] = typeof(Usuario),
+        // Nível 5: dependem de Usuarios + Filiais + UsuariosGrupos
+        ["UsuarioFilialGrupos"] = typeof(UsuarioFilialGrupo),
     };
 
     public SyncService(AppDbContext db) => _db = db;
