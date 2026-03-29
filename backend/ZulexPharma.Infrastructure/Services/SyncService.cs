@@ -147,11 +147,20 @@ public class SyncService
 
                 if (existente == null)
                 {
+                    // For UsuarioFilialGrupos: check composite unique index before insert
+                    if (tabela == "UsuarioFilialGrupos" && entidade is UsuarioFilialGrupo ufg)
+                    {
+                        var jaExiste = await _db.Set<UsuarioFilialGrupo>()
+                            .AnyAsync(x => x.UsuarioId == ufg.UsuarioId
+                                        && x.FilialId == ufg.FilialId
+                                        && x.GrupoUsuarioId == ufg.GrupoUsuarioId);
+                        if (jaExiste) { conflitos++; continue; }
+                    }
+
                     // Check unique fields before inserting
                     if (await TemDuplicataUnica(tabela, tipo, entidade))
                     {
                         conflitos++;
-                        Log.Warning("Sync: registro duplicado por campo unico na tabela {Tabela}, Id={Id}", tabela, entidade.Id);
                         continue;
                     }
                     // New record - insert
@@ -164,6 +173,17 @@ public class SyncService
                     // Same Id but DIFFERENT filial — these are different records!
                     // Insert as new record with auto-generated Id
                     entidade.Id = 0; // Reset Id so EF generates a new one
+
+                    // For UsuarioFilialGrupos: check composite unique index
+                    if (tabela == "UsuarioFilialGrupos" && entidade is UsuarioFilialGrupo ufg2)
+                    {
+                        var jaExiste2 = await _db.Set<UsuarioFilialGrupo>()
+                            .AnyAsync(x => x.UsuarioId == ufg2.UsuarioId
+                                        && x.FilialId == ufg2.FilialId
+                                        && x.GrupoUsuarioId == ufg2.GrupoUsuarioId);
+                        if (jaExiste2) { conflitos++; continue; }
+                    }
+
                     if (await TemDuplicataUnica(tabela, tipo, entidade))
                     {
                         conflitos++;
