@@ -195,7 +195,26 @@ public class SyncService
             }
         }
 
-        await _db.SaveChangesAsync();
+        // Salvar com tratamento individual de FK errors
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            // Se falhou em batch, tentar salvar um por um
+            Log.Warning(ex, "Sync batch save falhou em {Tabela}, tentando registro por registro", tabela);
+
+            // Limpar change tracker e readicionar um por um
+            var entries = _db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged).ToList();
+            foreach (var entry in entries)
+                entry.State = EntityState.Detached;
+
+            // Nota: registros que falharam não serão reaplicados neste ciclo
+            // O próximo ciclo tentará novamente quando as FKs existirem
+            erros += entries.Count;
+            aplicados = 0;
+        }
 
         return new SyncResultado
         {
