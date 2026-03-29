@@ -348,6 +348,7 @@ public class SyncPacote
     public long VersaoDesde { get; set; }
     public long VersaoAte { get; set; }
     public int TotalRegistros { get; set; }
+    public bool TemMaisDados { get; set; }
     public List<string> Registros { get; set; } = new();
 }
 

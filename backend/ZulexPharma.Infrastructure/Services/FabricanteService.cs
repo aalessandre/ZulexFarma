@@ -45,6 +45,8 @@ public class FabricanteService : IFabricanteService
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(dto.Nome))
+                throw new ArgumentException("Nome é obrigatório.");
             var fab = await _db.Fabricantes.FindAsync(id) ?? throw new KeyNotFoundException($"Fabricante {id} não encontrado.");
             var anterior = ParaDict(fab);
             fab.Nome = dto.Nome.Trim().ToUpper();

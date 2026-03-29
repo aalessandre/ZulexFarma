@@ -24,6 +24,7 @@ public class SyncBackgroundService : BackgroundService
     private readonly bool _habilitado;
     private readonly long _filialLocalId;
     private readonly string _urlCentral;
+    private readonly HttpClient _httpClient;
 
     private string? _tokenCache;
     private DateTime _tokenExpiracao = DateTime.MinValue;
@@ -50,6 +51,13 @@ public class SyncBackgroundService : BackgroundService
         _habilitado = config["Sync:Habilitado"]?.ToLower() == "true";
         _filialLocalId = long.TryParse(config["Sync:FilialLocalId"], out var f) ? f : 0;
         _urlCentral = config["Sync:UrlCentral"]?.TrimEnd('/') ?? "";
+
+        var handler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        };
+        _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -120,16 +128,14 @@ public class SyncBackgroundService : BackgroundService
     /// </summary>
     private async Task ExecutarCicloSync(CancellationToken ct)
     {
-        using var httpClient = CriarHttpClient();
-
         // Authenticate with central server
-        var token = await ObterToken(httpClient, ct);
+        var token = await ObterToken(_httpClient, ct);
         if (string.IsNullOrEmpty(token))
         {
             Log.Warning("Não foi possível autenticar no servidor central. Ciclo de sync abortado.");
             return;
         }
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var tabelas = SyncService.TabelasSyncaveis;
         var totalEnviados = 0;
@@ -142,11 +148,11 @@ public class SyncBackgroundService : BackgroundService
             try
             {
                 // PUSH: send local changes to central
-                var enviados = await EnviarAlteracoes(httpClient, tabela, ct);
+                var enviados = await EnviarAlteracoes(_httpClient, tabela, ct);
                 totalEnviados += enviados;
 
                 // PULL: receive remote changes from central
-                var recebidos = await ReceberAlteracoes(httpClient, tabela, ct);
+                var recebidos = await ReceberAlteracoes(_httpClient, tabela, ct);
                 totalRecebidos += recebidos;
             }
             catch (Exception ex)
@@ -350,20 +356,6 @@ public class SyncBackgroundService : BackgroundService
         return Convert.ToHexString(hash)[..8].ToLower();
     }
 
-    private HttpClient CriarHttpClient()
-    {
-        var handler = new HttpClientHandler
-        {
-            // Em desenvolvimento, aceitar certificados self-signed se necessário
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        };
-        var client = new HttpClient(handler)
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
-        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        return client;
-    }
 }
 
 // ─── Response DTOs for central server API calls ────────────────────────────
