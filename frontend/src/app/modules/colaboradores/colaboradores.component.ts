@@ -440,6 +440,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
           isAdministrador: f.acesso.isAdministrador,
           sessaoMaximaMinutos: f.acesso.sessaoMaximaMinutos || 0,
           inatividadeMinutos: f.acesso.inatividadeMinutos || 0,
+          filialPadraoId: f.acesso.filialPadraoId || 0,
           filialGrupos: (f.acesso.filialGrupos || []).map(fg => ({ filialId: fg.filialId, grupoUsuarioId: fg.grupoUsuarioId })) }
       : null;
 
