@@ -119,7 +119,11 @@ public class FornecedorService : IFornecedorService
     {
         try
         {
-            var tipo = dto.Tipo?.Trim().ToUpper() == "F" ? "F" : "J";
+            var tipoUpper = dto.Tipo?.Trim().ToUpper();
+            if (tipoUpper != "F" && tipoUpper != "J")
+                throw new ArgumentException("Tipo deve ser 'F' (Pessoa Física) ou 'J' (Pessoa Jurídica).");
+
+            var tipo = tipoUpper;
 
             if (tipo == "F")
                 ValidarCpf(dto.CpfCnpj);
@@ -205,7 +209,11 @@ public class FornecedorService : IFornecedorService
                 .FirstOrDefaultAsync(f => f.Id == id)
                 ?? throw new KeyNotFoundException($"Fornecedor {id} não encontrado.");
 
-            var tipo = dto.Tipo?.Trim().ToUpper() == "F" ? "F" : "J";
+            var tipoUpper = dto.Tipo?.Trim().ToUpper();
+            if (tipoUpper != "F" && tipoUpper != "J")
+                throw new ArgumentException("Tipo deve ser 'F' (Pessoa Física) ou 'J' (Pessoa Jurídica).");
+
+            var tipo = tipoUpper;
 
             if (tipo == "F")
                 ValidarCpf(dto.CpfCnpj, fornecedor.Pessoa.Id);

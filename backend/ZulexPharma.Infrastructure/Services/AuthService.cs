@@ -104,12 +104,12 @@ public class AuthService : IAuthService
             if (sessaoMaxima == 0)
             {
                 var cfg = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "sessao.maxima.minutos");
-                sessaoMaxima = cfg != null ? int.Parse(cfg.Valor) : 480;
+                sessaoMaxima = cfg != null && int.TryParse(cfg.Valor, out var sm) ? sm : 480;
             }
             if (inatividade == 0)
             {
                 var cfg = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "sessao.inatividade.minutos");
-                inatividade = cfg != null ? int.Parse(cfg.Valor) : 10;
+                inatividade = cfg != null && int.TryParse(cfg.Valor, out var im) ? im : 10;
             }
 
             // Get filiais the user has access to

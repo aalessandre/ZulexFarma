@@ -302,8 +302,6 @@ public class SyncService
 
             if (camposUnicos.Count == 0) return false;
 
-            var dbSet = GetDbSetAsQueryable(tipo);
-
             foreach (var campo in camposUnicos)
             {
                 if (campo == "Id") continue; // PK already handled
@@ -314,15 +312,16 @@ public class SyncService
                 var valor = prop.GetValue(entidade);
                 if (valor == null || (valor is string s && string.IsNullOrWhiteSpace(s))) continue;
 
-                // Check if any local record (with different Id) has the same value
-                var registrosLocais = await dbSet.Where(e => e.Id != entidade.Id).ToListAsync();
-                var duplicata = registrosLocais.Any(e =>
-                {
-                    var v = prop.GetValue(e);
-                    return v != null && v.ToString()?.Equals(valor.ToString(), StringComparison.OrdinalIgnoreCase) == true;
-                });
-
-                if (duplicata) return true;
+                // Efficient database-level duplicate check using raw SQL
+                var valorStr = valor.ToString()!.Replace("'", "''");
+                var sql = $"SELECT EXISTS(SELECT 1 FROM \"{tabela}\" WHERE \"Id\" != {entidade.Id} AND LOWER(CAST(\"{campo}\" AS TEXT)) = LOWER('{valorStr}'))";
+                var conn = _db.Database.GetDbConnection();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                if (conn.State != System.Data.ConnectionState.Open)
+                    await conn.OpenAsync();
+                var result = await cmd.ExecuteScalarAsync();
+                if (result is bool b && b) return true;
             }
         }
         catch (Exception ex)

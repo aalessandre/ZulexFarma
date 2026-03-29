@@ -121,8 +121,12 @@ builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBack
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+    app.MapOpenApi();
+}
 
 // ─── Seed do banco ─────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
@@ -140,10 +144,6 @@ using (var scope = app.Services.CreateScope())
         throw;
     }
 }
-
-// ─── Pipeline ──────────────────────────────────────────────────────────────
-if (app.Environment.IsDevelopment())
-    app.MapOpenApi();
 
 app.UseResponseCompression();
 

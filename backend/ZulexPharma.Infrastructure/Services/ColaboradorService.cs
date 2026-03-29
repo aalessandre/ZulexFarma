@@ -149,6 +149,7 @@ public class ColaboradorService : IColaboradorService
     // ── Criar ────────────────────────────────────────────────────────
     public async Task<ColaboradorListDto> CriarAsync(ColaboradorFormDto dto)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync();
         try
         {
             ValidarCpf(dto.Cpf);
@@ -214,6 +215,8 @@ public class ColaboradorService : IColaboradorService
             if (dto.Acesso != null && !string.IsNullOrWhiteSpace(dto.Acesso.Login))
                 await CriarOuAtualizarUsuario(colaborador, dto.Acesso, pessoa);
 
+            await transaction.CommitAsync();
+
             await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, colaborador.Id,
                 novo: ColaboradorParaDict(colaborador, pessoa));
 
@@ -222,6 +225,7 @@ public class ColaboradorService : IColaboradorService
         }
         catch (Exception ex) when (ex is not ArgumentException)
         {
+            await transaction.RollbackAsync();
             Log.Error(ex, "Erro em ColaboradorService.CriarAsync");
             throw;
         }
@@ -230,6 +234,7 @@ public class ColaboradorService : IColaboradorService
     // ── Atualizar ────────────────────────────────────────────────────
     public async Task AtualizarAsync(long id, ColaboradorFormDto dto)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync();
         try
         {
             var colaborador = await _db.Colaboradores
@@ -272,6 +277,8 @@ public class ColaboradorService : IColaboradorService
             else if (dto.Acesso == null || string.IsNullOrWhiteSpace(dto.Acesso.Login))
                 await RemoverUsuario(colaborador);
 
+            await transaction.CommitAsync();
+
             var novo = ColaboradorParaDict(colaborador, pessoa);
             if (!DictsIguais(anterior, novo))
                 await _log.RegistrarAsync(TELA, "ALTERAÇÃO", ENTIDADE, id,
@@ -279,6 +286,7 @@ public class ColaboradorService : IColaboradorService
         }
         catch (Exception ex) when (ex is not KeyNotFoundException and not ArgumentException)
         {
+            await transaction.RollbackAsync();
             Log.Error(ex, "Erro em ColaboradorService.AtualizarAsync | Id: {Id}", id);
             throw;
         }
