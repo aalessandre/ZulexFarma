@@ -362,7 +362,12 @@ export class FabricantesComponent implements OnInit, OnDestroy {
     if (this.formOriginal) {
       this.fabricanteForm.set(this.clonar(this.formOriginal));
       this.isDirty.set(false);
-      this.atualizarDirtyAba();
+      const id = this.abaAtivaId();
+      if (id) {
+        this.abasEdicao.update(abas =>
+          abas.map(a => a.fabricante.id === id ? { ...a, isDirty: false } : a)
+        );
+      }
     }
   }
 

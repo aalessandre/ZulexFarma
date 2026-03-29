@@ -162,7 +162,8 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
         const novaAba: AbaEdicao = { fornecedor: { ...f }, form: this.clonarDetalhe(detalhe), isDirty: false };
         this.abasEdicao.update(tabs => [...tabs, novaAba]);
         if (ativar) this.ativarAba(f.id!);
-      }
+      },
+      error: () => { /* silently ignore - tab just won't restore */ }
     });
   }
 

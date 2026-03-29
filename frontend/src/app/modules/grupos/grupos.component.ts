@@ -342,7 +342,8 @@ export class GruposComponent implements OnInit, OnDestroy {
         this.abasEdicao.update(abas =>
           abas.map(a => a.grupo.id === grupoId ? { ...a, form: this.clonar(this.grupoForm()) } : a)
         );
-      }
+      },
+      error: () => { /* silently ignore - permissions will remain empty defaults */ }
     });
   }
 

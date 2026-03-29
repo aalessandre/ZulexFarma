@@ -197,7 +197,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     const lista = this.filiais().filter(f => {
       if (status === 'ativos'   && !f.ativo) return false;
       if (status === 'inativos' &&  f.ativo) return false;
-      if (termo.length < 3) return true;
+      if (termo.length < 2) return true;
       const termoDigitos = termo.replace(/\D/g, '');
       return (
         this.normalizar(f.nomeFilial).includes(termo)   ||

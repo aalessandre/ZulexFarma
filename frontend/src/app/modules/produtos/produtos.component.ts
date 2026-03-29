@@ -233,7 +233,7 @@ export class ProdutosComponent implements OnInit {
     const lista = this.registros().filter(r => {
       if (status === 'ativos'   && !r.ativo) return false;
       if (status === 'inativos' &&  r.ativo) return false;
-      if (termo.length < 3) return true;
+      if (termo.length < 2) return true;
       return this.normalizar(r.nome).includes(termo);
     });
 

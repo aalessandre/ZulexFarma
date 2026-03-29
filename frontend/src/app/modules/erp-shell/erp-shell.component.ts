@@ -182,6 +182,9 @@ export class ErpShellComponent implements OnDestroy {
     public settings: ErpSettingsService,
     private http: HttpClient
   ) {
+    if (this.syncIntervalId) {
+      clearInterval(this.syncIntervalId);
+    }
     this.carregarStatusSync();
     this.syncIntervalId = setInterval(() => this.carregarStatusSync(), 30000);
   }

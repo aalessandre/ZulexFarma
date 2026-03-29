@@ -187,7 +187,8 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         const novaAba: AbaEdicao = { colaborador: { ...c }, form: this.clonarDetalhe(detalhe), isDirty: false };
         this.abasEdicao.update(tabs => [...tabs, novaAba]);
         if (ativar) this.ativarAba(c.id!);
-      }
+      },
+      error: () => { /* silently ignore - tab just won't restore */ }
     });
   }
 

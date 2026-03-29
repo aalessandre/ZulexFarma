@@ -378,7 +378,12 @@ export class SubstanciasComponent implements OnInit, OnDestroy {
     if (this.formOriginal) {
       this.substanciaForm.set(this.clonar(this.formOriginal));
       this.isDirty.set(false);
-      this.atualizarDirtyAba();
+      const id = this.abaAtivaId();
+      if (id) {
+        this.abasEdicao.update(abas =>
+          abas.map(a => a.substancia.id === id ? { ...a, isDirty: false } : a)
+        );
+      }
     }
   }
 
