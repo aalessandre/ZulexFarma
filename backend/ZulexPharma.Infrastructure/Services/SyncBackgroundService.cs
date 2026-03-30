@@ -177,37 +177,34 @@ public class SyncBackgroundService : BackgroundService
 
                 if (op.Operacao == "D")
                 {
-                    // DELETE por Id (global, único)
                     var existente = await BuscarPorId(db, tipo, op.RegistroId);
                     if (existente != null)
                     {
                         db.Remove(existente);
                         await db.SaveChangesAsync(ct);
+                        RegistrarRecebido(db, op);
                         aplicados++;
                     }
                 }
                 else if (op.Operacao == "I" && op.DadosJson != null)
                 {
-                    // INSERT: verificar se já existe (idempotência)
                     var existente = await BuscarPorId(db, tipo, op.RegistroId);
                     if (existente == null)
                     {
                         var entidade = (Domain.Entities.BaseEntity?)JsonSerializer.Deserialize(op.DadosJson, tipo, _jsonOpts);
                         if (entidade != null)
                         {
-                            // Manter o Id original (é globalmente único por faixa de filial)
                             LimparNavigations(db, entidade);
                             db.Add(entidade);
-                            // Forçar EF a usar o Id explícito (não gerar novo)
                             db.Entry(entidade).Property("Id").IsTemporary = false;
                             await db.SaveChangesAsync(ct);
+                            RegistrarRecebido(db, op);
                             aplicados++;
                         }
                     }
                 }
                 else if (op.Operacao == "U" && op.DadosJson != null)
                 {
-                    // UPDATE por Id
                     var existente = await BuscarPorId(db, tipo, op.RegistroId);
                     if (existente != null)
                     {
@@ -217,6 +214,7 @@ public class SyncBackgroundService : BackgroundService
                             LimparNavigations(db, entidade);
                             db.Entry(existente).CurrentValues.SetValues(entidade);
                             await db.SaveChangesAsync(ct);
+                            RegistrarRecebido(db, op);
                             aplicados++;
                         }
                     }
@@ -297,6 +295,23 @@ public class SyncBackgroundService : BackgroundService
         "LogsAcao" => 5,
         _ => 10
     };
+
+    /// <summary>
+    /// Registra operação recebida na SyncFila local para aparecer no painel.
+    /// </summary>
+    private static void RegistrarRecebido(AppDbContext db, SyncOperacao op)
+    {
+        db.SyncFila.Add(new Domain.Entities.SyncFila
+        {
+            Tabela = op.Tabela,
+            Operacao = op.Operacao,
+            RegistroId = op.RegistroId,
+            RegistroCodigo = op.RegistroCodigo,
+            FilialOrigemId = op.FilialOrigemId,
+            Enviado = true,
+            EnviadoEm = DateTime.UtcNow
+        });
+    }
 
     /// <summary>
     /// Extrai mensagem legível de erros de sync para exibir no painel.

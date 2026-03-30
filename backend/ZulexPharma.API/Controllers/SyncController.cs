@@ -15,8 +15,13 @@ namespace ZulexPharma.API.Controllers;
 public class SyncController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly int _filialCodigo;
 
-    public SyncController(AppDbContext db) => _db = db;
+    public SyncController(AppDbContext db, IConfiguration config)
+    {
+        _db = db;
+        _filialCodigo = int.TryParse(config["Filial:Codigo"], out var c) ? c : 0;
+    }
 
     /// <summary>
     /// Recebe operações de uma filial e aplica no banco central.
@@ -118,7 +123,8 @@ public class SyncController : ControllerBase
                     pendentesEnvio = SyncBackgroundService.PendentesEnvio,
                     falhasConsecutivas = SyncBackgroundService.FalhasConsecutivas,
                     pendentesLocal = pendentes,
-                    ultimoEnvio
+                    ultimoEnvio,
+                    filialCodigo = _filialCodigo
                 }
             });
         }
@@ -154,7 +160,8 @@ public class SyncController : ControllerBase
             }
 
             if (status == "pendentes") query = query.Where(f => !f.Enviado && f.Erro == null);
-            else if (status == "enviados") query = query.Where(f => f.Enviado && f.Erro == null);
+            else if (status == "enviados") query = query.Where(f => f.Enviado && f.Erro == null && f.FilialOrigemId == _filialCodigo);
+            else if (status == "recebidos") query = query.Where(f => f.Enviado && f.Erro == null && f.FilialOrigemId != _filialCodigo);
             else if (status == "erros") query = query.Where(f => f.Erro != null);
 
             if (!string.IsNullOrWhiteSpace(tabela))

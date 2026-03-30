@@ -40,7 +40,7 @@ export class SyncComponent implements OnInit {
   // Filtros
   dataInicio = signal(this.hoje());
   dataFim = signal(this.hoje());
-  filtroStatus = signal<'todos' | 'pendentes' | 'enviados' | 'erros'>('todos');
+  filtroStatus = signal<'todos' | 'pendentes' | 'enviados' | 'recebidos' | 'erros'>('todos');
   filtroTabela = signal('');
 
   // Paginação
@@ -140,12 +140,14 @@ export class SyncComponent implements OnInit {
 
   getStatusLabel(item: SyncItem): string {
     if (item.erro) return 'Erro';
+    if (item.enviado && item.filialOrigemId !== this.status()?.filialCodigo) return 'Recebido';
     if (item.enviado) return 'Enviado';
     return 'Pendente';
   }
 
   getStatusClass(item: SyncItem): string {
     if (item.erro) return 'status-erro';
+    if (item.enviado && item.filialOrigemId !== this.status()?.filialCodigo) return 'status-recebido';
     if (item.enviado) return 'status-enviado';
     return 'status-pendente';
   }
