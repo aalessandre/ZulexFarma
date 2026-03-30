@@ -286,6 +286,17 @@ public class AppDbContext : DbContext
         ConfigurarClassificacao<SubGrupo>(modelBuilder);
         ConfigurarClassificacao<Secao>(modelBuilder);
 
+        // Index on Codigo for sync lookups
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType) && entityType.ClrType != typeof(BaseEntity))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .HasIndex("Codigo")
+                    .HasFilter("\"Codigo\" IS NOT NULL");
+            }
+        }
+
         // ── SyncFila ────────────────────────────────────────────────
         modelBuilder.Entity<SyncFila>(e =>
         {
@@ -404,15 +415,21 @@ public class AppDbContext : DbContext
 
     private async Task<string> GerarCodigo(string tabela, CancellationToken ct)
     {
-        var seq = await SequenciasLocais.FirstOrDefaultAsync(s => s.Tabela == tabela, ct);
-        if (seq == null)
-        {
-            seq = new SequenciaLocal { Tabela = tabela, Ultimo = 0 };
-            SequenciasLocais.Add(seq);
-        }
-        seq.Ultimo++;
-        await base.SaveChangesAsync(ct);
-        return $"{_filialCodigo}.{seq.Ultimo}";
+        var conn = Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync(ct);
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"
+            INSERT INTO ""SequenciasLocais"" (""Tabela"", ""Ultimo"")
+            VALUES ('{tabela}', 1)
+            ON CONFLICT (""Tabela"")
+            DO UPDATE SET ""Ultimo"" = ""SequenciasLocais"".""Ultimo"" + 1
+            RETURNING ""Ultimo""";
+
+        var result = await cmd.ExecuteScalarAsync(ct);
+        var ultimo = Convert.ToInt64(result);
+        return $"{_filialCodigo}.{ultimo}";
     }
 
     private long GetFilialIdFromContext()

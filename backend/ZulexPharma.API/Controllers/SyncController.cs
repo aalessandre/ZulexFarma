@@ -148,7 +148,7 @@ public class SyncController : ControllerBase
                 query = query.Where(f => f.CriadoEm < df.Date.AddDays(1));
 
             if (status == "pendentes") query = query.Where(f => !f.Enviado && f.Erro == null);
-            else if (status == "enviados") query = query.Where(f => f.Enviado);
+            else if (status == "enviados") query = query.Where(f => f.Enviado && f.Erro == null);
             else if (status == "erros") query = query.Where(f => f.Erro != null);
 
             if (!string.IsNullOrWhiteSpace(tabela))
