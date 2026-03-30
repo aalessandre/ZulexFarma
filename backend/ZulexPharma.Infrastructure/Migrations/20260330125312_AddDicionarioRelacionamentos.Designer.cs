@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ZulexPharma.Infrastructure.Data;
@@ -11,9 +12,11 @@ using ZulexPharma.Infrastructure.Data;
 namespace ZulexPharma.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260330125312_AddDicionarioRelacionamentos")]
+    partial class AddDicionarioRelacionamentos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1403,7 +1406,7 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasOne("ZulexPharma.Domain.Entities.Pessoa", "Pessoa")
                         .WithOne("Colaborador")
                         .HasForeignKey("ZulexPharma.Domain.Entities.Colaborador", "PessoaId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Pessoa");
@@ -1414,7 +1417,7 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasOne("ZulexPharma.Domain.Entities.Pessoa", "Pessoa")
                         .WithOne("Fornecedor")
                         .HasForeignKey("ZulexPharma.Domain.Entities.Fornecedor", "PessoaId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Pessoa");
@@ -1425,7 +1428,7 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasOne("ZulexPharma.Domain.Entities.GrupoUsuario", "GrupoUsuario")
                         .WithMany("Permissoes")
                         .HasForeignKey("GrupoUsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("GrupoUsuario");
@@ -1476,7 +1479,7 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasOne("ZulexPharma.Domain.Entities.Colaborador", "Colaborador")
                         .WithOne("Usuario")
                         .HasForeignKey("ZulexPharma.Domain.Entities.Usuario", "ColaboradorId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("ZulexPharma.Domain.Entities.Filial", "Filial")
                         .WithMany("Usuarios")
@@ -1514,7 +1517,7 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasOne("ZulexPharma.Domain.Entities.Usuario", "Usuario")
                         .WithMany("FilialGrupos")
                         .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Filial");

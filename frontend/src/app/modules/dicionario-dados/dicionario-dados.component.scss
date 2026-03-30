@@ -134,6 +134,56 @@
   &::placeholder { color: #c8c8d8; font-style: italic; }
 }
 
+// ─── Relacionamentos ─────────────────────────────────────────────
+.dd-rel-section {
+  padding: 10px 16px; background: #fdf6ec; border-bottom: 1px solid #f0e6d2;
+}
+
+.dd-rel-titulo {
+  font-size: 11px; font-weight: 700; color: #e67e22; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+  &::before {
+    content: ''; display: block; width: 3px; height: 14px; background: #e67e22;
+    border-radius: 2px;
+  }
+}
+
+.dd-rel-grid {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+
+  th {
+    padding: 6px 10px; text-align: left; font-size: 11px; font-weight: 700;
+    color: #9a7a5a; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid #f0e6d2; white-space: nowrap;
+  }
+
+  td {
+    padding: 6px 10px; border-bottom: 1px solid #f5ead8;
+    vertical-align: middle;
+  }
+
+  tr {
+    transition: background 0.1s;
+    &:hover { background: rgba(230,126,34,0.05); }
+    &.revisado { background: rgba(39,174,96,0.08); }
+    &.revisado:hover { background: rgba(39,174,96,0.12); }
+  }
+}
+
+.rel-alvo {
+  font-family: 'Consolas', monospace; font-size: 13px; color: #8e44ad;
+  font-weight: 600;
+}
+
+.rel-select {
+  padding: 4px 8px; border: 1px solid #e0d5c5; border-radius: 6px;
+  font-size: 12px; background: #fff; cursor: pointer; font-family: inherit;
+  &:focus { border-color: #e67e22; outline: none; }
+  &.cascade { background: #fdebd0; color: #d35400; font-weight: 700; border-color: #e67e22; }
+  &.setNull { background: #ebdef0; color: #7d3c98; font-weight: 700; border-color: #8e44ad; }
+}
+
 // ─── Grid de colunas ─────────────────────────────────────────────
 .dd-tabela-body { border-top: 1px solid #f0f2f5; }
 

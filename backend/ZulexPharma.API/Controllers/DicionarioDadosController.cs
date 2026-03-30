@@ -124,6 +124,52 @@ public class DicionarioDadosController : ControllerBase
                     }
                 }
 
+            // Load FK relationships from information_schema
+            using (var cmdFk = conn.CreateCommand())
+            {
+                cmdFk.CommandText = @"
+                    SELECT
+                        tc.table_name   AS tabela,
+                        kcu.column_name AS coluna_fk,
+                        ccu.table_name  AS tabela_alvo
+                    FROM information_schema.table_constraints tc
+                    JOIN information_schema.key_column_usage kcu
+                        ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+                    JOIN information_schema.constraint_column_usage ccu
+                        ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+                    WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public'
+                    ORDER BY tc.table_name, kcu.column_name";
+
+                using var readerFk = await cmdFk.ExecuteReaderAsync();
+                while (await readerFk.ReadAsync())
+                {
+                    var nomeTabela = readerFk.GetString(0);
+                    var colunaFk = readerFk.GetString(1);
+                    var tabelaAlvo = readerFk.GetString(2);
+
+                    var tab = resultado.FirstOrDefault(t => t.Nome == nomeTabela);
+                    tab?.Relacionamentos.Add(new RelacionamentoInfo
+                    {
+                        ColunaFk = colunaFk,
+                        TabelaAlvo = tabelaAlvo
+                    });
+                }
+            }
+
+            // Load relationship definitions (cascade config)
+            var rels = await _db.DicionarioRelacionamentos.ToListAsync();
+            foreach (var t in resultado)
+                foreach (var r in t.Relacionamentos)
+                {
+                    var def = rels.FirstOrDefault(d => d.Tabela == t.Nome && d.ColunaFk == r.ColunaFk);
+                    if (def != null)
+                    {
+                        r.OnDelete = def.OnDelete;
+                        r.OnUpdate = def.OnUpdate;
+                        r.Revisado = def.Revisado;
+                    }
+                }
+
             return Ok(new { success = true, data = resultado });
         }
         catch (Exception ex)
@@ -161,6 +207,42 @@ public class DicionarioDadosController : ControllerBase
         catch (Exception ex)
         {
             Log.Error(ex, "Erro ao salvar revisão de campo");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpPost("revisar-relacionamento")]
+    public async Task<IActionResult> RevisarRelacionamento([FromBody] RevisaoRelacionamentoDto dto)
+    {
+        try
+        {
+            var existente = await _db.DicionarioRelacionamentos
+                .FirstOrDefaultAsync(r => r.Tabela == dto.Tabela && r.ColunaFk == dto.ColunaFk);
+
+            if (existente == null)
+            {
+                existente = new Domain.Entities.DicionarioRelacionamento
+                {
+                    Tabela = dto.Tabela,
+                    ColunaFk = dto.ColunaFk,
+                    TabelaAlvo = dto.TabelaAlvo
+                };
+                _db.DicionarioRelacionamentos.Add(existente);
+            }
+
+            existente.TabelaAlvo = dto.TabelaAlvo;
+            existente.OnDelete = dto.OnDelete;
+            existente.OnUpdate = dto.OnUpdate;
+            existente.Revisado = dto.Revisado;
+            existente.RevisadoEm = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            await AutoExportarJson();
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao salvar revisão de relacionamento");
             return StatusCode(500, new { success = false, message = ex.Message });
         }
     }
@@ -258,6 +340,7 @@ public class DicionarioDadosController : ControllerBase
             // Limpar existentes
             _db.DicionarioTabelas.RemoveRange(await _db.DicionarioTabelas.ToListAsync());
             _db.DicionarioRevisoes.RemoveRange(await _db.DicionarioRevisoes.ToListAsync());
+            _db.DicionarioRelacionamentos.RemoveRange(await _db.DicionarioRelacionamentos.ToListAsync());
             await _db.SaveChangesAsync();
 
             // Inserir importados
@@ -288,8 +371,22 @@ public class DicionarioDadosController : ControllerBase
                 });
             }
 
+            foreach (var r in dados.Relacionamentos ?? new())
+            {
+                _db.DicionarioRelacionamentos.Add(new Domain.Entities.DicionarioRelacionamento
+                {
+                    Tabela = r.Tabela,
+                    ColunaFk = r.ColunaFk,
+                    TabelaAlvo = r.TabelaAlvo,
+                    OnDelete = r.OnDelete,
+                    OnUpdate = r.OnUpdate,
+                    Revisado = r.Revisado,
+                    RevisadoEm = DateTime.UtcNow
+                });
+            }
+
             await _db.SaveChangesAsync();
-            return Ok(new { success = true, message = $"Importado: {dados.Tabelas.Count} tabelas, {dados.Campos.Count} campos" });
+            return Ok(new { success = true, message = $"Importado: {dados.Tabelas.Count} tabelas, {dados.Campos.Count} campos, {dados.Relacionamentos?.Count ?? 0} relacionamentos" });
         }
         catch (Exception ex)
         {
@@ -302,6 +399,7 @@ public class DicionarioDadosController : ControllerBase
     {
         var tabelas = await _db.DicionarioTabelas.OrderBy(t => t.Tabela).ToListAsync();
         var campos = await _db.DicionarioRevisoes.OrderBy(r => r.Tabela).ThenBy(r => r.Coluna).ToListAsync();
+        var rels = await _db.DicionarioRelacionamentos.OrderBy(r => r.Tabela).ThenBy(r => r.ColunaFk).ToListAsync();
 
         return new DicionarioExportacao
         {
@@ -315,6 +413,11 @@ public class DicionarioDadosController : ControllerBase
                 Tabela = c.Tabela, Coluna = c.Coluna, Revisado = c.Revisado,
                 Unico = c.Unico, Obrigatorio = c.Obrigatorio,
                 Observacao = c.Observacao, InstrucaoIA = c.InstrucaoIA
+            }).ToList(),
+            Relacionamentos = rels.Select(r => new DdRelacionamento
+            {
+                Tabela = r.Tabela, ColunaFk = r.ColunaFk, TabelaAlvo = r.TabelaAlvo,
+                OnDelete = r.OnDelete, OnUpdate = r.OnUpdate, Revisado = r.Revisado
             }).ToList()
         };
     }
@@ -355,6 +458,7 @@ public class DicionarioExportacao
     public DateTime ExportadoEm { get; set; }
     public List<DdTabela> Tabelas { get; set; } = new();
     public List<DdCampo> Campos { get; set; } = new();
+    public List<DdRelacionamento> Relacionamentos { get; set; } = new();
 }
 
 public class DdTabela
@@ -376,6 +480,16 @@ public class DdCampo
     public string? InstrucaoIA { get; set; }
 }
 
+public class DdRelacionamento
+{
+    public string Tabela { get; set; } = "";
+    public string ColunaFk { get; set; } = "";
+    public string TabelaAlvo { get; set; } = "";
+    public string OnDelete { get; set; } = "restrict";
+    public string OnUpdate { get; set; } = "noAction";
+    public bool Revisado { get; set; }
+}
+
 public class TabelaInfo
 {
     public string Nome { get; set; } = "";
@@ -383,6 +497,16 @@ public class TabelaInfo
     public bool Replica { get; set; } = true;
     public string? InstrucaoIA { get; set; }
     public List<ColunaInfo> Colunas { get; set; } = new();
+    public List<RelacionamentoInfo> Relacionamentos { get; set; } = new();
+}
+
+public class RelacionamentoInfo
+{
+    public string ColunaFk { get; set; } = "";
+    public string TabelaAlvo { get; set; } = "";
+    public string OnDelete { get; set; } = "restrict";
+    public string OnUpdate { get; set; } = "noAction";
+    public bool Revisado { get; set; }
 }
 
 public class ColunaInfo
@@ -403,3 +527,4 @@ public class ColunaInfo
 
 public record RevisaoCampoDto(string Tabela, string Coluna, bool Revisado, string? Observacao, bool? Unico, bool? Obrigatorio, string? InstrucaoIA);
 public record RevisaoTabelaDto(string Tabela, string Escopo, bool Replica, string? InstrucaoIA);
+public record RevisaoRelacionamentoDto(string Tabela, string ColunaFk, string TabelaAlvo, string OnDelete, string OnUpdate, bool Revisado);

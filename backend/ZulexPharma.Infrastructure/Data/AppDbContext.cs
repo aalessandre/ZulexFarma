@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
     public DbSet<DicionarioTabela> DicionarioTabelas => Set<DicionarioTabela>();
     public DbSet<DicionarioRevisao> DicionarioRevisoes => Set<DicionarioRevisao>();
+    public DbSet<DicionarioRelacionamento> DicionarioRelacionamentos => Set<DicionarioRelacionamento>();
     public DbSet<Fabricante> Fabricantes => Set<Fabricante>();
     public DbSet<Substancia> Substancias => Set<Substancia>();
     public DbSet<GrupoPrincipal> GruposPrincipais => Set<GrupoPrincipal>();
@@ -89,7 +90,7 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.GrupoUsuario)
              .WithMany(x => x.Permissoes)
              .HasForeignKey(x => x.GrupoUsuarioId)
-             .OnDelete(DeleteBehavior.Cascade);
+             .OnDelete(DeleteBehavior.Restrict);
         });
 
         // ── Usuario ───────────────────────────────────────────────────
@@ -112,7 +113,7 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Colaborador)
              .WithOne(x => x.Usuario)
              .HasForeignKey<Usuario>(x => x.ColaboradorId)
-             .OnDelete(DeleteBehavior.SetNull);
+             .OnDelete(DeleteBehavior.Restrict);
         });
 
         // ── LogErro ───────────────────────────────────────────────────
@@ -166,7 +167,7 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Pessoa)
              .WithOne(x => x.Colaborador)
              .HasForeignKey<Colaborador>(x => x.PessoaId)
-             .OnDelete(DeleteBehavior.Restrict);
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── Fornecedor ──────────────────────────────────────────────
@@ -177,7 +178,7 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Pessoa)
              .WithOne(x => x.Fornecedor)
              .HasForeignKey<Fornecedor>(x => x.PessoaId)
-             .OnDelete(DeleteBehavior.Restrict);
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── UsuarioFilialGrupo ───────────────────────────────────────
@@ -187,7 +188,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.HasIndex(x => new { x.UsuarioId, x.FilialId, x.GrupoUsuarioId }).IsUnique();
             e.HasOne(x => x.Usuario).WithMany(x => x.FilialGrupos)
-             .HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+             .HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Filial).WithMany(x => x.UsuarioFilialGrupos)
              .HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.GrupoUsuario).WithMany(x => x.UsuarioFilialGrupos)
@@ -280,6 +281,19 @@ public class AppDbContext : DbContext
             e.HasIndex(x => new { x.Tabela, x.Coluna }).IsUnique();
         });
 
+        // ── DicionarioRelacionamento ─────────────────────────────────
+        modelBuilder.Entity<DicionarioRelacionamento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
+            e.Property(x => x.ColunaFk).HasMaxLength(100).IsRequired();
+            e.Property(x => x.TabelaAlvo).HasMaxLength(100).IsRequired();
+            e.Property(x => x.OnDelete).HasMaxLength(20).HasDefaultValue("restrict");
+            e.Property(x => x.OnUpdate).HasMaxLength(20).HasDefaultValue("noAction");
+            e.HasIndex(x => new { x.Tabela, x.ColunaFk }).IsUnique();
+        });
+
         // ── Classificações de Produto ────────────────────────────────
         ConfigurarClassificacao<GrupoPrincipal>(modelBuilder);
         ConfigurarClassificacao<GrupoProduto>(modelBuilder);
@@ -340,7 +354,7 @@ public class AppDbContext : DbContext
     // Tabelas que NÃO geram Codigo nem entram na SyncFila
     private static readonly HashSet<string> _tabelasSemSync = new()
     {
-        "Configuracoes", "DicionarioTabelas", "DicionarioRevisoes",
+        "Configuracoes", "DicionarioTabelas", "DicionarioRevisoes", "DicionarioRelacionamentos",
         "SyncFila", "SequenciaLocal"
     };
 

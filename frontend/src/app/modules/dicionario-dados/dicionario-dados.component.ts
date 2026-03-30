@@ -20,12 +20,21 @@ interface Coluna {
   instrucaoIA: string | null;
 }
 
+interface Relacionamento {
+  colunaFk: string;
+  tabelaAlvo: string;
+  onDelete: string;
+  onUpdate: string;
+  revisado: boolean;
+}
+
 interface Tabela {
   nome: string;
   escopo: string;
   replica: boolean;
   instrucaoIA: string | null;
   colunas: Coluna[];
+  relacionamentos: Relacionamento[];
   expandida?: boolean;
 }
 
@@ -99,6 +108,38 @@ export class DicionarioDadosComponent implements OnInit {
       next: () => setTimeout(() => this.salvando.set(null), 500),
       error: () => this.salvando.set(null)
     });
+  }
+
+  // ── Salvar relacionamento ─────────────────────────────────────
+  salvarRelacionamento(tabela: string, rel: Relacionamento) {
+    const key = `rel:${tabela}.${rel.colunaFk}`;
+    this.salvando.set(key);
+    this.http.post<any>(`${this.apiUrl}/revisar-relacionamento`, {
+      tabela,
+      colunaFk: rel.colunaFk,
+      tabelaAlvo: rel.tabelaAlvo,
+      onDelete: rel.onDelete,
+      onUpdate: rel.onUpdate,
+      revisado: rel.revisado
+    }).subscribe({
+      next: () => setTimeout(() => this.salvando.set(null), 500),
+      error: () => this.salvando.set(null)
+    });
+  }
+
+  onDeleteChange(tabela: string, rel: Relacionamento, valor: string) {
+    rel.onDelete = valor;
+    this.salvarRelacionamento(tabela, rel);
+  }
+
+  onUpdateChange(tabela: string, rel: Relacionamento, valor: string) {
+    rel.onUpdate = valor;
+    this.salvarRelacionamento(tabela, rel);
+  }
+
+  toggleRelRevisado(tabela: string, rel: Relacionamento) {
+    rel.revisado = !rel.revisado;
+    this.salvarRelacionamento(tabela, rel);
   }
 
   // ── Salvar tabela ─────────────────────────────────────────────

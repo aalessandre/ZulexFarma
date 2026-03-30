@@ -97,6 +97,65 @@
                 }
               </div>
 
+              <!-- RELACIONAMENTOS (FKs) -->
+              @if (tabela.relacionamentos && tabela.relacionamentos.length > 0) {
+                <div class="dd-rel-section">
+                  <div class="dd-rel-titulo">Relacionamentos (FKs)</div>
+                  <table class="dd-rel-grid">
+                    <thead>
+                      <tr>
+                        <th class="col-revisado">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                        </th>
+                        <th>Coluna FK</th>
+                        <th>Tabela Alvo</th>
+                        <th>On Delete</th>
+                        <th>On Update</th>
+                        <th class="col-status"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (rel of tabela.relacionamentos; track rel.colunaFk) {
+                        <tr [class.revisado]="rel.revisado">
+                          <td class="col-revisado">
+                            <button class="btn-check" [class.checked]="rel.revisado" (click)="toggleRelRevisado(tabela.nome, rel)">
+                              @if (rel.revisado) {
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                              }
+                            </button>
+                          </td>
+                          <td><span class="campo-nome">{{ rel.colunaFk }}</span></td>
+                          <td><span class="rel-alvo">{{ rel.tabelaAlvo }}</span></td>
+                          <td>
+                            <select class="rel-select" [class.cascade]="rel.onDelete === 'cascade'" [class.setNull]="rel.onDelete === 'setNull'"
+                                    [value]="rel.onDelete" (change)="onDeleteChange(tabela.nome, rel, $any($event.target).value)">
+                              <option value="restrict">Restrict</option>
+                              <option value="cascade">Cascade</option>
+                              <option value="setNull">Set Null</option>
+                              <option value="noAction">No Action</option>
+                            </select>
+                          </td>
+                          <td>
+                            <select class="rel-select" [class.cascade]="rel.onUpdate === 'cascade'" [class.setNull]="rel.onUpdate === 'setNull'"
+                                    [value]="rel.onUpdate" (change)="onUpdateChange(tabela.nome, rel, $any($event.target).value)">
+                              <option value="restrict">Restrict</option>
+                              <option value="cascade">Cascade</option>
+                              <option value="setNull">Set Null</option>
+                              <option value="noAction">No Action</option>
+                            </select>
+                          </td>
+                          <td class="col-status">
+                            @if (salvando() === 'rel:' + tabela.nome + '.' + rel.colunaFk) {
+                              <span class="status-salvando">Salvando...</span>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+
               <!-- GRID DE CAMPOS -->
               <table class="dd-grid">
                 <thead>
