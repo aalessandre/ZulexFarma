@@ -336,7 +336,15 @@ public class AppDbContext : DbContext
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         if (AplicandoSync)
+        {
+            // Still update timestamps but don't generate Codigo or register in SyncFila
+            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+            {
+                if (entry.State == EntityState.Modified)
+                    entry.Entity.AtualizadoEm = DateTime.UtcNow;
+            }
             return await base.SaveChangesAsync(cancellationToken);
+        }
 
         var filialId = GetFilialIdFromContext();
         var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade)>();
@@ -352,7 +360,7 @@ public class AppDbContext : DbContext
 
                 // Gerar Codigo visível (FilialCodigo.Sequencial)
                 if (entry.Entity.Codigo == null && !_tabelasSemSync.Contains(tabela))
-                    entry.Entity.Codigo = await GerarCodigo(tabela);
+                    entry.Entity.Codigo = await GerarCodigo(tabela, cancellationToken);
 
                 if (!_tabelasSemSync.Contains(tabela))
                     operacoesPendentes.Add((tabela, "I", entry.Entity));
@@ -394,17 +402,16 @@ public class AppDbContext : DbContext
         return result;
     }
 
-    private async Task<string> GerarCodigo(string tabela)
+    private async Task<string> GerarCodigo(string tabela, CancellationToken ct)
     {
-        var seq = await SequenciasLocais.FirstOrDefaultAsync(s => s.Tabela == tabela);
+        var seq = await SequenciasLocais.FirstOrDefaultAsync(s => s.Tabela == tabela, ct);
         if (seq == null)
         {
             seq = new SequenciaLocal { Tabela = tabela, Ultimo = 0 };
             SequenciasLocais.Add(seq);
-            await base.SaveChangesAsync();
         }
         seq.Ultimo++;
-        await base.SaveChangesAsync();
+        await base.SaveChangesAsync(ct);
         return $"{_filialCodigo}.{seq.Ultimo}";
     }
 

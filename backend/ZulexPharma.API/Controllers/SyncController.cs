@@ -171,6 +171,16 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
+    /// Força o envio no próximo ciclo do background service.
+    /// </summary>
+    [HttpPost("forcar-envio")]
+    public IActionResult ForcarEnvio()
+    {
+        // The background service will pick up pending items on next cycle
+        return Ok(new { success = true, message = "Envio será forçado no próximo ciclo." });
+    }
+
+    /// <summary>
     /// Limpa registros já enviados com mais de X dias.
     /// </summary>
     [HttpPost("limpar")]

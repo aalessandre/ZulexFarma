@@ -158,6 +158,7 @@ public class SyncBackgroundService : BackgroundService
 
         db.AplicandoSync = true;
         var aplicados = 0;
+        var lastSuccessId = ultimoId;
 
         foreach (var op in resultado.Data)
         {
@@ -171,7 +172,12 @@ public class SyncBackgroundService : BackgroundService
                 {
                     // DELETE: buscar por Codigo
                     var existente = await BuscarPorCodigo(db, tipo, op.RegistroCodigo);
-                    if (existente != null) { db.Remove(existente); aplicados++; }
+                    if (existente != null)
+                    {
+                        db.Remove(existente);
+                        aplicados++;
+                        if (op.Id > lastSuccessId) lastSuccessId = op.Id;
+                    }
                 }
                 else if (op.Operacao == "I")
                 {
@@ -185,6 +191,7 @@ public class SyncBackgroundService : BackgroundService
                             entidade.Id = 0; // EF gera novo Id local
                             db.Add(entidade);
                             aplicados++;
+                            if (op.Id > lastSuccessId) lastSuccessId = op.Id;
                         }
                     }
                 }
@@ -200,11 +207,10 @@ public class SyncBackgroundService : BackgroundService
                             entidade.Id = existente.Id; // Manter Id local
                             db.Entry(existente).CurrentValues.SetValues(entidade);
                             aplicados++;
+                            if (op.Id > lastSuccessId) lastSuccessId = op.Id;
                         }
                     }
                 }
-
-                if (op.Id > ultimoId) ultimoId = op.Id;
             }
             catch (Exception ex)
             {
@@ -213,6 +219,7 @@ public class SyncBackgroundService : BackgroundService
             }
         }
 
+        var batchFailed = false;
         try
         {
             await db.SaveChangesAsync(ct);
@@ -220,6 +227,7 @@ public class SyncBackgroundService : BackgroundService
         catch (DbUpdateException ex)
         {
             Log.Warning(ex, "Sync PULL: erro ao salvar batch");
+            batchFailed = true;
             // Detach entries com erro
             foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged))
                 entry.State = EntityState.Detached;
@@ -227,16 +235,20 @@ public class SyncBackgroundService : BackgroundService
 
         db.AplicandoSync = false;
 
-        // Salvar último Id recebido
-        if (ultimoIdConfig == null)
+        // Only update progress if batch succeeded
+        if (!batchFailed)
         {
-            db.Configuracoes.Add(new Domain.Entities.Configuracao { Chave = "sync.ultimo.id.recebido", Valor = ultimoId.ToString() });
+            ultimoId = lastSuccessId;
+            if (ultimoIdConfig == null)
+            {
+                db.Configuracoes.Add(new Domain.Entities.Configuracao { Chave = "sync.ultimo.id.recebido", Valor = ultimoId.ToString() });
+            }
+            else
+            {
+                ultimoIdConfig.Valor = ultimoId.ToString();
+            }
+            await db.SaveChangesAsync(ct);
         }
-        else
-        {
-            ultimoIdConfig.Valor = ultimoId.ToString();
-        }
-        await db.SaveChangesAsync(ct);
 
         if (aplicados > 0) Log.Information("Sync PULL: {Count} operações aplicadas", aplicados);
     }

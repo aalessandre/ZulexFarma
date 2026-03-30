@@ -79,26 +79,26 @@
         @if (isAberta('sync-cmd')) {
           <div class="secao-corpo">
             <div class="cmd-grupo">
-              <div class="cmd-label">Ativar sync no PC1 (Filial 1)</div>
-              <code class="cmd">$env:SYNC_PROFILE = "pc1"</code>
-              <code class="cmd">dotnet run</code>
+              <div class="cmd-label">Configurar filial no appsettings.json</div>
+              <code class="cmd">"Filial": {{ '{' }} "Codigo": 1 {{ '}' }}</code>
+              <code class="cmd">"Sync": {{ '{' }} "Habilitado": true, "UrlCentral": "https://..." {{ '}' }}</code>
             </div>
             <div class="cmd-grupo">
-              <div class="cmd-label">Ativar sync no PC2 (Filial 2)</div>
-              <code class="cmd">$env:SYNC_PROFILE = "pc2"</code>
+              <div class="cmd-label">Rodar o backend</div>
               <code class="cmd">dotnet run</code>
+              <span class="cmd-obs">O sync v2 inicia automaticamente se Sync:Habilitado=true</span>
             </div>
             <div class="cmd-grupo">
-              <div class="cmd-label">Limpar controle de sync (SQL)</div>
-              <code class="cmd">DELETE FROM "SyncControles";</code>
+              <div class="cmd-label">Limpar fila de sync (SQL)</div>
+              <code class="cmd">DELETE FROM "SyncFila";</code>
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">Central (Railway)</div>
-              <span class="cmd-obs">O Railway sobe automaticamente ao dar push na main. Ele NÃO roda o sync — só recebe e envia dados.</span>
+              <span class="cmd-obs">O Railway sobe automaticamente ao dar push na main. Ele armazena as operacoes de todas as filiais na SyncFila.</span>
             </div>
             <div class="cmd-grupo">
-              <div class="cmd-label">Intervalo do sync</div>
-              <span class="cmd-obs">30 segundos (configurável em appsettings.pcX.json)</span>
+              <div class="cmd-label">Configuracoes editaveis</div>
+              <span class="cmd-obs">Intervalo (7-300s), tamanho pacote (50-150), limpeza (5-15 dias). Editaveis na tela Configuracoes do sistema.</span>
             </div>
           </div>
         }
@@ -162,56 +162,32 @@
         @if (isAberta('sync-doc')) {
           <div class="secao-corpo">
             <div class="cmd-grupo">
-              <div class="cmd-label">Arquitetura</div>
-              <span class="cmd-obs">Railway (nuvem) = servidor central passivo. Cada farmacia roda backend + PostgreSQL local. Sync bidirecional: PC local -> Railway -> outros PCs.</span>
+              <div class="cmd-label">Sync v2 - Fila de Operacoes</div>
+              <span class="cmd-obs">Cada INSERT/UPDATE/DELETE gera um registro na tabela SyncFila automaticamente. O sync envia essas operacoes para o Railway, que distribui para as outras filiais. DELETE replica naturalmente.</span>
             </div>
             <div class="cmd-grupo">
-              <div class="cmd-label">VersaoSync</div>
-              <span class="cmd-obs">Cada registro tem um campo VersaoSync (timestamp em milissegundos, monotonicamente crescente). Usado para detectar alteracoes pendentes de envio/recebimento.</span>
+              <div class="cmd-label">Identificadores: Id vs Codigo</div>
+              <span class="cmd-obs">Id = tecnico, PK local, auto-increment. Pode ser diferente entre PCs. Codigo = visivel, formato "FilialCodigo.Sequencial" (ex: "2.115950"). Unico global. O sync busca registros por Codigo, nao por Id.</span>
             </div>
             <div class="cmd-grupo">
-              <div class="cmd-label">FilialOrigemId vs FilialId (IMPORTANTE)</div>
-              <span class="cmd-obs">Sao campos DIFERENTES. FilialOrigemId = TECNICO/SYNC, automatico, identifica de qual PC/servidor o registro foi criado. Existe em todas as tabelas que herdam BaseEntity. Invisivel para o usuario. Usado pelo sync para saber o que enviar/receber. FilialId = NEGOCIO, identifica a qual filial o registro pertence por regra de negocio. Existe apenas em tabelas onde faz sentido (Usuarios, UsuarioFilialGrupos, futuras Estoque/Vendas/Caixa). Tabelas globais (Fabricantes, Substancias) NAO precisam de FilialId.</span>
+              <div class="cmd-label">FilialOrigemId</div>
+              <span class="cmd-obs">Identifica qual farmacia/PC criou o registro. Automatico, invisivel para o usuario. Usado pelo sync para filtrar operacoes (nao puxar as proprias).</span>
             </div>
             <div class="cmd-grupo">
-              <div class="cmd-label">SuspenderAutoSync</div>
-              <span class="cmd-obs">Flag no AppDbContext. Quando true, SaveChangesAsync NAO incrementa VersaoSync. Usado APENAS no PULL local para preservar a versao do central e evitar loop infinito. O Railway NAO usa essa flag.</span>
-            </div>
-            <div class="cmd-grupo">
-              <div class="cmd-label">Ciclo de Sync (a cada 30s)</div>
-              <span class="cmd-obs">1. Autentica no Railway como usuario SISTEMA (senha rotativa diaria). 2. Para cada tabela: PUSH (envia locais) depois PULL (recebe remotos). 3. Apos PULL, reseta sequences do PostgreSQL (evita conflito de PK). 4. Atualiza SyncControle com versoes enviadas/recebidas.</span>
-            </div>
-            <div class="cmd-grupo">
-              <div class="cmd-label">Resolucao de Conflitos</div>
-              <span class="cmd-obs">Last-write-wins baseado em AtualizadoEm. Se PC1 e PC2 alteram o mesmo registro, o ultimo a sincronizar ganha. Futuramente: tabela SyncConflitos para registrar e revisar.</span>
+              <div class="cmd-label">Ciclo de Sync</div>
+              <span class="cmd-obs">A cada 30s: 1. Autentica no Railway como SISTEMA. 2. PUSH: envia operacoes pendentes da SyncFila. 3. PULL: busca operacoes de outras filiais e aplica localmente (INSERT por Codigo, UPDATE por Codigo, DELETE por Codigo).</span>
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">Tabelas: Global vs Por Filial</div>
-              <span class="cmd-obs">Global: nao tem FilialId, todos veem igual (Fabricantes, Substancias, Produtos). Por Filial: tem FilialId, cada filial tem seus registros mas todos ficam visiveis de qualquer filial via combo de selecao. Definido no Dicionario de Dados.</span>
-            </div>
-            <div class="cmd-grupo">
-              <div class="cmd-label">Quando usar cada campo</div>
-              <span class="cmd-obs">FilialOrigemId: AUTOMATICO, toda tabela que replica tem. O usuario nunca ve. Usado internamente pelo sync. FilialId: so existe onde o registro precisa pertencer a uma filial por regra de negocio. Ex: Usuarios (filial padrao), Estoque (estoque da filial X), Vendas (venda feita na filial Y). Tabelas globais (Fabricantes, Substancias, Grupos) NAO tem e NAO precisam de FilialId.</span>
-            </div>
-            <div class="cmd-grupo">
-              <div class="cmd-label">Replica: quase tudo replica</div>
-              <span class="cmd-obs">A grande maioria das tabelas replica para que todas as filiais tenham visibilidade completa. Excecoes que NAO replicam: SyncControle (controle interno de cada PC) e DicionarioTabelas/Revisoes (ferramenta dev, backup via JSON no Git).</span>
-            </div>
-            <div class="cmd-grupo">
-              <div class="cmd-label">Campos unicos no sync</div>
-              <span class="cmd-obs">CPF, CNPJ e Login devem ser validados antes de aplicar registros remotos. Se PC1 cadastra CPF "123" e PC2 tambem, gera conflito. Definido no Dicionario de Dados (coluna Unico).</span>
-            </div>
-            <div class="cmd-grupo">
-              <div class="cmd-label">Reset de Sequences</div>
-              <span class="cmd-obs">Apos PULL, o sync reseta a sequence auto-increment de cada tabela para MAX(Id)+1. Necessario porque registros sincronizados vem com IDs explicitos que o PostgreSQL nao rastreia.</span>
-            </div>
-            <div class="cmd-grupo">
-              <div class="cmd-label">Configs por PC</div>
-              <span class="cmd-obs">Arquivos appsettings.pc1.json e pc2.json (no .gitignore, nao sobem pro Git). Contem: Sync:Habilitado, IntervaloSegundos, FilialLocalId, UrlCentral e Cassi:ApiKey.</span>
+              <span class="cmd-obs">Global: qualquer filial cria/edita (Fabricantes, Substancias, Produtos). Por Filial: cada filial tem seus registros (Estoque, Vendas, Caixa). NAO replicam: Configuracoes, SyncFila, SequenciaLocal, DicionarioTabelas.</span>
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">Queda de internet</div>
-              <span class="cmd-obs">O sistema continua funcionando normalmente offline (banco local). O sync falha silenciosamente e tenta novamente no proximo ciclo. Quando a internet volta, sincroniza automaticamente de onde parou.</span>
+              <span class="cmd-obs">Sistema funciona 100% offline. Operacoes ficam na SyncFila como pendentes. Quando internet volta, envia tudo automaticamente.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tela Sincronismo</div>
+              <span class="cmd-obs">Mostra fila com filtros (periodo, status, tabela), paginacao, cards de status. Permite forcar envio e limpar antigos.</span>
             </div>
           </div>
         }

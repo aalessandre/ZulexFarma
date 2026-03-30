@@ -1,82 +1,101 @@
-# Infraestrutura: Sincronizacao
+# Infraestrutura: Sincronizacao v2 (Fila de Operacoes)
 
 ## Arquitetura
-- **Railway (nuvem)** = servidor central (receptor passivo)
+- **Railway (nuvem)** = servidor central (hub de operacoes)
 - **PC local** = cada farmacia roda backend + PostgreSQL local
-- Sync bidirecional: PC local ↔ Railway ↔ outros PCs
-- Autenticacao no central via usuario SISTEMA (senha rotativa diaria)
+- Cada operacao CRUD gera um registro na fila (SyncFila)
+- PUSH: PC envia operacoes pendentes para Railway
+- PULL: PC busca operacoes de outras filiais do Railway
+- DELETE replica naturalmente (eh uma operacao na fila)
 
-## SyncService (engine generico)
-- `ObterAlteracoes(tabela, versaoDesde, filialId)` — puxa registros alterados (PULL central→local)
-- `ObterAlteracoesLocais(tabela, versaoDesde, filialOrigemId)` — puxa apenas registros desta filial (PUSH local→central)
-- `AplicarAlteracoes(tabela, registrosJson)` — aplica com last-write-wins
-- `ObterStatus(filialId)` — status por tabela
-- `AtualizarControle(filialId, tabela, ...)` — atualiza SyncControle
-- `ResetarSequence(tabela)` — reseta sequence PostgreSQL apos PULL (evita conflito de PK)
+## Tabelas do Sync
 
-## Tabelas sincronizaveis
-Filiais, Pessoas, PessoasContato, PessoasEndereco, Colaboradores, Usuarios, UsuariosGrupos, UsuariosGruposPermissao, UsuarioFilialGrupos, Fornecedores, Fabricantes, GruposPrincipais, GruposProdutos, SubGrupos, Secoes, Substancias
+### SyncFila (em cada PC e no Railway)
+Fila de operacoes. Cada INSERT/UPDATE/DELETE gera um registro automaticamente.
+- Id, Tabela, Operacao (I/U/D), RegistroId, RegistroCodigo
+- DadosJson (snapshot JSON do registro, null em Delete)
+- FilialOrigemId, CriadoEm, Enviado, EnviadoEm, Erro
 
-## API endpoints
-- `GET /api/sync/tabelas` — lista tabelas
-- `GET /api/sync/receber?tabela=X&versaoDesde=Y&filialId=Z` — pull
-- `POST /api/sync/enviar` — push
-- `GET /api/sync/status/{filialId}` — status
-- `GET /api/sync/servico` — status do background service (rodando, ultima execucao, erros)
-- `POST /api/sync/executar/{filialId}` — forcar sync
+### SequenciaLocal (so no PC, nao replica)
+Controla o proximo sequencial do Codigo visivel por tabela.
+- Id, Tabela, Ultimo
 
-## SyncBackgroundService (completo e funcional)
-- Roda periodicamente no PC local
-- Config: `Sync:Habilitado`, `Sync:IntervaloSegundos`, `Sync:FilialLocalId`, `Sync:UrlCentral`
-- Desabilitado por padrao (central Railway nao precisa)
-- Ciclo: autentica como SISTEMA → para cada tabela: PUSH local→central, PULL central→local
-- Cache de JWT com renovacao automatica (margem 5min)
-- Profiles por PC: `appsettings.pc1.json`, `appsettings.pc2.json`
-- Variavel de ambiente: `SYNC_PROFILE=pc1` (ou pc2) antes de `dotnet run`
-- Startup: `$env:SYNC_PROFILE = "pc1"` (PowerShell) → `dotnet run`
+## Campo Codigo (identificador visivel)
+- Formato: "FilialCodigo.Sequencial" (ex: "1.1", "2.115950")
+- Unico global, amigavel para o usuario
+- Gerado automaticamente no SaveChangesAsync para cada INSERT
+- Tabelas sem sync (Configuracoes, SyncFila, etc) nao geram Codigo
 
-## VersaoSync (mecanismo de versionamento)
-- Usa timestamp em milissegundos (`DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()`)
-- Monotonicamente crescente (lock + Math.Max para garantir unicidade)
-- Atribuido tanto em Added quanto em Modified no SaveChangesAsync
-- PULL local usa `SuspenderAutoSync=true` para preservar VersaoSync do central (evita echo loop)
-- Central (Railway) NAO usa SuspenderAutoSync — incrementa VersaoSync normalmente ao receber PUSH
+## Identificadores
+- **Id** = tecnico, PK, auto-increment local. Pode variar entre PCs.
+- **Codigo** = visivel, unico global. Identifica o registro em todas as filiais.
+- O sync usa Codigo para encontrar registros ao aplicar operacoes remotas.
 
-## FilialOrigemId
-- Identifica de qual farmacia/servidor o registro foi criado
-- Fonte primaria: `Sync:FilialLocalId` da config (identifica o servidor)
-- Fallback: `filialId` do JWT do usuario
-- NAO muda quando outro PC edita o registro (preserva a origem)
+## Fluxo
 
-## PUSH: tabelas globais vs por filial
-- **Tabelas globais** (escopo=global no DD): PUSH envia TODOS os registros alterados,
-  independente de FilialOrigemId. Qualquer filial pode editar qualquer registro.
-- **Tabelas por filial** (escopo=filial no DD): PUSH envia apenas registros onde
-  `FilialOrigemId == FilialLocalId`
-- O escopo eh lido do DicionarioTabelas em cada ciclo de sync
-- PULL filtra registros onde `FilialOrigemId != filialId` solicitante (evita echo)
+### Cadastro
+1. Usuario salva registro
+2. SaveChangesAsync gera Codigo e seta FilialOrigemId
+3. Apos save, insere na SyncFila (I/U/D + JSON)
 
-## Reset de sequences
-- Apos PULL, reseta `pg_get_serial_sequence` para `MAX(Id)+1`
-- Evita conflito de PK quando registros sincronizados tem IDs explicitos
+### PUSH (PC -> Railway, a cada 30s)
+1. SELECT SyncFila WHERE Enviado = false LIMIT 100
+2. POST /api/sync/enviar (lote de operacoes)
+3. Railway guarda na sua SyncFila (para outras filiais)
+4. PC marca Enviado = true
 
-## Colisao de IDs entre filiais
-- Dois PCs podem gerar o mesmo Id (sequences independentes)
-- O sync detecta: mesmo Id, FilialOrigemId diferente = registros DIFERENTES
-- Quando isso ocorre, o registro remoto recebe um novo Id local (Id=0, EF gera)
-- Nao eh erro — eh comportamento esperado em bancos distribuidos
-- O registro original mantem seu Id, o remoto ganha Id novo
-- Log: "registro Id conflitante, inserido com novo Id"
+### PULL (Railway -> PC, a cada 30s)
+1. GET /api/sync/receber?filialId=X&ultimoId=Y
+2. Railway retorna operacoes de OUTRAS filiais (FilialOrigemId != X)
+3. PC aplica: I=insert (por Codigo), U=update (por Codigo), D=delete (por Codigo)
+4. INSERT usa Id=0 (EF gera novo Id local), mantem Codigo original
 
-## Validacao de campos unicos no sync
-- Antes de inserir registro remoto, verifica campos marcados como Unico no DD
-- Se CPF/CNPJ/Login ja existe localmente, rejeita e loga como conflito
-- Usa reflection para ler os campos do DD dinamicamente
+### Limpeza (automatica)
+- DELETE SyncFila WHERE Enviado = true AND EnviadoEm < (hoje - X dias)
+- Configuravel: sync.limpeza.dias (default 7, min 5, max 15)
 
-## Resolucao de conflitos
-- Last-write-wins baseado em `AtualizadoEm`
+## API Endpoints
+- POST /api/sync/enviar — PC envia lote de operacoes
+- GET /api/sync/receber — PC puxa operacoes pendentes
+- GET /api/sync/status — pendentes, erros, ultimo sync
+- GET /api/sync/fila — listagem paginada com filtros (para tela)
+- POST /api/sync/forcar-envio — forca envio no proximo ciclo
+- POST /api/sync/limpar — limpa registros antigos
 
-## Tela de gerenciamento
-- Rota: `/erp/sync`
-- Grid: Tabela, Status, Ultima Sync, Versoes, Pendentes
-- Botao forcar sync
+## Configuracoes
+```json
+{
+  "Filial": { "Codigo": 1 },
+  "Sync": {
+    "Habilitado": false,
+    "IntervaloSegundos": 30,
+    "UrlCentral": "",
+    "LoteTamanho": 100,
+    "LimpezaDias": 7
+  }
+}
+```
+
+Editaveis na tela Configuracoes do sistema:
+- sync.intervalo.segundos (min 7, max 300)
+- sync.lote.tamanho (min 50, max 150)
+- sync.limpeza.dias (min 5, max 15)
+
+## Tabelas que NÃO entram na fila
+- Configuracoes (local por filial)
+- DicionarioTabelas, DicionarioRevisoes (ferramenta dev)
+- SyncFila (controle interno)
+- SequenciaLocal (controle interno)
+
+## Colisao de IDs
+- Cada PC gera seus proprios IDs (auto-increment local)
+- IDs podem ser diferentes entre PCs para o mesmo registro
+- O Codigo eh o identificador universal
+- Ao aplicar INSERT remoto: Id=0 (EF gera local), Codigo preservado
+- Ao aplicar UPDATE remoto: busca por Codigo, atualiza mantendo Id local
+- Ao aplicar DELETE remoto: busca por Codigo, remove
+
+## Autenticacao
+- Background service autentica no Railway como usuario SISTEMA
+- Senha rotativa diaria: SHA256(YYYYMMDD + SistemaKey)[0..8]
+- JWT cacheado com renovacao 5min antes do vencimento
