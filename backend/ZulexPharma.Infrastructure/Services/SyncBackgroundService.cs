@@ -158,6 +158,7 @@ public class SyncBackgroundService : BackgroundService
 
         db.AplicandoSync = true;
         var aplicados = 0;
+        var erros = 0;
         var lastSuccessId = ultimoId;
 
         // Com IDs globais por filial (faixa exclusiva), FKs são sempre válidas.
@@ -225,15 +226,42 @@ public class SyncBackgroundService : BackgroundService
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Sync PULL: erro ao aplicar op {Op} em {Tabela} Id {Id}",
-                    op.Operacao, op.Tabela, op.RegistroId);
+                // Avançar lastSuccessId mesmo em falha para não ficar em loop infinito
+                if (op.Id > lastSuccessId) lastSuccessId = op.Id;
+
+                // Detach entries com erro
                 foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged))
                     entry.State = EntityState.Detached;
+
+                // Extrair mensagem legível do erro
+                var erroMsg = ExtrairMensagemErro(ex, op);
+                Log.Warning("Sync PULL: {Erro}", erroMsg);
+
+                // Registrar erro na SyncFila local para aparecer no painel
+                try
+                {
+                    db.SyncFila.Add(new Domain.Entities.SyncFila
+                    {
+                        Tabela = op.Tabela,
+                        Operacao = op.Operacao,
+                        RegistroId = op.RegistroId,
+                        RegistroCodigo = op.RegistroCodigo,
+                        FilialOrigemId = op.FilialOrigemId,
+                        Enviado = true, // Não tentar reenviar
+                        EnviadoEm = DateTime.UtcNow,
+                        Erro = erroMsg
+                    });
+                    await db.SaveChangesAsync(ct);
+                }
+                catch { /* silenciar erro ao gravar o próprio erro */ }
+
+                erros++;
             }
         }
 
         db.AplicandoSync = false;
 
+        // Sempre avançar o ponteiro para não reprocessar operações (inclusive falhas)
         if (lastSuccessId > ultimoId)
         {
             if (ultimoIdConfig == null)
@@ -247,7 +275,8 @@ public class SyncBackgroundService : BackgroundService
             await db.SaveChangesAsync(ct);
         }
 
-        if (aplicados > 0) Log.Information("Sync PULL: {Count} operações aplicadas", aplicados);
+        if (erros > 0) FalhasConsecutivas += erros;
+        if (aplicados > 0) Log.Information("Sync PULL: {Count} aplicadas, {Erros} erros", aplicados, erros);
     }
 
     /// <summary>
@@ -268,6 +297,31 @@ public class SyncBackgroundService : BackgroundService
         "LogsAcao" => 5,
         _ => 10
     };
+
+    /// <summary>
+    /// Extrai mensagem legível de erros de sync para exibir no painel.
+    /// </summary>
+    private static string ExtrairMensagemErro(Exception ex, SyncOperacao op)
+    {
+        var inner = ex.InnerException;
+
+        // FK violation (23503)
+        if (inner is Npgsql.PostgresException pgEx && pgEx.SqlState == "23503")
+        {
+            return $"[{op.Operacao}] {op.Tabela} Id={op.RegistroId}: FK inválida ({pgEx.ConstraintName}). " +
+                   $"O registro referenciado não existe neste PC. Verifique se o registro pai foi sincronizado primeiro.";
+        }
+
+        // PK/Unique violation (23505)
+        if (inner is Npgsql.PostgresException pgEx2 && pgEx2.SqlState == "23505")
+        {
+            return $"[{op.Operacao}] {op.Tabela} Id={op.RegistroId}: Registro duplicado ({pgEx2.ConstraintName}). " +
+                   $"Já existe um registro com o mesmo valor único neste PC.";
+        }
+
+        // Genérico
+        return $"[{op.Operacao}] {op.Tabela} Id={op.RegistroId}: {inner?.Message ?? ex.Message}";
+    }
 
     /// <summary>
     /// Anula todas as navigation properties para evitar que db.Add() tente trackear o grafo inteiro.
