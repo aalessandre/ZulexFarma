@@ -92,6 +92,7 @@ export class DashboardComponent {
       cor: '#f9a825',
       tiles: [
         { label: 'Manutencao',        sigla: 'MT', iconKey: 'wrench',   rota: '/erp/manutencao' },
+        { label: 'Sincronismo',      sigla: 'SI', iconKey: 'wrench',   rota: '/erp/sync' },
         { label: 'Grupo de Usuarios', sigla: 'GU', iconKey: 'lock',     rota: '/erp/grupos' },
         { label: 'Usuarios',          sigla: 'US', iconKey: 'users',    rota: '/erp/usuarios' },
         { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },

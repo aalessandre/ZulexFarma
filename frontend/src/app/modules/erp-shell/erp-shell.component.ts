@@ -41,8 +41,30 @@ export class ErpShellComponent {
   usuario = computed(() => this.authService.usuarioLogado());
 
   painelAberto = signal(false);
-
   nomeSistema = 'ZulexPharma';
+
+  // ── Sync status ────────────────────────────────────────────────
+  syncStatus = signal<any>(null);
+  private syncIntervalId: any = null;
+
+  syncIndicador = computed(() => {
+    const s = this.syncStatus();
+    if (!s || !s.rodando) return 'desabilitado';
+    if (s.falhasConsecutivas >= 3) return 'offline';
+    if (s.ultimoStatus === 'ERRO') return 'vermelho';
+    if (s.pendentesEnvio > 0) return 'amarelo';
+    return 'verde';
+  });
+
+  syncTooltip = computed(() => {
+    const s = this.syncStatus();
+    const ind = this.syncIndicador();
+    if (ind === 'verde') return `Sync OK | Pendentes: ${s?.pendentesLocal ?? 0}`;
+    if (ind === 'amarelo') return `Sync: ${s?.pendentesEnvio} pendentes de envio`;
+    if (ind === 'vermelho') return `Sync com erro`;
+    if (ind === 'offline') return `Sync offline`;
+    return 'Sync desabilitado';
+  });
 
   telaAtual = computed(() => {
     const id = this.tabService.tabAtiva();
@@ -92,6 +114,7 @@ export class ErpShellComponent {
       cor: '#f9a825',
       tiles: [
         { label: 'Manutencao',        sigla: 'MT', iconKey: 'wrench',   rota: '/erp/manutencao' },
+        { label: 'Sincronismo',      sigla: 'SI', iconKey: 'wrench',   rota: '/erp/sync' },
         { label: 'Grupo de Usuarios', sigla: 'GU', iconKey: 'lock',     rota: '/erp/grupos' },
         { label: 'Usuarios',          sigla: 'US', iconKey: 'users',    rota: '/erp/usuarios' },
         { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },
@@ -155,7 +178,21 @@ export class ErpShellComponent {
     private router: Router,
     public settings: ErpSettingsService,
     private http: HttpClient
-  ) {}
+  ) {
+    this.carregarSyncStatus();
+    this.syncIntervalId = setInterval(() => this.carregarSyncStatus(), 30000);
+  }
+
+  ngOnDestroy() {
+    if (this.syncIntervalId) clearInterval(this.syncIntervalId);
+  }
+
+  carregarSyncStatus() {
+    this.http.get<any>(`${environment.apiUrl}/sync/status`).subscribe({
+      next: (r) => this.syncStatus.set(r?.data ?? null),
+      error: () => {}
+    });
+  }
 
   irHome() { this.router.navigate(['/erp']); }
   logout()  { this.authService.logout(); }

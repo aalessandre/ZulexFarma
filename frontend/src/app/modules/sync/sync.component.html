@@ -1,0 +1,139 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="buscar()">
+      <span>Buscar</span>
+      <span class="sidebar-sub">Atualizar</span>
+    </div>
+    <div class="sidebar-item tile-enviar" (click)="forcarEnvio()">
+      <span>Forcar</span>
+      <span class="sidebar-sub">Envio agora</span>
+    </div>
+    <div class="sidebar-item tile-limpar" (click)="limparAntigos()">
+      <span>Limpar</span>
+      <span class="sidebar-sub">Antigos</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <main class="tela-conteudo">
+    <!-- STATUS CARDS -->
+    <div class="sync-cards">
+      <div class="sync-card card-ok">
+        <span class="card-valor">{{ status()?.pendentesLocal ?? 0 }}</span>
+        <span class="card-label">Pendentes</span>
+      </div>
+      <div class="sync-card card-enviado">
+        <span class="card-valor">{{ status()?.ultimoStatus ?? '-' }}</span>
+        <span class="card-label">Status</span>
+      </div>
+      <div class="sync-card card-falhas">
+        <span class="card-valor">{{ status()?.falhasConsecutivas ?? 0 }}</span>
+        <span class="card-label">Falhas</span>
+      </div>
+      <div class="sync-card card-servico">
+        <span class="card-valor">{{ status()?.rodando ? 'Ativo' : 'Parado' }}</span>
+        <span class="card-label">Servico</span>
+      </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="sync-filtros">
+      <div class="filtro-item">
+        <label>De</label>
+        <input type="date" [value]="dataInicio()" (change)="dataInicio.set($any($event.target).value)" />
+      </div>
+      <div class="filtro-item">
+        <label>Ate</label>
+        <input type="date" [value]="dataFim()" (change)="dataFim.set($any($event.target).value)" />
+      </div>
+      <div class="filtro-item">
+        <label>Status</label>
+        <select [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+          <option value="todos">Todos</option>
+          <option value="pendentes">Pendentes</option>
+          <option value="enviados">Enviados</option>
+          <option value="erros">Com Erro</option>
+        </select>
+      </div>
+      <div class="filtro-item">
+        <label>Tabela</label>
+        <input type="text" [value]="filtroTabela()" (input)="filtroTabela.set($any($event.target).value)" placeholder="Todas..." />
+      </div>
+      <button class="filtro-btn" (click)="pagina.set(1); buscar()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Buscar
+      </button>
+    </div>
+
+    <!-- GRID -->
+    @if (carregando()) {
+      <div class="sync-loading">Carregando...</div>
+    } @else {
+      <div class="sync-grid-wrap">
+        <table class="sync-grid">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-tabela">Tabela</th>
+              <th class="col-op">Op</th>
+              <th class="col-codigo">Codigo</th>
+              <th class="col-filial">Filial</th>
+              <th class="col-data">Criado Em</th>
+              <th class="col-status">Status</th>
+              <th class="col-enviado">Enviado Em</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of fila(); track item.id) {
+              <tr [class.expandido]="itemExpandido() === item.id" (click)="toggleExpandir(item.id)">
+                <td class="col-id">{{ item.id }}</td>
+                <td class="col-tabela">{{ item.tabela }}</td>
+                <td class="col-op"><span class="op-badge" [class]="getOpClass(item.operacao)">{{ getOpLabel(item.operacao) }}</span></td>
+                <td class="col-codigo">{{ item.registroCodigo || item.registroId }}</td>
+                <td class="col-filial">{{ item.filialOrigemId }}</td>
+                <td class="col-data">{{ formatarData(item.criadoEm) }}</td>
+                <td class="col-status"><span class="status-badge" [class]="getStatusClass(item)">{{ getStatusLabel(item) }}</span></td>
+                <td class="col-enviado">{{ item.enviadoEm ? formatarData(item.enviadoEm) : '-' }}</td>
+              </tr>
+              @if (itemExpandido() === item.id && item.dadosJson) {
+                <tr class="row-detalhe">
+                  <td colspan="8">
+                    <pre class="json-preview">{{ item.dadosJson }}</pre>
+                    @if (item.erro) {
+                      <div class="erro-detalhe">{{ item.erro }}</div>
+                    }
+                  </td>
+                </tr>
+              }
+            }
+            @if (fila().length === 0) {
+              <tr><td colspan="8" class="grid-vazio">Nenhum registro encontrado</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- PAGINACAO -->
+      <div class="sync-paginacao">
+        <span class="pag-info">{{ totalRegistros() }} registro(s) | Pagina {{ pagina() }} de {{ totalPaginas() }}</span>
+        <div class="pag-btns">
+          <button (click)="irPagina(1)" [disabled]="pagina() <= 1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+          </button>
+          <button (click)="irPagina(pagina() - 1)" [disabled]="pagina() <= 1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button (click)="irPagina(pagina() + 1)" [disabled]="pagina() >= totalPaginas()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button (click)="irPagina(totalPaginas())" [disabled]="pagina() >= totalPaginas()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+          </button>
+        </div>
+      </div>
+    }
+  </main>
+</div>

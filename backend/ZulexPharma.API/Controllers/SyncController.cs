@@ -130,6 +130,47 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
+    /// Lista a fila de sync com filtros e paginação.
+    /// </summary>
+    [HttpGet("fila")]
+    public async Task<IActionResult> Fila(
+        [FromQuery] string? dataInicio, [FromQuery] string? dataFim,
+        [FromQuery] string? status, [FromQuery] string? tabela,
+        [FromQuery] int pagina = 1, [FromQuery] int porPagina = 20)
+    {
+        try
+        {
+            IQueryable<SyncFila> query = _db.SyncFila;
+
+            if (DateTime.TryParse(dataInicio, out var di))
+                query = query.Where(f => f.CriadoEm >= di.Date);
+            if (DateTime.TryParse(dataFim, out var df))
+                query = query.Where(f => f.CriadoEm < df.Date.AddDays(1));
+
+            if (status == "pendentes") query = query.Where(f => !f.Enviado && f.Erro == null);
+            else if (status == "enviados") query = query.Where(f => f.Enviado);
+            else if (status == "erros") query = query.Where(f => f.Erro != null);
+
+            if (!string.IsNullOrWhiteSpace(tabela))
+                query = query.Where(f => f.Tabela.Contains(tabela));
+
+            var total = await query.CountAsync();
+            var registros = await query
+                .OrderByDescending(f => f.Id)
+                .Skip((pagina - 1) * porPagina)
+                .Take(porPagina)
+                .ToListAsync();
+
+            return Ok(new { success = true, data = new { total, registros } });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em SyncController.Fila");
+            return StatusCode(500, new { success = false, message = "Erro ao listar fila." });
+        }
+    }
+
+    /// <summary>
     /// Limpa registros já enviados com mais de X dias.
     /// </summary>
     [HttpPost("limpar")]

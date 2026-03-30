@@ -50,6 +50,46 @@
           </div>
         </div>
 
+        <!-- SINCRONISMO -->
+        <div class="form-secao">Sincronismo</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>
+              INTERVALO DE REPLICAÇÃO (seg)
+              <span class="field-info" title="Tempo entre cada ciclo de sincronização. Mínimo 7s, máximo 300s (5min)."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
+            </label>
+            <div class="slider-wrap">
+              <input type="range" min="7" max="300" step="1"
+                     [value]="getConfig('sync.intervalo.segundos', '30')"
+                     (input)="setConfig('sync.intervalo.segundos', $any($event.target).value)" />
+              <span class="slider-valor">{{ formatarIntervalo(+getConfig('sync.intervalo.segundos', '30')) }}</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>
+              TAMANHO DO PACOTE
+              <span class="field-info" title="Quantidade de operações enviadas por ciclo. Mínimo 50, máximo 150."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
+            </label>
+            <div class="slider-wrap">
+              <input type="range" min="50" max="150" step="10"
+                     [value]="getConfig('sync.lote.tamanho', '100')"
+                     (input)="setConfig('sync.lote.tamanho', $any($event.target).value)" />
+              <span class="slider-valor">{{ getConfig('sync.lote.tamanho', '100') }}</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>
+              LIMPEZA DE REGISTROS (dias)
+              <span class="field-info" title="Registros sincronizados são removidos após este período. Mínimo 5, máximo 15."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
+            </label>
+            <div class="slider-wrap">
+              <input type="range" min="5" max="15" step="1"
+                     [value]="getConfig('sync.limpeza.dias', '7')"
+                     (input)="setConfig('sync.limpeza.dias', $any($event.target).value)" />
+              <span class="slider-valor">{{ getConfig('sync.limpeza.dias', '7') }} dias</span>
+            </div>
+          </div>
+        </div>
       }
     </div>
 
