@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.Text.Json;
 using ZulexPharma.Domain.Entities;
 
 namespace ZulexPharma.Infrastructure.Data;
@@ -7,10 +9,15 @@ namespace ZulexPharma.Infrastructure.Data;
 public class AppDbContext : DbContext
 {
     private readonly IHttpContextAccessor? _http;
+    private readonly int _filialCodigo;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? http = null) : base(options)
+    /// <summary>Se true, não gera Codigo nem registra na SyncFila (usado ao aplicar sync remoto).</summary>
+    public bool AplicandoSync { get; set; }
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? http = null, IConfiguration? config = null) : base(options)
     {
         _http = http;
+        _filialCodigo = int.TryParse(config?["Filial:Codigo"], out var c) ? c : 1;
     }
 
     public DbSet<Filial> Filiais => Set<Filial>();
@@ -34,6 +41,8 @@ public class AppDbContext : DbContext
     public DbSet<GrupoProduto> GruposProdutos => Set<GrupoProduto>();
     public DbSet<SubGrupo> SubGrupos => Set<SubGrupo>();
     public DbSet<Secao> Secoes => Set<Secao>();
+    public DbSet<SyncFila> SyncFila => Set<SyncFila>();
+    public DbSet<SequenciaLocal> SequenciasLocais => Set<SequenciaLocal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -276,6 +285,28 @@ public class AppDbContext : DbContext
         ConfigurarClassificacao<GrupoProduto>(modelBuilder);
         ConfigurarClassificacao<SubGrupo>(modelBuilder);
         ConfigurarClassificacao<Secao>(modelBuilder);
+
+        // ── SyncFila ────────────────────────────────────────────────
+        modelBuilder.Entity<SyncFila>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Operacao).HasMaxLength(1).IsRequired();
+            e.Property(x => x.RegistroCodigo).HasMaxLength(50);
+            e.Property(x => x.Erro).HasMaxLength(500);
+            e.HasIndex(x => x.Enviado);
+            e.HasIndex(x => x.FilialOrigemId);
+        });
+
+        // ── SequenciaLocal ──────────────────────────────────────────
+        modelBuilder.Entity<SequenciaLocal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => x.Tabela).IsUnique();
+        });
     }
 
     private static void ConfigurarClassificacao<T>(ModelBuilder mb) where T : ClassificacaoProdutoBase
@@ -295,23 +326,86 @@ public class AppDbContext : DbContext
         });
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    // Tabelas que NÃO geram Codigo nem entram na SyncFila
+    private static readonly HashSet<string> _tabelasSemSync = new()
     {
+        "Configuracoes", "DicionarioTabelas", "DicionarioRevisoes",
+        "SyncFila", "SequenciaLocal"
+    };
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        if (AplicandoSync)
+            return await base.SaveChangesAsync(cancellationToken);
+
         var filialId = GetFilialIdFromContext();
+        var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade)>();
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
-            if (entry.State == EntityState.Modified)
-            {
-                entry.Entity.AtualizadoEm = DateTime.UtcNow;
-            }
-            else if (entry.State == EntityState.Added)
+            var tabela = entry.Metadata.GetTableName() ?? entry.Entity.GetType().Name;
+
+            if (entry.State == EntityState.Added)
             {
                 if (entry.Entity.FilialOrigemId == null && filialId > 0)
                     entry.Entity.FilialOrigemId = filialId;
+
+                // Gerar Codigo visível (FilialCodigo.Sequencial)
+                if (entry.Entity.Codigo == null && !_tabelasSemSync.Contains(tabela))
+                    entry.Entity.Codigo = await GerarCodigo(tabela);
+
+                if (!_tabelasSemSync.Contains(tabela))
+                    operacoesPendentes.Add((tabela, "I", entry.Entity));
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.AtualizadoEm = DateTime.UtcNow;
+                if (!_tabelasSemSync.Contains(tabela))
+                    operacoesPendentes.Add((tabela, "U", entry.Entity));
+            }
+            else if (entry.State == EntityState.Deleted)
+            {
+                if (!_tabelasSemSync.Contains(tabela))
+                    operacoesPendentes.Add((tabela, "D", entry.Entity));
             }
         }
-        return base.SaveChangesAsync(cancellationToken);
+
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        // Registrar operações na SyncFila APÓS o save (para ter o Id gerado)
+        if (operacoesPendentes.Count > 0)
+        {
+            foreach (var (tabela, op, entidade) in operacoesPendentes)
+            {
+                SyncFila.Add(new SyncFila
+                {
+                    Tabela = tabela,
+                    Operacao = op,
+                    RegistroId = entidade.Id,
+                    RegistroCodigo = entidade.Codigo,
+                    DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) : null,
+                    FilialOrigemId = entidade.FilialOrigemId ?? _filialCodigo,
+                    Enviado = false
+                });
+            }
+            await base.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
+    }
+
+    private async Task<string> GerarCodigo(string tabela)
+    {
+        var seq = await SequenciasLocais.FirstOrDefaultAsync(s => s.Tabela == tabela);
+        if (seq == null)
+        {
+            seq = new SequenciaLocal { Tabela = tabela, Ultimo = 0 };
+            SequenciasLocais.Add(seq);
+            await base.SaveChangesAsync();
+        }
+        seq.Ultimo++;
+        await base.SaveChangesAsync();
+        return $"{_filialCodigo}.{seq.Ultimo}";
     }
 
     private long GetFilialIdFromContext()

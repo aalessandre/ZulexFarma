@@ -108,6 +108,7 @@ builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.Classif
     sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "Secao"));
 
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
+builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();
 
 
 var app = builder.Build();
