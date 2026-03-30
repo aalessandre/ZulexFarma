@@ -402,7 +402,7 @@ public class AppDbContext : DbContext
                     Operacao = op,
                     RegistroId = entidade.Id,
                     RegistroCodigo = entidade.Codigo,
-                    DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) : null,
+                    DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }) : null,
                     FilialOrigemId = entidade.FilialOrigemId ?? _filialCodigo,
                     Enviado = false
                 });
