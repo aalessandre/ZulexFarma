@@ -21,6 +21,9 @@ public static class DatabaseSeeder
         if (filialCodigo > 0)
             await ConfigurarSequences(context, filialCodigo);
 
+        // Seed é setup local — não deve entrar na SyncFila
+        context.AplicandoSync = true;
+
         if (!await context.Filiais.AnyAsync())
         {
             context.Filiais.Add(new Filial
@@ -79,6 +82,8 @@ public static class DatabaseSeeder
             );
             await context.SaveChangesAsync();
         }
+
+        context.AplicandoSync = false;
     }
 
     /// <summary>
