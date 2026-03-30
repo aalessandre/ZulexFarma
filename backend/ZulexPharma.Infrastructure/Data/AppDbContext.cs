@@ -357,7 +357,8 @@ public class AppDbContext : DbContext
             return await base.SaveChangesAsync(cancellationToken);
         }
 
-        var filialId = GetFilialIdFromContext();
+        // FilialOrigemId usa o codigo do SERVIDOR (config), nao a filial do usuario (JWT)
+        var filialOrigem = _filialCodigo > 0 ? _filialCodigo : GetFilialIdFromContext();
         var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade)>();
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
@@ -366,8 +367,8 @@ public class AppDbContext : DbContext
 
             if (entry.State == EntityState.Added)
             {
-                if (entry.Entity.FilialOrigemId == null && filialId > 0)
-                    entry.Entity.FilialOrigemId = filialId;
+                if (entry.Entity.FilialOrigemId == null && filialOrigem > 0)
+                    entry.Entity.FilialOrigemId = filialOrigem;
 
                 // Gerar Codigo visível (FilialCodigo.Sequencial)
                 if (entry.Entity.Codigo == null && !_tabelasSemSync.Contains(tabela))
