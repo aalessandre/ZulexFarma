@@ -143,9 +143,15 @@ public class SyncController : ControllerBase
             IQueryable<SyncFila> query = _db.SyncFila;
 
             if (DateTime.TryParse(dataInicio, out var di))
-                query = query.Where(f => f.CriadoEm >= di.Date);
+            {
+                var diUtc = DateTime.SpecifyKind(di.Date, DateTimeKind.Utc);
+                query = query.Where(f => f.CriadoEm >= diUtc);
+            }
             if (DateTime.TryParse(dataFim, out var df))
-                query = query.Where(f => f.CriadoEm < df.Date.AddDays(1));
+            {
+                var dfUtc = DateTime.SpecifyKind(df.Date.AddDays(1), DateTimeKind.Utc);
+                query = query.Where(f => f.CriadoEm < dfUtc);
+            }
 
             if (status == "pendentes") query = query.Where(f => !f.Enviado && f.Erro == null);
             else if (status == "enviados") query = query.Where(f => f.Enviado && f.Erro == null);
