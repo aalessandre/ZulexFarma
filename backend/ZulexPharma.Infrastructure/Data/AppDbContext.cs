@@ -355,7 +355,7 @@ public class AppDbContext : DbContext
     private static readonly HashSet<string> _tabelasSemSync = new()
     {
         "Configuracoes", "DicionarioTabelas", "DicionarioRevisoes", "DicionarioRelacionamentos",
-        "SyncFila", "SequenciaLocal"
+        "SyncFila", "SequenciaLocal", "LogsAcao", "LogsErro"
     };
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

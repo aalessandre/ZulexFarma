@@ -319,8 +319,7 @@ public class SyncBackgroundService : BackgroundService
         ["GruposProdutos"] = typeof(Domain.Entities.GrupoProduto),
         ["SubGrupos"] = typeof(Domain.Entities.SubGrupo),
         ["Secoes"] = typeof(Domain.Entities.Secao),
-        ["LogsAcao"] = typeof(Domain.Entities.LogAcao),
-        ["LogsErro"] = typeof(Domain.Entities.LogErro),
+        // LogsAcao e LogsErro são locais, não replicam
     };
 
     private static Type? ResolverTipo(string tabela) => _tiposPorTabela.GetValueOrDefault(tabela);
