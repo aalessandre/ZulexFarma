@@ -110,6 +110,14 @@ export class SyncComponent implements OnInit {
     });
   }
 
+  resetarRecebimento() {
+    if (!confirm('Resetar ponteiro de recebimento? O próximo ciclo vai rebuscar todas as operações do Railway.')) return;
+    this.http.post<any>(`${this.apiUrl}/resetar-recebimento`, {}).subscribe({
+      next: () => { this.carregarStatus(); this.buscar(); },
+      error: () => {}
+    });
+  }
+
   limparAntigos() {
     this.http.post<any>(`${this.apiUrl}/limpar?dias=7`, {}).subscribe({
       next: r => {

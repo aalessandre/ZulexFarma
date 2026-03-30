@@ -194,6 +194,32 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
+    /// Reseta o ponteiro de recebimento para rebuscar tudo do Railway.
+    /// </summary>
+    [HttpPost("resetar-recebimento")]
+    public async Task<IActionResult> ResetarRecebimento()
+    {
+        try
+        {
+            var config = await _db.Configuracoes
+                .FirstOrDefaultAsync(c => c.Chave == "sync.ultimo.id.recebido");
+
+            if (config != null)
+            {
+                config.Valor = "0";
+                await _db.SaveChangesAsync();
+            }
+
+            return Ok(new { success = true, message = "Ponteiro de recebimento resetado. Próximo ciclo vai rebuscar tudo." });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em SyncController.ResetarRecebimento");
+            return StatusCode(500, new { success = false, message = "Erro ao resetar." });
+        }
+    }
+
+    /// <summary>
     /// Limpa registros já enviados com mais de X dias.
     /// </summary>
     [HttpPost("limpar")]
