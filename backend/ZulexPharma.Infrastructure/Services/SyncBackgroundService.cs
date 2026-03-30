@@ -160,37 +160,45 @@ public class SyncBackgroundService : BackgroundService
         var aplicados = 0;
         var lastSuccessId = ultimoId;
 
-        foreach (var op in resultado.Data)
+        // Ordenar operações por dependência: tabelas pai primeiro em I/U, filhas primeiro em D
+        var ordenadas = resultado.Data
+            .OrderBy(op => op.Operacao == "D" ? -GetOrdemTabela(op.Tabela) : GetOrdemTabela(op.Tabela))
+            .ThenBy(op => op.Id)
+            .ToList();
+
+        // Processar cada operação individualmente com SaveChanges separado
+        // para respeitar a ordem de dependência entre tabelas
+        foreach (var op in ordenadas)
         {
             try
             {
-                // Resolver tipo da entidade pela tabela
                 var tipo = ResolverTipo(op.Tabela);
                 if (tipo == null) continue;
 
                 if (op.Operacao == "D")
                 {
-                    // DELETE: buscar por Codigo
                     var existente = await BuscarPorCodigo(db, tipo, op.RegistroCodigo);
                     if (existente != null)
                     {
                         db.Remove(existente);
+                        await db.SaveChangesAsync(ct);
                         aplicados++;
                         if (op.Id > lastSuccessId) lastSuccessId = op.Id;
                     }
                 }
                 else if (op.Operacao == "I")
                 {
-                    // INSERT: verificar se já existe pelo Codigo
                     var existente = await BuscarPorCodigo(db, tipo, op.RegistroCodigo);
                     if (existente == null && op.DadosJson != null)
                     {
                         var entidade = (Domain.Entities.BaseEntity?)JsonSerializer.Deserialize(op.DadosJson, tipo, _jsonOpts);
                         if (entidade != null)
                         {
-                            entidade.Id = 0; // EF gera novo Id local
+                            entidade.Id = 0;
                             LimparNavigations(db, entidade);
+                            await ResolverFksLocais(db, entidade, op.DadosJson);
                             db.Add(entidade);
+                            await db.SaveChangesAsync(ct);
                             aplicados++;
                             if (op.Id > lastSuccessId) lastSuccessId = op.Id;
                         }
@@ -198,16 +206,17 @@ public class SyncBackgroundService : BackgroundService
                 }
                 else if (op.Operacao == "U")
                 {
-                    // UPDATE: buscar por Codigo e atualizar
                     var existente = await BuscarPorCodigo(db, tipo, op.RegistroCodigo);
                     if (existente != null && op.DadosJson != null)
                     {
                         var entidade = (Domain.Entities.BaseEntity?)JsonSerializer.Deserialize(op.DadosJson, tipo, _jsonOpts);
                         if (entidade != null)
                         {
-                            entidade.Id = existente.Id; // Manter Id local
+                            entidade.Id = existente.Id;
                             LimparNavigations(db, entidade);
+                            await ResolverFksLocais(db, entidade, op.DadosJson);
                             db.Entry(existente).CurrentValues.SetValues(entidade);
+                            await db.SaveChangesAsync(ct);
                             aplicados++;
                             if (op.Id > lastSuccessId) lastSuccessId = op.Id;
                         }
@@ -218,27 +227,16 @@ public class SyncBackgroundService : BackgroundService
             {
                 Log.Warning(ex, "Sync PULL: erro ao aplicar op {Op} em {Tabela} codigo {Codigo}",
                     op.Operacao, op.Tabela, op.RegistroCodigo);
+                // Detach entries com erro para não poluir próximas operações
+                foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged))
+                    entry.State = EntityState.Detached;
             }
-        }
-
-        var batchFailed = false;
-        try
-        {
-            await db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException ex)
-        {
-            Log.Warning(ex, "Sync PULL: erro ao salvar batch");
-            batchFailed = true;
-            // Detach entries com erro
-            foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged))
-                entry.State = EntityState.Detached;
         }
 
         db.AplicandoSync = false;
 
-        // Only update progress if batch succeeded
-        if (!batchFailed)
+        // Atualizar progresso
+        if (aplicados > 0 || lastSuccessId > ultimoId)
         {
             ultimoId = lastSuccessId;
             if (ultimoIdConfig == null)
@@ -253,6 +251,117 @@ public class SyncBackgroundService : BackgroundService
         }
 
         if (aplicados > 0) Log.Information("Sync PULL: {Count} operações aplicadas", aplicados);
+    }
+
+    /// <summary>
+    /// Ordem de dependência: tabelas pai têm número menor (processadas primeiro em INSERT).
+    /// </summary>
+    private static int GetOrdemTabela(string tabela) => tabela switch
+    {
+        "Filiais" => 0,
+        "UsuariosGrupos" => 0,
+        "Pessoas" => 1,
+        "Colaboradores" => 2,
+        "Fornecedores" => 2,
+        "PessoasContato" => 2,
+        "PessoasEndereco" => 2,
+        "Usuarios" => 3,
+        "UsuarioFilialGrupos" => 4,
+        "UsuariosGruposPermissao" => 1,
+        "LogsAcao" => 5,
+        _ => 10
+    };
+
+    /// <summary>
+    /// Resolve FKs que referenciam outras entidades: troca o Id da origem pelo Id local
+    /// usando o Codigo para lookup. Ex: Colaborador.PessoaId vem com Id=5 da origem,
+    /// mas no banco local a Pessoa com aquele Codigo tem Id=12.
+    /// </summary>
+    private static async Task ResolverFksLocais(AppDbContext db, Domain.Entities.BaseEntity entidade, string dadosJson)
+    {
+        var doc = JsonDocument.Parse(dadosJson);
+        var root = doc.RootElement;
+
+        // Mapa de propriedades FK -> tabela alvo
+        var fkMap = new Dictionary<string, string>
+        {
+            ["PessoaId"] = "Pessoas",
+            ["ColaboradorId"] = "Colaboradores",
+            ["GrupoUsuarioId"] = "UsuariosGrupos",
+            ["FilialId"] = "Filiais",
+            ["UsuarioId"] = "Usuarios",
+            ["UsuarioLiberouId"] = "Usuarios"
+        };
+
+        var tipo = entidade.GetType();
+        foreach (var (fkProp, tabelaAlvo) in fkMap)
+        {
+            var prop = tipo.GetProperty(fkProp);
+            if (prop == null) continue;
+
+            // Ler o valor atual da FK (vem com Id da origem)
+            var fkValue = prop.GetValue(entidade);
+            if (fkValue == null) continue;
+
+            long fkId;
+            if (prop.PropertyType == typeof(long))
+                fkId = (long)fkValue;
+            else if (prop.PropertyType == typeof(long?))
+                fkId = ((long?)fkValue).Value;
+            else
+                continue;
+
+            if (fkId == 0) continue;
+
+            // Precisamos achar o Codigo original da entidade referenciada.
+            // O DadosJson do sync NÃO traz o Codigo da FK, mas o registro
+            // referenciado já deve ter sido sincronizado. Procuramos por Id
+            // na SyncFila para achar o Codigo, ou consultamos direto.
+            // Abordagem pragmática: buscar entidade local com mesmo Id.
+            // Se não existir, buscar pela FK via Codigo usando a fila.
+
+            var tipoAlvo = ResolverTipo(tabelaAlvo);
+            if (tipoAlvo == null) continue;
+
+            // Primeiro: verificar se o Id local coincide (caso comum quando ambos iniciaram do zero)
+            var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipoAlvo);
+            var dbSet = (IQueryable<Domain.Entities.BaseEntity>)method.Invoke(db, null)!;
+
+            // Buscar por Id original (pode coincidir)
+            var porId = await dbSet.FirstOrDefaultAsync(e => e.Id == fkId);
+            if (porId != null) continue; // Id coincide, FK está correta
+
+            // Não coincide: precisamos achar o registro local pelo Codigo.
+            // Buscar o Codigo original consultando a SyncFila
+            var syncOp = await db.SyncFila
+                .Where(s => s.Tabela == tabelaAlvo && s.RegistroId == fkId && s.Operacao == "I")
+                .FirstOrDefaultAsync();
+
+            if (syncOp?.RegistroCodigo != null)
+            {
+                var local = await dbSet.FirstOrDefaultAsync(e => e.Codigo == syncOp.RegistroCodigo);
+                if (local != null)
+                {
+                    prop.SetValue(entidade, local.Id);
+                    continue;
+                }
+            }
+
+            // Fallback: buscar no receber - o registro alvo pode ter acabado de ser inserido neste batch
+            // Nesse caso, buscar pelo Codigo que veio no JSON original do registro alvo
+            // Não temos essa info aqui, mas como processamos em ordem de dependência, o pai já foi salvo
+            // Tentar buscar qualquer registro com aquele Codigo na tabela alvo via SyncFila recebida
+            var recebido = await db.Set<Domain.Entities.SyncFila>()
+                .Where(s => s.Tabela == tabelaAlvo && s.RegistroId == fkId && !s.Enviado)
+                .FirstOrDefaultAsync();
+
+            if (recebido?.RegistroCodigo != null)
+            {
+                var local = await dbSet.FirstOrDefaultAsync(e => e.Codigo == recebido.RegistroCodigo);
+                if (local != null)
+                    prop.SetValue(entidade, local.Id);
+            }
+        }
     }
 
     /// <summary>
