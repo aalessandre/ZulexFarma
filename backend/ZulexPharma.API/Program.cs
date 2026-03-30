@@ -126,7 +126,9 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await DatabaseSeeder.SeedAsync(db);
+        var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var filialCodigo = int.TryParse(config["Filial:Codigo"], out var fc) ? fc : 0;
+        await DatabaseSeeder.SeedAsync(db, filialCodigo);
 
         Log.Information("Banco de dados inicializado com sucesso.");
     }

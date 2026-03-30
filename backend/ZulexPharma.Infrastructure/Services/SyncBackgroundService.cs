@@ -160,16 +160,8 @@ public class SyncBackgroundService : BackgroundService
         var aplicados = 0;
         var lastSuccessId = ultimoId;
 
-        // Construir mapa de RegistroId da origem → Codigo, usando as operações recebidas.
-        // Isso permite resolver FKs: Colaborador.PessoaId=5 → buscar Codigo da Pessoa com RegistroId=5
-        var codigoPorOrigem = new Dictionary<string, string>(); // "Tabela:OrigId" → Codigo
-        foreach (var op in resultado.Data)
-        {
-            if (!string.IsNullOrEmpty(op.RegistroCodigo) && op.RegistroId > 0)
-                codigoPorOrigem[$"{op.Tabela}:{op.RegistroId}"] = op.RegistroCodigo;
-        }
-
-        // Ordenar operações por dependência: tabelas pai primeiro em I/U, filhas primeiro em D
+        // Com IDs globais por filial (faixa exclusiva), FKs são sempre válidas.
+        // Ordenar por dependência para INSERTs (tabelas pai primeiro).
         var ordenadas = resultado.Data
             .OrderBy(op => op.Operacao == "D" ? -GetOrdemTabela(op.Tabela) : GetOrdemTabela(op.Tabela))
             .ThenBy(op => op.Id)
@@ -184,56 +176,57 @@ public class SyncBackgroundService : BackgroundService
 
                 if (op.Operacao == "D")
                 {
-                    var existente = await BuscarPorCodigo(db, tipo, op.RegistroCodigo);
+                    // DELETE por Id (global, único)
+                    var existente = await BuscarPorId(db, tipo, op.RegistroId);
                     if (existente != null)
                     {
                         db.Remove(existente);
                         await db.SaveChangesAsync(ct);
                         aplicados++;
-                        if (op.Id > lastSuccessId) lastSuccessId = op.Id;
                     }
                 }
-                else if (op.Operacao == "I")
+                else if (op.Operacao == "I" && op.DadosJson != null)
                 {
-                    var existente = await BuscarPorCodigo(db, tipo, op.RegistroCodigo);
-                    if (existente == null && op.DadosJson != null)
+                    // INSERT: verificar se já existe (idempotência)
+                    var existente = await BuscarPorId(db, tipo, op.RegistroId);
+                    if (existente == null)
                     {
                         var entidade = (Domain.Entities.BaseEntity?)JsonSerializer.Deserialize(op.DadosJson, tipo, _jsonOpts);
                         if (entidade != null)
                         {
-                            entidade.Id = 0;
+                            // Manter o Id original (é globalmente único por faixa de filial)
                             LimparNavigations(db, entidade);
-                            await ResolverFksLocais(db, entidade, codigoPorOrigem);
                             db.Add(entidade);
+                            // Forçar EF a usar o Id explícito (não gerar novo)
+                            db.Entry(entidade).Property("Id").IsTemporary = false;
                             await db.SaveChangesAsync(ct);
                             aplicados++;
-                            if (op.Id > lastSuccessId) lastSuccessId = op.Id;
                         }
                     }
                 }
-                else if (op.Operacao == "U")
+                else if (op.Operacao == "U" && op.DadosJson != null)
                 {
-                    var existente = await BuscarPorCodigo(db, tipo, op.RegistroCodigo);
-                    if (existente != null && op.DadosJson != null)
+                    // UPDATE por Id
+                    var existente = await BuscarPorId(db, tipo, op.RegistroId);
+                    if (existente != null)
                     {
                         var entidade = (Domain.Entities.BaseEntity?)JsonSerializer.Deserialize(op.DadosJson, tipo, _jsonOpts);
                         if (entidade != null)
                         {
-                            entidade.Id = existente.Id;
                             LimparNavigations(db, entidade);
-                            await ResolverFksLocais(db, entidade, codigoPorOrigem);
                             db.Entry(existente).CurrentValues.SetValues(entidade);
                             await db.SaveChangesAsync(ct);
                             aplicados++;
-                            if (op.Id > lastSuccessId) lastSuccessId = op.Id;
                         }
                     }
                 }
+
+                if (op.Id > lastSuccessId) lastSuccessId = op.Id;
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Sync PULL: erro ao aplicar op {Op} em {Tabela} codigo {Codigo}",
-                    op.Operacao, op.Tabela, op.RegistroCodigo);
+                Log.Warning(ex, "Sync PULL: erro ao aplicar op {Op} em {Tabela} Id {Id}",
+                    op.Operacao, op.Tabela, op.RegistroId);
                 foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged))
                     entry.State = EntityState.Detached;
             }
@@ -241,16 +234,15 @@ public class SyncBackgroundService : BackgroundService
 
         db.AplicandoSync = false;
 
-        if (aplicados > 0 || lastSuccessId > ultimoId)
+        if (lastSuccessId > ultimoId)
         {
-            ultimoId = lastSuccessId;
             if (ultimoIdConfig == null)
             {
-                db.Configuracoes.Add(new Domain.Entities.Configuracao { Chave = "sync.ultimo.id.recebido", Valor = ultimoId.ToString() });
+                db.Configuracoes.Add(new Domain.Entities.Configuracao { Chave = "sync.ultimo.id.recebido", Valor = lastSuccessId.ToString() });
             }
             else
             {
-                ultimoIdConfig.Valor = ultimoId.ToString();
+                ultimoIdConfig.Valor = lastSuccessId.ToString();
             }
             await db.SaveChangesAsync(ct);
         }
@@ -278,71 +270,6 @@ public class SyncBackgroundService : BackgroundService
     };
 
     /// <summary>
-    /// Resolve FKs: troca o Id da origem pelo Id local usando o mapa de Codigos.
-    /// Ex: Colaborador.PessoaId=5 → mapa diz que Pessoas:5 tem Codigo "1.1" → busca Pessoa local com Codigo "1.1" → usa o Id local.
-    /// </summary>
-    private static async Task ResolverFksLocais(AppDbContext db, Domain.Entities.BaseEntity entidade, Dictionary<string, string> codigoPorOrigem)
-    {
-        // FK property → tabela alvo
-        var fkMap = new Dictionary<string, string>
-        {
-            ["PessoaId"] = "Pessoas",
-            ["ColaboradorId"] = "Colaboradores",
-            ["GrupoUsuarioId"] = "UsuariosGrupos",
-            ["FilialId"] = "Filiais",
-            ["UsuarioId"] = "Usuarios",
-            ["UsuarioLiberouId"] = "Usuarios"
-        };
-
-        var tipo = entidade.GetType();
-        foreach (var (fkProp, tabelaAlvo) in fkMap)
-        {
-            var prop = tipo.GetProperty(fkProp);
-            if (prop == null) continue;
-
-            var fkValue = prop.GetValue(entidade);
-            if (fkValue == null) continue;
-
-            long fkId;
-            if (prop.PropertyType == typeof(long))
-                fkId = (long)fkValue;
-            else if (prop.PropertyType == typeof(long?))
-                fkId = ((long?)fkValue).Value;
-            else
-                continue;
-
-            if (fkId == 0) continue;
-
-            var tipoAlvo = ResolverTipo(tabelaAlvo);
-            if (tipoAlvo == null) continue;
-
-            var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipoAlvo);
-            var dbSet = (IQueryable<Domain.Entities.BaseEntity>)method.Invoke(db, null)!;
-
-            // Verificar se o Id local coincide (bancos que começaram do zero juntos)
-            var porId = await dbSet.FirstOrDefaultAsync(e => e.Id == fkId);
-            if (porId != null) continue;
-
-            // Buscar o Codigo da entidade referenciada no mapa de operações recebidas
-            var chave = $"{tabelaAlvo}:{fkId}";
-            if (codigoPorOrigem.TryGetValue(chave, out var codigo))
-            {
-                var local = await dbSet.FirstOrDefaultAsync(e => e.Codigo == codigo);
-                if (local != null)
-                {
-                    prop.SetValue(entidade, local.Id);
-                    Log.Debug("Sync FK resolvida: {Prop} {OrigId} → {LocalId} (codigo {Codigo})", fkProp, fkId, local.Id, codigo);
-                    continue;
-                }
-            }
-
-            // Fallback: FK aponta para registro que não veio neste batch (já existia antes).
-            // Não temos o Codigo, mas podemos tentar buscar pela SyncFila de saída local.
-            Log.Warning("Sync FK não resolvida: {Tabela}.{Prop}={Id} - registro alvo não encontrado", tipo.Name, fkProp, fkId);
-        }
-    }
-
-    /// <summary>
     /// Anula todas as navigation properties para evitar que db.Add() tente trackear o grafo inteiro.
     /// Mantém apenas as FKs (ex: PessoaId), removendo os objetos (ex: Pessoa = null).
     /// </summary>
@@ -366,12 +293,12 @@ public class SyncBackgroundService : BackgroundService
         }
     }
 
-    private static async Task<Domain.Entities.BaseEntity?> BuscarPorCodigo(AppDbContext db, Type tipo, string? codigo)
+    private static async Task<Domain.Entities.BaseEntity?> BuscarPorId(AppDbContext db, Type tipo, long id)
     {
-        if (string.IsNullOrEmpty(codigo)) return null;
+        if (id <= 0) return null;
         var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipo);
         var dbSet = (IQueryable<Domain.Entities.BaseEntity>)method.Invoke(db, null)!;
-        return await dbSet.FirstOrDefaultAsync(e => e.Codigo == codigo);
+        return await dbSet.FirstOrDefaultAsync(e => e.Id == id);
     }
 
     private static readonly Dictionary<string, Type> _tiposPorTabela = new()

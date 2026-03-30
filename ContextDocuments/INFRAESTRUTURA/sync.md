@@ -27,16 +27,23 @@ Controla o proximo sequencial do Codigo visivel por tabela.
 - Tabelas sem sync (Configuracoes, SyncFila, etc) nao geram Codigo
 
 ## Identificadores
-- **Id** = tecnico, PK, auto-increment local. Pode variar entre PCs.
-- **Codigo** = visivel, unico global. Identifica o registro em todas as filiais.
-- O sync usa Codigo para encontrar registros ao aplicar operacoes remotas.
+- **Id** = PK bigint, globalmente unico por faixa de filial
+  - Filial 1: IDs 1.000.000.001 a 1.999.999.999
+  - Filial 2: IDs 2.000.000.001 a 2.999.999.999
+  - Formula: FilialCodigo * 1.000.000.000 + sequencial
+  - Com 1000 inserts/dia por tabela, cada filial dura 2.739 anos
+  - Configurado automaticamente no startup (ALTER TABLE ... RESTART WITH)
+- **Codigo** = visivel, formato "FilialCodigo.Sequencial", apenas para exibicao humana
+  - NAO usado internamente pelo sync nem por FKs
+- Como os IDs sao globais, FKs funcionam direto entre filiais (sem remapeamento)
 
 ## Fluxo
 
 ### Cadastro
 1. Usuario salva registro
-2. SaveChangesAsync gera Codigo e seta FilialOrigemId
-3. Apos save, insere na SyncFila (I/U/D + JSON)
+2. PostgreSQL gera Id na faixa da filial (identity column)
+3. SaveChangesAsync gera Codigo visivel e seta FilialOrigemId
+4. Apos save, insere na SyncFila (I/U/D + JSON com Id global)
 
 ### PUSH (PC -> Railway, a cada 30s)
 1. SELECT SyncFila WHERE Enviado = false LIMIT 100
@@ -47,8 +54,8 @@ Controla o proximo sequencial do Codigo visivel por tabela.
 ### PULL (Railway -> PC, a cada 30s)
 1. GET /api/sync/receber?filialId=X&ultimoId=Y
 2. Railway retorna operacoes de OUTRAS filiais (FilialOrigemId != X)
-3. PC aplica: I=insert (por Codigo), U=update (por Codigo), D=delete (por Codigo)
-4. INSERT usa Id=0 (EF gera novo Id local), mantem Codigo original
+3. PC aplica: I=insert (por Id), U=update (por Id), D=delete (por Id)
+4. INSERT preserva o Id original (é globalmente unico)
 
 ### Limpeza (automatica)
 - DELETE SyncFila WHERE Enviado = true AND EnviadoEm < (hoje - X dias)
@@ -87,13 +94,14 @@ Editaveis na tela Configuracoes do sistema:
 - SyncFila (controle interno)
 - SequenciaLocal (controle interno)
 
-## Colisao de IDs
-- Cada PC gera seus proprios IDs (auto-increment local)
-- IDs podem ser diferentes entre PCs para o mesmo registro
-- O Codigo eh o identificador universal
-- Ao aplicar INSERT remoto: Id=0 (EF gera local), Codigo preservado
-- Ao aplicar UPDATE remoto: busca por Codigo, atualiza mantendo Id local
-- Ao aplicar DELETE remoto: busca por Codigo, remove
+## IDs globais por faixa de filial
+- Cada filial tem uma faixa exclusiva de IDs (1 bilhao por filial)
+- IDs NUNCA colidem entre filiais
+- FKs (PessoaId, ColaboradorId, etc) sao validas em qualquer PC
+- Ao aplicar INSERT remoto: usa o Id original (é unico global)
+- Ao aplicar UPDATE remoto: busca por Id, atualiza
+- Ao aplicar DELETE remoto: busca por Id, remove
+- Nao precisa de remapeamento de FKs
 
 ## Autenticacao
 - Background service autentica no Railway como usuario SISTEMA

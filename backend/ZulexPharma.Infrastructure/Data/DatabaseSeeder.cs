@@ -1,13 +1,25 @@
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using ZulexPharma.Domain.Entities;
 
 namespace ZulexPharma.Infrastructure.Data;
 
 public static class DatabaseSeeder
 {
-    public static async Task SeedAsync(AppDbContext context)
+    /// <summary>
+    /// Offset por filial: Filial 1 → IDs a partir de 1.000.000.000, Filial 2 → 2.000.000.000, etc.
+    /// bigint suporta até 9.2 quintilhões. Com 1 bilhão por filial, suporta 99 filiais.
+    /// Se cada filial criar 1000 registros/dia por tabela, dura 2.739 anos.
+    /// </summary>
+    private const long ID_RANGE_PER_FILIAL = 1_000_000_000L;
+
+    public static async Task SeedAsync(AppDbContext context, int filialCodigo = 0)
     {
         await context.Database.MigrateAsync();
+
+        // Configurar sequences para a faixa de IDs da filial
+        if (filialCodigo > 0)
+            await ConfigurarSequences(context, filialCodigo);
 
         if (!await context.Filiais.AnyAsync())
         {
@@ -67,5 +79,51 @@ public static class DatabaseSeeder
             );
             await context.SaveChangesAsync();
         }
+    }
+
+    /// <summary>
+    /// Configura as identity columns de todas as tabelas para começar na faixa da filial.
+    /// Filial 1 → IDs a partir de 1.000.000.000, Filial 2 → 2.000.000.000, etc.
+    /// Só ajusta se o valor atual da sequence estiver abaixo da faixa (não reduz nunca).
+    /// </summary>
+    private static async Task ConfigurarSequences(AppDbContext context, int filialCodigo)
+    {
+        var offset = (long)filialCodigo * ID_RANGE_PER_FILIAL;
+
+        var conn = context.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
+
+        // Buscar todas as tabelas com identity column "Id"
+        using var cmdTabelas = conn.CreateCommand();
+        cmdTabelas.CommandText = @"
+            SELECT table_name FROM information_schema.columns
+            WHERE table_schema = 'public' AND column_name = 'Id' AND is_identity = 'YES'";
+
+        var tabelas = new List<string>();
+        using (var reader = await cmdTabelas.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+                tabelas.Add(reader.GetString(0));
+        }
+
+        foreach (var tabela in tabelas)
+        {
+            // Pegar o valor máximo atual de Id na tabela
+            using var cmdMax = conn.CreateCommand();
+            cmdMax.CommandText = $@"SELECT COALESCE(MAX(""Id""), 0) FROM ""{tabela}""";
+            var maxId = Convert.ToInt64(await cmdMax.ExecuteScalarAsync());
+
+            // Só ajustar se o Id atual está abaixo da faixa da filial
+            if (maxId < offset)
+            {
+                using var cmdRestart = conn.CreateCommand();
+                cmdRestart.CommandText = $@"ALTER TABLE ""{tabela}"" ALTER COLUMN ""Id"" RESTART WITH {offset + 1}";
+                await cmdRestart.ExecuteNonQueryAsync();
+                Log.Debug("Sequence {Tabela} configurada para {Offset}", tabela, offset + 1);
+            }
+        }
+
+        Log.Information("Faixa de IDs configurada para Filial {Filial}: {Offset}+", filialCodigo, offset);
     }
 }
