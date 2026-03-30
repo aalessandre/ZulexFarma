@@ -92,14 +92,17 @@
 }
 
 .row-detalhe td { padding: 12px; background: #f8f9fb; }
+.row-erro td { padding: 0; }
 .json-preview {
   font-family: 'Consolas', monospace; font-size: 12px; color: #2c3e50;
   background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e0e4ea;
   max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all;
 }
 .erro-detalhe {
-  margin-top: 8px; padding: 8px 12px; background: #fce4ec; color: #c62828;
-  border-radius: 6px; font-size: 12px;
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 12px; background: #fce4ec; color: #c62828;
+  border-radius: 0; font-size: 12px; line-height: 1.4;
+  svg { flex-shrink: 0; margin-top: 1px; }
 }
 .grid-vazio { text-align: center; padding: 40px; color: #7b8a9a; }
 
