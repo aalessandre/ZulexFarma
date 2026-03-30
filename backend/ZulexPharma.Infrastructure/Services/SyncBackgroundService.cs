@@ -106,12 +106,12 @@ public class SyncBackgroundService : BackgroundService
 
         var lote = int.TryParse(_config["Sync:LoteTamanho"], out var l) ? l : 100;
         var pendentes = await db.SyncFila
-            .Where(f => !f.Enviado && f.FilialOrigemId == _filialCodigo)
+            .Where(f => !f.Enviado)
             .OrderBy(f => f.Id)
             .Take(lote)
             .ToListAsync(ct);
 
-        PendentesEnvio = await db.SyncFila.CountAsync(f => !f.Enviado && f.FilialOrigemId == _filialCodigo, ct);
+        PendentesEnvio = await db.SyncFila.CountAsync(f => !f.Enviado, ct);
 
         if (pendentes.Count == 0) return;
 
