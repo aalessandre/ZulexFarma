@@ -160,14 +160,21 @@ public class SyncBackgroundService : BackgroundService
         var aplicados = 0;
         var lastSuccessId = ultimoId;
 
+        // Construir mapa de RegistroId da origem → Codigo, usando as operações recebidas.
+        // Isso permite resolver FKs: Colaborador.PessoaId=5 → buscar Codigo da Pessoa com RegistroId=5
+        var codigoPorOrigem = new Dictionary<string, string>(); // "Tabela:OrigId" → Codigo
+        foreach (var op in resultado.Data)
+        {
+            if (!string.IsNullOrEmpty(op.RegistroCodigo) && op.RegistroId > 0)
+                codigoPorOrigem[$"{op.Tabela}:{op.RegistroId}"] = op.RegistroCodigo;
+        }
+
         // Ordenar operações por dependência: tabelas pai primeiro em I/U, filhas primeiro em D
         var ordenadas = resultado.Data
             .OrderBy(op => op.Operacao == "D" ? -GetOrdemTabela(op.Tabela) : GetOrdemTabela(op.Tabela))
             .ThenBy(op => op.Id)
             .ToList();
 
-        // Processar cada operação individualmente com SaveChanges separado
-        // para respeitar a ordem de dependência entre tabelas
         foreach (var op in ordenadas)
         {
             try
@@ -196,7 +203,7 @@ public class SyncBackgroundService : BackgroundService
                         {
                             entidade.Id = 0;
                             LimparNavigations(db, entidade);
-                            await ResolverFksLocais(db, entidade, op.DadosJson);
+                            await ResolverFksLocais(db, entidade, codigoPorOrigem);
                             db.Add(entidade);
                             await db.SaveChangesAsync(ct);
                             aplicados++;
@@ -214,7 +221,7 @@ public class SyncBackgroundService : BackgroundService
                         {
                             entidade.Id = existente.Id;
                             LimparNavigations(db, entidade);
-                            await ResolverFksLocais(db, entidade, op.DadosJson);
+                            await ResolverFksLocais(db, entidade, codigoPorOrigem);
                             db.Entry(existente).CurrentValues.SetValues(entidade);
                             await db.SaveChangesAsync(ct);
                             aplicados++;
@@ -227,7 +234,6 @@ public class SyncBackgroundService : BackgroundService
             {
                 Log.Warning(ex, "Sync PULL: erro ao aplicar op {Op} em {Tabela} codigo {Codigo}",
                     op.Operacao, op.Tabela, op.RegistroCodigo);
-                // Detach entries com erro para não poluir próximas operações
                 foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged))
                     entry.State = EntityState.Detached;
             }
@@ -235,7 +241,6 @@ public class SyncBackgroundService : BackgroundService
 
         db.AplicandoSync = false;
 
-        // Atualizar progresso
         if (aplicados > 0 || lastSuccessId > ultimoId)
         {
             ultimoId = lastSuccessId;
@@ -273,16 +278,12 @@ public class SyncBackgroundService : BackgroundService
     };
 
     /// <summary>
-    /// Resolve FKs que referenciam outras entidades: troca o Id da origem pelo Id local
-    /// usando o Codigo para lookup. Ex: Colaborador.PessoaId vem com Id=5 da origem,
-    /// mas no banco local a Pessoa com aquele Codigo tem Id=12.
+    /// Resolve FKs: troca o Id da origem pelo Id local usando o mapa de Codigos.
+    /// Ex: Colaborador.PessoaId=5 → mapa diz que Pessoas:5 tem Codigo "1.1" → busca Pessoa local com Codigo "1.1" → usa o Id local.
     /// </summary>
-    private static async Task ResolverFksLocais(AppDbContext db, Domain.Entities.BaseEntity entidade, string dadosJson)
+    private static async Task ResolverFksLocais(AppDbContext db, Domain.Entities.BaseEntity entidade, Dictionary<string, string> codigoPorOrigem)
     {
-        var doc = JsonDocument.Parse(dadosJson);
-        var root = doc.RootElement;
-
-        // Mapa de propriedades FK -> tabela alvo
+        // FK property → tabela alvo
         var fkMap = new Dictionary<string, string>
         {
             ["PessoaId"] = "Pessoas",
@@ -299,7 +300,6 @@ public class SyncBackgroundService : BackgroundService
             var prop = tipo.GetProperty(fkProp);
             if (prop == null) continue;
 
-            // Ler o valor atual da FK (vem com Id da origem)
             var fkValue = prop.GetValue(entidade);
             if (fkValue == null) continue;
 
@@ -313,54 +313,32 @@ public class SyncBackgroundService : BackgroundService
 
             if (fkId == 0) continue;
 
-            // Precisamos achar o Codigo original da entidade referenciada.
-            // O DadosJson do sync NÃO traz o Codigo da FK, mas o registro
-            // referenciado já deve ter sido sincronizado. Procuramos por Id
-            // na SyncFila para achar o Codigo, ou consultamos direto.
-            // Abordagem pragmática: buscar entidade local com mesmo Id.
-            // Se não existir, buscar pela FK via Codigo usando a fila.
-
             var tipoAlvo = ResolverTipo(tabelaAlvo);
             if (tipoAlvo == null) continue;
 
-            // Primeiro: verificar se o Id local coincide (caso comum quando ambos iniciaram do zero)
             var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipoAlvo);
             var dbSet = (IQueryable<Domain.Entities.BaseEntity>)method.Invoke(db, null)!;
 
-            // Buscar por Id original (pode coincidir)
+            // Verificar se o Id local coincide (bancos que começaram do zero juntos)
             var porId = await dbSet.FirstOrDefaultAsync(e => e.Id == fkId);
-            if (porId != null) continue; // Id coincide, FK está correta
+            if (porId != null) continue;
 
-            // Não coincide: precisamos achar o registro local pelo Codigo.
-            // Buscar o Codigo original consultando a SyncFila
-            var syncOp = await db.SyncFila
-                .Where(s => s.Tabela == tabelaAlvo && s.RegistroId == fkId && s.Operacao == "I")
-                .FirstOrDefaultAsync();
-
-            if (syncOp?.RegistroCodigo != null)
+            // Buscar o Codigo da entidade referenciada no mapa de operações recebidas
+            var chave = $"{tabelaAlvo}:{fkId}";
+            if (codigoPorOrigem.TryGetValue(chave, out var codigo))
             {
-                var local = await dbSet.FirstOrDefaultAsync(e => e.Codigo == syncOp.RegistroCodigo);
+                var local = await dbSet.FirstOrDefaultAsync(e => e.Codigo == codigo);
                 if (local != null)
                 {
                     prop.SetValue(entidade, local.Id);
+                    Log.Debug("Sync FK resolvida: {Prop} {OrigId} → {LocalId} (codigo {Codigo})", fkProp, fkId, local.Id, codigo);
                     continue;
                 }
             }
 
-            // Fallback: buscar no receber - o registro alvo pode ter acabado de ser inserido neste batch
-            // Nesse caso, buscar pelo Codigo que veio no JSON original do registro alvo
-            // Não temos essa info aqui, mas como processamos em ordem de dependência, o pai já foi salvo
-            // Tentar buscar qualquer registro com aquele Codigo na tabela alvo via SyncFila recebida
-            var recebido = await db.Set<Domain.Entities.SyncFila>()
-                .Where(s => s.Tabela == tabelaAlvo && s.RegistroId == fkId && !s.Enviado)
-                .FirstOrDefaultAsync();
-
-            if (recebido?.RegistroCodigo != null)
-            {
-                var local = await dbSet.FirstOrDefaultAsync(e => e.Codigo == recebido.RegistroCodigo);
-                if (local != null)
-                    prop.SetValue(entidade, local.Id);
-            }
+            // Fallback: FK aponta para registro que não veio neste batch (já existia antes).
+            // Não temos o Codigo, mas podemos tentar buscar pela SyncFila de saída local.
+            Log.Warning("Sync FK não resolvida: {Tabela}.{Prop}={Id} - registro alvo não encontrado", tipo.Name, fkProp, fkId);
         }
     }
 
