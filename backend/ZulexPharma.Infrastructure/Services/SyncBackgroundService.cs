@@ -189,6 +189,7 @@ public class SyncBackgroundService : BackgroundService
                         if (entidade != null)
                         {
                             entidade.Id = 0; // EF gera novo Id local
+                            LimparNavigations(db, entidade);
                             db.Add(entidade);
                             aplicados++;
                             if (op.Id > lastSuccessId) lastSuccessId = op.Id;
@@ -205,6 +206,7 @@ public class SyncBackgroundService : BackgroundService
                         if (entidade != null)
                         {
                             entidade.Id = existente.Id; // Manter Id local
+                            LimparNavigations(db, entidade);
                             db.Entry(existente).CurrentValues.SetValues(entidade);
                             aplicados++;
                             if (op.Id > lastSuccessId) lastSuccessId = op.Id;
@@ -251,6 +253,30 @@ public class SyncBackgroundService : BackgroundService
         }
 
         if (aplicados > 0) Log.Information("Sync PULL: {Count} operações aplicadas", aplicados);
+    }
+
+    /// <summary>
+    /// Anula todas as navigation properties para evitar que db.Add() tente trackear o grafo inteiro.
+    /// Mantém apenas as FKs (ex: PessoaId), removendo os objetos (ex: Pessoa = null).
+    /// </summary>
+    private static void LimparNavigations(AppDbContext db, object entidade)
+    {
+        var entityType = db.Model.FindEntityType(entidade.GetType());
+        if (entityType == null) return;
+
+        foreach (var nav in entityType.GetNavigations())
+        {
+            var prop = nav.PropertyInfo;
+            if (prop != null && prop.CanWrite)
+                prop.SetValue(entidade, null);
+        }
+
+        foreach (var nav in entityType.GetSkipNavigations())
+        {
+            var prop = nav.PropertyInfo;
+            if (prop != null && prop.CanWrite)
+                prop.SetValue(entidade, null);
+        }
     }
 
     private static async Task<Domain.Entities.BaseEntity?> BuscarPorCodigo(AppDbContext db, Type tipo, string? codigo)
