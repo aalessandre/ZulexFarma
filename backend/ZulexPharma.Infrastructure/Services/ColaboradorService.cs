@@ -152,50 +152,82 @@ public class ColaboradorService : IColaboradorService
         await using var transaction = await _db.Database.BeginTransactionAsync();
         try
         {
-            ValidarCpf(dto.Cpf);
+            ValidarFormatoCpf(dto.Cpf);
 
-            var pessoa = new Pessoa
+            // Verificar se Pessoa já existe com este CPF
+            var pessoaExistente = await _db.Pessoas
+                .Include(p => p.Colaborador)
+                .Include(p => p.Contatos)
+                .Include(p => p.Enderecos)
+                .FirstOrDefaultAsync(p => p.CpfCnpj == dto.Cpf.Trim());
+
+            Pessoa pessoa;
+
+            if (pessoaExistente != null)
             {
-                Tipo           = "F",
-                Nome           = Mai(dto.Nome),
-                CpfCnpj        = dto.Cpf.Trim(),
-                Rg             = dto.Rg?.Trim().ToUpper(),
-                DataNascimento = ToUtc(dto.DataNascimento),
-                Observacao     = dto.Observacao?.Trim()
-            };
+                // Pessoa existe — verificar se já tem Colaborador
+                if (pessoaExistente.Colaborador != null)
+                    throw new ArgumentException("Este CPF já possui um colaborador cadastrado.");
 
-            _db.Pessoas.Add(pessoa);
-            await _db.SaveChangesAsync();
-
-            // Endereços
-            foreach (var e in dto.Enderecos)
+                // Reutilizar Pessoa existente (pode ser Fornecedor ou sem vínculo)
+                pessoa = pessoaExistente;
+                pessoa.Nome           = Mai(dto.Nome);
+                pessoa.Rg             = dto.Rg?.Trim().ToUpper();
+                pessoa.DataNascimento = ToUtc(dto.DataNascimento);
+                pessoa.Observacao     = dto.Observacao?.Trim();
+            }
+            else
             {
-                _db.PessoasEndereco.Add(new PessoaEndereco
+                // Criar nova Pessoa
+                pessoa = new Pessoa
                 {
-                    PessoaId    = pessoa.Id,
-                    Tipo        = e.Tipo.Trim().ToUpper(),
-                    Cep         = e.Cep.Trim(),
-                    Rua         = Mai(e.Rua),
-                    Numero      = e.Numero.Trim().ToUpper(),
-                    Complemento = e.Complemento?.Trim().ToUpper(),
-                    Bairro      = Mai(e.Bairro),
-                    Cidade      = Mai(e.Cidade),
-                    Uf          = e.Uf.Trim().ToUpper(),
-                    Principal   = e.Principal
-                });
+                    Tipo           = "F",
+                    Nome           = Mai(dto.Nome),
+                    CpfCnpj        = dto.Cpf.Trim(),
+                    Rg             = dto.Rg?.Trim().ToUpper(),
+                    DataNascimento = ToUtc(dto.DataNascimento),
+                    Observacao     = dto.Observacao?.Trim()
+                };
+                _db.Pessoas.Add(pessoa);
             }
 
-            // Contatos
-            foreach (var ct in dto.Contatos)
+            await _db.SaveChangesAsync();
+
+            // Endereços (só adicionar se Pessoa é nova ou não tem endereços)
+            if (pessoaExistente == null || pessoaExistente.Enderecos.Count == 0)
             {
-                _db.PessoasContato.Add(new PessoaContato
+                foreach (var e in dto.Enderecos)
                 {
-                    PessoaId  = pessoa.Id,
-                    Tipo      = ct.Tipo.Trim().ToUpper(),
-                    Valor     = ct.Valor.Trim(),
-                    Descricao = ct.Descricao?.Trim().ToUpper(),
-                    Principal = ct.Principal
-                });
+                    _db.PessoasEndereco.Add(new PessoaEndereco
+                    {
+                        PessoaId    = pessoa.Id,
+                        Tipo        = e.Tipo.Trim().ToUpper(),
+                        Cep         = e.Cep.Trim(),
+                        Rua         = Mai(e.Rua),
+                        Numero      = e.Numero.Trim().ToUpper(),
+                        Complemento = e.Complemento?.Trim().ToUpper(),
+                        Bairro      = Mai(e.Bairro),
+                        Cidade      = Mai(e.Cidade),
+                        Uf          = e.Uf.Trim().ToUpper(),
+                        Principal   = e.Principal
+                    });
+                }
+            }
+
+            // Contatos (só adicionar se Pessoa é nova ou não tem contatos)
+            if (pessoaExistente == null || pessoaExistente.Contatos.Count == 0)
+            {
+                foreach (var ct in dto.Contatos)
+                {
+                    _db.PessoasContato.Add(new PessoaContato
+                    {
+                        PessoaId  = pessoa.Id,
+                        Tipo      = ct.Tipo.Trim().ToUpper(),
+                        Valor     = ct.Valor.Trim(),
+                        Descricao = ct.Descricao?.Trim().ToUpper(),
+                        Principal = ct.Principal
+                    });
+                }
             }
 
             var colaborador = new Colaborador
@@ -220,7 +252,6 @@ public class ColaboradorService : IColaboradorService
             await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, colaborador.Id,
                 novo: ColaboradorParaDict(colaborador, pessoa));
 
-            // Recarregar para montar o ListDto com contatos/endereços
             return await ListarPorIdAsync(colaborador.Id);
         }
         catch (Exception ex) when (ex is not ArgumentException)
@@ -244,7 +275,8 @@ public class ColaboradorService : IColaboradorService
                 .FirstOrDefaultAsync(c => c.Id == id)
                 ?? throw new KeyNotFoundException($"Colaborador {id} não encontrado.");
 
-            ValidarCpf(dto.Cpf, colaborador.Pessoa.Id);
+            ValidarFormatoCpf(dto.Cpf);
+            ValidarCpfUnicidade(dto.Cpf, colaborador.Pessoa.Id);
 
             var anterior = ColaboradorParaDict(colaborador, colaborador.Pessoa);
 
@@ -300,15 +332,20 @@ public class ColaboradorService : IColaboradorService
             var colaborador = await _db.Colaboradores
                 .Include(c => c.Pessoa).ThenInclude(p => p.Contatos)
                 .Include(c => c.Pessoa).ThenInclude(p => p.Enderecos)
+                .Include(c => c.Pessoa).ThenInclude(p => p.Fornecedor)
                 .FirstOrDefaultAsync(c => c.Id == id)
                 ?? throw new KeyNotFoundException($"Colaborador {id} não encontrado.");
 
             var dados = ColaboradorParaDict(colaborador, colaborador.Pessoa);
             var pessoa = colaborador.Pessoa;
+            var pessoaCompartilhada = pessoa.Fornecedor != null;
 
-            // Tenta exclusão física
             _db.Colaboradores.Remove(colaborador);
-            _db.Pessoas.Remove(pessoa);
+
+            // Só remover Pessoa se não tem Fornecedor vinculado
+            if (!pessoaCompartilhada)
+                _db.Pessoas.Remove(pessoa);
+
             try
             {
                 await _db.SaveChangesAsync();
@@ -323,7 +360,7 @@ public class ColaboradorService : IColaboradorService
                     .Include(c => c.Pessoa)
                     .FirstAsync(c => c.Id == id);
                 recarregado.Ativo = false;
-                recarregado.Pessoa.Ativo = false;
+                if (!pessoaCompartilhada) recarregado.Pessoa.Ativo = false;
                 await _db.SaveChangesAsync();
 
                 await _log.RegistrarAsync(TELA, "DESATIVAÇÃO", ENTIDADE, id);
@@ -568,7 +605,7 @@ public class ColaboradorService : IColaboradorService
     private static bool DictsIguais(Dictionary<string, string?> a, Dictionary<string, string?> b)
         => a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
 
-    private void ValidarCpf(string cpf, long? pessoaIdExcluir = null)
+    private static void ValidarFormatoCpf(string cpf)
     {
         var d = new string(cpf.Where(char.IsDigit).ToArray());
 
@@ -578,13 +615,11 @@ public class ColaboradorService : IColaboradorService
         if (d.Distinct().Count() == 1)
             throw new ArgumentException("CPF inválido.");
 
-        // Dígito verificador 1
         var soma = 0;
         for (int i = 0; i < 9; i++) soma += (d[i] - '0') * (10 - i);
         var resto = soma % 11;
         var d1 = resto < 2 ? 0 : 11 - resto;
 
-        // Dígito verificador 2
         soma = 0;
         for (int i = 0; i < 10; i++) soma += (d[i] - '0') * (11 - i);
         resto = soma % 11;
@@ -592,11 +627,12 @@ public class ColaboradorService : IColaboradorService
 
         if (d[9] - '0' != d1 || d[10] - '0' != d2)
             throw new ArgumentException("CPF inválido.");
+    }
 
-        var query = _db.Pessoas.Where(p => p.CpfCnpj == cpf.Trim());
-        if (pessoaIdExcluir.HasValue) query = query.Where(p => p.Id != pessoaIdExcluir.Value);
-        if (query.Any())
-            throw new ArgumentException("CPF já cadastrado.");
+    private void ValidarCpfUnicidade(string cpf, long pessoaIdExcluir)
+    {
+        if (_db.Pessoas.Any(p => p.CpfCnpj == cpf.Trim() && p.Id != pessoaIdExcluir))
+            throw new ArgumentException("CPF já cadastrado para outra pessoa.");
     }
 
     private static Dictionary<string, string?> ColaboradorParaDict(Colaborador c, Pessoa p) => new()

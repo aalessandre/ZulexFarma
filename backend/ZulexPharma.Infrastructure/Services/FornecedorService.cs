@@ -126,54 +126,87 @@ public class FornecedorService : IFornecedorService
             var tipo = tipoUpper;
 
             if (tipo == "F")
-                ValidarCpf(dto.CpfCnpj);
+                ValidarFormatoCpf(dto.CpfCnpj);
             else
-                ValidarCnpj(dto.CpfCnpj);
+                ValidarFormatoCnpj(dto.CpfCnpj);
 
-            var pessoa = new Pessoa
+            // Verificar se Pessoa já existe com este CPF/CNPJ
+            var pessoaExistente = await _db.Pessoas
+                .Include(p => p.Fornecedor)
+                .Include(p => p.Contatos)
+                .Include(p => p.Enderecos)
+                .FirstOrDefaultAsync(p => p.CpfCnpj == dto.CpfCnpj.Trim());
+
+            Pessoa pessoa;
+
+            if (pessoaExistente != null)
             {
-                Tipo              = tipo,
-                Nome              = Mai(dto.Nome),
-                RazaoSocial       = tipo == "J" ? Mai(dto.RazaoSocial) : null,
-                CpfCnpj           = dto.CpfCnpj.Trim(),
-                InscricaoEstadual = dto.InscricaoEstadual?.Trim().ToUpper(),
-                Rg                = tipo == "F" ? dto.Rg?.Trim().ToUpper() : null,
-                DataNascimento    = tipo == "F" ? ToUtc(dto.DataNascimento) : null,
-                Observacao        = dto.Observacao?.Trim()
-            };
+                if (pessoaExistente.Fornecedor != null)
+                    throw new ArgumentException("Este CPF/CNPJ já possui um fornecedor cadastrado.");
 
-            _db.Pessoas.Add(pessoa);
-            await _db.SaveChangesAsync();
-
-            // Endereços
-            foreach (var e in dto.Enderecos)
+                // Reutilizar Pessoa existente
+                pessoa = pessoaExistente;
+                pessoa.Tipo              = tipo;
+                pessoa.Nome              = Mai(dto.Nome);
+                pessoa.RazaoSocial       = tipo == "J" ? Mai(dto.RazaoSocial) : null;
+                pessoa.InscricaoEstadual = dto.InscricaoEstadual?.Trim().ToUpper();
+                pessoa.Rg                = tipo == "F" ? dto.Rg?.Trim().ToUpper() : null;
+                pessoa.DataNascimento    = tipo == "F" ? ToUtc(dto.DataNascimento) : null;
+                pessoa.Observacao        = dto.Observacao?.Trim();
+            }
+            else
             {
-                _db.PessoasEndereco.Add(new PessoaEndereco
+                pessoa = new Pessoa
                 {
-                    PessoaId    = pessoa.Id,
-                    Tipo        = e.Tipo.Trim().ToUpper(),
-                    Cep         = e.Cep.Trim(),
-                    Rua         = Mai(e.Rua),
-                    Numero      = e.Numero.Trim().ToUpper(),
-                    Complemento = e.Complemento?.Trim().ToUpper(),
-                    Bairro      = Mai(e.Bairro),
-                    Cidade      = Mai(e.Cidade),
-                    Uf          = e.Uf.Trim().ToUpper(),
-                    Principal   = e.Principal
-                });
+                    Tipo              = tipo,
+                    Nome              = Mai(dto.Nome),
+                    RazaoSocial       = tipo == "J" ? Mai(dto.RazaoSocial) : null,
+                    CpfCnpj           = dto.CpfCnpj.Trim(),
+                    InscricaoEstadual = dto.InscricaoEstadual?.Trim().ToUpper(),
+                    Rg                = tipo == "F" ? dto.Rg?.Trim().ToUpper() : null,
+                    DataNascimento    = tipo == "F" ? ToUtc(dto.DataNascimento) : null,
+                    Observacao        = dto.Observacao?.Trim()
+                };
+                _db.Pessoas.Add(pessoa);
             }
 
-            // Contatos
-            foreach (var ct in dto.Contatos)
+            await _db.SaveChangesAsync();
+
+            // Endereços (só adicionar se Pessoa é nova ou não tem endereços)
+            if (pessoaExistente == null || pessoaExistente.Enderecos.Count == 0)
             {
-                _db.PessoasContato.Add(new PessoaContato
+                foreach (var e in dto.Enderecos)
                 {
-                    PessoaId  = pessoa.Id,
-                    Tipo      = ct.Tipo.Trim().ToUpper(),
-                    Valor     = ct.Valor.Trim(),
-                    Descricao = ct.Descricao?.Trim().ToUpper(),
-                    Principal = ct.Principal
-                });
+                    _db.PessoasEndereco.Add(new PessoaEndereco
+                    {
+                        PessoaId    = pessoa.Id,
+                        Tipo        = e.Tipo.Trim().ToUpper(),
+                        Cep         = e.Cep.Trim(),
+                        Rua         = Mai(e.Rua),
+                        Numero      = e.Numero.Trim().ToUpper(),
+                        Complemento = e.Complemento?.Trim().ToUpper(),
+                        Bairro      = Mai(e.Bairro),
+                        Cidade      = Mai(e.Cidade),
+                        Uf          = e.Uf.Trim().ToUpper(),
+                        Principal   = e.Principal
+                    });
+                }
+            }
+
+            // Contatos (só adicionar se Pessoa é nova ou não tem contatos)
+            if (pessoaExistente == null || pessoaExistente.Contatos.Count == 0)
+            {
+                foreach (var ct in dto.Contatos)
+                {
+                    _db.PessoasContato.Add(new PessoaContato
+                    {
+                        PessoaId  = pessoa.Id,
+                        Tipo      = ct.Tipo.Trim().ToUpper(),
+                        Valor     = ct.Valor.Trim(),
+                        Descricao = ct.Descricao?.Trim().ToUpper(),
+                        Principal = ct.Principal
+                    });
+                }
             }
 
             var fornecedor = new Fornecedor
@@ -188,7 +221,6 @@ public class FornecedorService : IFornecedorService
             await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, fornecedor.Id,
                 novo: FornecedorParaDict(fornecedor, pessoa));
 
-            // Recarregar para montar o ListDto com contatos/endereços
             return await ListarPorIdAsync(fornecedor.Id);
         }
         catch (Exception ex) when (ex is not ArgumentException)
@@ -216,9 +248,10 @@ public class FornecedorService : IFornecedorService
             var tipo = tipoUpper;
 
             if (tipo == "F")
-                ValidarCpf(dto.CpfCnpj, fornecedor.Pessoa.Id);
+                ValidarFormatoCpf(dto.CpfCnpj);
             else
-                ValidarCnpj(dto.CpfCnpj, fornecedor.Pessoa.Id);
+                ValidarFormatoCnpj(dto.CpfCnpj);
+            ValidarCpfCnpjUnicidade(dto.CpfCnpj, fornecedor.Pessoa.Id);
 
             var anterior = FornecedorParaDict(fornecedor, fornecedor.Pessoa);
 
@@ -264,15 +297,20 @@ public class FornecedorService : IFornecedorService
             var fornecedor = await _db.Fornecedores
                 .Include(f => f.Pessoa).ThenInclude(p => p.Contatos)
                 .Include(f => f.Pessoa).ThenInclude(p => p.Enderecos)
+                .Include(f => f.Pessoa).ThenInclude(p => p.Colaborador)
                 .FirstOrDefaultAsync(f => f.Id == id)
                 ?? throw new KeyNotFoundException($"Fornecedor {id} não encontrado.");
 
             var dados = FornecedorParaDict(fornecedor, fornecedor.Pessoa);
             var pessoa = fornecedor.Pessoa;
+            var pessoaCompartilhada = pessoa.Colaborador != null;
 
-            // Tenta exclusão física
             _db.Fornecedores.Remove(fornecedor);
-            _db.Pessoas.Remove(pessoa);
+
+            // Só remover Pessoa se não tem Colaborador vinculado
+            if (!pessoaCompartilhada)
+                _db.Pessoas.Remove(pessoa);
+
             try
             {
                 await _db.SaveChangesAsync();
@@ -287,7 +325,7 @@ public class FornecedorService : IFornecedorService
                     .Include(f => f.Pessoa)
                     .FirstAsync(f => f.Id == id);
                 recarregado.Ativo = false;
-                recarregado.Pessoa.Ativo = false;
+                if (!pessoaCompartilhada) recarregado.Pessoa.Ativo = false;
                 await _db.SaveChangesAsync();
 
                 await _log.RegistrarAsync(TELA, "DESATIVAÇÃO", ENTIDADE, id);
@@ -432,7 +470,7 @@ public class FornecedorService : IFornecedorService
     private static bool DictsIguais(Dictionary<string, string?> a, Dictionary<string, string?> b)
         => a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
 
-    private void ValidarCpf(string cpf, long? pessoaIdExcluir = null)
+    private static void ValidarFormatoCpf(string cpf)
     {
         var d = new string(cpf.Where(char.IsDigit).ToArray());
 
@@ -442,13 +480,11 @@ public class FornecedorService : IFornecedorService
         if (d.Distinct().Count() == 1)
             throw new ArgumentException("CPF inválido.");
 
-        // Dígito verificador 1
         var soma = 0;
         for (int i = 0; i < 9; i++) soma += (d[i] - '0') * (10 - i);
         var resto = soma % 11;
         var d1 = resto < 2 ? 0 : 11 - resto;
 
-        // Dígito verificador 2
         soma = 0;
         for (int i = 0; i < 10; i++) soma += (d[i] - '0') * (11 - i);
         resto = soma % 11;
@@ -456,14 +492,9 @@ public class FornecedorService : IFornecedorService
 
         if (d[9] - '0' != d1 || d[10] - '0' != d2)
             throw new ArgumentException("CPF inválido.");
-
-        var query = _db.Pessoas.Where(p => p.CpfCnpj == cpf.Trim());
-        if (pessoaIdExcluir.HasValue) query = query.Where(p => p.Id != pessoaIdExcluir.Value);
-        if (query.Any())
-            throw new ArgumentException("CPF já cadastrado.");
     }
 
-    private void ValidarCnpj(string cnpj, long? pessoaIdExcluir = null)
+    private static void ValidarFormatoCnpj(string cnpj)
     {
         var apenasDigitos = new string(cnpj.Where(char.IsDigit).ToArray());
 
@@ -488,11 +519,12 @@ public class FornecedorService : IFornecedorService
 
         if (apenasDigitos[12] - '0' != d1 || apenasDigitos[13] - '0' != d2)
             throw new ArgumentException("CNPJ inválido.");
+    }
 
-        var query = _db.Pessoas.Where(p => p.CpfCnpj == cnpj.Trim());
-        if (pessoaIdExcluir.HasValue) query = query.Where(p => p.Id != pessoaIdExcluir.Value);
-        if (query.Any())
-            throw new ArgumentException("CNPJ já cadastrado.");
+    private void ValidarCpfCnpjUnicidade(string cpfCnpj, long pessoaIdExcluir)
+    {
+        if (_db.Pessoas.Any(p => p.CpfCnpj == cpfCnpj.Trim() && p.Id != pessoaIdExcluir))
+            throw new ArgumentException("CPF/CNPJ já cadastrado para outra pessoa.");
     }
 
     private static Dictionary<string, string?> FornecedorParaDict(Fornecedor f, Pessoa p) => new()

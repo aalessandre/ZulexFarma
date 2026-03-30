@@ -203,18 +203,18 @@
         @if (abaFormAtiva() === 'dados') {
           <div class="form-secao">Identificação</div>
           <div class="form-grid">
+            <div class="field" [class.field-invalido]="erroCampo('cpf')">
+              <label>CPF *</label>
+              <input type="text" [value]="colaboradorForm().cpf"
+                     (input)="onCpfInput($event)" (blur)="onCpfBlur()" maxlength="14" placeholder="000.000.000-00" />
+              @if (erroCampo('cpf')) { <span class="field-erro">{{ erroCampo('cpf') }}</span> }
+            </div>
+
             <div class="field field-3" [class.field-invalido]="erroCampo('nome')">
               <label>NOME *</label>
               <input type="text" [value]="colaboradorForm().nome"
                      (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
               @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
-            </div>
-
-            <div class="field" [class.field-invalido]="erroCampo('cpf')">
-              <label>CPF *</label>
-              <input type="text" [value]="colaboradorForm().cpf"
-                     (input)="onCpfInput($event)" maxlength="14" placeholder="000.000.000-00" />
-              @if (erroCampo('cpf')) { <span class="field-erro">{{ erroCampo('cpf') }}</span> }
             </div>
 
             <div class="field">
@@ -229,6 +229,13 @@
                      (input)="updateForm('dataNascimento', $any($event.target).value)" />
             </div>
           </div>
+
+          @if (pessoaEncontrada()) {
+            <div class="form-info-pessoa">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Pessoa já cadastrada{{ pessoaEncontrada()?.temFornecedor ? ' como Fornecedor' : '' }}. Dados pessoais preenchidos automaticamente.
+            </div>
+          }
 
           <div class="form-secao">Emprego</div>
           <div class="form-grid">

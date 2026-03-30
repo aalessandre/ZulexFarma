@@ -105,6 +105,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   filiais = signal<FilialOption[]>([]);
   grupos = signal<GrupoOption[]>([]);
   acessoHabilitado = signal(false);
+  pessoaEncontrada = signal<any>(null);
   multiSelectAberto = signal<number | null>(null);
 
   tiposContato = ['TELEFONE', 'CELULAR', 'EMAIL', 'WHATSAPP', 'OUTRO'];
@@ -348,7 +349,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.colaboradorForm.set(novo);
     this.formOriginal = { ...novo, enderecos: [...novo.enderecos.map(e => ({ ...e }))], contatos: [...novo.contatos.map(c => ({ ...c }))] };
     this.erro.set(''); this.errosCampos.set({});
-    this.isDirty.set(false); this.modoEdicao.set(false);
+    this.isDirty.set(false); this.modoEdicao.set(false); this.pessoaEncontrada.set(null);
     this.abaAtivaId.set(null); this.abaFormAtiva.set('dados');
     this.modo.set('form');
   }
@@ -792,6 +793,69 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     const mascarado = this.mascaraCpf(input.value);
     input.value = mascarado;
     this.updateForm('cpf', mascarado);
+  }
+
+  onCpfBlur() {
+    // Só buscar em modo criação (não edição)
+    if (this.modoEdicao()) return;
+
+    const cpf = this.colaboradorForm().cpf;
+    const digits = cpf.replace(/\D/g, '');
+    if (digits.length !== 11) {
+      this.pessoaEncontrada.set(null);
+      return;
+    }
+
+    this.http.get<any>(`${environment.apiUrl}/pessoas/buscar-cpfcnpj?valor=${cpf}`).subscribe({
+      next: r => {
+        const p = r?.data;
+        if (!p) {
+          this.pessoaEncontrada.set(null);
+          return;
+        }
+
+        if (p.temColaborador) {
+          this.erro.set('Este CPF já possui um colaborador cadastrado.');
+          this.pessoaEncontrada.set(null);
+          return;
+        }
+
+        // Auto-preencher dados da Pessoa existente
+        this.pessoaEncontrada.set(p);
+        this.colaboradorForm.update(f => ({
+          ...f,
+          nome: p.nome || f.nome,
+          rg: p.rg || f.rg,
+          dataNascimento: p.dataNascimento ? p.dataNascimento.slice(0, 10) : f.dataNascimento,
+          observacao: p.observacao || f.observacao
+        }));
+
+        // Preencher endereços e contatos da Pessoa existente
+        const form = this.colaboradorForm();
+        const noEnderecos = form.enderecos.length <= 1 && !form.enderecos[0]?.cep;
+        const noContatos = form.contatos.length === 0;
+
+        if (p.enderecos?.length > 0 && noEnderecos) {
+          this.colaboradorForm.update(f => ({
+            ...f,
+            enderecos: p.enderecos.map((e: any) => ({
+              id: e.id, tipo: e.tipo, cep: e.cep, rua: e.rua, numero: e.numero,
+              complemento: e.complemento, bairro: e.bairro, cidade: e.cidade, uf: e.uf, principal: e.principal
+            }))
+          }));
+        }
+
+        if (p.contatos?.length > 0 && noContatos) {
+          this.colaboradorForm.update(f => ({
+            ...f,
+            contatos: p.contatos.map((c: any) => ({
+              id: c.id, tipo: c.tipo, valor: c.valor, descricao: c.descricao, principal: c.principal
+            }))
+          }));
+        }
+      },
+      error: () => this.pessoaEncontrada.set(null)
+    });
   }
 
   private mascaraCpf(v: string): string {

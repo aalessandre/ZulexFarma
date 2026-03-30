@@ -309,7 +309,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     this.fornecedorForm.set(novo);
     this.formOriginal = { ...novo, enderecos: [...novo.enderecos.map(e => ({ ...e }))], contatos: [...novo.contatos.map(c => ({ ...c }))] };
     this.erro.set(''); this.errosCampos.set({});
-    this.isDirty.set(false); this.modoEdicao.set(false);
+    this.isDirty.set(false); this.modoEdicao.set(false); this.pessoaEncontrada.set(null);
     this.abaAtivaId.set(null); this.abaFormAtiva.set('dados');
     this.modo.set('form');
   }
@@ -675,6 +675,67 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
 
   // ── Busca CNPJ ───────────────────────────────────────────────────
   buscandoCnpj = signal(false);
+  pessoaEncontrada = signal<any>(null);
+
+  onCpfCnpjBlur() {
+    if (this.modoEdicao()) return;
+
+    const cpfCnpj = this.fornecedorForm().cpfCnpj;
+    const digits = cpfCnpj.replace(/\D/g, '');
+    if (digits.length !== 11 && digits.length !== 14) {
+      this.pessoaEncontrada.set(null);
+      return;
+    }
+
+    this.http.get<any>(`${environment.apiUrl}/pessoas/buscar-cpfcnpj?valor=${cpfCnpj}`).subscribe({
+      next: r => {
+        const p = r?.data;
+        if (!p) {
+          this.pessoaEncontrada.set(null);
+          return;
+        }
+
+        if (p.temFornecedor) {
+          this.erro.set('Este CPF/CNPJ já possui um fornecedor cadastrado.');
+          this.pessoaEncontrada.set(null);
+          return;
+        }
+
+        this.pessoaEncontrada.set(p);
+        this.fornecedorForm.update(f => ({
+          ...f,
+          nome: p.nome || f.nome,
+          razaoSocial: p.razaoSocial || f.razaoSocial,
+          inscricaoEstadual: p.inscricaoEstadual || f.inscricaoEstadual,
+          rg: p.rg || f.rg,
+          dataNascimento: p.dataNascimento ? p.dataNascimento.slice(0, 10) : f.dataNascimento,
+          observacao: p.observacao || f.observacao
+        }));
+
+        const form = this.fornecedorForm();
+        const noEnderecos = form.enderecos.length <= 1 && !form.enderecos[0]?.cep;
+        if (p.enderecos?.length > 0 && noEnderecos) {
+          this.fornecedorForm.update(f => ({
+            ...f,
+            enderecos: p.enderecos.map((e: any) => ({
+              id: e.id, tipo: e.tipo, cep: e.cep, rua: e.rua, numero: e.numero,
+              complemento: e.complemento, bairro: e.bairro, cidade: e.cidade, uf: e.uf, principal: e.principal
+            }))
+          }));
+        }
+
+        if (p.contatos?.length > 0 && form.contatos.length === 0) {
+          this.fornecedorForm.update(f => ({
+            ...f,
+            contatos: p.contatos.map((c: any) => ({
+              id: c.id, tipo: c.tipo, valor: c.valor, descricao: c.descricao, principal: c.principal
+            }))
+          }));
+        }
+      },
+      error: () => this.pessoaEncontrada.set(null)
+    });
+  }
 
   onCpfCnpjInput(event: Event) {
     const input = event.target as HTMLInputElement;
