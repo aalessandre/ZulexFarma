@@ -44,6 +44,10 @@ public class AppDbContext : DbContext
     public DbSet<Secao> Secoes => Set<Secao>();
     public DbSet<SyncFila> SyncFila => Set<SyncFila>();
     public DbSet<SequenciaLocal> SequenciasLocais => Set<SequenciaLocal>();
+    public DbSet<Ncm> Ncms => Set<Ncm>();
+    public DbSet<NcmFederal> NcmFederais => Set<NcmFederal>();
+    public DbSet<NcmIcmsUf> NcmIcmsUfs => Set<NcmIcmsUf>();
+    public DbSet<NcmStUf> NcmStUfs => Set<NcmStUf>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -292,6 +296,65 @@ public class AppDbContext : DbContext
             e.Property(x => x.OnDelete).HasMaxLength(20).HasDefaultValue("restrict");
             e.Property(x => x.OnUpdate).HasMaxLength(20).HasDefaultValue("noAction");
             e.HasIndex(x => new { x.Tabela, x.ColunaFk }).IsUnique();
+        });
+
+        // ── NCM ──────────────────────────────────────────────────────
+        modelBuilder.Entity<Ncm>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CodigoNcm).HasMaxLength(10).IsRequired();
+            e.HasIndex(x => x.CodigoNcm).IsUnique();
+            e.Property(x => x.Descricao).HasMaxLength(500).IsRequired();
+            e.Property(x => x.ExTipi).HasMaxLength(5);
+            e.Property(x => x.UnidadeTributavel).HasMaxLength(6);
+        });
+
+        modelBuilder.Entity<NcmFederal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CstIpi).HasMaxLength(3);
+            e.Property(x => x.CstPis).HasMaxLength(2);
+            e.Property(x => x.CstCofins).HasMaxLength(2);
+            e.Property(x => x.AliquotaIi).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaIpi).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaPis).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaCofins).HasColumnType("numeric(5,2)");
+            e.HasOne(x => x.Ncm).WithMany(x => x.Federais)
+             .HasForeignKey(x => x.NcmId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<NcmIcmsUf>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
+            e.Property(x => x.CstIcms).HasMaxLength(3);
+            e.Property(x => x.Csosn).HasMaxLength(4);
+            e.Property(x => x.AliquotaIcms).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ReducaoBaseCalculo).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaFcp).HasColumnType("numeric(5,2)");
+            e.Property(x => x.Cbenef).HasMaxLength(10);
+            e.HasOne(x => x.Ncm).WithMany(x => x.IcmsUfs)
+             .HasForeignKey(x => x.NcmId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.NcmId, x.Uf }).IsUnique();
+        });
+
+        modelBuilder.Entity<NcmStUf>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.UfOrigem).HasMaxLength(2).IsRequired();
+            e.Property(x => x.UfDestino).HasMaxLength(2).IsRequired();
+            e.Property(x => x.Mva).HasColumnType("numeric(5,2)");
+            e.Property(x => x.MvaAjustado).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaIcmsSt).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ReducaoBaseCalculoSt).HasColumnType("numeric(5,2)");
+            e.Property(x => x.Cest).HasMaxLength(9);
+            e.HasOne(x => x.Ncm).WithMany(x => x.StUfs)
+             .HasForeignKey(x => x.NcmId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.NcmId, x.UfOrigem, x.UfDestino }).IsUnique();
         });
 
         // ── Classificações de Produto ────────────────────────────────

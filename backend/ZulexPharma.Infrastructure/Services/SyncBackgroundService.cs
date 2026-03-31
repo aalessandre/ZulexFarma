@@ -388,6 +388,10 @@ public class SyncBackgroundService : BackgroundService
         ["GruposProdutos"] = typeof(Domain.Entities.GrupoProduto),
         ["SubGrupos"] = typeof(Domain.Entities.SubGrupo),
         ["Secoes"] = typeof(Domain.Entities.Secao),
+        ["Ncms"] = typeof(Domain.Entities.Ncm),
+        ["NcmFederais"] = typeof(Domain.Entities.NcmFederal),
+        ["NcmIcmsUfs"] = typeof(Domain.Entities.NcmIcmsUf),
+        ["NcmStUfs"] = typeof(Domain.Entities.NcmStUf),
         // LogsAcao e LogsErro são locais, não replicam
     };
 

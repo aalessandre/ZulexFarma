@@ -85,6 +85,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ILogAcaoService,
                             ZulexPharma.Infrastructure.Services.LogAcaoService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IColaboradorService,
                             ZulexPharma.Infrastructure.Services.ColaboradorService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.INcmService,
+    ZulexPharma.Infrastructure.Services.NcmService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFornecedorService,
                             ZulexPharma.Infrastructure.Services.FornecedorService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFabricanteService,
