@@ -76,6 +76,9 @@
 }
 
 .produto-aba {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 24px;
   border: none;
   border-radius: 10px 10px 0 0;
@@ -84,19 +87,24 @@
   color: #fff;
   cursor: pointer;
   background: var(--aba-cor);
-  opacity: 0.65;
-  transition: opacity 0.15s, transform 0.1s;
+  opacity: 0.85;
+  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
   position: relative;
   top: 1px;
 
-  &:hover { opacity: 0.85; }
+  &:hover { opacity: 1; box-shadow: 0 -2px 6px rgba(0,0,0,0.12); }
 
   &.ativo {
     opacity: 1;
-    transform: scaleY(1.05);
+    transform: scaleY(1.08);
     transform-origin: bottom;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 -3px 10px rgba(0,0,0,0.15);
     z-index: 1;
+    font-weight: 700;
+  }
+
+  .aba-check {
+    flex-shrink: 0;
   }
 }
 

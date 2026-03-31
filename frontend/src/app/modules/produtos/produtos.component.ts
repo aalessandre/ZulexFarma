@@ -8,7 +8,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 
-type AbaAtiva = 'produtos' | 'grupo-principal' | 'grupo' | 'sub-grupo' | 'secao' | 'familia';
+type AbaAtiva = 'produtos' | 'grupo-principal' | 'grupo' | 'sub-grupo' | 'secao' | 'familia' | 'kit';
 
 const ABAS_IMPLEMENTADAS: AbaAtiva[] = ['grupo-principal', 'grupo', 'sub-grupo', 'secao'];
 
@@ -100,12 +100,13 @@ export class ProdutosComponent implements OnInit {
   abaAtiva = signal<AbaAtiva>('grupo-principal');
 
   abas: AbaConfig[] = [
-    { id: 'produtos',        label: 'Produtos',       cor: '#4a90d9' },
-    { id: 'grupo-principal', label: 'Grupo Principal', cor: '#e8845f' },
-    { id: 'grupo',           label: 'Grupo',           cor: '#f0c75e' },
-    { id: 'sub-grupo',       label: 'Sub Grupo',       cor: '#7bc67e' },
-    { id: 'secao',           label: 'Seção',           cor: '#5bb8c9' },
-    { id: 'familia',         label: 'Família',         cor: '#b088c9' },
+    { id: 'produtos',        label: 'Produtos',       cor: '#2980b9' },
+    { id: 'grupo-principal', label: 'Grupo Principal', cor: '#e74c3c' },
+    { id: 'grupo',           label: 'Grupo',           cor: '#f39c12' },
+    { id: 'sub-grupo',       label: 'Sub Grupo',       cor: '#27ae60' },
+    { id: 'secao',           label: 'Seção',           cor: '#1abc9c' },
+    { id: 'familia',         label: 'Família',         cor: '#8e44ad' },
+    { id: 'kit',             label: 'Kit',             cor: '#d35400' },
   ];
 
   apiUrlAtual = computed(() => {
