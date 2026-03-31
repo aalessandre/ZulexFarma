@@ -281,6 +281,60 @@
         }
       </section>
 
+      <!-- CHECKLIST NOVAS TABELAS -->
+      <section class="help-secao">
+        <div class="secao-header checklist" [class.aberto]="isAberta('checklist')" (click)="toggleSecao('checklist')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span>Checklist: Criar Nova Tabela</span>
+        </div>
+        @if (isAberta('checklist')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">1. Entidade (Domain)</div>
+              <span class="cmd-obs">Criar classe em backend/ZulexPharma.Domain/Entities/. Herdar de BaseEntity (Id, Codigo, Ativo, CriadoEm, AtualizadoEm, FilialOrigemId). Definir propriedades e navigation properties.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">2. DbContext (Infrastructure)</div>
+              <span class="cmd-obs">Adicionar DbSet no AppDbContext.cs. Configurar no OnModelCreating: HasKey, UseIdentityByDefaultColumn, HasMaxLength, IsRequired, HasIndex (Unique), relacionamentos (HasOne/WithMany + OnDelete).</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">3. Migration</div>
+              <code class="cmd">dotnet ef migrations add NomeDaMigration --project ZulexPharma.Infrastructure --startup-project ZulexPharma.API</code>
+              <span class="cmd-obs">IMPORTANTE: parar o backend antes de rodar. A migration roda automaticamente no proximo startup (MigrateAsync).</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">4. Dicionario de Dados</div>
+              <span class="cmd-obs">Adicionar a tabela no DatabaseSeeder.cs (seed de DicionarioTabelas) com Escopo, Replica e InstrucaoIA. Isso faz a tabela aparecer no DD automaticamente com as instrucoes corretas para a Cassi.</span>
+              <code class="cmd">context.DicionarioTabelas.Add(new DicionarioTabela {{ '{' }} Tabela = "NomeTabela", Escopo = "global", Replica = true, InstrucaoIA = "Descricao para a Cassi" {{ '}' }});</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">5. Sync</div>
+              <span class="cmd-obs">Adicionar no mapa _tiposPorTabela do SyncBackgroundService.cs para que a tabela participe do sincronismo. Se a tabela NAO deve replicar, adicionar na lista _tabelasSemSync do AppDbContext.cs.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">6. Service + Interface</div>
+              <span class="cmd-obs">Criar IService em Application/Interfaces/ e Service em Infrastructure/Services/. Registrar no Program.cs com AddScoped. Implementar: ListarAsync, ObterAsync, CriarAsync, AtualizarAsync, ExcluirAsync.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">7. Controller (API)</div>
+              <span class="cmd-obs">Criar em API/Controllers/. Atributos: [Authorize], [ApiController], [Route("api/[controller]")]. Endpoints: GET (listar), GET/id (detalhe), POST (criar), PUT/id (atualizar), DELETE/id (excluir). Padrao de resposta: {{ '{' }} success, data, message {{ '}' }}.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">8. DTOs</div>
+              <span class="cmd-obs">Criar em Application/DTOs/NomePasta/. Normalmente: ListDto (para grid), DetalheDto (para editar), FormDto (para criar/atualizar).</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">9. Frontend</div>
+              <span class="cmd-obs">Criar componente em frontend/src/app/modules/nome/. Arquivos: component.ts, component.html, component.scss. Registrar rota em erp-shell.routes.ts. Adicionar tile na Home (dashboard.component.ts) ou em Outros Cadastros.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Estrutura de IDs</div>
+              <span class="cmd-obs">IDs sao globais por faixa de filial (1 bilhao por filial). Filial 1: IDs 1.000.000.001+, Filial 2: 2.000.000.001+. Configurado automaticamente no startup. FKs funcionam direto entre filiais sem remapeamento.</span>
+            </div>
+          </div>
+        }
+      </section>
+
     </div>
   </main>
 </div>
