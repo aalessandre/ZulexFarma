@@ -1,0 +1,27 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <main class="tela-conteudo">
+    <div class="outros-header">
+      <h2>Outros Cadastros</h2>
+      <span class="outros-sub">Cadastros auxiliares do sistema</span>
+    </div>
+
+    <div class="outros-grid">
+      @for (tile of tiles; track tile.sigla) {
+        <div class="outros-tile" (click)="navegar(tile)">
+          <div class="outros-tile-icon" [innerHTML]="getIcon(tile.icon)"></div>
+          <div class="outros-tile-info">
+            <span class="outros-tile-sigla">{{ tile.sigla }}</span>
+            <span class="outros-tile-label">{{ tile.label }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  </main>
+</div>

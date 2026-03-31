@@ -83,6 +83,11 @@ export const ErpRoutes: Routes = [
         loadComponent: () =>
           import('../help/help.component').then(m => m.HelpComponent),
       },
+      {
+        path: 'outros-cadastros',
+        loadComponent: () =>
+          import('../outros-cadastros/outros-cadastros.component').then(m => m.OutrosCadastrosComponent),
+      },
       // Placeholders — módulos futuros
       {
         path: '**',
