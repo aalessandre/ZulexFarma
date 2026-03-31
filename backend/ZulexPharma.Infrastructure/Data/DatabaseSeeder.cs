@@ -83,6 +83,30 @@ public static class DatabaseSeeder
             await context.SaveChangesAsync();
         }
 
+        // Seed de DicionarioTabelas para tabelas NCM (se não existirem)
+        var tabelasNcm = new[] { "Ncms", "NcmFederais", "NcmIcmsUfs", "NcmStUfs" };
+        foreach (var tabela in tabelasNcm)
+        {
+            if (!await context.DicionarioTabelas.AnyAsync(d => d.Tabela == tabela))
+            {
+                context.DicionarioTabelas.Add(new DicionarioTabela
+                {
+                    Tabela = tabela,
+                    Escopo = "global",
+                    Replica = true,
+                    InstrucaoIA = tabela switch
+                    {
+                        "Ncms" => "Nomenclatura Comum do Mercosul. Classificacao fiscal de produtos.",
+                        "NcmFederais" => "Tributos federais por NCM: II, IPI, PIS, COFINS com vigencia.",
+                        "NcmIcmsUfs" => "Aliquotas ICMS por NCM e UF. Inclui FCP e beneficio fiscal.",
+                        "NcmStUfs" => "Substituicao Tributaria por NCM e par UF origem/destino. MVA e CEST.",
+                        _ => null
+                    }
+                });
+            }
+        }
+        await context.SaveChangesAsync();
+
         context.AplicandoSync = false;
     }
 

@@ -84,6 +84,11 @@ export const ErpRoutes: Routes = [
           import('../help/help.component').then(m => m.HelpComponent),
       },
       {
+        path: 'ncm',
+        loadComponent: () =>
+          import('../ncm/ncm.component').then(m => m.NcmComponent),
+      },
+      {
         path: 'outros-cadastros',
         loadComponent: () =>
           import('../outros-cadastros/outros-cadastros.component').then(m => m.OutrosCadastrosComponent),

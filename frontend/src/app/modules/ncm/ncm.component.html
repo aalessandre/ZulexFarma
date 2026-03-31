@@ -1,0 +1,261 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="modo.set('lista'); carregar()">
+      <span>Procurar</span><span class="sidebar-sub">Consulta</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()">
+      <span>Adicionar</span><span class="sidebar-sub">Novo NCM</span>
+    </div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()">
+      <span>Editar</span><span class="sidebar-sub">Alterar NCM</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span><span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <!-- LISTA -->
+    @if (modo() === 'lista') {
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <input class="input-busca" type="text" placeholder="Código ou descrição..."
+                 [value]="busca()" (input)="busca.set($any($event.target).value)" />
+        </div>
+        <div class="lista-filtro">
+          <label>SITUAÇÃO</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              <th class="th-sort" style="width:60px" (click)="ordenar('id')">ID <span class="sort-icon">{{ sortColuna() === 'id' ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span></th>
+              <th class="th-sort" style="width:120px" (click)="ordenar('codigoNcm')">Código <span class="sort-icon">{{ sortColuna() === 'codigoNcm' ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span></th>
+              <th class="th-sort" (click)="ordenar('descricao')">Descrição <span class="sort-icon">{{ sortColuna() === 'descricao' ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span></th>
+              <th style="width:80px">Ex-TIPI</th>
+              <th style="width:80px">Unidade</th>
+              <th style="width:60px">Ativo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td colspan="7" class="grid-loading">Carregando...</td></tr>
+            } @else if (registrosFiltrados().length === 0) {
+              <tr><td colspan="7" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+            } @else {
+              @for (r of registrosFiltrados(); track r.id) {
+                <tr [class.selecionado]="selecionado()?.id === r.id"
+                    (click)="selecionar(r)" (dblclick)="editar()">
+                  <td class="td-arrow">@if (selecionado()?.id === r.id) { <span>▶</span> }</td>
+                  <td>{{ r.id }}</td>
+                  <td><strong>{{ r.codigoNcm }}</strong></td>
+                  <td>{{ r.descricao }}</td>
+                  <td>{{ r.exTipi || '-' }}</td>
+                  <td>{{ r.unidadeTributavel || '-' }}</td>
+                  <td>{{ r.ativo ? 'Sim' : 'Não' }}</td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span>
+      </div>
+    }
+
+    <!-- FORMULÁRIO -->
+    @if (modo() === 'form') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar' : 'Novo' }} NCM</div>
+
+        @if (erro()) { <div class="form-erro">{{ erro() }}</div> }
+
+        <!-- ABAS DO FORM -->
+        <div class="ncm-abas">
+          <button class="ncm-aba" [class.ativo]="abaForm() === 'dados'" (click)="abaForm.set('dados')">Dados</button>
+          <button class="ncm-aba" [class.ativo]="abaForm() === 'federal'" (click)="abaForm.set('federal')">
+            Federal
+            @if (form().federais.length > 0) { <span class="ncm-aba-badge">{{ form().federais.length }}</span> }
+          </button>
+          <button class="ncm-aba" [class.ativo]="abaForm() === 'icms'" (click)="abaForm.set('icms')">
+            ICMS/UF
+            @if (form().icmsUfs.length > 0) { <span class="ncm-aba-badge">{{ form().icmsUfs.length }}</span> }
+          </button>
+          <button class="ncm-aba" [class.ativo]="abaForm() === 'st'" (click)="abaForm.set('st')">
+            ST/UF
+            @if (form().stUfs.length > 0) { <span class="ncm-aba-badge">{{ form().stUfs.length }}</span> }
+          </button>
+        </div>
+
+        <!-- ABA DADOS -->
+        @if (abaForm() === 'dados') {
+          <div class="form-secao">Identificação</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>CÓDIGO NCM *</label>
+              <input type="text" [value]="form().codigoNcm" (input)="updateForm('codigoNcm', $any($event.target).value)" maxlength="10" placeholder="Ex: 30049069" />
+            </div>
+            <div class="field field-3">
+              <label>DESCRIÇÃO *</label>
+              <input type="text" [value]="form().descricao" (input)="updateForm('descricao', $any($event.target).value)" maxlength="500" />
+            </div>
+            <div class="field">
+              <label>EX-TIPI</label>
+              <input type="text" [value]="form().exTipi || ''" (input)="updateForm('exTipi', $any($event.target).value)" maxlength="5" />
+            </div>
+            <div class="field">
+              <label>UNIDADE TRIBUTÁVEL</label>
+              <input type="text" [value]="form().unidadeTributavel || ''" (input)="updateForm('unidadeTributavel', $any($event.target).value)" maxlength="6" placeholder="Ex: KG, UN" />
+            </div>
+            <div class="field field-check">
+              <label class="check-label">
+                <input type="checkbox" [checked]="form().ativo" (change)="updateForm('ativo', $any($event.target).checked)" />
+                <span>Ativo</span>
+              </label>
+            </div>
+          </div>
+        }
+
+        <!-- ABA FEDERAL -->
+        @if (abaForm() === 'federal') {
+          <div class="form-secao">
+            Tributos Federais
+            <button class="btn-add-row" (click)="addFederal()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar
+            </button>
+          </div>
+          @if (form().federais.length === 0) {
+            <div class="sub-vazio">Nenhum tributo federal cadastrado.</div>
+          }
+          @for (f of form().federais; track $index; let i = $index) {
+            <div class="sub-card">
+              <div class="sub-card-header">
+                <span>Federal #{{ i + 1 }}</span>
+                <button class="btn-remove-row" (click)="removeFederal(i)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div class="form-grid">
+                <div class="field"><label>% II</label><input type="number" [value]="f.aliquotaIi" (input)="updateFederal(i, 'aliquotaIi', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>% IPI</label><input type="number" [value]="f.aliquotaIpi" (input)="updateFederal(i, 'aliquotaIpi', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>CST IPI</label><input type="text" [value]="f.cstIpi || ''" (input)="updateFederal(i, 'cstIpi', $any($event.target).value)" maxlength="3" /></div>
+                <div class="field"><label>% PIS</label><input type="number" [value]="f.aliquotaPis" (input)="updateFederal(i, 'aliquotaPis', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>CST PIS</label><input type="text" [value]="f.cstPis || ''" (input)="updateFederal(i, 'cstPis', $any($event.target).value)" maxlength="2" /></div>
+                <div class="field"><label>% COFINS</label><input type="number" [value]="f.aliquotaCofins" (input)="updateFederal(i, 'aliquotaCofins', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>CST COFINS</label><input type="text" [value]="f.cstCofins || ''" (input)="updateFederal(i, 'cstCofins', $any($event.target).value)" maxlength="2" /></div>
+                <div class="field"><label>VIGÊNCIA INÍCIO</label><input type="date" [value]="f.vigenciaInicio ? f.vigenciaInicio.slice(0,10) : ''" (input)="updateFederal(i, 'vigenciaInicio', $any($event.target).value)" /></div>
+                <div class="field"><label>VIGÊNCIA FIM</label><input type="date" [value]="f.vigenciaFim ? f.vigenciaFim.slice(0,10) : ''" (input)="updateFederal(i, 'vigenciaFim', $any($event.target).value)" /></div>
+              </div>
+            </div>
+          }
+        }
+
+        <!-- ABA ICMS UF -->
+        @if (abaForm() === 'icms') {
+          <div class="form-secao">
+            ICMS por UF
+            <button class="btn-add-row" (click)="addIcmsUf()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar
+            </button>
+          </div>
+          @if (form().icmsUfs.length === 0) {
+            <div class="sub-vazio">Nenhuma regra de ICMS cadastrada.</div>
+          }
+          @for (ic of form().icmsUfs; track $index; let i = $index) {
+            <div class="sub-card">
+              <div class="sub-card-header">
+                <span>{{ ic.uf || 'Nova UF' }}</span>
+                <button class="btn-remove-row" (click)="removeIcmsUf(i)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div class="form-grid">
+                <div class="field"><label>UF *</label><select [value]="ic.uf" (change)="updateIcmsUf(i, 'uf', $any($event.target).value)"><option value="">Selecione</option>@for (u of ufs; track u) { <option [value]="u">{{ u }}</option> }</select></div>
+                <div class="field"><label>CST ICMS</label><input type="text" [value]="ic.cstIcms || ''" (input)="updateIcmsUf(i, 'cstIcms', $any($event.target).value)" maxlength="3" /></div>
+                <div class="field"><label>CSOSN</label><input type="text" [value]="ic.csosn || ''" (input)="updateIcmsUf(i, 'csosn', $any($event.target).value)" maxlength="4" /></div>
+                <div class="field"><label>% ICMS</label><input type="number" [value]="ic.aliquotaIcms" (input)="updateIcmsUf(i, 'aliquotaIcms', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>% RED. BASE</label><input type="number" [value]="ic.reducaoBaseCalculo" (input)="updateIcmsUf(i, 'reducaoBaseCalculo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>% FCP</label><input type="number" [value]="ic.aliquotaFcp" (input)="updateIcmsUf(i, 'aliquotaFcp', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>CBENEF</label><input type="text" [value]="ic.cbenef || ''" (input)="updateIcmsUf(i, 'cbenef', $any($event.target).value)" maxlength="10" /></div>
+                <div class="field"><label>VIGÊNCIA INÍCIO</label><input type="date" [value]="ic.vigenciaInicio ? ic.vigenciaInicio.slice(0,10) : ''" (input)="updateIcmsUf(i, 'vigenciaInicio', $any($event.target).value)" /></div>
+                <div class="field"><label>VIGÊNCIA FIM</label><input type="date" [value]="ic.vigenciaFim ? ic.vigenciaFim.slice(0,10) : ''" (input)="updateIcmsUf(i, 'vigenciaFim', $any($event.target).value)" /></div>
+              </div>
+            </div>
+          }
+        }
+
+        <!-- ABA ST UF -->
+        @if (abaForm() === 'st') {
+          <div class="form-secao">
+            Substituição Tributária por UF
+            <button class="btn-add-row" (click)="addStUf()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar
+            </button>
+          </div>
+          @if (form().stUfs.length === 0) {
+            <div class="sub-vazio">Nenhuma regra de ST cadastrada.</div>
+          }
+          @for (st of form().stUfs; track $index; let i = $index) {
+            <div class="sub-card">
+              <div class="sub-card-header">
+                <span>{{ st.ufOrigem || '?' }} → {{ st.ufDestino || '?' }}</span>
+                <button class="btn-remove-row" (click)="removeStUf(i)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div class="form-grid">
+                <div class="field"><label>UF ORIGEM *</label><select [value]="st.ufOrigem" (change)="updateStUf(i, 'ufOrigem', $any($event.target).value)"><option value="">Selecione</option>@for (u of ufs; track u) { <option [value]="u">{{ u }}</option> }</select></div>
+                <div class="field"><label>UF DESTINO *</label><select [value]="st.ufDestino" (change)="updateStUf(i, 'ufDestino', $any($event.target).value)"><option value="">Selecione</option>@for (u of ufs; track u) { <option [value]="u">{{ u }}</option> }</select></div>
+                <div class="field"><label>% MVA</label><input type="number" [value]="st.mva" (input)="updateStUf(i, 'mva', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>% MVA AJUST.</label><input type="number" [value]="st.mvaAjustado" (input)="updateStUf(i, 'mvaAjustado', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>% ICMS ST</label><input type="number" [value]="st.aliquotaIcmsSt" (input)="updateStUf(i, 'aliquotaIcmsSt', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>% RED. BASE ST</label><input type="number" [value]="st.reducaoBaseCalculoSt" (input)="updateStUf(i, 'reducaoBaseCalculoSt', +$any($event.target).value)" step="0.01" /></div>
+                <div class="field"><label>CEST</label><input type="text" [value]="st.cest || ''" (input)="updateStUf(i, 'cest', $any($event.target).value)" maxlength="9" /></div>
+                <div class="field"><label>VIGÊNCIA INÍCIO</label><input type="date" [value]="st.vigenciaInicio ? st.vigenciaInicio.slice(0,10) : ''" (input)="updateStUf(i, 'vigenciaInicio', $any($event.target).value)" /></div>
+                <div class="field"><label>VIGÊNCIA FIM</label><input type="date" [value]="st.vigenciaFim ? st.vigenciaFim.slice(0,10) : ''" (input)="updateStUf(i, 'vigenciaFim', $any($event.target).value)" /></div>
+              </div>
+            </div>
+          }
+        }
+      </div>
+
+      <!-- Toolbar -->
+      <footer class="tela-toolbar">
+        @if (isDirty()) {
+          <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            {{ salvando() ? 'Salvando...' : 'Salvar' }}
+          </button>
+          <button class="tb-btn tb-cancelar" (click)="cancelar()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Cancelar
+          </button>
+        }
+        <button class="tb-btn tb-fechar" (click)="fecharForm()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Fechar
+        </button>
+        @if (modoEdicao()) {
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Excluir
+          </button>
+        }
+      </footer>
+    }
+  </div>
+</div>
