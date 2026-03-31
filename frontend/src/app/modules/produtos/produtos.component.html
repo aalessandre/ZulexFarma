@@ -146,8 +146,279 @@
       </div>
     }
 
+    <!-- CADASTRO DE PRODUTO -->
+    @if (abaAtiva() === 'produtos' && modo() === 'lista') {
+      <div class="produto-conteudo produto-cadastro">
+        <div class="prod-form-header">
+          <h2>Cadastro de Produto</h2>
+          <span class="prod-form-sub">Preencha os dados do produto</span>
+        </div>
+
+        <!-- CAMPOS PRINCIPAIS -->
+        <div class="prod-section">Identificação</div>
+        <div class="prod-grid">
+          <div class="prod-field">
+            <label>CÓDIGO</label>
+            <input type="text" disabled class="field-disabled" placeholder="Automático" />
+          </div>
+          <div class="prod-field">
+            <label>DATA CADASTRO</label>
+            <input type="text" disabled class="field-disabled" placeholder="Automático" />
+          </div>
+          <div class="prod-field prod-field-2">
+            <label>CÓDIGO DE BARRAS</label>
+            <div class="prod-input-group">
+              <input type="text" placeholder="Código de barras principal" />
+              <button class="prod-btn-extra" title="Gerenciar códigos adicionais">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="prod-field prod-field-full">
+            <label>NOME *</label>
+            <input type="text" placeholder="Nome do produto" />
+          </div>
+          <div class="prod-field prod-field-full">
+            <label>SUBSTÂNCIAS</label>
+            <div class="prod-tags-input">
+              <div class="prod-tags-area">
+                <span class="prod-tag-placeholder">Digite para buscar substâncias...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="prod-section">Classificação</div>
+        <div class="prod-grid">
+          <div class="prod-field">
+            <label>GRUPO PRINCIPAL *</label>
+            <select><option value="">Selecione...</option></select>
+          </div>
+          <div class="prod-field">
+            <label>GRUPO *</label>
+            <select><option value="">Selecione...</option></select>
+          </div>
+          <div class="prod-field">
+            <label>SUBGRUPO</label>
+            <select><option value="">Selecione...</option></select>
+          </div>
+          <div class="prod-field">
+            <label>REGISTRO MS</label>
+            <div class="prod-input-group">
+              <input type="text" placeholder="Registro Ministério da Saúde" />
+              <button class="prod-btn-extra" title="Gerenciar registros MS">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="prod-field">
+            <label>NCM</label>
+            <input type="text" placeholder="Classificação fiscal" />
+          </div>
+          <div class="prod-field">
+            <label>CLASSE TERAPÊUTICA *</label>
+            <select>
+              <option value="nao-controlado" selected>Não Controlado</option>
+              <option value="antibiotico">Antibiótico</option>
+              <option value="psicotropico">Psicotrópico</option>
+            </select>
+          </div>
+          <div class="prod-field">
+            <label>LISTA *</label>
+            <select>
+              <option value="indefinida" selected>Indefinida</option>
+              <option value="positiva">Positiva</option>
+              <option value="negativa">Negativa</option>
+              <option value="neutra">Neutra</option>
+            </select>
+          </div>
+          <div class="prod-field">
+            <label>DESTINO *</label>
+            <select>
+              <option value="revenda" selected>Revenda</option>
+              <option value="uso-consumo">Uso / Consumo</option>
+              <option value="servico">Serviço</option>
+            </select>
+          </div>
+          <div class="prod-field">
+            <label>FRAÇÃO *</label>
+            <input type="number" value="1" min="1" />
+          </div>
+        </div>
+
+        <!-- ACCORDIONS -->
+        <div class="prod-accordions">
+
+          <!-- ESTOQUE -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-estoque">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              Estoque
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-grid">
+                <div class="prod-field"><label>ESTOQUE ATUAL</label><input type="number" value="0" disabled class="field-disabled" /></div>
+                <div class="prod-field"><label>ESTOQUE MÍNIMO</label><input type="number" value="0" /></div>
+                <div class="prod-field"><label>ESTOQUE MÁXIMO</label><input type="number" value="0" /></div>
+                <div class="prod-field"><label>DEMANDA</label><input type="number" value="0" /></div>
+                <div class="prod-field"><label>CURVA ABC</label><input type="text" disabled class="field-disabled" placeholder="Calculado" /></div>
+              </div>
+            </div>
+          </details>
+
+          <!-- PREÇOS -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-precos">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Preços
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-subsection">Última Compra</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>VLR ST</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>VLR OUTROS</label><input type="number" value="0" step="0.01" disabled class="field-disabled" /></div>
+              </div>
+              <div class="prod-grid prod-grid-indent">
+                <div class="prod-field"><label>IPI</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>FPC</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>BOLETO</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>DIFAL</label><input type="number" value="0" step="0.01" /></div>
+              </div>
+              <div class="prod-subsection">Valores</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="number" value="0" step="0.01" disabled class="field-disabled" /></div>
+                <div class="prod-field"><label>% PROJ. LUCRO</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>% MARKUP</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>VLR VENDA</label><input type="number" value="0" step="0.01" /></div>
+              </div>
+              <div class="prod-subsection">Promoção</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>VLR PROMOÇÃO</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>INÍCIO PROMOÇÃO</label><input type="date" /></div>
+                <div class="prod-field"><label>TÉRMINO PROMOÇÃO</label><input type="date" /></div>
+              </div>
+              <div class="prod-subsection">Descontos</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="number" value="0" step="0.01" /></div>
+              </div>
+            </div>
+          </details>
+
+          <!-- FISCAL -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-fiscal">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Fiscal
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-acc-placeholder">Configurações fiscais serão implementadas.</div>
+            </div>
+          </details>
+
+          <!-- GERAL -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-geral">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Geral
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-grid">
+                <div class="prod-field"><label>% COMISSÃO</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>VLR INCENTIVO</label><input type="number" value="0" step="0.01" /></div>
+                <div class="prod-field"><label>LOCAL</label><input type="text" placeholder="Buscar local..." /></div>
+                <div class="prod-field"><label>FAMÍLIA</label><select><option value="">Selecione...</option></select></div>
+                <div class="prod-field"><label>SEÇÃO</label><select><option value="">Selecione...</option></select></div>
+                <div class="prod-field"><label>NOME ETIQUETA</label><input type="text" placeholder="Nome para impressão" /></div>
+              </div>
+              <div class="prod-grid prod-grid-checks">
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear desconto</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear promoção</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Não atualizar ABCFarma</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Não atualizar Gestor Tributário</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear compras</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Produto fórmula (manipulação)</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear comissão</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear cobertura de oferta</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Uso contínuo</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Aviso de fração</span></label></div>
+              </div>
+              <div class="prod-grid">
+                <div class="prod-field prod-field-full">
+                  <label>MENSAGEM</label>
+                  <textarea rows="2" maxlength="200" placeholder="Mensagem do produto (máx. 200 caracteres)"></textarea>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- ESTATÍSTICAS -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-stats">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              Estatísticas
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-grid">
+                <div class="prod-field"><label>ÚLTIMA COMPRA</label><input type="text" disabled class="field-disabled" /></div>
+                <div class="prod-field"><label>ÚLTIMA VENDA</label><input type="text" disabled class="field-disabled" /></div>
+              </div>
+              <div class="prod-acc-placeholder">Gráficos de vendas/compras por mês serão implementados.</div>
+            </div>
+          </details>
+
+          <!-- VÍNCULOS FORNECEDORES -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-fornecedores">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Vínculos Fornecedores
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-acc-placeholder">Vínculos com fornecedores serão implementados.</div>
+            </div>
+          </details>
+
+          <!-- PROMOÇÕES -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-promocoes">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              Promoções
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-acc-placeholder">Gestão de promoções será implementada.</div>
+            </div>
+          </details>
+
+          <!-- OFERTAS -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-ofertas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+              Ofertas
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-acc-placeholder">Gestão de ofertas será implementada.</div>
+            </div>
+          </details>
+
+          <!-- ESTOQUE FILIAIS -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-filiais">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Estoque Filiais
+            </summary>
+            <div class="prod-acc-body">
+              <div class="prod-acc-placeholder">Visão de estoque por filial será implementada.</div>
+            </div>
+          </details>
+
+        </div>
+      </div>
+    }
+
     <!-- PLACEHOLDER (abas não implementadas) -->
-    @if (!isAbaImplementada() && modo() === 'lista') {
+    @if (!isAbaImplementada() && abaAtiva() !== 'produtos' && modo() === 'lista') {
       <div class="produto-conteudo">
         <div class="aba-placeholder">
           <div class="placeholder-icon">
