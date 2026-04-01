@@ -42,6 +42,15 @@ public class AppDbContext : DbContext
     public DbSet<GrupoProduto> GruposProdutos => Set<GrupoProduto>();
     public DbSet<SubGrupo> SubGrupos => Set<SubGrupo>();
     public DbSet<Secao> Secoes => Set<Secao>();
+    public DbSet<ProdutoFamilia> ProdutoFamilias => Set<ProdutoFamilia>();
+    public DbSet<Produto> Produtos => Set<Produto>();
+    public DbSet<ProdutoBarras> ProdutosBarras => Set<ProdutoBarras>();
+    public DbSet<ProdutoMs> ProdutosMs => Set<ProdutoMs>();
+    public DbSet<ProdutoSubstancia> ProdutosSubstancias => Set<ProdutoSubstancia>();
+    public DbSet<ProdutoFornecedor> ProdutosFornecedores => Set<ProdutoFornecedor>();
+    public DbSet<ProdutoFiscal> ProdutosFiscal => Set<ProdutoFiscal>();
+    public DbSet<ProdutoDados> ProdutosDados => Set<ProdutoDados>();
+    public DbSet<ProdutoLocal> ProdutosLocais => Set<ProdutoLocal>();
     public DbSet<SyncFila> SyncFila => Set<SyncFila>();
     public DbSet<SequenciaLocal> SequenciasLocais => Set<SequenciaLocal>();
     public DbSet<Ncm> Ncms => Set<Ncm>();
@@ -362,6 +371,132 @@ public class AppDbContext : DbContext
         ConfigurarClassificacao<GrupoProduto>(modelBuilder);
         ConfigurarClassificacao<SubGrupo>(modelBuilder);
         ConfigurarClassificacao<Secao>(modelBuilder);
+
+        // ── Produto Família ─────────────────────────────────────────
+        modelBuilder.Entity<ProdutoFamilia>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+        });
+
+        // ── Produto Local ───────────────────────────────────────────
+        modelBuilder.Entity<ProdutoLocal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+        });
+
+        // ── Produto ─────────────────────────────────────────────────
+        modelBuilder.Entity<Produto>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(300).IsRequired();
+            e.Property(x => x.CodigoBarras).HasMaxLength(20);
+            e.Property(x => x.Lista).HasMaxLength(20).HasDefaultValue("Indefinida");
+            e.Property(x => x.PrecoFp).HasColumnType("numeric(10,4)");
+
+            e.HasOne(x => x.Fabricante).WithMany().HasForeignKey(x => x.FabricanteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.GrupoPrincipal).WithMany().HasForeignKey(x => x.GrupoPrincipalId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.GrupoProduto).WithMany().HasForeignKey(x => x.GrupoProdutoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.SubGrupo).WithMany().HasForeignKey(x => x.SubGrupoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Ncm).WithMany().HasForeignKey(x => x.NcmId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ProdutoBarras>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Barras).HasMaxLength(20).IsRequired();
+            e.HasOne(x => x.Produto).WithMany(p => p.Barras).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProdutoMs>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.NumeroMs).HasMaxLength(20).IsRequired();
+            e.HasOne(x => x.Produto).WithMany(p => p.RegistrosMs).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProdutoSubstancia>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Produto).WithMany(p => p.Substancias).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Substancia).WithMany().HasForeignKey(x => x.SubstanciaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ProdutoId, x.SubstanciaId }).IsUnique();
+        });
+
+        modelBuilder.Entity<ProdutoFornecedor>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CodigoProdutoFornecedor).HasMaxLength(24);
+            e.Property(x => x.NomeProduto).HasMaxLength(300);
+            e.HasOne(x => x.Produto).WithMany(p => p.Fornecedores).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProdutoFiscal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Produto).WithOne(p => p.Fiscal).HasForeignKey<ProdutoFiscal>(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Ncm).WithMany().HasForeignKey(x => x.NcmId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.ProdutoId).IsUnique();
+            e.Property(x => x.Cest).HasMaxLength(9);
+            e.Property(x => x.OrigemMercadoria).HasMaxLength(1);
+            e.Property(x => x.CstIcms).HasMaxLength(3);
+            e.Property(x => x.Csosn).HasMaxLength(4);
+            e.Property(x => x.CstPis).HasMaxLength(2);
+            e.Property(x => x.CstCofins).HasMaxLength(2);
+            e.Property(x => x.CstIpi).HasMaxLength(3);
+            e.Property(x => x.AliquotaIcms).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaPis).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaCofins).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaIpi).HasColumnType("numeric(5,2)");
+        });
+
+        modelBuilder.Entity<ProdutoDados>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Produto).WithMany(p => p.Dados).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ProdutoId, x.FilialId }).IsUnique();
+
+            // Estoque
+            e.Property(x => x.EstoqueAtual).HasColumnType("numeric(10,3)");
+            e.Property(x => x.EstoqueMinimo).HasColumnType("numeric(10,3)");
+            e.Property(x => x.EstoqueMaximo).HasColumnType("numeric(10,3)");
+            e.Property(x => x.Demanda).HasColumnType("numeric(10,3)");
+            e.Property(x => x.CurvaAbc).HasMaxLength(1);
+
+            // Preços
+            e.Property(x => x.UltimaCompraUnitario).HasColumnType("numeric(10,4)");
+            e.Property(x => x.UltimaCompraSt).HasColumnType("numeric(10,4)");
+            e.Property(x => x.UltimaCompraOutros).HasColumnType("numeric(10,4)");
+            e.Property(x => x.UltimaCompraIpi).HasColumnType("numeric(10,4)");
+            e.Property(x => x.UltimaCompraFpc).HasColumnType("numeric(10,4)");
+            e.Property(x => x.UltimaCompraBoleto).HasColumnType("numeric(10,4)");
+            e.Property(x => x.UltimaCompraDifal).HasColumnType("numeric(10,4)");
+            e.Property(x => x.CustoMedio).HasColumnType("numeric(10,4)");
+            e.Property(x => x.ProjecaoLucro).HasColumnType("numeric(5,2)");
+            e.Property(x => x.Markup).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ValorVenda).HasColumnType("numeric(10,4)");
+            e.Property(x => x.ValorPromocao).HasColumnType("numeric(10,4)");
+
+            // Descontos / Geral
+            e.Property(x => x.DescontoMinimo).HasColumnType("numeric(5,2)");
+            e.Property(x => x.DescontoMaxSemSenha).HasColumnType("numeric(5,2)");
+            e.Property(x => x.DescontoMaxComSenha).HasColumnType("numeric(5,2)");
+            e.Property(x => x.Comissao).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ValorIncentivo).HasColumnType("numeric(10,4)");
+            e.Property(x => x.NomeEtiqueta).HasMaxLength(60);
+            e.Property(x => x.Mensagem).HasMaxLength(200);
+        });
 
         // Index on Codigo for sync lookups
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

@@ -1,4 +1,4 @@
-import { Component, signal, computed, OnInit, HostListener } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -10,7 +10,7 @@ import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 
 type AbaAtiva = 'produtos' | 'grupo-principal' | 'grupo' | 'sub-grupo' | 'secao' | 'familia' | 'kit';
 
-const ABAS_IMPLEMENTADAS: AbaAtiva[] = ['grupo-principal', 'grupo', 'sub-grupo', 'secao'];
+const ABAS_IMPLEMENTADAS: AbaAtiva[] = ['produtos', 'grupo-principal', 'grupo', 'sub-grupo', 'secao', 'familia'];
 
 interface AbaConfig {
   id: AbaAtiva;
@@ -64,6 +64,37 @@ interface LogEntry {
   campos: LogCampo[];
 }
 
+// ── Produto interfaces ──────────────────────────────────────────────
+interface ProdutoList { id: number; nome: string; codigoBarras?: string; fabricanteNome?: string; grupoPrincipalNome?: string; ativo: boolean; eliminado: boolean; criadoEm: string; }
+
+interface ProdutoBarrasItem { id?: number; barras: string; }
+interface ProdutoMsItem { id?: number; numeroMs: string; }
+interface ProdutoSubstanciaItem { id?: number; substanciaId: number; substanciaNome?: string; }
+interface ProdutoFornecedorItem { id?: number; fornecedorId: number; fornecedorNome?: string; codigoProdutoFornecedor?: string; nomeProduto?: string; fracao: number; }
+interface ProdutoFiscalItem { id?: number; ncmId?: number; ncmCodigo?: string; cest?: string; origemMercadoria?: string; cstIcms?: string; csosn?: string; aliquotaIcms: number; cstPis?: string; aliquotaPis: number; cstCofins?: string; aliquotaCofins: number; cstIpi?: string; aliquotaIpi: number; }
+interface ProdutoDadosItem {
+  id?: number; filialId: number; filialNome?: string;
+  estoqueAtual: number; estoqueMinimo: number; estoqueMaximo: number; demanda: number; curvaAbc?: string;
+  ultimaCompraUnitario: number; ultimaCompraSt: number; ultimaCompraOutros: number; ultimaCompraIpi: number; ultimaCompraFpc: number; ultimaCompraBoleto: number; ultimaCompraDifal: number;
+  custoMedio: number; projecaoLucro: number; markup: number; valorVenda: number;
+  valorPromocao: number; promocaoInicio?: string; promocaoFim?: string;
+  descontoMinimo: number; descontoMaxSemSenha: number; descontoMaxComSenha: number;
+  comissao: number; valorIncentivo: number;
+  produtoLocalId?: number; secaoId?: number; produtoFamiliaId?: number;
+  nomeEtiqueta?: string; mensagem?: string;
+  bloquearDesconto: boolean; bloquearPromocao: boolean; naoAtualizarAbcfarma: boolean; naoAtualizarGestorTributario: boolean; bloquearCompras: boolean; produtoFormula: boolean; bloquearComissao: boolean; bloquearCoberturaOferta: boolean; usoContinuo: boolean; avisoFracao: boolean;
+  ultimaCompraEm?: string; ultimaVendaEm?: string;
+}
+
+interface ProdutoForm {
+  nome: string; codigoBarras?: string; qtdeEmbalagem: number; precoFp?: number;
+  lista: string; fracao: number; ativo: boolean; eliminado: boolean;
+  fabricanteId?: number; grupoPrincipalId?: number; grupoProdutoId?: number; subGrupoId?: number; ncmId?: number;
+  barras: ProdutoBarrasItem[]; registrosMs: ProdutoMsItem[];
+  substancias: ProdutoSubstanciaItem[]; fornecedores: ProdutoFornecedorItem[];
+  fiscal?: ProdutoFiscalItem; dados: ProdutoDadosItem[];
+}
+
 const CLASSIFICACAO_COLUNAS: ColunaDef[] = [
   { campo: 'id',                label: 'ID',           largura: 60,  minLargura: 50,  padrao: true },
   { campo: 'nome',              label: 'Nome',         largura: 250, minLargura: 150, padrao: true },
@@ -74,10 +105,11 @@ const CLASSIFICACAO_COLUNAS: ColunaDef[] = [
 ];
 
 const API_MAP: Record<string, string> = {
-  'grupo-principal': '/api/grupos-principais',
-  'grupo':           '/api/grupos-produtos',
-  'sub-grupo':       '/api/sub-grupos',
-  'secao':           '/api/secoes',
+  'grupo-principal': '/grupos-principais',
+  'grupo':           '/grupos-produtos',
+  'sub-grupo':       '/sub-grupos',
+  'secao':           '/secoes',
+  'familia':         '/produto-familias',
 };
 
 const NOME_ABA_MAP: Record<string, string> = {
@@ -85,6 +117,7 @@ const NOME_ABA_MAP: Record<string, string> = {
   'grupo':           'Grupo',
   'sub-grupo':       'Sub Grupo',
   'secao':           'Seção',
+  'familia':         'Família',
 };
 
 @Component({
@@ -94,10 +127,10 @@ const NOME_ABA_MAP: Record<string, string> = {
   templateUrl: './produtos.component.html',
   styleUrl: './produtos.component.scss'
 })
-export class ProdutosComponent implements OnInit {
+export class ProdutosComponent implements OnInit, OnDestroy {
 
   // ── Abas ──────────────────────────────────────────────────────────
-  abaAtiva = signal<AbaAtiva>('grupo-principal');
+  abaAtiva = signal<AbaAtiva>('produtos');
 
   abas: AbaConfig[] = [
     { id: 'produtos',        label: 'Produtos',       cor: '#2980b9' },
@@ -149,6 +182,24 @@ export class ProdutosComponent implements OnInit {
   logDataInicio = signal<string>(this.hoje(-30));
   logDataFim    = signal<string>(this.hoje(0));
 
+  // ── Estado Produto ─────────────────────────────────────────────────
+  private produtoApiUrl = `${environment.apiUrl}/produtos`;
+  produtoRegistros = signal<ProdutoList[]>([]);
+  produtoSelecionado = signal<ProdutoList | null>(null);
+  produtoForm = signal<ProdutoForm>(this.novoProdutoForm());
+  private produtoFormOriginal = '';
+  produtoEditandoId = signal<number | null>(null);
+  produtoBusca = signal('');
+  private buscaProdutoTimer: any = null;
+
+  produtosFiltrados = computed(() => {
+    let lista = this.produtoRegistros();
+    const st = this.filtroStatus();
+    if (st === 'ativos') lista = lista.filter(r => r.ativo && !r.eliminado);
+    else if (st === 'inativos') lista = lista.filter(r => !r.ativo || r.eliminado);
+    return lista;
+  });
+
   // ── Token Liberação ───────────────────────────────────────────────
   private tokenLiberacao: string | null = null;
 
@@ -160,7 +211,7 @@ export class ProdutosComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.carregar();
+    if (!this.isProdutoAba()) this.carregar();
   }
 
   // ── Permissões ────────────────────────────────────────────────────
@@ -187,6 +238,8 @@ export class ProdutosComponent implements OnInit {
     this.abaAtiva.set(id);
     this.modo.set('lista');
     this.registroSelecionado.set(null);
+    this.produtoSelecionado.set(null);
+    if (id === 'produtos') return;
     if (ABAS_IMPLEMENTADAS.includes(id)) {
       this.carregar();
     }
@@ -194,6 +247,10 @@ export class ProdutosComponent implements OnInit {
 
   isAbaImplementada(): boolean {
     return ABAS_IMPLEMENTADAS.includes(this.abaAtiva());
+  }
+
+  isAbaSimples(): boolean {
+    return this.abaAtiva() === 'familia';
   }
 
   getNomeAba(): string {
@@ -518,6 +575,169 @@ export class ProdutosComponent implements OnInit {
       priorizar: '', controlarLotesVencimento: false, informarPrescritorVenda: false,
       imprimirEtiqueta: false, permitirDescontoPrazo: false, permitirPromocao: false,
       permitirDescontosProgressivos: false, ativo: true
+    };
+  }
+
+  // ── Produto CRUD ───────────────────────────────────────────────────
+
+  ngOnDestroy() { clearTimeout(this.buscaProdutoTimer); }
+
+  onProdutoBuscaInput(valor: string) {
+    this.produtoBusca.set(valor);
+    clearTimeout(this.buscaProdutoTimer);
+    if (valor.trim().length >= 3) {
+      this.buscaProdutoTimer = setTimeout(() => this.pesquisarProdutos(), 400);
+    } else {
+      this.produtoRegistros.set([]);
+      this.produtoSelecionado.set(null);
+    }
+  }
+
+  pesquisarProdutos() {
+    const termo = this.produtoBusca().trim();
+    if (termo.length < 3) { this.produtoRegistros.set([]); return; }
+    this.carregando.set(true);
+    this.produtoSelecionado.set(null);
+    this.http.get<any>(this.produtoApiUrl, { params: { busca: termo } }).subscribe({
+      next: r => { this.carregando.set(false); this.produtoRegistros.set(r?.data ?? []); },
+      error: () => { this.carregando.set(false); this.produtoRegistros.set([]); }
+    });
+  }
+
+  selecionarProduto(r: ProdutoList) { this.produtoSelecionado.set(r); }
+
+  async incluirProduto() {
+    if (!await this.verificarPermissao('i')) return;
+    const novo = this.novoProdutoForm();
+    this.produtoForm.set(novo);
+    this.produtoFormOriginal = JSON.stringify(novo);
+    this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(false);
+    this.produtoEditandoId.set(null); this.modo.set('form');
+  }
+
+  async editarProduto() {
+    const s = this.produtoSelecionado();
+    if (!s) return;
+    if (!await this.verificarPermissao('a')) return;
+    this.carregando.set(true);
+    this.http.get<any>(`${this.produtoApiUrl}/${s.id}`).subscribe({
+      next: r => {
+        this.carregando.set(false);
+        const d = r.data;
+        const f: ProdutoForm = {
+          nome: d.nome, codigoBarras: d.codigoBarras, qtdeEmbalagem: d.qtdeEmbalagem,
+          precoFp: d.precoFp, lista: d.lista, fracao: d.fracao, ativo: d.ativo, eliminado: d.eliminado,
+          fabricanteId: d.fabricanteId, grupoPrincipalId: d.grupoPrincipalId,
+          grupoProdutoId: d.grupoProdutoId, subGrupoId: d.subGrupoId, ncmId: d.ncmId,
+          barras: d.barras ?? [], registrosMs: d.registrosMs ?? [],
+          substancias: d.substancias ?? [], fornecedores: d.fornecedores ?? [],
+          fiscal: d.fiscal, dados: d.dados ?? []
+        };
+        this.produtoForm.set(f);
+        this.produtoFormOriginal = JSON.stringify(f);
+        this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(true);
+        this.produtoEditandoId.set(s.id); this.modo.set('form');
+      },
+      error: () => this.carregando.set(false)
+    });
+  }
+
+  async salvarProduto() {
+    if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
+    const f = this.produtoForm();
+    if (!f.nome?.trim()) { this.erro.set('Nome é obrigatório.'); return; }
+    this.erro.set(''); this.salvando.set(true);
+    const headers = this.headerLiberacao();
+
+    const req = this.modoEdicao()
+      ? this.http.put<any>(`${this.produtoApiUrl}/${this.produtoEditandoId()}`, f, { headers })
+      : this.http.post<any>(this.produtoApiUrl, f, { headers });
+
+    req.subscribe({
+      next: (r: any) => {
+        this.salvando.set(false); this.isDirty.set(false);
+        if (!this.modoEdicao() && r?.data) {
+          this.produtoSelecionado.set(r.data);
+          this.produtoEditandoId.set(r.data.id);
+          this.modoEdicao.set(true);
+        }
+        this.produtoFormOriginal = JSON.stringify(this.produtoForm());
+      },
+      error: (err: any) => { this.salvando.set(false); this.erro.set(err?.error?.message || 'Erro ao salvar.'); }
+    });
+  }
+
+  async excluirProduto() {
+    const id = this.produtoEditandoId();
+    if (!id) return;
+    const result = await this.modal.confirmar('Confirmar Exclusão', 'Deseja excluir este produto? Ele será marcado como eliminado.');
+    if (!result.confirmado) return;
+    if (!await this.verificarPermissao('e')) return;
+    this.excluindo.set(true);
+    this.http.delete<any>(`${this.produtoApiUrl}/${id}`, { headers: this.headerLiberacao() }).subscribe({
+      next: () => { this.excluindo.set(false); this.modo.set('lista'); this.pesquisarProdutos(); },
+      error: (e: any) => { this.excluindo.set(false); this.modal.erro('Erro', e?.error?.message || 'Erro ao excluir.'); }
+    });
+  }
+
+  cancelarProduto() {
+    this.produtoForm.set(JSON.parse(this.produtoFormOriginal));
+    this.isDirty.set(false); this.erro.set('');
+  }
+
+  updateProdutoForm(campo: string, valor: any) {
+    this.produtoForm.update(f => ({ ...f, [campo]: valor }));
+    this.isDirty.set(true);
+  }
+
+  // Barras
+  addBarras() { this.produtoForm.update(f => ({ ...f, barras: [...f.barras, { barras: '' }] })); this.isDirty.set(true); }
+  removeBarras(i: number) { this.produtoForm.update(f => ({ ...f, barras: f.barras.filter((_, idx) => idx !== i) })); this.isDirty.set(true); }
+
+  // MS
+  addMs() { this.produtoForm.update(f => ({ ...f, registrosMs: [...f.registrosMs, { numeroMs: '' }] })); this.isDirty.set(true); }
+  removeMs(i: number) { this.produtoForm.update(f => ({ ...f, registrosMs: f.registrosMs.filter((_, idx) => idx !== i) })); this.isDirty.set(true); }
+
+  // Substâncias
+  addSubstancia(id: number, nome: string) {
+    if (this.produtoForm().substancias.some(s => s.substanciaId === id)) return;
+    this.produtoForm.update(f => ({ ...f, substancias: [...f.substancias, { substanciaId: id, substanciaNome: nome }] }));
+    this.isDirty.set(true);
+  }
+  removeSubstancia(i: number) { this.produtoForm.update(f => ({ ...f, substancias: f.substancias.filter((_, idx) => idx !== i) })); this.isDirty.set(true); }
+
+  // Fornecedores
+  addFornecedor() {
+    this.produtoForm.update(f => ({ ...f, fornecedores: [...f.fornecedores, { fornecedorId: 0, fracao: 1 }] }));
+    this.isDirty.set(true);
+  }
+  removeFornecedor(i: number) { this.produtoForm.update(f => ({ ...f, fornecedores: f.fornecedores.filter((_, idx) => idx !== i) })); this.isDirty.set(true); }
+  updateFornecedor(i: number, campo: string, valor: any) {
+    this.produtoForm.update(f => ({ ...f, fornecedores: f.fornecedores.map((r, idx) => idx === i ? { ...r, [campo]: valor } : r) }));
+    this.isDirty.set(true);
+  }
+
+  // Dados (por filial)
+  updateDados(i: number, campo: string, valor: any) {
+    this.produtoForm.update(f => ({ ...f, dados: f.dados.map((r, idx) => idx === i ? { ...r, [campo]: valor } : r) }));
+    this.isDirty.set(true);
+  }
+
+  // Fiscal
+  updateFiscal(campo: string, valor: any) {
+    this.produtoForm.update(f => {
+      const fiscal = f.fiscal ?? { aliquotaIcms: 0, aliquotaPis: 0, aliquotaCofins: 0, aliquotaIpi: 0 };
+      return { ...f, fiscal: { ...fiscal, [campo]: valor } };
+    });
+    this.isDirty.set(true);
+  }
+
+  isProdutoAba(): boolean { return this.abaAtiva() === 'produtos'; }
+
+  private novoProdutoForm(): ProdutoForm {
+    return {
+      nome: '', qtdeEmbalagem: 1, lista: 'Indefinida', fracao: 1, ativo: true, eliminado: false,
+      barras: [], registrosMs: [], substancias: [], fornecedores: [], dados: []
     };
   }
 

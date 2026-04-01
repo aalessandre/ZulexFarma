@@ -105,6 +105,35 @@ public static class DatabaseSeeder
                 });
             }
         }
+        // ── Produto ──────────────────────────────────────────────
+        var tabelasProduto = new[] { "Produtos", "ProdutosBarras", "ProdutosMs", "ProdutosSubstancias",
+            "ProdutosFornecedores", "ProdutosFiscal", "ProdutosDados", "ProdutosLocais", "ProdutoFamilias" };
+        foreach (var tabela in tabelasProduto)
+        {
+            if (!await context.DicionarioTabelas.AnyAsync(d => d.Tabela == tabela))
+            {
+                context.DicionarioTabelas.Add(new DicionarioTabela
+                {
+                    Tabela = tabela,
+                    Escopo = tabela == "ProdutosDados" ? "filial" : "global",
+                    Replica = true,
+                    InstrucaoIA = tabela switch
+                    {
+                        "Produtos" => "Cadastro principal de produtos. Dados globais compartilhados entre filiais.",
+                        "ProdutosBarras" => "Codigos de barras adicionais do produto.",
+                        "ProdutosMs" => "Registros MS (Ministerio da Saude) do produto.",
+                        "ProdutosSubstancias" => "Vinculo produto-substancia (N:N).",
+                        "ProdutosFornecedores" => "Vinculo produto-fornecedor com codigo e nome no fornecedor.",
+                        "ProdutosFiscal" => "Dados fiscais/tributarios do produto (1:1).",
+                        "ProdutosDados" => "Dados por filial: estoque, precos, promocao, descontos, flags.",
+                        "ProdutosLocais" => "Localizacao fisica do produto por filial.",
+                        "ProdutoFamilias" => "Familias de produtos. Classificacao simples com nome.",
+                        _ => null
+                    }
+                });
+            }
+        }
+
         await context.SaveChangesAsync();
 
         context.AplicandoSync = false;

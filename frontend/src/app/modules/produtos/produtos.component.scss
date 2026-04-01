@@ -237,6 +237,27 @@
   font-size: 14px; font-style: italic;
 }
 
+.sub-card-inline {
+  display: flex; align-items: center; gap: 8px; padding: 6px 0;
+  border-bottom: 1px solid var(--erp-border, #e8ecf1);
+  input { flex: 1; height: 32px; padding: 0 8px; border: 1px solid var(--erp-border-input, #ccc); border-radius: 4px; font-size: 13px; }
+}
+.sub-card {
+  border: 1px solid var(--erp-border, #e8ecf1); border-radius: 8px; padding: 12px; margin-bottom: 8px;
+}
+.sub-card-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 600; font-size: 13px;
+}
+.btn-remove-row {
+  background: none; border: none; color: #c0392b; cursor: pointer; font-size: 16px; font-weight: 700; padding: 2px 6px;
+  &:hover { color: #e74c3c; }
+}
+.btn-add-row {
+  background: none; border: 1px dashed var(--erp-border-input, #aaa); color: var(--erp-text-sec, #555);
+  border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; margin-top: 8px;
+  &:hover { border-color: var(--erp-blue, #2471a3); color: var(--erp-blue, #2471a3); }
+}
+
 /* -- Conteudo da aba (placeholder) ---------------------------------------- */
 .produto-conteudo {
   flex: 1;

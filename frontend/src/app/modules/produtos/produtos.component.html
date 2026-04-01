@@ -2,15 +2,15 @@
 
   <!-- SIDEBAR -->
   <aside class="tela-sidebar">
-    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="modo.set('lista'); carregar()">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="modo.set('lista'); isProdutoAba() ? pesquisarProdutos() : carregar()">
       <span>Procurar</span>
       <span class="sidebar-sub">Consulta</span>
     </div>
-    <div class="sidebar-item tile-adicionar" [class.disabled]="!isAbaImplementada()" (click)="incluir()">
+    <div class="sidebar-item tile-adicionar" [class.disabled]="!isAbaImplementada()" (click)="isProdutoAba() ? incluirProduto() : incluir()">
       <span>Adicionar</span>
       <span class="sidebar-sub">Novo registro</span>
     </div>
-    <div class="sidebar-item tile-editar" [class.disabled]="!registroSelecionado() || !isAbaImplementada()" (click)="editar()">
+    <div class="sidebar-item tile-editar" [class.disabled]="isProdutoAba() ? !produtoSelecionado() : (!registroSelecionado() || !isAbaImplementada())" (click)="isProdutoAba() ? editarProduto() : editar()">
       <span>Editar</span>
       <span class="sidebar-sub">Alterar registro</span>
     </div>
@@ -38,8 +38,8 @@
       }
     </div>
 
-    <!-- LISTA (abas implementadas) -->
-    @if (modo() === 'lista' && isAbaImplementada()) {
+    <!-- LISTA (abas classificação — NÃO produtos) -->
+    @if (modo() === 'lista' && isAbaImplementada() && !isProdutoAba()) {
       <div class="lista-header">
         <div class="lista-filtro">
           <label>PROCURAR POR</label>
@@ -146,275 +146,245 @@
       </div>
     }
 
-    <!-- CADASTRO DE PRODUTO -->
-    @if (abaAtiva() === 'produtos' && modo() === 'lista') {
+    <!-- LISTA PRODUTOS -->
+    @if (isProdutoAba() && modo() === 'lista') {
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR PRODUTO</label>
+          <input class="input-busca" type="text" placeholder="Digite 3+ caracteres (nome, código, barras)..."
+                 [value]="produtoBusca()" (input)="onProdutoBuscaInput($any($event.target).value)" />
+        </div>
+        <div class="lista-filtro">
+          <label>SITUAÇÃO</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos / Eliminados</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              <th style="width:60px">ID</th>
+              <th style="width:120px">Barras</th>
+              <th>Nome</th>
+              <th style="width:150px">Fabricante</th>
+              <th style="width:150px">Grupo</th>
+              <th style="width:60px">Ativo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td colspan="7" class="grid-loading">Carregando...</td></tr>
+            } @else if (produtosFiltrados().length === 0) {
+              <tr><td colspan="7" class="grid-vazio">{{ produtoBusca().trim().length < 3 ? 'Digite 3 ou mais caracteres para pesquisar.' : 'Nenhum produto encontrado.' }}</td></tr>
+            } @else {
+              @for (r of produtosFiltrados(); track r.id) {
+                <tr [class.selecionado]="produtoSelecionado()?.id === r.id"
+                    (click)="selecionarProduto(r)" (dblclick)="editarProduto()">
+                  <td class="td-arrow">@if (produtoSelecionado()?.id === r.id) { <span>▶</span> }</td>
+                  <td>{{ r.id }}</td>
+                  <td>{{ r.codigoBarras || '-' }}</td>
+                  <td><strong>{{ r.nome }}</strong></td>
+                  <td>{{ r.fabricanteNome || '-' }}</td>
+                  <td>{{ r.grupoPrincipalNome || '-' }}</td>
+                  <td>{{ r.ativo ? 'Sim' : 'Não' }}</td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ produtosFiltrados().length }}</strong></span>
+      </div>
+    }
+
+    <!-- FORM PRODUTO -->
+    @if (isProdutoAba() && modo() === 'form') {
       <div class="produto-conteudo produto-cadastro">
         <div class="prod-form-header">
-          <h2>Cadastro de Produto</h2>
-          <span class="prod-form-sub">Preencha os dados do produto</span>
+          <h2>{{ modoEdicao() ? 'Editar' : 'Novo' }} Produto</h2>
         </div>
 
-        <!-- CAMPOS PRINCIPAIS -->
+        @if (erro()) { <div class="form-erro">{{ erro() }}</div> }
+
         <div class="prod-section">Identificação</div>
         <div class="prod-grid">
-          <div class="prod-field">
-            <label>CÓDIGO</label>
-            <input type="text" disabled class="field-disabled" placeholder="Automático" />
-          </div>
-          <div class="prod-field">
-            <label>DATA CADASTRO</label>
-            <input type="text" disabled class="field-disabled" placeholder="Automático" />
-          </div>
+          @if (modoEdicao()) {
+            <div class="prod-field">
+              <label>CÓDIGO</label>
+              <input type="text" disabled class="field-disabled" [value]="produtoEditandoId()" />
+            </div>
+          }
           <div class="prod-field prod-field-2">
             <label>CÓDIGO DE BARRAS</label>
-            <div class="prod-input-group">
-              <input type="text" placeholder="Código de barras principal" />
-              <button class="prod-btn-extra" title="Gerenciar códigos adicionais">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </button>
-            </div>
+            <input type="text" [value]="produtoForm().codigoBarras || ''" (input)="updateProdutoForm('codigoBarras', $any($event.target).value)" placeholder="Código de barras principal" />
           </div>
           <div class="prod-field prod-field-full">
             <label>NOME *</label>
-            <input type="text" placeholder="Nome do produto" />
+            <input type="text" [value]="produtoForm().nome" (input)="updateProdutoForm('nome', $any($event.target).value)" placeholder="Nome do produto" />
           </div>
-          <div class="prod-field prod-field-full">
-            <label>SUBSTÂNCIAS</label>
-            <div class="prod-tags-input">
-              <div class="prod-tags-area">
-                <span class="prod-tag-placeholder">Digite para buscar substâncias...</span>
-              </div>
-            </div>
+          <div class="prod-field">
+            <label>QTDE EMBALAGEM</label>
+            <input type="number" [value]="produtoForm().qtdeEmbalagem" (input)="updateProdutoForm('qtdeEmbalagem', +$any($event.target).value)" min="1" />
+          </div>
+          <div class="prod-field">
+            <label>PREÇO FP</label>
+            <input type="number" [value]="produtoForm().precoFp || 0" (input)="updateProdutoForm('precoFp', +$any($event.target).value)" step="0.01" />
+          </div>
+          <div class="prod-field">
+            <label>LISTA</label>
+            <select [value]="produtoForm().lista" (change)="updateProdutoForm('lista', $any($event.target).value)">
+              <option value="Indefinida">Indefinida</option>
+              <option value="Positiva">Positiva</option>
+              <option value="Negativa">Negativa</option>
+              <option value="Neutra">Neutra</option>
+            </select>
+          </div>
+          <div class="prod-field">
+            <label>FRAÇÃO</label>
+            <input type="number" [value]="produtoForm().fracao" (input)="updateProdutoForm('fracao', +$any($event.target).value)" min="1" />
+          </div>
+          <div class="prod-field prod-field-check">
+            <label class="check-label"><input type="checkbox" [checked]="produtoForm().ativo" (change)="updateProdutoForm('ativo', $any($event.target).checked)" /><span>Ativo</span></label>
           </div>
         </div>
 
         <div class="prod-section">Classificação</div>
         <div class="prod-grid">
           <div class="prod-field">
-            <label>GRUPO PRINCIPAL *</label>
-            <select><option value="">Selecione...</option></select>
+            <label>FABRICANTE</label>
+            <input type="number" [value]="produtoForm().fabricanteId || ''" (input)="updateProdutoForm('fabricanteId', +$any($event.target).value || null)" placeholder="ID do fabricante" />
           </div>
           <div class="prod-field">
-            <label>GRUPO *</label>
-            <select><option value="">Selecione...</option></select>
+            <label>GRUPO PRINCIPAL</label>
+            <input type="number" [value]="produtoForm().grupoPrincipalId || ''" (input)="updateProdutoForm('grupoPrincipalId', +$any($event.target).value || null)" placeholder="ID do grupo" />
+          </div>
+          <div class="prod-field">
+            <label>GRUPO</label>
+            <input type="number" [value]="produtoForm().grupoProdutoId || ''" (input)="updateProdutoForm('grupoProdutoId', +$any($event.target).value || null)" placeholder="ID do grupo" />
           </div>
           <div class="prod-field">
             <label>SUBGRUPO</label>
-            <select><option value="">Selecione...</option></select>
-          </div>
-          <div class="prod-field">
-            <label>REGISTRO MS</label>
-            <div class="prod-input-group">
-              <input type="text" placeholder="Registro Ministério da Saúde" />
-              <button class="prod-btn-extra" title="Gerenciar registros MS">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </button>
-            </div>
+            <input type="number" [value]="produtoForm().subGrupoId || ''" (input)="updateProdutoForm('subGrupoId', +$any($event.target).value || null)" placeholder="ID do subgrupo" />
           </div>
           <div class="prod-field">
             <label>NCM</label>
-            <input type="text" placeholder="Classificação fiscal" />
-          </div>
-          <div class="prod-field">
-            <label>CLASSE TERAPÊUTICA *</label>
-            <select>
-              <option value="nao-controlado" selected>Não Controlado</option>
-              <option value="antibiotico">Antibiótico</option>
-              <option value="psicotropico">Psicotrópico</option>
-            </select>
-          </div>
-          <div class="prod-field">
-            <label>LISTA *</label>
-            <select>
-              <option value="indefinida" selected>Indefinida</option>
-              <option value="positiva">Positiva</option>
-              <option value="negativa">Negativa</option>
-              <option value="neutra">Neutra</option>
-            </select>
-          </div>
-          <div class="prod-field">
-            <label>DESTINO *</label>
-            <select>
-              <option value="revenda" selected>Revenda</option>
-              <option value="uso-consumo">Uso / Consumo</option>
-              <option value="servico">Serviço</option>
-            </select>
-          </div>
-          <div class="prod-field">
-            <label>FRAÇÃO *</label>
-            <input type="number" value="1" min="1" />
+            <input type="number" [value]="produtoForm().ncmId || ''" (input)="updateProdutoForm('ncmId', +$any($event.target).value || null)" placeholder="ID do NCM" />
           </div>
         </div>
 
         <!-- ACCORDIONS -->
         <div class="prod-accordions">
 
-          <!-- ESTOQUE -->
+          <!-- SUBSTÂNCIAS -->
           <details class="prod-accordion">
-            <summary class="prod-acc-header acc-estoque">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-              Estoque
-            </summary>
+            <summary class="prod-acc-header acc-geral">Substâncias ({{ produtoForm().substancias.length }})</summary>
             <div class="prod-acc-body">
-              <div class="prod-grid">
-                <div class="prod-field"><label>ESTOQUE ATUAL</label><input type="number" value="0" disabled class="field-disabled" /></div>
-                <div class="prod-field"><label>ESTOQUE MÍNIMO</label><input type="number" value="0" /></div>
-                <div class="prod-field"><label>ESTOQUE MÁXIMO</label><input type="number" value="0" /></div>
-                <div class="prod-field"><label>DEMANDA</label><input type="number" value="0" /></div>
-                <div class="prod-field"><label>CURVA ABC</label><input type="text" disabled class="field-disabled" placeholder="Calculado" /></div>
-              </div>
+              @for (s of produtoForm().substancias; track $index; let i = $index) {
+                <div class="sub-card-inline">
+                  <span>{{ s.substanciaNome || 'ID: ' + s.substanciaId }}</span>
+                  <button class="btn-remove-row" (click)="removeSubstancia(i)">✕</button>
+                </div>
+              }
+              @if (produtoForm().substancias.length === 0) {
+                <div class="prod-acc-placeholder">Nenhuma substância vinculada.</div>
+              }
             </div>
           </details>
 
-          <!-- PREÇOS -->
+          <!-- BARRAS ADICIONAIS -->
           <details class="prod-accordion">
-            <summary class="prod-acc-header acc-precos">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              Preços
-            </summary>
+            <summary class="prod-acc-header acc-estoque">Códigos de Barras ({{ produtoForm().barras.length }})</summary>
             <div class="prod-acc-body">
-              <div class="prod-subsection">Última Compra</div>
-              <div class="prod-grid">
-                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>VLR ST</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>VLR OUTROS</label><input type="number" value="0" step="0.01" disabled class="field-disabled" /></div>
-              </div>
-              <div class="prod-grid prod-grid-indent">
-                <div class="prod-field"><label>IPI</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>FPC</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>BOLETO</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>DIFAL</label><input type="number" value="0" step="0.01" /></div>
-              </div>
-              <div class="prod-subsection">Valores</div>
-              <div class="prod-grid">
-                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="number" value="0" step="0.01" disabled class="field-disabled" /></div>
-                <div class="prod-field"><label>% PROJ. LUCRO</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>% MARKUP</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>VLR VENDA</label><input type="number" value="0" step="0.01" /></div>
-              </div>
-              <div class="prod-subsection">Promoção</div>
-              <div class="prod-grid">
-                <div class="prod-field"><label>VLR PROMOÇÃO</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>INÍCIO PROMOÇÃO</label><input type="date" /></div>
-                <div class="prod-field"><label>TÉRMINO PROMOÇÃO</label><input type="date" /></div>
-              </div>
-              <div class="prod-subsection">Descontos</div>
-              <div class="prod-grid">
-                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="number" value="0" step="0.01" /></div>
-              </div>
+              @for (b of produtoForm().barras; track $index; let i = $index) {
+                <div class="sub-card-inline">
+                  <input type="text" [value]="b.barras" (input)="produtoForm().barras[i].barras = $any($event.target).value; isDirty.set(true)" placeholder="Código de barras" />
+                  <button class="btn-remove-row" (click)="removeBarras(i)">✕</button>
+                </div>
+              }
+              <button class="btn-add-row" (click)="addBarras()">+ Adicionar</button>
+            </div>
+          </details>
+
+          <!-- REGISTROS MS -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-fiscal">Registros MS ({{ produtoForm().registrosMs.length }})</summary>
+            <div class="prod-acc-body">
+              @for (m of produtoForm().registrosMs; track $index; let i = $index) {
+                <div class="sub-card-inline">
+                  <input type="text" [value]="m.numeroMs" (input)="produtoForm().registrosMs[i].numeroMs = $any($event.target).value; isDirty.set(true)" placeholder="Número MS" />
+                  <button class="btn-remove-row" (click)="removeMs(i)">✕</button>
+                </div>
+              }
+              <button class="btn-add-row" (click)="addMs()">+ Adicionar</button>
             </div>
           </details>
 
           <!-- FISCAL -->
           <details class="prod-accordion">
-            <summary class="prod-acc-header acc-fiscal">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              Fiscal
-            </summary>
-            <div class="prod-acc-body">
-              <div class="prod-acc-placeholder">Configurações fiscais serão implementadas.</div>
-            </div>
-          </details>
-
-          <!-- GERAL -->
-          <details class="prod-accordion">
-            <summary class="prod-acc-header acc-geral">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              Geral
-            </summary>
+            <summary class="prod-acc-header acc-fiscal">Fiscal</summary>
             <div class="prod-acc-body">
               <div class="prod-grid">
-                <div class="prod-field"><label>% COMISSÃO</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>VLR INCENTIVO</label><input type="number" value="0" step="0.01" /></div>
-                <div class="prod-field"><label>LOCAL</label><input type="text" placeholder="Buscar local..." /></div>
-                <div class="prod-field"><label>FAMÍLIA</label><select><option value="">Selecione...</option></select></div>
-                <div class="prod-field"><label>SEÇÃO</label><select><option value="">Selecione...</option></select></div>
-                <div class="prod-field"><label>NOME ETIQUETA</label><input type="text" placeholder="Nome para impressão" /></div>
+                <div class="prod-field"><label>CEST</label><input type="text" [value]="produtoForm().fiscal?.cest || ''" (input)="updateFiscal('cest', $any($event.target).value)" maxlength="9" /></div>
+                <div class="prod-field"><label>ORIGEM MERCADORIA</label><input type="text" [value]="produtoForm().fiscal?.origemMercadoria || ''" (input)="updateFiscal('origemMercadoria', $any($event.target).value)" maxlength="1" /></div>
+                <div class="prod-field"><label>CST ICMS</label><input type="text" [value]="produtoForm().fiscal?.cstIcms || ''" (input)="updateFiscal('cstIcms', $any($event.target).value)" maxlength="3" /></div>
+                <div class="prod-field"><label>CSOSN</label><input type="text" [value]="produtoForm().fiscal?.csosn || ''" (input)="updateFiscal('csosn', $any($event.target).value)" maxlength="4" /></div>
+                <div class="prod-field"><label>% ICMS</label><input type="number" [value]="produtoForm().fiscal?.aliquotaIcms || 0" (input)="updateFiscal('aliquotaIcms', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CST PIS</label><input type="text" [value]="produtoForm().fiscal?.cstPis || ''" (input)="updateFiscal('cstPis', $any($event.target).value)" maxlength="2" /></div>
+                <div class="prod-field"><label>% PIS</label><input type="number" [value]="produtoForm().fiscal?.aliquotaPis || 0" (input)="updateFiscal('aliquotaPis', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CST COFINS</label><input type="text" [value]="produtoForm().fiscal?.cstCofins || ''" (input)="updateFiscal('cstCofins', $any($event.target).value)" maxlength="2" /></div>
+                <div class="prod-field"><label>% COFINS</label><input type="number" [value]="produtoForm().fiscal?.aliquotaCofins || 0" (input)="updateFiscal('aliquotaCofins', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CST IPI</label><input type="text" [value]="produtoForm().fiscal?.cstIpi || ''" (input)="updateFiscal('cstIpi', $any($event.target).value)" maxlength="3" /></div>
+                <div class="prod-field"><label>% IPI</label><input type="number" [value]="produtoForm().fiscal?.aliquotaIpi || 0" (input)="updateFiscal('aliquotaIpi', +$any($event.target).value)" step="0.01" /></div>
               </div>
-              <div class="prod-grid prod-grid-checks">
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear desconto</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear promoção</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Não atualizar ABCFarma</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Não atualizar Gestor Tributário</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear compras</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Produto fórmula (manipulação)</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear comissão</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Bloquear cobertura de oferta</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Uso contínuo</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" /><span>Aviso de fração</span></label></div>
-              </div>
-              <div class="prod-grid">
-                <div class="prod-field prod-field-full">
-                  <label>MENSAGEM</label>
-                  <textarea rows="2" maxlength="200" placeholder="Mensagem do produto (máx. 200 caracteres)"></textarea>
-                </div>
-              </div>
-            </div>
-          </details>
-
-          <!-- ESTATÍSTICAS -->
-          <details class="prod-accordion">
-            <summary class="prod-acc-header acc-stats">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-              Estatísticas
-            </summary>
-            <div class="prod-acc-body">
-              <div class="prod-grid">
-                <div class="prod-field"><label>ÚLTIMA COMPRA</label><input type="text" disabled class="field-disabled" /></div>
-                <div class="prod-field"><label>ÚLTIMA VENDA</label><input type="text" disabled class="field-disabled" /></div>
-              </div>
-              <div class="prod-acc-placeholder">Gráficos de vendas/compras por mês serão implementados.</div>
             </div>
           </details>
 
           <!-- VÍNCULOS FORNECEDORES -->
           <details class="prod-accordion">
-            <summary class="prod-acc-header acc-fornecedores">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              Vínculos Fornecedores
-            </summary>
+            <summary class="prod-acc-header acc-fornecedores">Fornecedores ({{ produtoForm().fornecedores.length }})</summary>
             <div class="prod-acc-body">
-              <div class="prod-acc-placeholder">Vínculos com fornecedores serão implementados.</div>
-            </div>
-          </details>
-
-          <!-- PROMOÇÕES -->
-          <details class="prod-accordion">
-            <summary class="prod-acc-header acc-promocoes">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-              Promoções
-            </summary>
-            <div class="prod-acc-body">
-              <div class="prod-acc-placeholder">Gestão de promoções será implementada.</div>
-            </div>
-          </details>
-
-          <!-- OFERTAS -->
-          <details class="prod-accordion">
-            <summary class="prod-acc-header acc-ofertas">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-              Ofertas
-            </summary>
-            <div class="prod-acc-body">
-              <div class="prod-acc-placeholder">Gestão de ofertas será implementada.</div>
-            </div>
-          </details>
-
-          <!-- ESTOQUE FILIAIS -->
-          <details class="prod-accordion">
-            <summary class="prod-acc-header acc-filiais">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-              Estoque Filiais
-            </summary>
-            <div class="prod-acc-body">
-              <div class="prod-acc-placeholder">Visão de estoque por filial será implementada.</div>
+              @for (f of produtoForm().fornecedores; track $index; let i = $index) {
+                <div class="sub-card">
+                  <div class="sub-card-header">
+                    <span>Fornecedor #{{ i + 1 }}</span>
+                    <button class="btn-remove-row" (click)="removeFornecedor(i)">✕</button>
+                  </div>
+                  <div class="prod-grid">
+                    <div class="prod-field"><label>ID FORNECEDOR</label><input type="number" [value]="f.fornecedorId" (input)="updateFornecedor(i, 'fornecedorId', +$any($event.target).value)" /></div>
+                    <div class="prod-field"><label>CÓD. PRODUTO</label><input type="text" [value]="f.codigoProdutoFornecedor || ''" (input)="updateFornecedor(i, 'codigoProdutoFornecedor', $any($event.target).value)" maxlength="24" /></div>
+                    <div class="prod-field"><label>NOME PRODUTO</label><input type="text" [value]="f.nomeProduto || ''" (input)="updateFornecedor(i, 'nomeProduto', $any($event.target).value)" /></div>
+                    <div class="prod-field"><label>FRAÇÃO</label><input type="number" [value]="f.fracao" (input)="updateFornecedor(i, 'fracao', +$any($event.target).value)" min="1" /></div>
+                  </div>
+                </div>
+              }
+              <button class="btn-add-row" (click)="addFornecedor()">+ Adicionar Fornecedor</button>
             </div>
           </details>
 
         </div>
       </div>
+
+      <!-- Toolbar Produto -->
+      <footer class="tela-toolbar">
+        @if (isDirty()) {
+          <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvarProduto()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            {{ salvando() ? 'Salvando...' : 'Salvar' }}
+          </button>
+          <button class="tb-btn tb-cancelar" (click)="cancelarProduto()">Cancelar</button>
+        }
+        <button class="tb-btn tb-fechar" (click)="fecharForm()">Fechar</button>
+        @if (modoEdicao()) {
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluirProduto()">Excluir</button>
+        }
+      </footer>
     }
 
     <!-- PLACEHOLDER (abas não implementadas) -->
@@ -432,8 +402,8 @@
       </div>
     }
 
-    <!-- FORMULÁRIO -->
-    @if (modo() === 'form') {
+    <!-- FORMULÁRIO CLASSIFICAÇÃO -->
+    @if (modo() === 'form' && !isProdutoAba()) {
       <div class="form-wrapper">
         <div class="form-titulo">{{ modoEdicao() ? 'Editar' : 'Novo' }} {{ getNomeAba() }}</div>
 
@@ -462,6 +432,7 @@
           </div>
         </div>
 
+        @if (!isAbaSimples()) {
         <div class="form-secao">Descontos e Margens</div>
         <div class="form-grid">
           <div class="field">
@@ -508,6 +479,14 @@
           <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="registroForm().permitirDescontosProgressivos" (change)="updateForm('permitirDescontosProgressivos', $any($event.target).checked)" /><span>Permitir Descontos Progressivos</span></label></div>
           <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="registroForm().ativo" (change)="updateForm('ativo', $any($event.target).checked)" /><span>Ativo</span></label></div>
         </div>
+        }
+
+        @if (isAbaSimples()) {
+        <div class="form-secao">Opções</div>
+        <div class="form-grid">
+          <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="registroForm().ativo" (change)="updateForm('ativo', $any($event.target).checked)" /><span>Ativo</span></label></div>
+        </div>
+        }
       </div>
 
       <!-- Toolbar -->

@@ -1,4 +1,4 @@
-import { Component, signal, computed, OnInit, HostListener } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, HostListener, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -28,8 +28,9 @@ const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','P
   templateUrl: './ncm.component.html',
   styleUrl: './ncm.component.scss'
 })
-export class NcmComponent implements OnInit {
+export class NcmComponent implements OnInit, OnDestroy {
   private apiUrl = `${environment.apiUrl}/ncm`;
+  private buscaTimer: any = null;
   ufs = UFS;
 
   modo = signal<'lista' | 'form'>('lista');
@@ -41,6 +42,7 @@ export class NcmComponent implements OnInit {
   carregando = signal(false);
   salvando = signal(false);
   excluindo = signal(false);
+  importando = signal(false);
   modoEdicao = signal(false);
   isDirty = signal(false);
   erro = signal('');
@@ -58,8 +60,6 @@ export class NcmComponent implements OnInit {
     const st = this.filtroStatus();
     if (st === 'ativos') lista = lista.filter(r => r.ativo);
     else if (st === 'inativos') lista = lista.filter(r => !r.ativo);
-    const b = this.busca().toLowerCase().trim();
-    if (b.length >= 2) lista = lista.filter(r => r.codigoNcm.includes(b) || r.descricao.toLowerCase().includes(b));
     const col = this.sortColuna();
     const dir = this.sortDirecao() === 'asc' ? 1 : -1;
     return [...lista].sort((a, b) => {
@@ -71,13 +71,28 @@ export class NcmComponent implements OnInit {
 
   constructor(private http: HttpClient, private tabService: TabService, private auth: AuthService, private modal: ModalService) {}
 
-  ngOnInit() { this.carregar(); }
+  ngOnInit() {}
+  ngOnDestroy() { clearTimeout(this.buscaTimer); }
 
-  carregar() {
+  onBuscaInput(valor: string) {
+    this.busca.set(valor);
+    clearTimeout(this.buscaTimer);
+    if (valor.trim().length >= 4) {
+      this.buscaTimer = setTimeout(() => this.pesquisar(), 400);
+    } else {
+      this.registros.set([]);
+      this.selecionado.set(null);
+    }
+  }
+
+  pesquisar() {
+    const termo = this.busca().trim();
+    if (termo.length < 4) { this.registros.set([]); return; }
     this.carregando.set(true);
-    this.http.get<any>(this.apiUrl).subscribe({
+    this.selecionado.set(null);
+    this.http.get<any>(this.apiUrl, { params: { busca: termo } }).subscribe({
       next: r => { this.carregando.set(false); this.registros.set(r?.data ?? []); },
-      error: () => this.carregando.set(false)
+      error: () => { this.carregando.set(false); this.registros.set([]); }
     });
   }
 
@@ -134,7 +149,7 @@ export class NcmComponent implements OnInit {
           this.editandoId.set(r.data.id);
           this.modoEdicao.set(true);
         }
-        this.carregar();
+        this.pesquisar();
         this.formOriginal = JSON.stringify(this.form());
       },
       error: (err: any) => {
@@ -150,8 +165,28 @@ export class NcmComponent implements OnInit {
       if (!r.confirmado) return;
       this.excluindo.set(true);
       this.http.delete<any>(`${this.apiUrl}/${this.editandoId()}`).subscribe({
-        next: () => { this.excluindo.set(false); this.fecharForm(); this.carregar(); },
+        next: () => { this.excluindo.set(false); this.fecharForm(); this.pesquisar(); },
         error: (err: any) => { this.excluindo.set(false); this.erro.set(err?.error?.message || 'Erro ao excluir.'); }
+      });
+    });
+  }
+
+  importarCsv() {
+    if (this.importando()) return;
+    this.modal.confirmar('Importar NCMs', 'Importar todos os NCMs do arquivo CSV? NCMs já existentes serão ignorados.').then(r => {
+      if (!r.confirmado) return;
+      this.importando.set(true);
+      this.http.post<any>(`${this.apiUrl}/importar`, { caminhoArquivo: 'C:\\\\repositorios\\\\ErpPharma\\\\lista_ncm.csv' }).subscribe({
+        next: (res: any) => {
+          this.importando.set(false);
+          const d = res.data;
+          this.modal.confirmar('Importação Concluída',
+            `Inseridos: ${d.inseridos}\nIgnorados (duplicados): ${d.ignorados}\nErros: ${d.totalErros}`);
+        },
+        error: (err: any) => {
+          this.importando.set(false);
+          this.modal.confirmar('Erro na Importação', err?.error?.message || 'Erro ao importar NCMs.');
+        }
       });
     });
   }

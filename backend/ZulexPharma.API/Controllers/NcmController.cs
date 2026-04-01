@@ -16,11 +16,11 @@ public class NcmController : ControllerBase
     public NcmController(INcmService service) => _service = service;
 
     [HttpGet]
-    public async Task<IActionResult> Listar()
+    public async Task<IActionResult> Listar([FromQuery] string? busca = null)
     {
         try
         {
-            var lista = await _service.ListarAsync();
+            var lista = await _service.ListarAsync(busca);
             return Ok(new { success = true, data = lista });
         }
         catch (Exception ex)
@@ -88,6 +88,29 @@ public class NcmController : ControllerBase
         {
             Log.Error(ex, "Erro em NcmController.Atualizar | Id: {Id}", id);
             return StatusCode(500, new { success = false, message = "Erro ao atualizar NCM." });
+        }
+    }
+
+    [HttpPost("importar")]
+    public async Task<IActionResult> Importar([FromBody] NcmImportarDto dto)
+    {
+        try
+        {
+            var resultado = await _service.ImportarCsvAsync(dto.CaminhoArquivo);
+            return Ok(new { success = true, data = resultado });
+        }
+        catch (FileNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em NcmController.Importar");
+            return StatusCode(500, new { success = false, message = "Erro ao importar NCMs." });
         }
     }
 

@@ -109,6 +109,13 @@ builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.Classif
     sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
     sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "Secao"));
 
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoFamiliaService,
+                            ZulexPharma.Infrastructure.Services.ProdutoFamiliaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoService,
+                            ZulexPharma.Infrastructure.Services.ProdutoService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoLocalService,
+                            ZulexPharma.Infrastructure.Services.ProdutoLocalService>();
+
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();
 

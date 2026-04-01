@@ -21,10 +21,23 @@ public class NcmService : INcmService
         _log = log;
     }
 
-    public async Task<List<NcmListDto>> ListarAsync()
+    public async Task<List<NcmListDto>> ListarAsync(string? busca = null)
     {
-        return await _db.Ncms
+        IQueryable<Ncm> query = _db.Ncms;
+
+        if (!string.IsNullOrWhiteSpace(busca) && busca.Trim().Length >= 4)
+        {
+            var termo = busca.Trim().ToUpper();
+            query = query.Where(n => n.CodigoNcm.Contains(termo) || n.Descricao.Contains(termo));
+        }
+        else
+        {
+            return new List<NcmListDto>();
+        }
+
+        return await query
             .OrderBy(n => n.CodigoNcm)
+            .Take(200)
             .Select(n => new NcmListDto
             {
                 Id = n.Id,
@@ -257,6 +270,93 @@ public class NcmService : INcmService
                 });
             }
         }
+    }
+
+    public async Task<object> ImportarCsvAsync(string caminhoArquivo)
+    {
+        if (!File.Exists(caminhoArquivo))
+            throw new FileNotFoundException("Arquivo CSV não encontrado.", caminhoArquivo);
+
+        var linhas = await File.ReadAllLinesAsync(caminhoArquivo);
+        if (linhas.Length < 2)
+            throw new ArgumentException("Arquivo CSV vazio ou sem dados.");
+
+        // Pegar primeira filial existente
+        var filialId = await _db.Filiais.Select(f => f.Id).FirstOrDefaultAsync();
+
+        // Carregar códigos existentes para evitar duplicatas
+        var codigosExistentes = (await _db.Ncms
+            .Select(n => n.CodigoNcm)
+            .ToListAsync())
+            .ToHashSet();
+
+        var inseridos = 0;
+        var ignorados = 0;
+        var erros = new List<string>();
+
+        // Processar em lotes de 500
+        var lote = new List<Ncm>();
+        for (int i = 1; i < linhas.Length; i++)
+        {
+            var linha = linhas[i].Trim();
+            if (string.IsNullOrEmpty(linha)) continue;
+
+            var partes = linha.Split(';');
+            if (partes.Length < 2)
+            {
+                erros.Add($"Linha {i + 1}: formato inválido");
+                continue;
+            }
+
+            var codigo = partes[0].Trim();
+            var descricao = partes[1].Trim().ToUpper();
+
+            if (string.IsNullOrEmpty(codigo) || codigo.Length < 2 || codigo.Length > 10)
+            {
+                erros.Add($"Linha {i + 1}: código '{codigo}' inválido");
+                continue;
+            }
+
+            if (codigosExistentes.Contains(codigo))
+            {
+                ignorados++;
+                continue;
+            }
+
+            codigosExistentes.Add(codigo);
+            lote.Add(new Ncm
+            {
+                CodigoNcm = codigo,
+                Descricao = descricao,
+                Ativo = true,
+                FilialOrigemId = filialId > 0 ? filialId : null
+            });
+            inseridos++;
+
+            if (lote.Count >= 500)
+            {
+                _db.Ncms.AddRange(lote);
+                await _db.SaveChangesAsync();
+                lote.Clear();
+            }
+        }
+
+        if (lote.Count > 0)
+        {
+            _db.Ncms.AddRange(lote);
+            await _db.SaveChangesAsync();
+        }
+
+        await _log.RegistrarAsync(TELA, "IMPORTAÇÃO", ENTIDADE, 0,
+            novo: new Dictionary<string, string?>
+            {
+                ["Arquivo"] = Path.GetFileName(caminhoArquivo),
+                ["Inseridos"] = inseridos.ToString(),
+                ["Ignorados (duplicados)"] = ignorados.ToString(),
+                ["Erros"] = erros.Count.ToString()
+            });
+
+        return new { inseridos, ignorados, erros = erros.Take(20).ToList(), totalErros = erros.Count };
     }
 
     private static void ValidarCodigo(string codigo)

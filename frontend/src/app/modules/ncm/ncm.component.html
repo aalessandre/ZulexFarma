@@ -1,6 +1,6 @@
 <div class="tela-erp">
   <aside class="tela-sidebar">
-    <div class="sidebar-item tile-procurar" (click)="modo.set('lista'); carregar()">
+    <div class="sidebar-item tile-procurar" (click)="modo.set('lista'); pesquisar()">
       <span>Procurar</span><span class="sidebar-sub">Consulta</span>
     </div>
     <div class="sidebar-item tile-adicionar" (click)="incluir()">
@@ -8,6 +8,9 @@
     </div>
     <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()">
       <span>Editar</span><span class="sidebar-sub">Alterar NCM</span>
+    </div>
+    <div class="sidebar-item tile-importar" [class.disabled]="importando()" (click)="importarCsv()">
+      <span>Importar</span><span class="sidebar-sub">CSV de NCMs</span>
     </div>
     <div class="sidebar-item tile-sair" (click)="sairDaTela()">
       <span>Sair</span><span class="sidebar-sub">Fechar tela</span>
@@ -20,8 +23,8 @@
       <div class="lista-header">
         <div class="lista-filtro">
           <label>PROCURAR POR</label>
-          <input class="input-busca" type="text" placeholder="Código ou descrição..."
-                 [value]="busca()" (input)="busca.set($any($event.target).value)" />
+          <input class="input-busca" type="text" placeholder="Digite 4+ caracteres para buscar..."
+                 [value]="busca()" (input)="onBuscaInput($any($event.target).value)" />
         </div>
         <div class="lista-filtro">
           <label>SITUAÇÃO</label>
@@ -50,7 +53,7 @@
             @if (carregando()) {
               <tr><td colspan="7" class="grid-loading">Carregando...</td></tr>
             } @else if (registrosFiltrados().length === 0) {
-              <tr><td colspan="7" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+              <tr><td colspan="7" class="grid-vazio">{{ busca().trim().length < 4 ? 'Digite 4 ou mais caracteres para pesquisar.' : 'Nenhum registro encontrado.' }}</td></tr>
             } @else {
               @for (r of registrosFiltrados(); track r.id) {
                 <tr [class.selecionado]="selecionado()?.id === r.id"

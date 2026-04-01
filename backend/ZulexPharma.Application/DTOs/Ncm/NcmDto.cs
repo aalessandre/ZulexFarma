@@ -37,6 +37,11 @@ public class NcmFormDto
     public List<NcmStUfDto> StUfs { get; set; } = new();
 }
 
+public class NcmImportarDto
+{
+    public string CaminhoArquivo { get; set; } = "";
+}
+
 public class NcmFederalDto
 {
     public long? Id { get; set; }
