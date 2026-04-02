@@ -41,7 +41,9 @@ public static class DatabaseSeeder
                 Cidade        = "São Paulo",
                 Uf            = "SP",
                 Telefone      = "(11) 0000-0000",
-                Email         = "contato@zulexpharma.com.br"
+                Email         = "contato@zulexpharma.com.br",
+                Codigo        = filialCodigo > 0 ? $"{filialCodigo}1" : null,
+                FilialOrigemId = filialCodigo > 0 ? filialCodigo : null
             };
             context.Filiais.Add(filial);
             await context.SaveChangesAsync();
@@ -82,9 +84,25 @@ public static class DatabaseSeeder
                 Login          = "admin",
                 SenhaHash      = BCrypt.Net.BCrypt.HashPassword("admin123"),
                 IsAdministrador = true,
-                GrupoUsuarioId = 1,             // ID fixo do grupo Administrador
-                FilialId       = filialSeedId   // ID fixo da filial
+                GrupoUsuarioId = 1,
+                FilialId       = filialSeedId,
+                Codigo         = filialCodigo > 0 ? $"{filialCodigo}1" : null,
+                FilialOrigemId = filialCodigo > 0 ? filialCodigo : null
             });
+            await context.SaveChangesAsync();
+        }
+
+        // Inicializar SequenciasLocais para tabelas que o seed já gerou Codigo
+        if (filialCodigo > 0)
+        {
+            var tabelasSeed = new[] { "Filiais", "Usuarios" };
+            foreach (var t in tabelasSeed)
+            {
+                if (!await context.SequenciasLocais.AnyAsync(s => s.Tabela == t))
+                {
+                    context.SequenciasLocais.Add(new SequenciaLocal { Tabela = t, Ultimo = 1 });
+                }
+            }
             await context.SaveChangesAsync();
         }
 

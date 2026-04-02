@@ -658,7 +658,7 @@ public class AppDbContext : DbContext
 
         var result = await cmd.ExecuteScalarAsync(ct);
         var ultimo = Convert.ToInt64(result);
-        return $"{_filialCodigo}.{ultimo}";
+        return $"{_filialCodigo}{ultimo}";
     }
 
     private long GetFilialIdFromContext()
