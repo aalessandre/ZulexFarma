@@ -254,7 +254,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    if (!this.isProdutoAba()) this.carregar();
+    const restaurou = this.restaurarEstado();
+    if (!restaurou && !this.isProdutoAba()) this.carregar();
     this.carregarFiliais();
   }
 
@@ -667,7 +668,51 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   // ── Produto CRUD ───────────────────────────────────────────────────
 
-  ngOnDestroy() { clearTimeout(this.buscaProdutoTimer); }
+  ngOnDestroy() {
+    clearTimeout(this.buscaProdutoTimer);
+    this.salvarEstado();
+  }
+
+  private readonly STORAGE_KEY_ESTADO = 'zulex_produtos_estado';
+
+  private salvarEstado() {
+    const estado = {
+      abaAtiva: this.abaAtiva(),
+      modo: this.modo(),
+      modoEdicao: this.modoEdicao(),
+      produtoEditandoId: this.produtoEditandoId(),
+      produtoForm: this.produtoForm(),
+      produtoFormOriginal: this.produtoFormOriginal,
+      isDirty: this.isDirty(),
+      filialSelecionada: this.filialSelecionada(),
+      // Classificação
+      registroForm: this.registroForm(),
+      registroSelecionado: this.registroSelecionado(),
+      formOriginal: this.formOriginal,
+    };
+    sessionStorage.setItem(this.STORAGE_KEY_ESTADO, JSON.stringify(estado));
+  }
+
+  private restaurarEstado() {
+    const json = sessionStorage.getItem(this.STORAGE_KEY_ESTADO);
+    if (!json) return false;
+    sessionStorage.removeItem(this.STORAGE_KEY_ESTADO);
+    try {
+      const e = JSON.parse(json);
+      if (e.abaAtiva) this.abaAtiva.set(e.abaAtiva);
+      if (e.modo) this.modo.set(e.modo);
+      if (e.modoEdicao !== undefined) this.modoEdicao.set(e.modoEdicao);
+      if (e.produtoEditandoId) this.produtoEditandoId.set(e.produtoEditandoId);
+      if (e.produtoForm) this.produtoForm.set(e.produtoForm);
+      if (e.produtoFormOriginal) this.produtoFormOriginal = e.produtoFormOriginal;
+      if (e.isDirty !== undefined) this.isDirty.set(e.isDirty);
+      if (e.filialSelecionada) this.filialSelecionada.set(e.filialSelecionada);
+      if (e.registroForm) this.registroForm.set(e.registroForm);
+      if (e.registroSelecionado) this.registroSelecionado.set(e.registroSelecionado);
+      if (e.formOriginal) this.formOriginal = e.formOriginal;
+      return true;
+    } catch { return false; }
+  }
 
   onProdutoBuscaInput(valor: string) {
     this.produtoBusca.set(valor);
