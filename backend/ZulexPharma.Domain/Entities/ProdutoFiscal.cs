@@ -1,10 +1,12 @@
 namespace ZulexPharma.Domain.Entities;
 
-/// <summary>Dados fiscais/tributários do produto (1:1 com Produto).</summary>
+/// <summary>Dados fiscais/tributários do produto por filial.</summary>
 public class ProdutoFiscal : BaseEntity
 {
     public long ProdutoId { get; set; }
     public Produto Produto { get; set; } = null!;
+
+    public long FilialId { get; set; }
 
     public long? NcmId { get; set; }
     public Ncm? Ncm { get; set; }

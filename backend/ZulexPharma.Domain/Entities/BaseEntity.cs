@@ -10,4 +10,7 @@ public abstract class BaseEntity
 
     /// <summary>Id da filial onde o registro foi criado.</summary>
     public long? FilialOrigemId { get; set; }
+
+    /// <summary>GUID auxiliar para reconciliação no sync. Não é PK, sem FK.</summary>
+    public Guid SyncGuid { get; set; } = Guid.NewGuid();
 }

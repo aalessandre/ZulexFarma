@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ZulexPharma.Infrastructure.Data;
@@ -11,9 +12,11 @@ using ZulexPharma.Infrastructure.Data;
 namespace ZulexPharma.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260402170423_AddSyncGuid")]
+    partial class AddSyncGuid
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1772,9 +1775,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
-                    b.Property<long>("FilialId")
-                        .HasColumnType("bigint");
-
                     b.Property<long?>("FilialOrigemId")
                         .HasColumnType("bigint");
 
@@ -1800,10 +1800,10 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("NcmId");
 
-                    b.HasIndex("SyncGuid");
-
-                    b.HasIndex("ProdutoId", "FilialId")
+                    b.HasIndex("ProdutoId")
                         .IsUnique();
+
+                    b.HasIndex("SyncGuid");
 
                     b.ToTable("ProdutosFiscal");
                 });
@@ -1831,9 +1831,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<long>("FilialId")
-                        .HasColumnType("bigint");
 
                     b.Property<long?>("FilialOrigemId")
                         .HasColumnType("bigint");
@@ -1863,10 +1860,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("FornecedorId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("ProdutoId");
 
-                    b.HasIndex("ProdutoId", "FilialId", "FornecedorId")
-                        .IsUnique();
+                    b.HasIndex("SyncGuid");
 
                     b.ToTable("ProdutosFornecedores");
                 });
@@ -2635,8 +2631,8 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("ZulexPharma.Domain.Entities.Produto", "Produto")
-                        .WithMany("Fiscais")
-                        .HasForeignKey("ProdutoId")
+                        .WithOne("Fiscal")
+                        .HasForeignKey("ZulexPharma.Domain.Entities.ProdutoFiscal", "ProdutoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -2794,7 +2790,7 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Navigation("Dados");
 
-                    b.Navigation("Fiscais");
+                    b.Navigation("Fiscal");
 
                     b.Navigation("Fornecedores");
 

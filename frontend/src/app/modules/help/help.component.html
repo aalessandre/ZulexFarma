@@ -94,7 +94,7 @@
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">Central (Railway)</div>
-              <span class="cmd-obs">O Railway sobe automaticamente ao dar push na main. Ele armazena as operacoes de todas as filiais na SyncFila.</span>
+              <span class="cmd-obs">O Railway sobe automaticamente ao dar push na main. Ele APLICA as operacoes no proprio banco (banco consolidado) e enfileira na SyncFila para outras filiais. Ver seção "Sincronismo e Multifiliais" para detalhes completos.</span>
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">Configuracoes editaveis</div>
@@ -157,38 +157,108 @@
       <section class="help-secao">
         <div class="secao-header sync-doc" [class.aberto]="isAberta('sync-doc')" (click)="toggleSecao('sync-doc')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 2v6h-6M3 12a9 9 0 0115.3-6.4L21 8M3 22v-6h6M21 12a9 9 0 01-15.3 6.4L3 16"/></svg>
-          <span>Sincronismo e Multifiliais</span>
+          <span>Sincronismo e Multifiliais (Arquitetura Completa)</span>
         </div>
         @if (isAberta('sync-doc')) {
           <div class="secao-corpo">
+
             <div class="cmd-grupo">
-              <div class="cmd-label">Sync v2 - Fila de Operacoes</div>
-              <span class="cmd-obs">Cada INSERT/UPDATE/DELETE gera um registro na tabela SyncFila automaticamente. O sync envia essas operacoes para o Railway, que distribui para as outras filiais. DELETE replica naturalmente.</span>
+              <div class="cmd-label">Visao Geral</div>
+              <span class="cmd-obs">Cada loja roda em servidor local (localhost + PostgreSQL local). O Railway e o banco central na nuvem com dados consolidados de todas as filiais. Fluxo: Filial faz CRUD local → PUSH para Railway → Railway aplica no proprio banco E enfileira na SyncFila → Outras filiais fazem PULL.</span>
             </div>
+
             <div class="cmd-grupo">
-              <div class="cmd-label">Identificadores: Id vs Codigo</div>
-              <span class="cmd-obs">Id = tecnico, PK local, auto-increment. Pode ser diferente entre PCs. Codigo = visivel, formato "FilialCodigo.Sequencial" (ex: "2.115950"). Unico global. O sync busca registros por Codigo, nao por Id.</span>
+              <div class="cmd-label">Fluxo do Sync (ciclo a cada 30s)</div>
+              <span class="cmd-obs">1. Autentica no Railway como usuario SISTEMA (senha rotativa diaria via SHA256). 2. PUSH: envia operacoes pendentes da SyncFila local para POST /api/sync/enviar. 3. Railway recebe, ORDENA por dependencia, APLICA no proprio banco (AplicandoSync=true), e enfileira para outras filiais. 4. PULL: filial busca GET /api/sync/receber?filialId=X&ultimoId=Y, ordena por dependencia, e aplica localmente.</span>
             </div>
+
             <div class="cmd-grupo">
-              <div class="cmd-label">FilialOrigemId</div>
-              <span class="cmd-obs">Identifica qual farmacia/PC criou o registro. Automatico, invisivel para o usuario. Usado pelo sync para filtrar operacoes (nao puxar as proprias).</span>
+              <div class="cmd-label">Railway como Banco Consolidado</div>
+              <span class="cmd-obs">O Railway NAO e apenas um relay de mensagens. Ele APLICA cada operacao recebida no proprio banco PostgreSQL. Isso garante que o Railway tem TODOS os dados de TODAS as filiais. O banco do Railway serve para: consultas cross-filial, dashboards, apps externos. A flag AplicandoSync=true impede que a aplicacao gere novos registros na SyncFila (evita loop infinito).</span>
             </div>
+
             <div class="cmd-grupo">
-              <div class="cmd-label">Ciclo de Sync</div>
-              <span class="cmd-obs">A cada 30s: 1. Autentica no Railway como SISTEMA. 2. PUSH: envia operacoes pendentes da SyncFila. 3. PULL: busca operacoes de outras filiais e aplica localmente (INSERT por Codigo, UPDATE por Codigo, DELETE por Codigo).</span>
+              <div class="cmd-label">Ordem de Processamento (Blindagem de Dependencias)</div>
+              <span class="cmd-obs">Operacoes sao ordenadas por nivel de dependencia ANTES de aplicar, evitando erros de FK. Para INSERT/UPDATE: pais primeiro (nivel menor). Para DELETE: filhos primeiro (nivel maior). A ordenacao e feita tanto no Railway (ao receber PUSH) quanto nas filiais (ao fazer PULL).</span>
             </div>
+
             <div class="cmd-grupo">
-              <div class="cmd-label">Tabelas: Global vs Por Filial</div>
-              <span class="cmd-obs">Global: qualquer filial cria/edita (Fabricantes, Substancias, Produtos). Por Filial: cada filial tem seus registros (Estoque, Vendas, Caixa). NAO replicam: Configuracoes, SyncFila, SequenciaLocal, DicionarioTabelas.</span>
+              <div class="cmd-label">Niveis de Dependencia (SyncApplicator.GetOrdemTabela)</div>
+              <span class="cmd-obs">
+                Nivel 0 (sem dependencia): Filiais, UsuariosGrupos, Ncms.
+                Nivel 1 (depende de 0): Pessoas, Fabricantes, Substancias, GruposPrincipais, GruposProdutos, SubGrupos, Secoes, ProdutoFamilias, ProdutosLocais, NcmFederais, NcmIcmsUfs, NcmStUfs, UsuariosGruposPermissao.
+                Nivel 2 (depende de 1): Colaboradores, Fornecedores, PessoasContato, PessoasEndereco, Produtos.
+                Nivel 3 (depende de 2): Usuarios, ProdutosBarras, ProdutosMs, ProdutosSubstancias, ProdutosFornecedores, ProdutosFiscal, ProdutosDados.
+                Nivel 4 (depende de 3): UsuarioFilialGrupos.
+                Nivel 5 (locais): LogsAcao, LogsErro.
+                Fallback desconhecido: 10.
+              </span>
             </div>
+
             <div class="cmd-grupo">
-              <div class="cmd-label">Queda de internet</div>
-              <span class="cmd-obs">Sistema funciona 100% offline. Operacoes ficam na SyncFila como pendentes. Quando internet volta, envia tudo automaticamente.</span>
+              <div class="cmd-label">Identificadores: IDs Globais por Faixa de Filial</div>
+              <span class="cmd-obs">Cada filial tem faixa exclusiva de 1 bilhao de IDs. Filial 1: 1.000.000.001+, Filial 2: 2.000.000.001+, Filial 3: 3.000.000.001+. Configurado automaticamente no startup via ALTER SEQUENCE RESTART WITH. FKs funcionam direto entre filiais (sem remapeamento). Colisao: praticamente impossivel.</span>
             </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">SyncGuid (coluna auxiliar)</div>
+              <span class="cmd-obs">Toda entidade BaseEntity tem um campo SyncGuid (UUID, auto-gerado). NAO e PK, NAO tem FK. Serve para reconciliacao futura (ex: restaurar backup, resolver conflitos). Default no banco: gen_random_uuid(). Index criado em todas as tabelas.</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Codigo Visivel</div>
+              <span class="cmd-obs">Formato "FilialCodigo.Sequencial" (ex: "1.523", "2.1089"). Gerado automaticamente por tabela via SequenciasLocais. Unico global. NAO gerado quando AplicandoSync=true (registros recebidos por sync ja vem com Codigo).</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tabelas Globais vs Por Filial</div>
+              <span class="cmd-obs">
+                Globais (replicam para todas): Produto, ProdutoBarras, ProdutoMs, ProdutoSubstancia, ProdutoFornecedor, ProdutoFiscal, Fabricante, GrupoPrincipal, GrupoProduto, SubGrupo, Secao, NCM, Substancia, Fornecedor, Pessoa, Colaborador, GrupoUsuario, Filial.
+                Por Filial (replicam, porem dados por filial): ProdutoDados (estoque, precos, descontos).
+                NAO replicam (locais): Configuracoes, SyncFila, SequenciaLocal, DicionarioTabelas, DicionarioRevisoes, LogsAcao, LogsErro.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">ProdutoDados Multi-Filial</div>
+              <span class="cmd-obs">Ao criar um produto, o sistema cria automaticamente um registro ProdutoDados (zerado) para CADA filial ativa. Isso garante que toda filial tenha precos/estoque para editar. O SyncDados nunca deleta ProdutoDados de outra filial ao editar — apenas atualiza os que vieram no DTO.</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Regra de Propagacao de Preco</div>
+              <span class="cmd-obs">Configuracao: produto.preco.regra (editavel em Configuracoes). Valores: "perguntar" = modal pergunta ao usuario quais filiais, "todas" = aplica automaticamente para todas, "atual" = apenas filial logada. Campos propagados: ValorVenda, ValorPromocao, Markup, ProjecaoLucro, DescontoMinimo, DescontoMaxSemSenha, DescontoMaxComSenha, Comissao, ValorIncentivo.</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tratamento de Erros no Sync</div>
+              <span class="cmd-obs">FK violation (23503): mensagem legivel indicando registro pai ausente. PK/Unique violation (23505): registro duplicado. Erros sao registrados na SyncFila local com campo Erro preenchido (visiveis no painel). O ponteiro AVANCA mesmo em falha para nao ficar em loop. Entries com erro sao detached do ChangeTracker.</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Queda de Internet</div>
+              <span class="cmd-obs">Sistema funciona 100% offline. Operacoes ficam na SyncFila como pendentes (Enviado=false). Quando internet volta, envia tudo automaticamente no proximo ciclo. O Railway tambem acumula operacoes para filiais offline — ao reconectar, a filial puxa tudo pendente.</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Arquivos-Chave do Sync</div>
+              <span class="cmd-obs">
+                SyncApplicator.cs: logica compartilhada (AplicarOperacaoAsync, GetOrdemTabela, ResolverTipo, LimparNavigations, BuscarPorId). Usado pelo Railway e pelas filiais.
+                SyncBackgroundService.cs: background service das filiais (Enviar/Receber a cada 30s).
+                SyncController.cs: endpoints do Railway (POST enviar, GET receber, GET status, POST resetar, POST limpar).
+                AppDbContext.SaveChangesAsync: intercepta CRUDs e gera SyncFila automaticamente (exceto quando AplicandoSync=true).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Checklist: Adicionar Tabela ao Sync</div>
+              <span class="cmd-obs">1. Adicionar no mapa _tiposPorTabela do SyncApplicator.cs (["NomeTabela"] = typeof(Entidade)). 2. Adicionar no GetOrdemTabela com o nivel correto de dependencia. 3. Se a tabela NAO deve replicar, adicionar na lista _tabelasSemSync do AppDbContext.cs. 4. Registrar no DatabaseSeeder o DicionarioTabela com Escopo e Replica corretos.</span>
+            </div>
+
             <div class="cmd-grupo">
               <div class="cmd-label">Tela Sincronismo</div>
-              <span class="cmd-obs">Mostra fila com filtros (periodo, status, tabela), paginacao, cards de status. Permite forcar envio e limpar antigos.</span>
+              <span class="cmd-obs">Mostra fila com filtros (periodo, status, tabela), paginacao, cards de status (pendentes, enviados, recebidos, erros). Permite forcar envio, resetar ponteiro de recebimento (rebuscar tudo), e limpar registros antigos.</span>
             </div>
+
           </div>
         }
       </section>
@@ -309,7 +379,7 @@
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">5. Sync</div>
-              <span class="cmd-obs">Adicionar no mapa _tiposPorTabela do SyncBackgroundService.cs para que a tabela participe do sincronismo. Se a tabela NAO deve replicar, adicionar na lista _tabelasSemSync do AppDbContext.cs.</span>
+              <span class="cmd-obs">Adicionar no mapa _tiposPorTabela do SyncApplicator.cs (["NomeTabela"] = typeof(Entidade)). Adicionar no GetOrdemTabela com o nivel de dependencia correto (ver seção "Sincronismo e Multifiliais"). Se NAO deve replicar, adicionar na lista _tabelasSemSync do AppDbContext.cs.</span>
             </div>
             <div class="cmd-grupo">
               <div class="cmd-label">6. Service + Interface</div>

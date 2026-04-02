@@ -24,43 +24,77 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// Recebe operações de uma filial e aplica no banco central.
+    /// Recebe operações de uma filial, aplica no banco central e enfileira para outras filiais.
     /// </summary>
     [HttpPost("enviar")]
     public async Task<IActionResult> Enviar([FromBody] List<SyncOperacaoDto> operacoes)
     {
         try
         {
-            var aplicados = 0;
-            var erros = 0;
+            var enfileirados = 0;
+            var aplicadosDb = 0;
+            var errosDb = 0;
 
+            // 1. Ordenar por dependência antes de aplicar (pais primeiro em INSERT, filhos primeiro em DELETE)
+            var ordenadas = operacoes
+                .OrderBy(op => op.Operacao == "D"
+                    ? -SyncApplicator.GetOrdemTabela(op.Tabela)
+                    : SyncApplicator.GetOrdemTabela(op.Tabela))
+                .ToList();
+
+            // 2. Aplicar operações no banco central (Railway vira banco consolidado)
+            _db.AplicandoSync = true;
+            try
+            {
+                foreach (var op in ordenadas)
+                {
+                    try
+                    {
+                        var aplicou = await SyncApplicator.AplicarOperacaoAsync(
+                            _db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson);
+                        if (aplicou) aplicadosDb++;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Detach entries com erro para não poluir o ChangeTracker
+                        foreach (var entry in _db.ChangeTracker.Entries()
+                            .Where(e => e.State != Microsoft.EntityFrameworkCore.EntityState.Unchanged))
+                            entry.State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+
+                        Log.Warning(ex, "Sync enviar: erro ao aplicar no banco central {Tabela}/{Op} Id={Id}",
+                            op.Tabela, op.Operacao, op.RegistroId);
+                        errosDb++;
+                    }
+                }
+            }
+            finally
+            {
+                _db.AplicandoSync = false;
+            }
+
+            // 3. Enfileirar na SyncFila para outras filiais puxarem (na ordem original)
             foreach (var op in operacoes)
             {
-                try
+                _db.SyncFila.Add(new SyncFila
                 {
-                    // Guardar na SyncFila do central (para outras filiais puxarem)
-                    _db.SyncFila.Add(new SyncFila
-                    {
-                        Tabela = op.Tabela,
-                        Operacao = op.Operacao,
-                        RegistroId = op.RegistroId,
-                        RegistroCodigo = op.RegistroCodigo,
-                        DadosJson = op.DadosJson,
-                        FilialOrigemId = op.FilialOrigemId,
-                        CriadoEm = op.CriadoEm,
-                        Enviado = false // Pendente para outras filiais
-                    });
-                    aplicados++;
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning(ex, "Sync enviar: erro ao processar op {Tabela}/{Op}", op.Tabela, op.Operacao);
-                    erros++;
-                }
+                    Tabela = op.Tabela,
+                    Operacao = op.Operacao,
+                    RegistroId = op.RegistroId,
+                    RegistroCodigo = op.RegistroCodigo,
+                    DadosJson = op.DadosJson,
+                    FilialOrigemId = op.FilialOrigemId,
+                    CriadoEm = op.CriadoEm,
+                    Enviado = false
+                });
+                enfileirados++;
             }
 
             await _db.SaveChangesAsync();
-            return Ok(new { success = true, data = new { aplicados, erros } });
+
+            Log.Information("Sync enviar: {Enfileirados} enfileirados, {AplicadosDb} aplicados no DB, {ErrosDb} erros",
+                enfileirados, aplicadosDb, errosDb);
+
+            return Ok(new { success = true, data = new { enfileirados, aplicadosDb, errosDb } });
         }
         catch (Exception ex)
         {

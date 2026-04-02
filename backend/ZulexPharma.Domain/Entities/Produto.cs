@@ -28,6 +28,6 @@ public class Produto : BaseEntity
     public ICollection<ProdutoMs> RegistrosMs { get; set; } = new List<ProdutoMs>();
     public ICollection<ProdutoSubstancia> Substancias { get; set; } = new List<ProdutoSubstancia>();
     public ICollection<ProdutoFornecedor> Fornecedores { get; set; } = new List<ProdutoFornecedor>();
-    public ProdutoFiscal? Fiscal { get; set; }
+    public ICollection<ProdutoFiscal> Fiscais { get; set; } = new List<ProdutoFiscal>();
     public ICollection<ProdutoDados> Dados { get; set; } = new List<ProdutoDados>();
 }

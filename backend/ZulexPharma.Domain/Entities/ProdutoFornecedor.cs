@@ -4,6 +4,9 @@ public class ProdutoFornecedor : BaseEntity
 {
     public long ProdutoId { get; set; }
     public Produto Produto { get; set; } = null!;
+
+    public long FilialId { get; set; }
+
     public long FornecedorId { get; set; }
     public Fornecedor Fornecedor { get; set; } = null!;
 

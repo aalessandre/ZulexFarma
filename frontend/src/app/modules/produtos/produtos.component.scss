@@ -171,6 +171,85 @@
   background: #f5f6f8 !important; color: #9aa5b5 !important; cursor: not-allowed;
 }
 
+// ── Lookup autocomplete ─────────────────────────────────────────────
+.lookup-wrap {
+  position: relative;
+
+  input { width: 100%; padding-right: 28px; }
+
+  .lookup-clear {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; font-size: 18px; color: #999; cursor: pointer;
+    line-height: 1; padding: 0 4px;
+    &:hover { color: #e74c3c; }
+  }
+
+  .lookup-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    max-height: 220px; overflow-y: auto;
+    background: #fff; border: 1px solid #d0d5dd; border-top: none;
+    border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    list-style: none; margin: 0; padding: 0;
+
+    li {
+      padding: 7px 10px; font-size: 13px; cursor: pointer;
+      color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      &:hover { background: #e8f0fe; }
+    }
+  }
+}
+
+// ── Substância busca + lista ────────────────────────────────────────
+.acc-add-wrap {
+  margin-bottom: 12px;
+  input {
+    width: 100%; height: 34px; padding: 0 10px;
+    border: 1px solid var(--erp-border-input, #d0d5dd);
+    border-radius: 4px; font-size: 13px; font-family: inherit;
+    color: var(--erp-text, #2c3e50); background: var(--erp-surface, #fff);
+    outline: none;
+    &:focus { border-color: var(--erp-blue, #2c5fad); box-shadow: 0 0 0 2px rgba(44,95,173,0.1); }
+  }
+}
+
+.acc-input-row {
+  display: flex; gap: 8px; margin-bottom: 12px;
+  input {
+    flex: 1; height: 34px; padding: 0 10px;
+    border: 1px solid var(--erp-border-input, #d0d5dd);
+    border-radius: 4px; font-size: 13px; font-family: inherit;
+    color: var(--erp-text, #2c3e50); background: var(--erp-surface, #fff);
+    outline: none;
+    &:focus { border-color: var(--erp-blue, #2c5fad); box-shadow: 0 0 0 2px rgba(44,95,173,0.1); }
+  }
+  button {
+    height: 34px; padding: 0 14px; border: 1px solid var(--erp-blue, #2c5fad);
+    border-radius: 4px; background: var(--erp-blue, #2c5fad); color: #fff;
+    font-size: 13px; cursor: pointer; white-space: nowrap;
+    &:hover { opacity: .9; }
+    &:disabled { opacity: .4; cursor: not-allowed; }
+  }
+}
+
+.bullet-lista {
+  list-style: none; margin: 0; padding: 0;
+
+  li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--erp-border, #e8ecf1);
+    font-size: 13px; color: var(--erp-text, #2c3e50);
+
+    &::before {
+      content: ''; display: inline-block;
+      width: 7px; height: 7px; min-width: 7px;
+      border-radius: 50%; background: var(--erp-blue, #2c5fad);
+    }
+
+    .bullet-texto { flex: 1; }
+  }
+}
+
 .prod-input-group {
   display: flex; gap: 0;
   input { flex: 1; border-radius: 4px 0 0 4px; }

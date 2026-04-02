@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Serilog;
 using ZulexPharma.Application.DTOs.Produtos;
 using ZulexPharma.Application.Interfaces;
@@ -11,13 +12,15 @@ public class ProdutoService : IProdutoService
 {
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
+    private readonly int _filialCodigo;
     private const string TELA = "Produtos";
     private const string ENTIDADE = "Produto";
 
-    public ProdutoService(AppDbContext db, ILogAcaoService log)
+    public ProdutoService(AppDbContext db, ILogAcaoService log, IConfiguration config)
     {
         _db = db;
         _log = log;
+        _filialCodigo = int.TryParse(config["Filial:Codigo"], out var f) ? f : 0;
     }
 
     public async Task<List<ProdutoListDto>> ListarAsync(string? busca = null)
@@ -68,8 +71,8 @@ public class ProdutoService : IProdutoService
             .Include(x => x.Barras)
             .Include(x => x.RegistrosMs)
             .Include(x => x.Substancias).ThenInclude(s => s.Substancia)
-            .Include(x => x.Fornecedores).ThenInclude(f => f.Fornecedor)
-            .Include(x => x.Fiscal).ThenInclude(f => f!.Ncm)
+            .Include(x => x.Fornecedores).ThenInclude(f => f.Fornecedor).ThenInclude(fn => fn.Pessoa)
+            .Include(x => x.Fiscais).ThenInclude(f => f.Ncm)
             .Include(x => x.Dados)
             .FirstOrDefaultAsync(x => x.Id == id)
             ?? throw new KeyNotFoundException($"Produto {id} não encontrado.");
@@ -103,6 +106,20 @@ public class ProdutoService : IProdutoService
         await _db.SaveChangesAsync();
 
         SincronizarSubTabelas(p, dto);
+
+        // Criar registros por filial para todas as filiais ativas que não vieram no DTO
+        var todasFiliais = await _db.Filiais.Where(f => f.Ativo).Select(f => f.Id).ToListAsync();
+
+        // ProdutoDados
+        var filiaisDados = dto.Dados.Select(d => d.FilialId).ToHashSet();
+        foreach (var filialId in todasFiliais.Where(fId => !filiaisDados.Contains(fId)))
+            _db.ProdutosDados.Add(new ProdutoDados { ProdutoId = p.Id, FilialId = filialId });
+
+        // ProdutoFiscal
+        var filiaisFiscal = dto.Fiscais.Select(d => d.FilialId).ToHashSet();
+        foreach (var filialId in todasFiliais.Where(fId => !filiaisFiscal.Contains(fId)))
+            _db.ProdutosFiscal.Add(new ProdutoFiscal { ProdutoId = p.Id, FilialId = filialId });
+
         await _db.SaveChangesAsync();
 
         await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, p.Id,
@@ -122,7 +139,7 @@ public class ProdutoService : IProdutoService
             .Include(x => x.RegistrosMs)
             .Include(x => x.Substancias)
             .Include(x => x.Fornecedores)
-            .Include(x => x.Fiscal)
+            .Include(x => x.Fiscais)
             .Include(x => x.Dados)
             .FirstOrDefaultAsync(x => x.Id == id)
             ?? throw new KeyNotFoundException($"Produto {id} não encontrado.");
@@ -147,6 +164,10 @@ public class ProdutoService : IProdutoService
         p.NcmId = dto.NcmId;
 
         SincronizarSubTabelas(p, dto);
+
+        // Propagação de preço para outras filiais conforme regra configurada
+        await PropagarPrecoAsync(p, dto);
+
         await _db.SaveChangesAsync();
 
         var novo = new Dictionary<string, string?> { ["Nome"] = p.Nome, ["Ativo"] = p.Ativo ? "Sim" : "Não" };
@@ -195,12 +216,12 @@ public class ProdutoService : IProdutoService
             d => new ProdutoSubstancia { ProdutoId = p.Id, SubstanciaId = d.SubstanciaId },
             _db.ProdutosSubstancias);
 
-        // Fornecedores
-        SyncCollection(
-            p.Fornecedores, dto.Fornecedores,
-            d => d.Id,
+        // Fornecedores (por filial — proteger outras filiais)
+        SyncPerFilial(p.Fornecedores, dto.Fornecedores,
+            d => d.Id, d => d.FilialId,
             (e, d) =>
             {
+                e.FilialId = d.FilialId;
                 e.FornecedorId = d.FornecedorId;
                 e.CodigoProdutoFornecedor = d.CodigoProdutoFornecedor?.Trim();
                 e.NomeProduto = d.NomeProduto?.Trim();
@@ -208,7 +229,7 @@ public class ProdutoService : IProdutoService
             },
             d => new ProdutoFornecedor
             {
-                ProdutoId = p.Id,
+                ProdutoId = p.Id, FilialId = d.FilialId,
                 FornecedorId = d.FornecedorId,
                 CodigoProdutoFornecedor = d.CodigoProdutoFornecedor?.Trim(),
                 NomeProduto = d.NomeProduto?.Trim(),
@@ -216,20 +237,8 @@ public class ProdutoService : IProdutoService
             },
             _db.ProdutosFornecedores);
 
-        // Fiscal (1:1)
-        if (dto.Fiscal != null)
-        {
-            if (p.Fiscal == null)
-            {
-                p.Fiscal = new ProdutoFiscal { ProdutoId = p.Id };
-                _db.ProdutosFiscal.Add(p.Fiscal);
-            }
-            MapFiscal(p.Fiscal, dto.Fiscal);
-        }
-        else if (p.Fiscal != null)
-        {
-            _db.ProdutosFiscal.Remove(p.Fiscal);
-        }
+        // Fiscal (por filial — proteger outras filiais)
+        SyncFiscal(p, dto.Fiscais);
 
         // Dados (por filial)
         SyncDados(p, dto.Dados);
@@ -237,10 +246,8 @@ public class ProdutoService : IProdutoService
 
     private void SyncDados(Produto p, List<ProdutoDadosDto> dtos)
     {
-        var dtoIds = dtos.Where(d => d.Id.HasValue).Select(d => d.Id!.Value).ToHashSet();
-        foreach (var e in p.Dados.Where(e => !dtoIds.Contains(e.Id)).ToList())
-            _db.ProdutosDados.Remove(e);
-
+        // Proteger: nunca deletar ProdutoDados de outras filiais.
+        // Apenas atualiza/cria registros que vieram no DTO.
         foreach (var d in dtos)
         {
             if (d.Id.HasValue)
@@ -250,15 +257,86 @@ public class ProdutoService : IProdutoService
             }
             else
             {
-                var e = new ProdutoDados { ProdutoId = p.Id };
-                MapDados(e, d);
-                _db.ProdutosDados.Add(e);
+                // Se já existe um ProdutoDados para esta filial, atualizar em vez de duplicar
+                var existente = p.Dados.FirstOrDefault(x => x.FilialId == d.FilialId);
+                if (existente != null)
+                {
+                    MapDados(existente, d);
+                }
+                else
+                {
+                    var e = new ProdutoDados { ProdutoId = p.Id };
+                    MapDados(e, d);
+                    _db.ProdutosDados.Add(e);
+                }
+            }
+        }
+    }
+
+    private void SyncFiscal(Produto p, List<ProdutoFiscalDto> dtos)
+    {
+        // Proteger: nunca deletar Fiscal de outras filiais
+        foreach (var d in dtos)
+        {
+            if (d.Id.HasValue)
+            {
+                var e = p.Fiscais.FirstOrDefault(x => x.Id == d.Id.Value);
+                if (e != null) MapFiscal(e, d);
+            }
+            else
+            {
+                var existente = p.Fiscais.FirstOrDefault(x => x.FilialId == d.FilialId);
+                if (existente != null)
+                {
+                    MapFiscal(existente, d);
+                }
+                else
+                {
+                    var e = new ProdutoFiscal { ProdutoId = p.Id, FilialId = d.FilialId };
+                    MapFiscal(e, d);
+                    _db.ProdutosFiscal.Add(e);
+                }
+            }
+        }
+    }
+
+    /// <summary>Sync genérico para sub-tabelas por filial (não deleta registros de outras filiais).</summary>
+    private void SyncPerFilial<TEntity, TDto>(
+        ICollection<TEntity> existentes, List<TDto> dtos,
+        Func<TDto, long?> getId, Func<TDto, long> getFilialId,
+        Action<TEntity, TDto> update, Func<TDto, TEntity> create,
+        DbSet<TEntity> dbSet) where TEntity : BaseEntity
+    {
+        // Filiais que vieram no DTO
+        var filiaisDto = dtos.Select(getFilialId).ToHashSet();
+
+        // Só remover registros das filiais que vieram no DTO e que não estão na lista
+        var dtoIds = dtos.Where(d => getId(d).HasValue).Select(d => getId(d)!.Value).ToHashSet();
+        foreach (var e in existentes.ToList())
+        {
+            var filialId = (long)e.GetType().GetProperty("FilialId")!.GetValue(e)!;
+            if (filiaisDto.Contains(filialId) && !dtoIds.Contains(e.Id))
+                dbSet.Remove(e);
+        }
+
+        foreach (var d in dtos)
+        {
+            var id = getId(d);
+            if (id.HasValue)
+            {
+                var e = existentes.FirstOrDefault(x => x.Id == id.Value);
+                if (e != null) update(e, d);
+            }
+            else
+            {
+                dbSet.Add(create(d));
             }
         }
     }
 
     private static void MapFiscal(ProdutoFiscal e, ProdutoFiscalDto d)
     {
+        e.FilialId = d.FilialId;
         e.NcmId = d.NcmId;
         e.Cest = d.Cest?.Trim();
         e.OrigemMercadoria = d.OrigemMercadoria?.Trim();
@@ -328,6 +406,66 @@ public class ProdutoService : IProdutoService
         }
     }
 
+    // ── Propagação de preço ────────────────────────────────────────
+
+    /// <summary>Campos considerados "de preço" para propagação entre filiais.</summary>
+    private static readonly string[] CamposPreco = {
+        "ValorVenda", "ValorPromocao", "Markup", "ProjecaoLucro",
+        "DescontoMinimo", "DescontoMaxSemSenha", "DescontoMaxComSenha",
+        "Comissao", "ValorIncentivo"
+    };
+
+    private async Task PropagarPrecoAsync(Produto p, ProdutoFormDto dto)
+    {
+        // Buscar regra configurada
+        var regraConfig = await _db.Configuracoes
+            .FirstOrDefaultAsync(c => c.Chave == "produto.preco.regra");
+        var regra = regraConfig?.Valor ?? "atual";
+
+        // Se regra é "atual", não propaga
+        if (regra == "atual") return;
+
+        // Determinar filiais destino
+        List<long> filiaisDestino;
+        if (regra == "todas")
+        {
+            filiaisDestino = await _db.Filiais.Where(f => f.Ativo).Select(f => f.Id).ToListAsync();
+        }
+        else if (regra == "perguntar" && dto.FiliaisPrecoAplicar != null && dto.FiliaisPrecoAplicar.Count > 0)
+        {
+            filiaisDestino = dto.FiliaisPrecoAplicar;
+        }
+        else
+        {
+            return; // "perguntar" sem filiais selecionadas = não propagar
+        }
+
+        // Pegar os dados da filial que acabou de ser editada (primeiro do DTO que tenha valores)
+        var dadosOrigem = dto.Dados.FirstOrDefault();
+        if (dadosOrigem == null) return;
+
+        // Filiais que já estão no DTO (já foram editadas diretamente) — não sobrescrever
+        var filiaisNoDto = dto.Dados.Select(d => d.FilialId).ToHashSet();
+
+        // Buscar ProdutoDados das filiais destino que NÃO estão no DTO
+        var dadosOutras = await _db.ProdutosDados
+            .Where(d => d.ProdutoId == p.Id && filiaisDestino.Contains(d.FilialId) && !filiaisNoDto.Contains(d.FilialId))
+            .ToListAsync();
+
+        foreach (var d in dadosOutras)
+        {
+            d.ValorVenda = dadosOrigem.ValorVenda;
+            d.ValorPromocao = dadosOrigem.ValorPromocao;
+            d.Markup = dadosOrigem.Markup;
+            d.ProjecaoLucro = dadosOrigem.ProjecaoLucro;
+            d.DescontoMinimo = dadosOrigem.DescontoMinimo;
+            d.DescontoMaxSemSenha = dadosOrigem.DescontoMaxSemSenha;
+            d.DescontoMaxComSenha = dadosOrigem.DescontoMaxComSenha;
+            d.Comissao = dadosOrigem.Comissao;
+            d.ValorIncentivo = dadosOrigem.ValorIncentivo;
+        }
+    }
+
     // ── Mapping ─────────────────────────────────────────────────────
 
     private static ProdutoDetalheDto MapDetalhe(Produto p) => new()
@@ -354,20 +492,21 @@ public class ProdutoService : IProdutoService
         }).ToList(),
         Fornecedores = p.Fornecedores.Select(f => new ProdutoFornecedorDto
         {
-            Id = f.Id, FornecedorId = f.FornecedorId,
+            Id = f.Id, FilialId = f.FilialId, FornecedorId = f.FornecedorId,
+            FornecedorNome = f.Fornecedor?.Pessoa?.Nome,
             CodigoProdutoFornecedor = f.CodigoProdutoFornecedor,
             NomeProduto = f.NomeProduto, Fracao = f.Fracao
         }).ToList(),
-        Fiscal = p.Fiscal == null ? null : new ProdutoFiscalDto
+        Fiscais = p.Fiscais.OrderBy(f => f.FilialId).Select(f => new ProdutoFiscalDto
         {
-            Id = p.Fiscal.Id, NcmId = p.Fiscal.NcmId,
-            NcmCodigo = p.Fiscal.Ncm?.CodigoNcm,
-            Cest = p.Fiscal.Cest, OrigemMercadoria = p.Fiscal.OrigemMercadoria,
-            CstIcms = p.Fiscal.CstIcms, Csosn = p.Fiscal.Csosn, AliquotaIcms = p.Fiscal.AliquotaIcms,
-            CstPis = p.Fiscal.CstPis, AliquotaPis = p.Fiscal.AliquotaPis,
-            CstCofins = p.Fiscal.CstCofins, AliquotaCofins = p.Fiscal.AliquotaCofins,
-            CstIpi = p.Fiscal.CstIpi, AliquotaIpi = p.Fiscal.AliquotaIpi
-        },
+            Id = f.Id, FilialId = f.FilialId, NcmId = f.NcmId,
+            NcmCodigo = f.Ncm?.CodigoNcm,
+            Cest = f.Cest, OrigemMercadoria = f.OrigemMercadoria,
+            CstIcms = f.CstIcms, Csosn = f.Csosn, AliquotaIcms = f.AliquotaIcms,
+            CstPis = f.CstPis, AliquotaPis = f.AliquotaPis,
+            CstCofins = f.CstCofins, AliquotaCofins = f.AliquotaCofins,
+            CstIpi = f.CstIpi, AliquotaIpi = f.AliquotaIpi
+        }).ToList(),
         Dados = p.Dados.OrderBy(d => d.FilialId).Select(d => new ProdutoDadosDto
         {
             Id = d.Id, FilialId = d.FilialId,

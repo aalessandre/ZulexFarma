@@ -70,8 +70,8 @@ interface ProdutoList { id: number; nome: string; codigoBarras?: string; fabrica
 interface ProdutoBarrasItem { id?: number; barras: string; }
 interface ProdutoMsItem { id?: number; numeroMs: string; }
 interface ProdutoSubstanciaItem { id?: number; substanciaId: number; substanciaNome?: string; }
-interface ProdutoFornecedorItem { id?: number; fornecedorId: number; fornecedorNome?: string; codigoProdutoFornecedor?: string; nomeProduto?: string; fracao: number; }
-interface ProdutoFiscalItem { id?: number; ncmId?: number; ncmCodigo?: string; cest?: string; origemMercadoria?: string; cstIcms?: string; csosn?: string; aliquotaIcms: number; cstPis?: string; aliquotaPis: number; cstCofins?: string; aliquotaCofins: number; cstIpi?: string; aliquotaIpi: number; }
+interface ProdutoFornecedorItem { id?: number; filialId: number; fornecedorId: number; fornecedorNome?: string; codigoProdutoFornecedor?: string; nomeProduto?: string; fracao: number; }
+interface ProdutoFiscalItem { id?: number; filialId: number; ncmId?: number; ncmCodigo?: string; cest?: string; origemMercadoria?: string; cstIcms?: string; csosn?: string; aliquotaIcms: number; cstPis?: string; aliquotaPis: number; cstCofins?: string; aliquotaCofins: number; cstIpi?: string; aliquotaIpi: number; }
 interface ProdutoDadosItem {
   id?: number; filialId: number; filialNome?: string;
   estoqueAtual: number; estoqueMinimo: number; estoqueMaximo: number; demanda: number; curvaAbc?: string;
@@ -90,10 +90,13 @@ interface ProdutoForm {
   nome: string; codigoBarras?: string; qtdeEmbalagem: number; precoFp?: number;
   lista: string; fracao: number; ativo: boolean; eliminado: boolean;
   fabricanteId?: number; grupoPrincipalId?: number; grupoProdutoId?: number; subGrupoId?: number; ncmId?: number;
+  fabricanteNome?: string; grupoPrincipalNome?: string; grupoProdutoNome?: string; subGrupoNome?: string; ncmCodigo?: string;
   barras: ProdutoBarrasItem[]; registrosMs: ProdutoMsItem[];
   substancias: ProdutoSubstanciaItem[]; fornecedores: ProdutoFornecedorItem[];
-  fiscal?: ProdutoFiscalItem; dados: ProdutoDadosItem[];
+  fiscais: ProdutoFiscalItem[]; dados: ProdutoDadosItem[];
 }
+
+interface LookupItem { id: number; texto: string; }
 
 const CLASSIFICACAO_COLUNAS: ColunaDef[] = [
   { campo: 'id',                label: 'ID',           largura: 60,  minLargura: 50,  padrao: true },
@@ -199,6 +202,20 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     else if (st === 'inativos') lista = lista.filter(r => !r.ativo || r.eliminado);
     return lista;
   });
+
+  // ── Lookups (autocomplete classificação) ────────────────────────────
+  lookupFabricante = signal<LookupItem[]>([]);
+  lookupGrupoPrincipal = signal<LookupItem[]>([]);
+  lookupGrupo = signal<LookupItem[]>([]);
+  lookupSubGrupo = signal<LookupItem[]>([]);
+  lookupNcm = signal<LookupItem[]>([]);
+  lookupAberto = signal<string | null>(null);
+  lookupSubstancia = signal<LookupItem[]>([]);
+  substanciaBusca = signal('');
+  lookupFornecedor = signal<LookupItem[]>([]);
+  fornecedorBuscaIdx = signal<number | null>(null);
+  private lookupTimers: Record<string, any> = {};
+  private lookupCaches: Record<string, { data: any[]; ts: number }> = {};
 
   // ── Token Liberação ───────────────────────────────────────────────
   private tokenLiberacao: string | null = null;
@@ -424,12 +441,35 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     const r = this.registroSelecionado();
     if (!r?.id) return;
     if (!await this.verificarPermissao('a')) return;
-    this.registroForm.set({ ...r });
-    this.formOriginal = { ...r };
-    this.erro.set('');
-    this.isDirty.set(false);
-    this.modoEdicao.set(true);
-    this.modo.set('form');
+    this.carregando.set(true);
+    const url = this.apiUrlAtual();
+    this.http.get<any>(`${url}/${r.id}`).subscribe({
+      next: resp => {
+        this.carregando.set(false);
+        const d = resp.data;
+        const form: Classificacao = {
+          id: d.id, nome: d.nome, comissaoPercentual: d.comissaoPercentual,
+          descontoMinimo: d.descontoMinimo, descontoMaximo: d.descontoMaximo,
+          descontoMaximoComSenha: d.descontoMaximoComSenha,
+          projecaoLucro: d.projecaoLucro, markupPadrao: d.markupPadrao,
+          priorizar: d.priorizar,
+          controlarLotesVencimento: d.controlarLotesVencimento ?? false,
+          informarPrescritorVenda: d.informarPrescritorVenda ?? false,
+          imprimirEtiqueta: d.imprimirEtiqueta ?? false,
+          permitirDescontoPrazo: d.permitirDescontoPrazo ?? false,
+          permitirPromocao: d.permitirPromocao ?? false,
+          permitirDescontosProgressivos: d.permitirDescontosProgressivos ?? false,
+          ativo: d.ativo, criadoEm: d.criadoEm
+        };
+        this.registroForm.set(form);
+        this.formOriginal = { ...form };
+        this.erro.set('');
+        this.isDirty.set(false);
+        this.modoEdicao.set(true);
+        this.modo.set('form');
+      },
+      error: () => this.carregando.set(false)
+    });
   }
 
   async salvar() {
@@ -629,9 +669,11 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           precoFp: d.precoFp, lista: d.lista, fracao: d.fracao, ativo: d.ativo, eliminado: d.eliminado,
           fabricanteId: d.fabricanteId, grupoPrincipalId: d.grupoPrincipalId,
           grupoProdutoId: d.grupoProdutoId, subGrupoId: d.subGrupoId, ncmId: d.ncmId,
+          fabricanteNome: d.fabricanteNome, grupoPrincipalNome: d.grupoPrincipalNome,
+          grupoProdutoNome: d.grupoProdutoNome, subGrupoNome: d.subGrupoNome, ncmCodigo: d.ncmCodigo,
           barras: d.barras ?? [], registrosMs: d.registrosMs ?? [],
           substancias: d.substancias ?? [], fornecedores: d.fornecedores ?? [],
-          fiscal: d.fiscal, dados: d.dados ?? []
+          fiscais: d.fiscais ?? [], dados: d.dados ?? []
         };
         this.produtoForm.set(f);
         this.produtoFormOriginal = JSON.stringify(f);
@@ -642,10 +684,23 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     });
   }
 
+  private readonly CAMPOS_PRECO = ['valorVenda', 'valorPromocao', 'markup', 'projecaoLucro',
+    'descontoMinimo', 'descontoMaxSemSenha', 'descontoMaxComSenha', 'comissao', 'valorIncentivo'];
+
   async salvarProduto() {
     if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
-    const f = this.produtoForm();
+    const f = { ...this.produtoForm() } as any;
     if (!f.nome?.trim()) { this.erro.set('Nome é obrigatório.'); return; }
+
+    // Verificar propagação de preço (só em edição)
+    if (this.modoEdicao() && f.dados?.length > 0) {
+      const original = JSON.parse(this.produtoFormOriginal);
+      const precoMudou = this.verificarPrecoMudou(original, f);
+      if (precoMudou) {
+        f.filiaisPrecoAplicar = await this.perguntarPropagacaoPreco();
+      }
+    }
+
     this.erro.set(''); this.salvando.set(true);
     const headers = this.headerLiberacao();
 
@@ -665,6 +720,42 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => { this.salvando.set(false); this.erro.set(err?.error?.message || 'Erro ao salvar.'); }
     });
+  }
+
+  private verificarPrecoMudou(original: any, atual: any): boolean {
+    if (!original.dados?.length || !atual.dados?.length) return false;
+    const origDados = original.dados[0] || {};
+    const atualDados = atual.dados[0] || {};
+    return this.CAMPOS_PRECO.some(c => (origDados[c] ?? 0) !== (atualDados[c] ?? 0));
+  }
+
+  private async perguntarPropagacaoPreco(): Promise<number[] | null> {
+    // Buscar regra configurada
+    try {
+      const resp = await this.http.get<any>(`${environment.apiUrl}/configuracoes`).toPromise();
+      const configs: any[] = resp?.data ?? [];
+      const regra = configs.find((c: any) => c.chave === 'produto.preco.regra')?.valor ?? 'atual';
+
+      if (regra === 'atual') return null;
+      if (regra === 'todas') {
+        // Buscar todas as filiais ativas
+        const fResp = await this.http.get<any>(`${environment.apiUrl}/filiais`).toPromise();
+        return (fResp?.data ?? []).map((f: any) => f.id);
+      }
+      if (regra === 'perguntar') {
+        const result = await this.modal.confirmar(
+          'Propagação de Preço',
+          'O preço foi alterado. Deseja aplicar a alteração de preço para todas as outras filiais?',
+          'Sim, todas as filiais', 'Não, apenas esta'
+        );
+        if (result.confirmado) {
+          const fResp = await this.http.get<any>(`${environment.apiUrl}/filiais`).toPromise();
+          return (fResp?.data ?? []).map((f: any) => f.id);
+        }
+        return null;
+      }
+    } catch { /* silenciar erro na verificação */ }
+    return null;
   }
 
   async excluirProduto() {
@@ -691,27 +782,135 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   // Barras
-  addBarras() { this.produtoForm.update(f => ({ ...f, barras: [...f.barras, { barras: '' }] })); this.isDirty.set(true); }
-  removeBarras(i: number) { this.produtoForm.update(f => ({ ...f, barras: f.barras.filter((_, idx) => idx !== i) })); this.isDirty.set(true); }
+  adicionarBarras(input: HTMLInputElement) {
+    const v = input.value.trim();
+    if (!v) return;
+    if (this.produtoForm().barras.some(b => b.barras === v)) return;
+    this.produtoForm.update(f => ({ ...f, barras: [...f.barras, { barras: v }] }));
+    this.isDirty.set(true);
+    input.value = '';
+    input.focus();
+  }
 
   // MS
-  addMs() { this.produtoForm.update(f => ({ ...f, registrosMs: [...f.registrosMs, { numeroMs: '' }] })); this.isDirty.set(true); }
-  removeMs(i: number) { this.produtoForm.update(f => ({ ...f, registrosMs: f.registrosMs.filter((_, idx) => idx !== i) })); this.isDirty.set(true); }
+  adicionarMs(input: HTMLInputElement) {
+    const v = input.value.trim();
+    if (!v) return;
+    if (this.produtoForm().registrosMs.some(m => m.numeroMs === v)) return;
+    this.produtoForm.update(f => ({ ...f, registrosMs: [...f.registrosMs, { numeroMs: v }] }));
+    this.isDirty.set(true);
+    input.value = '';
+    input.focus();
+  }
 
   // Substâncias
-  addSubstancia(id: number, nome: string) {
-    if (this.produtoForm().substancias.some(s => s.substanciaId === id)) return;
-    this.produtoForm.update(f => ({ ...f, substancias: [...f.substancias, { substanciaId: id, substanciaNome: nome }] }));
-    this.isDirty.set(true);
+  onSubstanciaInput(valor: string) {
+    this.substanciaBusca.set(valor);
+    clearTimeout(this.lookupTimers['substancia']);
+    if (valor.trim().length < 1) { this.lookupSubstancia.set([]); this.lookupAberto.set(null); return; }
+    this.lookupTimers['substancia'] = setTimeout(() => {
+      const cache = this.lookupCaches['substancia'];
+      if (cache && Date.now() - cache.ts < 30000) {
+        this.filtrarSubstanciaLocal(valor, cache.data);
+        return;
+      }
+      this.http.get<any>(`${environment.apiUrl}/substancias`).subscribe({
+        next: resp => {
+          const lista = resp?.data ?? [];
+          this.lookupCaches['substancia'] = { data: lista, ts: Date.now() };
+          this.filtrarSubstanciaLocal(valor, lista);
+        },
+        error: () => this.lookupSubstancia.set([])
+      });
+    }, 250);
   }
-  removeSubstancia(i: number) { this.produtoForm.update(f => ({ ...f, substancias: f.substancias.filter((_, idx) => idx !== i) })); this.isDirty.set(true); }
+
+  private filtrarSubstanciaLocal(valor: string, lista: any[]) {
+    const termo = valor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const jaVinculados = new Set(this.produtoForm().substancias.map(s => s.substanciaId));
+    const filtrada = lista
+      .filter((r: any) => r.ativo !== false && !jaVinculados.has(r.id)
+        && r.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(termo))
+      .slice(0, 20)
+      .map((r: any) => ({ id: r.id, texto: r.nome }));
+    this.lookupSubstancia.set(filtrada);
+    this.lookupAberto.set(filtrada.length > 0 ? 'substancia' : null);
+  }
+
+  selecionarSubstancia(item: LookupItem) {
+    if (this.produtoForm().substancias.some(s => s.substanciaId === item.id)) return;
+    this.produtoForm.update(f => ({ ...f, substancias: [...f.substancias, { substanciaId: item.id, substanciaNome: item.texto }] }));
+    this.isDirty.set(true);
+    this.substanciaBusca.set('');
+    this.lookupSubstancia.set([]);
+    this.lookupAberto.set(null);
+  }
 
   // Fornecedores
   addFornecedor() {
-    this.produtoForm.update(f => ({ ...f, fornecedores: [...f.fornecedores, { fornecedorId: 0, fracao: 1 }] }));
+    this.produtoForm.update(f => ({ ...f, fornecedores: [...f.fornecedores, { filialId: 0, fornecedorId: 0, fracao: 1 }] }));
     this.isDirty.set(true);
   }
-  removeFornecedor(i: number) { this.produtoForm.update(f => ({ ...f, fornecedores: f.fornecedores.filter((_, idx) => idx !== i) })); this.isDirty.set(true); }
+
+  onFornecedorInput(idx: number, valor: string) {
+    this.fornecedorBuscaIdx.set(idx);
+    this.updateFornecedor(idx, 'fornecedorNome', valor);
+    this.updateFornecedor(idx, 'fornecedorId', 0);
+    clearTimeout(this.lookupTimers['fornecedor']);
+    if (valor.trim().length < 1) { this.lookupFornecedor.set([]); this.lookupAberto.set(null); return; }
+    this.lookupTimers['fornecedor'] = setTimeout(() => {
+      const cache = this.lookupCaches['fornecedor'];
+      if (cache && Date.now() - cache.ts < 30000) {
+        this.filtrarFornecedorLocal(valor, cache.data);
+        return;
+      }
+      this.http.get<any>(`${environment.apiUrl}/fornecedores`).subscribe({
+        next: resp => {
+          const lista = resp?.data ?? [];
+          this.lookupCaches['fornecedor'] = { data: lista, ts: Date.now() };
+          this.filtrarFornecedorLocal(valor, lista);
+        },
+        error: () => this.lookupFornecedor.set([])
+      });
+    }, 250);
+  }
+
+  private filtrarFornecedorLocal(valor: string, lista: any[]) {
+    const termo = valor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const filtrada = lista
+      .filter((r: any) => r.ativo !== false
+        && r.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(termo))
+      .slice(0, 20)
+      .map((r: any) => ({ id: r.id, texto: r.nome }));
+    this.lookupFornecedor.set(filtrada);
+    this.lookupAberto.set(filtrada.length > 0 ? 'fornecedor' : null);
+  }
+
+  selecionarFornecedor(idx: number, item: LookupItem) {
+    this.updateFornecedor(idx, 'fornecedorId', item.id);
+    this.updateFornecedor(idx, 'fornecedorNome', item.texto);
+    this.lookupFornecedor.set([]);
+    this.lookupAberto.set(null);
+    this.fornecedorBuscaIdx.set(null);
+  }
+
+  // Remoção com confirmação (substância, barras, ms, fornecedor)
+  async confirmarRemoverItem(tipo: string, i: number, descricao: string) {
+    const nomes: Record<string, string> = { substancia: 'substância', barras: 'código de barras', ms: 'registro MS', fornecedor: 'fornecedor' };
+    const resultado = await this.modal.confirmar(
+      'Confirmar Remoção',
+      `Deseja remover ${nomes[tipo] || 'item'} "${descricao}"?`,
+      'Sim, remover', 'Não, manter'
+    );
+    if (!resultado.confirmado) return;
+    switch (tipo) {
+      case 'substancia': this.produtoForm.update(f => ({ ...f, substancias: f.substancias.filter((_, idx) => idx !== i) })); break;
+      case 'barras':     this.produtoForm.update(f => ({ ...f, barras: f.barras.filter((_, idx) => idx !== i) })); break;
+      case 'ms':         this.produtoForm.update(f => ({ ...f, registrosMs: f.registrosMs.filter((_, idx) => idx !== i) })); break;
+      case 'fornecedor': this.produtoForm.update(f => ({ ...f, fornecedores: f.fornecedores.filter((_, idx) => idx !== i) })); break;
+    }
+    this.isDirty.set(true);
+  }
   updateFornecedor(i: number, campo: string, valor: any) {
     this.produtoForm.update(f => ({ ...f, fornecedores: f.fornecedores.map((r, idx) => idx === i ? { ...r, [campo]: valor } : r) }));
     this.isDirty.set(true);
@@ -724,12 +923,126 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   // Fiscal
-  updateFiscal(campo: string, valor: any) {
-    this.produtoForm.update(f => {
-      const fiscal = f.fiscal ?? { aliquotaIcms: 0, aliquotaPis: 0, aliquotaCofins: 0, aliquotaIpi: 0 };
-      return { ...f, fiscal: { ...fiscal, [campo]: valor } };
-    });
+  updateFiscal(idx: number, campo: string, valor: any) {
+    this.produtoForm.update(f => ({
+      ...f,
+      fiscais: f.fiscais.map((fiscal, i) => i === idx ? { ...fiscal, [campo]: valor } : fiscal)
+    }));
     this.isDirty.set(true);
+  }
+
+  // ── Lookups (autocomplete) ───────────────────────────────────────────
+
+  private readonly LOOKUP_CONFIG: Record<string, { url: string; signalKey: string; idField: string; nomeField: string; mapTexto: (r: any) => string }> = {
+    fabricante:      { url: '/fabricantes',        signalKey: 'lookupFabricante',      idField: 'fabricanteId',      nomeField: 'fabricanteNome',      mapTexto: r => r.nome },
+    grupoPrincipal:  { url: '/grupos-principais',  signalKey: 'lookupGrupoPrincipal',  idField: 'grupoPrincipalId',  nomeField: 'grupoPrincipalNome',  mapTexto: r => r.nome },
+    grupo:           { url: '/grupos-produtos',    signalKey: 'lookupGrupo',           idField: 'grupoProdutoId',    nomeField: 'grupoProdutoNome',    mapTexto: r => r.nome },
+    subGrupo:        { url: '/sub-grupos',         signalKey: 'lookupSubGrupo',        idField: 'subGrupoId',       nomeField: 'subGrupoNome',       mapTexto: r => r.nome },
+    ncm:             { url: '/ncm',                signalKey: 'lookupNcm',             idField: 'ncmId',            nomeField: 'ncmCodigo',          mapTexto: r => `${r.codigoNcm} - ${r.descricao}` },
+  };
+
+  private getLookupSignal(key: string) {
+    const map: Record<string, any> = {
+      lookupFabricante: this.lookupFabricante,
+      lookupGrupoPrincipal: this.lookupGrupoPrincipal,
+      lookupGrupo: this.lookupGrupo,
+      lookupSubGrupo: this.lookupSubGrupo,
+      lookupNcm: this.lookupNcm,
+    };
+    return map[key];
+  }
+
+  onLookupInput(tipo: string, valor: string) {
+    const cfg = this.LOOKUP_CONFIG[tipo];
+    if (!cfg) return;
+    // Atualiza o texto exibido e limpa o ID selecionado enquanto digita
+    this.produtoForm.update(f => ({ ...f, [cfg.nomeField]: valor, [cfg.idField]: null }));
+    clearTimeout(this.lookupTimers[tipo]);
+
+    const minChars = tipo === 'ncm' ? 4 : 1;
+    if (valor.trim().length < minChars) {
+      this.getLookupSignal(cfg.signalKey).set([]);
+      this.lookupAberto.set(null);
+      return;
+    }
+
+    this.lookupTimers[tipo] = setTimeout(() => {
+      const cache = this.lookupCaches[tipo];
+      if (cache && Date.now() - cache.ts < 30000) {
+        this.filtrarLookupLocal(tipo, valor, cache.data);
+        return;
+      }
+
+      const url = tipo === 'ncm'
+        ? `${environment.apiUrl}${cfg.url}?busca=${encodeURIComponent(valor)}`
+        : `${environment.apiUrl}${cfg.url}`;
+
+      this.http.get<any>(url).subscribe({
+        next: resp => {
+          const lista = resp?.data ?? [];
+          if (tipo !== 'ncm') {
+            this.lookupCaches[tipo] = { data: lista, ts: Date.now() };
+          }
+          this.filtrarLookupLocal(tipo, valor, lista);
+        },
+        error: () => this.getLookupSignal(cfg.signalKey).set([])
+      });
+    }, 250);
+  }
+
+  private filtrarLookupLocal(tipo: string, valor: string, lista: any[]) {
+    const cfg = this.LOOKUP_CONFIG[tipo];
+    const termo = valor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const filtrada = lista
+      .filter((r: any) => {
+        if (r.ativo === false) return false;
+        const txt = cfg.mapTexto(r).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return txt.includes(termo);
+      })
+      .slice(0, 20)
+      .map((r: any) => ({ id: r.id, texto: cfg.mapTexto(r) }));
+    this.getLookupSignal(cfg.signalKey).set(filtrada);
+    this.lookupAberto.set(filtrada.length > 0 ? tipo : null);
+  }
+
+  onLookupFocus(tipo: string, valor: string) {
+    const cfg = this.LOOKUP_CONFIG[tipo];
+    if (!cfg) return;
+    // Se já tem ID selecionado, mostra lista com cache se possível
+    if ((this.produtoForm() as any)[cfg.idField]) return;
+    // Se tem texto sem seleção, dispara busca
+    if (valor.trim().length >= (tipo === 'ncm' ? 4 : 1)) {
+      this.onLookupInput(tipo, valor);
+    }
+  }
+
+  selecionarLookup(tipo: string, item: LookupItem) {
+    const cfg = this.LOOKUP_CONFIG[tipo];
+    const displayValue = tipo === 'ncm' ? item.texto.split(' - ')[0] : item.texto;
+    this.produtoForm.update(f => ({ ...f, [cfg.idField]: item.id, [cfg.nomeField]: displayValue }));
+    this.isDirty.set(true);
+    this.getLookupSignal(cfg.signalKey).set([]);
+    this.lookupAberto.set(null);
+  }
+
+  limparLookup(tipo: string) {
+    const cfg = this.LOOKUP_CONFIG[tipo];
+    this.produtoForm.update(f => ({ ...f, [cfg.idField]: null, [cfg.nomeField]: '' }));
+    this.isDirty.set(true);
+    this.getLookupSignal(cfg.signalKey).set([]);
+    this.lookupAberto.set(null);
+  }
+
+  getLookupDisplay(tipo: string): string {
+    const cfg = this.LOOKUP_CONFIG[tipo];
+    return (this.produtoForm() as any)[cfg.nomeField] ?? '';
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocClick(e: Event) {
+    if (!(e.target as HTMLElement).closest('.lookup-wrap')) {
+      this.lookupAberto.set(null);
+    }
   }
 
   isProdutoAba(): boolean { return this.abaAtiva() === 'produtos'; }
@@ -737,7 +1050,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   private novoProdutoForm(): ProdutoForm {
     return {
       nome: '', qtdeEmbalagem: 1, lista: 'Indefinida', fracao: 1, ativo: true, eliminado: false,
-      barras: [], registrosMs: [], substancias: [], fornecedores: [], dados: []
+      barras: [], registrosMs: [], substancias: [], fornecedores: [], fiscais: [], dados: []
     };
   }
 

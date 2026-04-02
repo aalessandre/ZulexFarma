@@ -256,25 +256,105 @@
 
         <div class="prod-section">Classificação</div>
         <div class="prod-grid">
+          <!-- FABRICANTE -->
           <div class="prod-field">
             <label>FABRICANTE</label>
-            <input type="number" [value]="produtoForm().fabricanteId || ''" (input)="updateProdutoForm('fabricanteId', +$any($event.target).value || null)" placeholder="ID do fabricante" />
+            <div class="lookup-wrap">
+              <input type="text" [value]="getLookupDisplay('fabricante')"
+                     (input)="onLookupInput('fabricante', $any($event.target).value)"
+                     (focus)="onLookupFocus('fabricante', $any($event.target).value)"
+                     placeholder="Digite para buscar..." autocomplete="off" />
+              @if (produtoForm().fabricanteId) {
+                <button class="lookup-clear" (click)="limparLookup('fabricante')" title="Limpar">&times;</button>
+              }
+              @if (lookupAberto() === 'fabricante' && lookupFabricante().length) {
+                <ul class="lookup-list">
+                  @for (item of lookupFabricante(); track item.id) {
+                    <li (mousedown)="selecionarLookup('fabricante', item)">{{ item.texto }}</li>
+                  }
+                </ul>
+              }
+            </div>
           </div>
+          <!-- GRUPO PRINCIPAL -->
           <div class="prod-field">
             <label>GRUPO PRINCIPAL</label>
-            <input type="number" [value]="produtoForm().grupoPrincipalId || ''" (input)="updateProdutoForm('grupoPrincipalId', +$any($event.target).value || null)" placeholder="ID do grupo" />
+            <div class="lookup-wrap">
+              <input type="text" [value]="getLookupDisplay('grupoPrincipal')"
+                     (input)="onLookupInput('grupoPrincipal', $any($event.target).value)"
+                     (focus)="onLookupFocus('grupoPrincipal', $any($event.target).value)"
+                     placeholder="Digite para buscar..." autocomplete="off" />
+              @if (produtoForm().grupoPrincipalId) {
+                <button class="lookup-clear" (click)="limparLookup('grupoPrincipal')" title="Limpar">&times;</button>
+              }
+              @if (lookupAberto() === 'grupoPrincipal' && lookupGrupoPrincipal().length) {
+                <ul class="lookup-list">
+                  @for (item of lookupGrupoPrincipal(); track item.id) {
+                    <li (mousedown)="selecionarLookup('grupoPrincipal', item)">{{ item.texto }}</li>
+                  }
+                </ul>
+              }
+            </div>
           </div>
+          <!-- GRUPO -->
           <div class="prod-field">
             <label>GRUPO</label>
-            <input type="number" [value]="produtoForm().grupoProdutoId || ''" (input)="updateProdutoForm('grupoProdutoId', +$any($event.target).value || null)" placeholder="ID do grupo" />
+            <div class="lookup-wrap">
+              <input type="text" [value]="getLookupDisplay('grupo')"
+                     (input)="onLookupInput('grupo', $any($event.target).value)"
+                     (focus)="onLookupFocus('grupo', $any($event.target).value)"
+                     placeholder="Digite para buscar..." autocomplete="off" />
+              @if (produtoForm().grupoProdutoId) {
+                <button class="lookup-clear" (click)="limparLookup('grupo')" title="Limpar">&times;</button>
+              }
+              @if (lookupAberto() === 'grupo' && lookupGrupo().length) {
+                <ul class="lookup-list">
+                  @for (item of lookupGrupo(); track item.id) {
+                    <li (mousedown)="selecionarLookup('grupo', item)">{{ item.texto }}</li>
+                  }
+                </ul>
+              }
+            </div>
           </div>
+          <!-- SUBGRUPO -->
           <div class="prod-field">
             <label>SUBGRUPO</label>
-            <input type="number" [value]="produtoForm().subGrupoId || ''" (input)="updateProdutoForm('subGrupoId', +$any($event.target).value || null)" placeholder="ID do subgrupo" />
+            <div class="lookup-wrap">
+              <input type="text" [value]="getLookupDisplay('subGrupo')"
+                     (input)="onLookupInput('subGrupo', $any($event.target).value)"
+                     (focus)="onLookupFocus('subGrupo', $any($event.target).value)"
+                     placeholder="Digite para buscar..." autocomplete="off" />
+              @if (produtoForm().subGrupoId) {
+                <button class="lookup-clear" (click)="limparLookup('subGrupo')" title="Limpar">&times;</button>
+              }
+              @if (lookupAberto() === 'subGrupo' && lookupSubGrupo().length) {
+                <ul class="lookup-list">
+                  @for (item of lookupSubGrupo(); track item.id) {
+                    <li (mousedown)="selecionarLookup('subGrupo', item)">{{ item.texto }}</li>
+                  }
+                </ul>
+              }
+            </div>
           </div>
+          <!-- NCM -->
           <div class="prod-field">
             <label>NCM</label>
-            <input type="number" [value]="produtoForm().ncmId || ''" (input)="updateProdutoForm('ncmId', +$any($event.target).value || null)" placeholder="ID do NCM" />
+            <div class="lookup-wrap">
+              <input type="text" [value]="getLookupDisplay('ncm')"
+                     (input)="onLookupInput('ncm', $any($event.target).value)"
+                     (focus)="onLookupFocus('ncm', $any($event.target).value)"
+                     placeholder="Código ou descrição (4+ chars)..." autocomplete="off" />
+              @if (produtoForm().ncmId) {
+                <button class="lookup-clear" (click)="limparLookup('ncm')" title="Limpar">&times;</button>
+              }
+              @if (lookupAberto() === 'ncm' && lookupNcm().length) {
+                <ul class="lookup-list">
+                  @for (item of lookupNcm(); track item.id) {
+                    <li (mousedown)="selecionarLookup('ncm', item)">{{ item.texto }}</li>
+                  }
+                </ul>
+              }
+            </div>
           </div>
         </div>
 
@@ -285,13 +365,28 @@
           <details class="prod-accordion">
             <summary class="prod-acc-header acc-geral">Substâncias ({{ produtoForm().substancias.length }})</summary>
             <div class="prod-acc-body">
-              @for (s of produtoForm().substancias; track $index; let i = $index) {
-                <div class="sub-card-inline">
-                  <span>{{ s.substanciaNome || 'ID: ' + s.substanciaId }}</span>
-                  <button class="btn-remove-row" (click)="removeSubstancia(i)">✕</button>
-                </div>
-              }
-              @if (produtoForm().substancias.length === 0) {
+              <div class="lookup-wrap acc-add-wrap">
+                <input type="text" [value]="substanciaBusca()"
+                       (input)="onSubstanciaInput($any($event.target).value)"
+                       placeholder="Digite para buscar substância..." autocomplete="off" />
+                @if (lookupAberto() === 'substancia' && lookupSubstancia().length) {
+                  <ul class="lookup-list">
+                    @for (item of lookupSubstancia(); track item.id) {
+                      <li (mousedown)="selecionarSubstancia(item)">{{ item.texto }}</li>
+                    }
+                  </ul>
+                }
+              </div>
+              @if (produtoForm().substancias.length) {
+                <ul class="bullet-lista">
+                  @for (s of produtoForm().substancias; track $index; let i = $index) {
+                    <li>
+                      <span class="bullet-texto">{{ s.substanciaNome || 'ID: ' + s.substanciaId }}</span>
+                      <button class="btn-remove-row" (click)="confirmarRemoverItem('substancia', i, s.substanciaNome || '')" title="Remover">✕</button>
+                    </li>
+                  }
+                </ul>
+              } @else {
                 <div class="prod-acc-placeholder">Nenhuma substância vinculada.</div>
               }
             </div>
@@ -301,13 +396,22 @@
           <details class="prod-accordion">
             <summary class="prod-acc-header acc-estoque">Códigos de Barras ({{ produtoForm().barras.length }})</summary>
             <div class="prod-acc-body">
-              @for (b of produtoForm().barras; track $index; let i = $index) {
-                <div class="sub-card-inline">
-                  <input type="text" [value]="b.barras" (input)="produtoForm().barras[i].barras = $any($event.target).value; isDirty.set(true)" placeholder="Código de barras" />
-                  <button class="btn-remove-row" (click)="removeBarras(i)">✕</button>
-                </div>
+              <div class="acc-input-row">
+                <input type="text" #inputBarras placeholder="Digite o código de barras e clique Adicionar" (keydown.enter)="adicionarBarras(inputBarras)" />
+                <button (click)="adicionarBarras(inputBarras)" [disabled]="!inputBarras.value.trim()">Adicionar</button>
+              </div>
+              @if (produtoForm().barras.length) {
+                <ul class="bullet-lista">
+                  @for (b of produtoForm().barras; track $index; let i = $index) {
+                    <li>
+                      <span class="bullet-texto">{{ b.barras }}</span>
+                      <button class="btn-remove-row" (click)="confirmarRemoverItem('barras', i, b.barras)" title="Remover">✕</button>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <div class="prod-acc-placeholder">Nenhum código de barras adicional.</div>
               }
-              <button class="btn-add-row" (click)="addBarras()">+ Adicionar</button>
             </div>
           </details>
 
@@ -315,33 +419,50 @@
           <details class="prod-accordion">
             <summary class="prod-acc-header acc-fiscal">Registros MS ({{ produtoForm().registrosMs.length }})</summary>
             <div class="prod-acc-body">
-              @for (m of produtoForm().registrosMs; track $index; let i = $index) {
-                <div class="sub-card-inline">
-                  <input type="text" [value]="m.numeroMs" (input)="produtoForm().registrosMs[i].numeroMs = $any($event.target).value; isDirty.set(true)" placeholder="Número MS" />
-                  <button class="btn-remove-row" (click)="removeMs(i)">✕</button>
-                </div>
+              <div class="acc-input-row">
+                <input type="text" #inputMs placeholder="Digite o número MS e clique Adicionar" (keydown.enter)="adicionarMs(inputMs)" />
+                <button (click)="adicionarMs(inputMs)" [disabled]="!inputMs.value.trim()">Adicionar</button>
+              </div>
+              @if (produtoForm().registrosMs.length) {
+                <ul class="bullet-lista">
+                  @for (m of produtoForm().registrosMs; track $index; let i = $index) {
+                    <li>
+                      <span class="bullet-texto">{{ m.numeroMs }}</span>
+                      <button class="btn-remove-row" (click)="confirmarRemoverItem('ms', i, m.numeroMs)" title="Remover">✕</button>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <div class="prod-acc-placeholder">Nenhum registro MS.</div>
               }
-              <button class="btn-add-row" (click)="addMs()">+ Adicionar</button>
             </div>
           </details>
 
-          <!-- FISCAL -->
+          <!-- FISCAL (por filial) -->
           <details class="prod-accordion">
-            <summary class="prod-acc-header acc-fiscal">Fiscal</summary>
+            <summary class="prod-acc-header acc-fiscal">Fiscal ({{ produtoForm().fiscais.length }})</summary>
             <div class="prod-acc-body">
-              <div class="prod-grid">
-                <div class="prod-field"><label>CEST</label><input type="text" [value]="produtoForm().fiscal?.cest || ''" (input)="updateFiscal('cest', $any($event.target).value)" maxlength="9" /></div>
-                <div class="prod-field"><label>ORIGEM MERCADORIA</label><input type="text" [value]="produtoForm().fiscal?.origemMercadoria || ''" (input)="updateFiscal('origemMercadoria', $any($event.target).value)" maxlength="1" /></div>
-                <div class="prod-field"><label>CST ICMS</label><input type="text" [value]="produtoForm().fiscal?.cstIcms || ''" (input)="updateFiscal('cstIcms', $any($event.target).value)" maxlength="3" /></div>
-                <div class="prod-field"><label>CSOSN</label><input type="text" [value]="produtoForm().fiscal?.csosn || ''" (input)="updateFiscal('csosn', $any($event.target).value)" maxlength="4" /></div>
-                <div class="prod-field"><label>% ICMS</label><input type="number" [value]="produtoForm().fiscal?.aliquotaIcms || 0" (input)="updateFiscal('aliquotaIcms', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>CST PIS</label><input type="text" [value]="produtoForm().fiscal?.cstPis || ''" (input)="updateFiscal('cstPis', $any($event.target).value)" maxlength="2" /></div>
-                <div class="prod-field"><label>% PIS</label><input type="number" [value]="produtoForm().fiscal?.aliquotaPis || 0" (input)="updateFiscal('aliquotaPis', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>CST COFINS</label><input type="text" [value]="produtoForm().fiscal?.cstCofins || ''" (input)="updateFiscal('cstCofins', $any($event.target).value)" maxlength="2" /></div>
-                <div class="prod-field"><label>% COFINS</label><input type="number" [value]="produtoForm().fiscal?.aliquotaCofins || 0" (input)="updateFiscal('aliquotaCofins', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>CST IPI</label><input type="text" [value]="produtoForm().fiscal?.cstIpi || ''" (input)="updateFiscal('cstIpi', $any($event.target).value)" maxlength="3" /></div>
-                <div class="prod-field"><label>% IPI</label><input type="number" [value]="produtoForm().fiscal?.aliquotaIpi || 0" (input)="updateFiscal('aliquotaIpi', +$any($event.target).value)" step="0.01" /></div>
-              </div>
+              @for (fi of produtoForm().fiscais; track $index; let i = $index) {
+                <div class="sub-card">
+                  <div class="sub-card-header"><span>Filial {{ fi.filialId }}</span></div>
+                  <div class="prod-grid">
+                    <div class="prod-field"><label>CEST</label><input type="text" [value]="fi.cest || ''" (input)="updateFiscal(i, 'cest', $any($event.target).value)" maxlength="9" /></div>
+                    <div class="prod-field"><label>ORIGEM MERCADORIA</label><input type="text" [value]="fi.origemMercadoria || ''" (input)="updateFiscal(i, 'origemMercadoria', $any($event.target).value)" maxlength="1" /></div>
+                    <div class="prod-field"><label>CST ICMS</label><input type="text" [value]="fi.cstIcms || ''" (input)="updateFiscal(i, 'cstIcms', $any($event.target).value)" maxlength="3" /></div>
+                    <div class="prod-field"><label>CSOSN</label><input type="text" [value]="fi.csosn || ''" (input)="updateFiscal(i, 'csosn', $any($event.target).value)" maxlength="4" /></div>
+                    <div class="prod-field"><label>% ICMS</label><input type="number" [value]="fi.aliquotaIcms || 0" (input)="updateFiscal(i, 'aliquotaIcms', +$any($event.target).value)" step="0.01" /></div>
+                    <div class="prod-field"><label>CST PIS</label><input type="text" [value]="fi.cstPis || ''" (input)="updateFiscal(i, 'cstPis', $any($event.target).value)" maxlength="2" /></div>
+                    <div class="prod-field"><label>% PIS</label><input type="number" [value]="fi.aliquotaPis || 0" (input)="updateFiscal(i, 'aliquotaPis', +$any($event.target).value)" step="0.01" /></div>
+                    <div class="prod-field"><label>CST COFINS</label><input type="text" [value]="fi.cstCofins || ''" (input)="updateFiscal(i, 'cstCofins', $any($event.target).value)" maxlength="2" /></div>
+                    <div class="prod-field"><label>% COFINS</label><input type="number" [value]="fi.aliquotaCofins || 0" (input)="updateFiscal(i, 'aliquotaCofins', +$any($event.target).value)" step="0.01" /></div>
+                    <div class="prod-field"><label>CST IPI</label><input type="text" [value]="fi.cstIpi || ''" (input)="updateFiscal(i, 'cstIpi', $any($event.target).value)" maxlength="3" /></div>
+                    <div class="prod-field"><label>% IPI</label><input type="number" [value]="fi.aliquotaIpi || 0" (input)="updateFiscal(i, 'aliquotaIpi', +$any($event.target).value)" step="0.01" /></div>
+                  </div>
+                </div>
+              }
+              @if (produtoForm().fiscais.length === 0) {
+                <div class="prod-acc-placeholder">Dados fiscais serao criados automaticamente ao salvar.</div>
+              }
             </div>
           </details>
 
@@ -352,11 +473,28 @@
               @for (f of produtoForm().fornecedores; track $index; let i = $index) {
                 <div class="sub-card">
                   <div class="sub-card-header">
-                    <span>Fornecedor #{{ i + 1 }}</span>
-                    <button class="btn-remove-row" (click)="removeFornecedor(i)">✕</button>
+                    <span>Fornecedor #{{ i + 1 }}{{ f.fornecedorNome ? ' — ' + f.fornecedorNome : '' }}</span>
+                    <button class="btn-remove-row" (click)="confirmarRemoverItem('fornecedor', i, f.fornecedorNome || 'Fornecedor #' + (i + 1))">✕</button>
                   </div>
                   <div class="prod-grid">
-                    <div class="prod-field"><label>ID FORNECEDOR</label><input type="number" [value]="f.fornecedorId" (input)="updateFornecedor(i, 'fornecedorId', +$any($event.target).value)" /></div>
+                    <div class="prod-field prod-field-2">
+                      <label>FORNECEDOR</label>
+                      <div class="lookup-wrap">
+                        <input type="text" [value]="f.fornecedorNome || ''"
+                               (input)="onFornecedorInput(i, $any($event.target).value)"
+                               placeholder="Digite para buscar fornecedor..." autocomplete="off" />
+                        @if (f.fornecedorId) {
+                          <button class="lookup-clear" (click)="updateFornecedor(i, 'fornecedorId', 0); updateFornecedor(i, 'fornecedorNome', '')" title="Limpar">&times;</button>
+                        }
+                        @if (lookupAberto() === 'fornecedor' && fornecedorBuscaIdx() === i && lookupFornecedor().length) {
+                          <ul class="lookup-list">
+                            @for (item of lookupFornecedor(); track item.id) {
+                              <li (mousedown)="selecionarFornecedor(i, item)">{{ item.texto }}</li>
+                            }
+                          </ul>
+                        }
+                      </div>
+                    </div>
                     <div class="prod-field"><label>CÓD. PRODUTO</label><input type="text" [value]="f.codigoProdutoFornecedor || ''" (input)="updateFornecedor(i, 'codigoProdutoFornecedor', $any($event.target).value)" maxlength="24" /></div>
                     <div class="prod-field"><label>NOME PRODUTO</label><input type="text" [value]="f.nomeProduto || ''" (input)="updateFornecedor(i, 'nomeProduto', $any($event.target).value)" /></div>
                     <div class="prod-field"><label>FRAÇÃO</label><input type="number" [value]="f.fracao" (input)="updateFornecedor(i, 'fracao', +$any($event.target).value)" min="1" /></div>

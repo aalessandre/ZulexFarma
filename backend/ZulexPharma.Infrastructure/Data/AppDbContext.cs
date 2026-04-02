@@ -438,15 +438,16 @@ public class AppDbContext : DbContext
             e.Property(x => x.NomeProduto).HasMaxLength(300);
             e.HasOne(x => x.Produto).WithMany(p => p.Fornecedores).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ProdutoId, x.FilialId, x.FornecedorId }).IsUnique();
         });
 
         modelBuilder.Entity<ProdutoFiscal>(e =>
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).UseIdentityByDefaultColumn();
-            e.HasOne(x => x.Produto).WithOne(p => p.Fiscal).HasForeignKey<ProdutoFiscal>(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Produto).WithMany(p => p.Fiscais).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Ncm).WithMany().HasForeignKey(x => x.NcmId).OnDelete(DeleteBehavior.SetNull);
-            e.HasIndex(x => x.ProdutoId).IsUnique();
+            e.HasIndex(x => new { x.ProdutoId, x.FilialId }).IsUnique();
             e.Property(x => x.Cest).HasMaxLength(9);
             e.Property(x => x.OrigemMercadoria).HasMaxLength(1);
             e.Property(x => x.CstIcms).HasMaxLength(3);
@@ -498,14 +499,22 @@ public class AppDbContext : DbContext
             e.Property(x => x.Mensagem).HasMaxLength(200);
         });
 
-        // Index on Codigo for sync lookups
+        // Configurações globais para todas as entidades BaseEntity
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType) && entityType.ClrType != typeof(BaseEntity))
             {
+                // Index on Codigo for sync lookups
                 modelBuilder.Entity(entityType.ClrType)
                     .HasIndex("Codigo")
                     .HasFilter("\"Codigo\" IS NOT NULL");
+
+                // SyncGuid: default para registros existentes + index para reconciliação
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property("SyncGuid")
+                    .HasDefaultValueSql("gen_random_uuid()");
+                modelBuilder.Entity(entityType.ClrType)
+                    .HasIndex("SyncGuid");
             }
         }
 

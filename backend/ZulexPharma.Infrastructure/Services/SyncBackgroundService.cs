@@ -164,7 +164,7 @@ public class SyncBackgroundService : BackgroundService
         // Com IDs globais por filial (faixa exclusiva), FKs são sempre válidas.
         // Ordenar por dependência para INSERTs (tabelas pai primeiro).
         var ordenadas = resultado.Data
-            .OrderBy(op => op.Operacao == "D" ? -GetOrdemTabela(op.Tabela) : GetOrdemTabela(op.Tabela))
+            .OrderBy(op => op.Operacao == "D" ? -SyncApplicator.GetOrdemTabela(op.Tabela) : SyncApplicator.GetOrdemTabela(op.Tabela))
             .ThenBy(op => op.Id)
             .ToList();
 
@@ -172,52 +172,13 @@ public class SyncBackgroundService : BackgroundService
         {
             try
             {
-                var tipo = ResolverTipo(op.Tabela);
-                if (tipo == null) continue;
+                var aplicou = await SyncApplicator.AplicarOperacaoAsync(
+                    db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, ct);
 
-                if (op.Operacao == "D")
+                if (aplicou)
                 {
-                    var existente = await BuscarPorId(db, tipo, op.RegistroId);
-                    if (existente != null)
-                    {
-                        db.Remove(existente);
-                        await db.SaveChangesAsync(ct);
-                        RegistrarRecebido(db, op);
-                        aplicados++;
-                    }
-                }
-                else if (op.Operacao == "I" && op.DadosJson != null)
-                {
-                    var existente = await BuscarPorId(db, tipo, op.RegistroId);
-                    if (existente == null)
-                    {
-                        var entidade = (Domain.Entities.BaseEntity?)JsonSerializer.Deserialize(op.DadosJson, tipo, _jsonOpts);
-                        if (entidade != null)
-                        {
-                            LimparNavigations(db, entidade);
-                            db.Add(entidade);
-                            db.Entry(entidade).Property("Id").IsTemporary = false;
-                            await db.SaveChangesAsync(ct);
-                            RegistrarRecebido(db, op);
-                            aplicados++;
-                        }
-                    }
-                }
-                else if (op.Operacao == "U" && op.DadosJson != null)
-                {
-                    var existente = await BuscarPorId(db, tipo, op.RegistroId);
-                    if (existente != null)
-                    {
-                        var entidade = (Domain.Entities.BaseEntity?)JsonSerializer.Deserialize(op.DadosJson, tipo, _jsonOpts);
-                        if (entidade != null)
-                        {
-                            LimparNavigations(db, entidade);
-                            db.Entry(existente).CurrentValues.SetValues(entidade);
-                            await db.SaveChangesAsync(ct);
-                            RegistrarRecebido(db, op);
-                            aplicados++;
-                        }
-                    }
+                    RegistrarRecebido(db, op);
+                    aplicados++;
                 }
 
                 if (op.Id > lastSuccessId) lastSuccessId = op.Id;
@@ -280,21 +241,7 @@ public class SyncBackgroundService : BackgroundService
     /// <summary>
     /// Ordem de dependência: tabelas pai têm número menor (processadas primeiro em INSERT).
     /// </summary>
-    private static int GetOrdemTabela(string tabela) => tabela switch
-    {
-        "Filiais" => 0,
-        "UsuariosGrupos" => 0,
-        "Pessoas" => 1,
-        "Colaboradores" => 2,
-        "Fornecedores" => 2,
-        "PessoasContato" => 2,
-        "PessoasEndereco" => 2,
-        "Usuarios" => 3,
-        "UsuarioFilialGrupos" => 4,
-        "UsuariosGruposPermissao" => 1,
-        "LogsAcao" => 5,
-        _ => 10
-    };
+    // GetOrdemTabela movido para SyncApplicator (classe pública compartilhada).
 
     /// <summary>
     /// Registra operação recebida na SyncFila local para aparecer no painel.
@@ -338,73 +285,8 @@ public class SyncBackgroundService : BackgroundService
         return $"[{op.Operacao}] {op.Tabela} Id={op.RegistroId}: {inner?.Message ?? ex.Message}";
     }
 
-    /// <summary>
-    /// Anula todas as navigation properties para evitar que db.Add() tente trackear o grafo inteiro.
-    /// Mantém apenas as FKs (ex: PessoaId), removendo os objetos (ex: Pessoa = null).
-    /// </summary>
-    private static void LimparNavigations(AppDbContext db, object entidade)
-    {
-        var entityType = db.Model.FindEntityType(entidade.GetType());
-        if (entityType == null) return;
-
-        foreach (var nav in entityType.GetNavigations())
-        {
-            var prop = nav.PropertyInfo;
-            if (prop != null && prop.CanWrite)
-                prop.SetValue(entidade, null);
-        }
-
-        foreach (var nav in entityType.GetSkipNavigations())
-        {
-            var prop = nav.PropertyInfo;
-            if (prop != null && prop.CanWrite)
-                prop.SetValue(entidade, null);
-        }
-    }
-
-    private static async Task<Domain.Entities.BaseEntity?> BuscarPorId(AppDbContext db, Type tipo, long id)
-    {
-        if (id <= 0) return null;
-        var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipo);
-        var dbSet = (IQueryable<Domain.Entities.BaseEntity>)method.Invoke(db, null)!;
-        return await dbSet.FirstOrDefaultAsync(e => e.Id == id);
-    }
-
-    private static readonly Dictionary<string, Type> _tiposPorTabela = new()
-    {
-        ["Filiais"] = typeof(Domain.Entities.Filial),
-        ["Pessoas"] = typeof(Domain.Entities.Pessoa),
-        ["PessoasContato"] = typeof(Domain.Entities.PessoaContato),
-        ["PessoasEndereco"] = typeof(Domain.Entities.PessoaEndereco),
-        ["Colaboradores"] = typeof(Domain.Entities.Colaborador),
-        ["Fornecedores"] = typeof(Domain.Entities.Fornecedor),
-        ["Usuarios"] = typeof(Domain.Entities.Usuario),
-        ["UsuariosGrupos"] = typeof(Domain.Entities.GrupoUsuario),
-        ["UsuariosGruposPermissao"] = typeof(Domain.Entities.GrupoPermissao),
-        ["UsuarioFilialGrupos"] = typeof(Domain.Entities.UsuarioFilialGrupo),
-        ["Fabricantes"] = typeof(Domain.Entities.Fabricante),
-        ["Substancias"] = typeof(Domain.Entities.Substancia),
-        ["GruposPrincipais"] = typeof(Domain.Entities.GrupoPrincipal),
-        ["GruposProdutos"] = typeof(Domain.Entities.GrupoProduto),
-        ["SubGrupos"] = typeof(Domain.Entities.SubGrupo),
-        ["Secoes"] = typeof(Domain.Entities.Secao),
-        ["ProdutoFamilias"] = typeof(Domain.Entities.ProdutoFamilia),
-        ["ProdutosLocais"] = typeof(Domain.Entities.ProdutoLocal),
-        ["Produtos"] = typeof(Domain.Entities.Produto),
-        ["ProdutosBarras"] = typeof(Domain.Entities.ProdutoBarras),
-        ["ProdutosMs"] = typeof(Domain.Entities.ProdutoMs),
-        ["ProdutosSubstancias"] = typeof(Domain.Entities.ProdutoSubstancia),
-        ["ProdutosFornecedores"] = typeof(Domain.Entities.ProdutoFornecedor),
-        ["ProdutosFiscal"] = typeof(Domain.Entities.ProdutoFiscal),
-        ["ProdutosDados"] = typeof(Domain.Entities.ProdutoDados),
-        ["Ncms"] = typeof(Domain.Entities.Ncm),
-        ["NcmFederais"] = typeof(Domain.Entities.NcmFederal),
-        ["NcmIcmsUfs"] = typeof(Domain.Entities.NcmIcmsUf),
-        ["NcmStUfs"] = typeof(Domain.Entities.NcmStUf),
-        // LogsAcao e LogsErro são locais, não replicam
-    };
-
-    private static Type? ResolverTipo(string tabela) => _tiposPorTabela.GetValueOrDefault(tabela);
+    // Métodos BuscarPorId, LimparNavigations, ResolverTipo e _tiposPorTabela
+    // foram movidos para SyncApplicator (classe compartilhada).
 
     private async Task<string?> ObterToken(CancellationToken ct)
     {

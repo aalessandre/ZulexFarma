@@ -46,7 +46,7 @@ public class ProdutoDetalheDto
     public List<ProdutoMsDto> RegistrosMs { get; set; } = new();
     public List<ProdutoSubstanciaDto> Substancias { get; set; } = new();
     public List<ProdutoFornecedorDto> Fornecedores { get; set; } = new();
-    public ProdutoFiscalDto? Fiscal { get; set; }
+    public List<ProdutoFiscalDto> Fiscais { get; set; } = new();
     public List<ProdutoDadosDto> Dados { get; set; } = new();
 }
 
@@ -72,8 +72,14 @@ public class ProdutoFormDto
     public List<ProdutoMsDto> RegistrosMs { get; set; } = new();
     public List<ProdutoSubstanciaDto> Substancias { get; set; } = new();
     public List<ProdutoFornecedorDto> Fornecedores { get; set; } = new();
-    public ProdutoFiscalDto? Fiscal { get; set; }
+    public List<ProdutoFiscalDto> Fiscais { get; set; } = new();
     public List<ProdutoDadosDto> Dados { get; set; } = new();
+
+    /// <summary>
+    /// Filiais para aplicar alteração de preço (usado quando regra = "perguntar").
+    /// null = não propagar; lista com IDs = propagar para essas filiais.
+    /// </summary>
+    public List<long>? FiliaisPrecoAplicar { get; set; }
 }
 
 // ── Sub-tabelas ─────────────────────────────────────────────────────
@@ -100,6 +106,7 @@ public class ProdutoSubstanciaDto
 public class ProdutoFornecedorDto
 {
     public long? Id { get; set; }
+    public long FilialId { get; set; }
     public long FornecedorId { get; set; }
     public string? FornecedorNome { get; set; }
     public string? CodigoProdutoFornecedor { get; set; }
@@ -110,6 +117,7 @@ public class ProdutoFornecedorDto
 public class ProdutoFiscalDto
 {
     public long? Id { get; set; }
+    public long FilialId { get; set; }
     public long? NcmId { get; set; }
     public string? NcmCodigo { get; set; }
     public string? Cest { get; set; }

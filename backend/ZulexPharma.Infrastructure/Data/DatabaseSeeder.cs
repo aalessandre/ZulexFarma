@@ -78,8 +78,16 @@ public static class DatabaseSeeder
             context.Configuracoes.AddRange(
                 new Configuracao { Chave = "sessao.maxima.minutos", Valor = "480", Descricao = "Tempo maximo de sessao em minutos (0 = sem limite)" },
                 new Configuracao { Chave = "sessao.inatividade.minutos", Valor = "10", Descricao = "Tempo de inatividade para encerrar sessao (0 = sem limite)" },
-                new Configuracao { Chave = "sistema.nome", Valor = "ZulexPharma", Descricao = "Nome do sistema exibido no topo" }
+                new Configuracao { Chave = "sistema.nome", Valor = "ZulexPharma", Descricao = "Nome do sistema exibido no topo" },
+                new Configuracao { Chave = "produto.preco.regra", Valor = "perguntar", Descricao = "Ao alterar preco: perguntar | todas | atual" }
             );
+            await context.SaveChangesAsync();
+        }
+
+        // Seed de configurações adicionais (para bancos já existentes)
+        if (!await context.Configuracoes.AnyAsync(c => c.Chave == "produto.preco.regra"))
+        {
+            context.Configuracoes.Add(new Configuracao { Chave = "produto.preco.regra", Valor = "perguntar", Descricao = "Ao alterar preco: perguntar | todas | atual" });
             await context.SaveChangesAsync();
         }
 
@@ -108,28 +116,35 @@ public static class DatabaseSeeder
         // ── Produto ──────────────────────────────────────────────
         var tabelasProduto = new[] { "Produtos", "ProdutosBarras", "ProdutosMs", "ProdutosSubstancias",
             "ProdutosFornecedores", "ProdutosFiscal", "ProdutosDados", "ProdutosLocais", "ProdutoFamilias" };
+        var tabelasProdutoFilial = new HashSet<string> { "ProdutosDados", "ProdutosFiscal", "ProdutosFornecedores", "ProdutosLocais" };
         foreach (var tabela in tabelasProduto)
         {
-            if (!await context.DicionarioTabelas.AnyAsync(d => d.Tabela == tabela))
+            var escopo = tabelasProdutoFilial.Contains(tabela) ? "filial" : "global";
+            var instrucao = tabela switch
+            {
+                "Produtos" => "Cadastro principal de produtos. Dados globais compartilhados entre filiais.",
+                "ProdutosBarras" => "Codigos de barras adicionais do produto. Global (mesmo barras em todas as filiais).",
+                "ProdutosMs" => "Registros MS (Ministerio da Saude) do produto. Global (registro federal).",
+                "ProdutosSubstancias" => "Vinculo produto-substancia (N:N). Global (principio ativo nao muda por filial).",
+                "ProdutosFornecedores" => "Vinculo produto-fornecedor por filial. Cada filial pode ter fornecedores diferentes. Tem FilialId.",
+                "ProdutosFiscal" => "Dados fiscais/tributarios do produto por filial. ICMS/PIS/COFINS variam por UF. Tem FilialId. Auto-criado para cada filial ao cadastrar produto.",
+                "ProdutosDados" => "Dados por filial: estoque, precos, promocao, descontos, flags. Tem FilialId. Auto-criado para cada filial ao cadastrar produto.",
+                "ProdutosLocais" => "Localizacao fisica do produto por filial (ex: Prateleira Azul). Tem FilialId.",
+                "ProdutoFamilias" => "Familias de produtos. Classificacao simples com nome. Global.",
+                _ => (string?)null
+            };
+
+            var existente = await context.DicionarioTabelas.FirstOrDefaultAsync(d => d.Tabela == tabela);
+            if (existente != null)
+            {
+                existente.Escopo = escopo;
+                existente.InstrucaoIA = instrucao;
+            }
+            else
             {
                 context.DicionarioTabelas.Add(new DicionarioTabela
                 {
-                    Tabela = tabela,
-                    Escopo = tabela == "ProdutosDados" ? "filial" : "global",
-                    Replica = true,
-                    InstrucaoIA = tabela switch
-                    {
-                        "Produtos" => "Cadastro principal de produtos. Dados globais compartilhados entre filiais.",
-                        "ProdutosBarras" => "Codigos de barras adicionais do produto.",
-                        "ProdutosMs" => "Registros MS (Ministerio da Saude) do produto.",
-                        "ProdutosSubstancias" => "Vinculo produto-substancia (N:N).",
-                        "ProdutosFornecedores" => "Vinculo produto-fornecedor com codigo e nome no fornecedor.",
-                        "ProdutosFiscal" => "Dados fiscais/tributarios do produto (1:1).",
-                        "ProdutosDados" => "Dados por filial: estoque, precos, promocao, descontos, flags.",
-                        "ProdutosLocais" => "Localizacao fisica do produto por filial.",
-                        "ProdutoFamilias" => "Familias de produtos. Classificacao simples com nome.",
-                        _ => null
-                    }
+                    Tabela = tabela, Escopo = escopo, Replica = true, InstrucaoIA = instrucao
                 });
             }
         }
