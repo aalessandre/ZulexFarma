@@ -145,6 +145,7 @@ public class ProdutoDadosDto
     public decimal EstoqueMaximo { get; set; }
     public decimal Demanda { get; set; }
     public string? CurvaAbc { get; set; }
+    public decimal EstoqueDeposito { get; set; }
 
     // Preços — Última Compra
     public decimal UltimaCompraUnitario { get; set; }
@@ -154,15 +155,18 @@ public class ProdutoDadosDto
     public decimal UltimaCompraFpc { get; set; }
     public decimal UltimaCompraBoleto { get; set; }
     public decimal UltimaCompraDifal { get; set; }
+    public decimal UltimaCompraFrete { get; set; }
 
     // Preços — Valores
     public decimal CustoMedio { get; set; }
     public decimal ProjecaoLucro { get; set; }
     public decimal Markup { get; set; }
     public decimal ValorVenda { get; set; }
+    public decimal Pmc { get; set; }
 
     // Promoção
     public decimal ValorPromocao { get; set; }
+    public decimal ValorPromocaoPrazo { get; set; }
     public DateTime? PromocaoInicio { get; set; }
     public DateTime? PromocaoFim { get; set; }
 

@@ -74,13 +74,13 @@ interface ProdutoFornecedorItem { id?: number; filialId: number; fornecedorId: n
 interface ProdutoFiscalItem { id?: number; filialId: number; ncmId?: number; ncmCodigo?: string; cest?: string; origemMercadoria?: string; cstIcms?: string; csosn?: string; aliquotaIcms: number; cstPis?: string; aliquotaPis: number; cstCofins?: string; aliquotaCofins: number; cstIpi?: string; aliquotaIpi: number; }
 interface ProdutoDadosItem {
   id?: number; filialId: number; filialNome?: string;
-  estoqueAtual: number; estoqueMinimo: number; estoqueMaximo: number; demanda: number; curvaAbc?: string;
-  ultimaCompraUnitario: number; ultimaCompraSt: number; ultimaCompraOutros: number; ultimaCompraIpi: number; ultimaCompraFpc: number; ultimaCompraBoleto: number; ultimaCompraDifal: number;
-  custoMedio: number; projecaoLucro: number; markup: number; valorVenda: number;
-  valorPromocao: number; promocaoInicio?: string; promocaoFim?: string;
+  estoqueAtual: number; estoqueMinimo: number; estoqueMaximo: number; demanda: number; curvaAbc?: string; estoqueDeposito: number;
+  ultimaCompraUnitario: number; ultimaCompraSt: number; ultimaCompraOutros: number; ultimaCompraIpi: number; ultimaCompraFpc: number; ultimaCompraBoleto: number; ultimaCompraDifal: number; ultimaCompraFrete: number;
+  custoMedio: number; projecaoLucro: number; markup: number; valorVenda: number; pmc: number;
+  valorPromocao: number; valorPromocaoPrazo: number; promocaoInicio?: string; promocaoFim?: string;
   descontoMinimo: number; descontoMaxSemSenha: number; descontoMaxComSenha: number;
   comissao: number; valorIncentivo: number;
-  produtoLocalId?: number; secaoId?: number; produtoFamiliaId?: number;
+  produtoLocalId?: number; produtoLocalNome?: string; secaoId?: number; produtoFamiliaId?: number;
   nomeEtiqueta?: string; mensagem?: string;
   bloquearDesconto: boolean; bloquearPromocao: boolean; naoAtualizarAbcfarma: boolean; naoAtualizarGestorTributario: boolean; bloquearCompras: boolean; produtoFormula: boolean; bloquearComissao: boolean; bloquearCoberturaOferta: boolean; usoContinuo: boolean; avisoFracao: boolean;
   ultimaCompraEm?: string; ultimaVendaEm?: string;
@@ -214,6 +214,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   substanciaBusca = signal('');
   lookupFornecedor = signal<LookupItem[]>([]);
   fornecedorBuscaIdx = signal<number | null>(null);
+  lookupLocal = signal<LookupItem[]>([]);
+  lookupFamilia = signal<LookupItem[]>([]);
   private lookupTimers: Record<string, any> = {};
   private lookupCaches: Record<string, { data: any[]; ts: number }> = {};
 
@@ -649,10 +651,37 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   async incluirProduto() {
     if (!await this.verificarPermissao('i')) return;
     const novo = this.novoProdutoForm();
+
+    // Buscar filiais para pre-popular Dados, Fiscal e Fornecedores
+    try {
+      const resp = await this.http.get<any>(`${environment.apiUrl}/filiais`).toPromise();
+      const filiais: any[] = resp?.data ?? [];
+      novo.dados = filiais.map((f: any) => this.novoDadosFilial(f.id));
+      novo.fiscais = filiais.map((f: any) => this.novoFiscalFilial(f.id));
+    } catch { /* silenciar — backend criará ao salvar */ }
+
     this.produtoForm.set(novo);
     this.produtoFormOriginal = JSON.stringify(novo);
     this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(false);
     this.produtoEditandoId.set(null); this.modo.set('form');
+  }
+
+  private novoDadosFilial(filialId: number): ProdutoDadosItem {
+    return {
+      filialId, estoqueAtual: 0, estoqueMinimo: 0, estoqueMaximo: 0, demanda: 0, estoqueDeposito: 0,
+      ultimaCompraUnitario: 0, ultimaCompraSt: 0, ultimaCompraOutros: 0, ultimaCompraIpi: 0,
+      ultimaCompraFpc: 0, ultimaCompraBoleto: 0, ultimaCompraDifal: 0, ultimaCompraFrete: 0,
+      custoMedio: 0, projecaoLucro: 0, markup: 0, valorVenda: 0, pmc: 0,
+      valorPromocao: 0, valorPromocaoPrazo: 0, descontoMinimo: 0, descontoMaxSemSenha: 0, descontoMaxComSenha: 0,
+      comissao: 0, valorIncentivo: 0,
+      bloquearDesconto: false, bloquearPromocao: false, naoAtualizarAbcfarma: false,
+      naoAtualizarGestorTributario: false, bloquearCompras: false, produtoFormula: false,
+      bloquearComissao: false, bloquearCoberturaOferta: false, usoContinuo: false, avisoFracao: false
+    };
+  }
+
+  private novoFiscalFilial(filialId: number): ProdutoFiscalItem {
+    return { filialId, aliquotaIcms: 0, aliquotaPis: 0, aliquotaCofins: 0, aliquotaIpi: 0 };
   }
 
   async editarProduto() {
@@ -1043,6 +1072,52 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     if (!(e.target as HTMLElement).closest('.lookup-wrap')) {
       this.lookupAberto.set(null);
     }
+  }
+
+  // ── Lookups para Dados por filial (Local, Família, Seção) ────────
+
+  onDadosLookupInput(dadosIdx: number, tipo: string, valor: string) {
+    clearTimeout(this.lookupTimers[tipo]);
+    if (tipo === 'local') this.produtoForm.update(f => ({ ...f, dados: f.dados.map((d, i) => i === dadosIdx ? { ...d, produtoLocalNome: valor, produtoLocalId: undefined } : d) }));
+    if (valor.trim().length < 1) { this.getLookupSignalDados(tipo).set([]); this.lookupAberto.set(null); return; }
+    this.lookupTimers[tipo] = setTimeout(() => {
+      const url = tipo === 'local' ? '/produto-locais' : tipo === 'familia' ? '/produto-familias' : '/secoes';
+      const cache = this.lookupCaches[tipo];
+      if (cache && Date.now() - cache.ts < 30000) {
+        this.filtrarDadosLookupLocal(tipo, valor, cache.data);
+        return;
+      }
+      this.http.get<any>(`${environment.apiUrl}${url}`).subscribe({
+        next: resp => {
+          const lista = resp?.data ?? [];
+          this.lookupCaches[tipo] = { data: lista, ts: Date.now() };
+          this.filtrarDadosLookupLocal(tipo, valor, lista);
+        },
+        error: () => this.getLookupSignalDados(tipo).set([])
+      });
+    }, 250);
+  }
+
+  private filtrarDadosLookupLocal(tipo: string, valor: string, lista: any[]) {
+    const termo = valor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const filtrada = lista
+      .filter((r: any) => r.ativo !== false && r.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(termo))
+      .slice(0, 20)
+      .map((r: any) => ({ id: r.id, texto: r.nome }));
+    this.getLookupSignalDados(tipo).set(filtrada);
+    this.lookupAberto.set(filtrada.length > 0 ? tipo : null);
+  }
+
+  selecionarDadosLookup(dadosIdx: number, tipo: string, item: LookupItem) {
+    const campo = tipo === 'local' ? 'produtoLocalId' : tipo === 'familia' ? 'produtoFamiliaId' : 'secaoId';
+    this.updateDados(dadosIdx, campo, item.id);
+    if (tipo === 'local') this.produtoForm.update(f => ({ ...f, dados: f.dados.map((d, i) => i === dadosIdx ? { ...d, produtoLocalNome: item.texto } : d) }));
+    this.getLookupSignalDados(tipo).set([]);
+    this.lookupAberto.set(null);
+  }
+
+  private getLookupSignalDados(tipo: string) {
+    return tipo === 'local' ? this.lookupLocal : this.lookupFamilia;
   }
 
   isProdutoAba(): boolean { return this.abaAtiva() === 'produtos'; }

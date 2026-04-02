@@ -356,13 +356,14 @@ public class ProdutoService : IProdutoService
         e.FilialId = d.FilialId;
         e.EstoqueAtual = d.EstoqueAtual; e.EstoqueMinimo = d.EstoqueMinimo;
         e.EstoqueMaximo = d.EstoqueMaximo; e.Demanda = d.Demanda; e.CurvaAbc = d.CurvaAbc;
+        e.EstoqueDeposito = d.EstoqueDeposito;
         e.UltimaCompraUnitario = d.UltimaCompraUnitario; e.UltimaCompraSt = d.UltimaCompraSt;
         e.UltimaCompraOutros = d.UltimaCompraOutros; e.UltimaCompraIpi = d.UltimaCompraIpi;
         e.UltimaCompraFpc = d.UltimaCompraFpc; e.UltimaCompraBoleto = d.UltimaCompraBoleto;
-        e.UltimaCompraDifal = d.UltimaCompraDifal;
+        e.UltimaCompraDifal = d.UltimaCompraDifal; e.UltimaCompraFrete = d.UltimaCompraFrete;
         e.CustoMedio = d.CustoMedio; e.ProjecaoLucro = d.ProjecaoLucro;
-        e.Markup = d.Markup; e.ValorVenda = d.ValorVenda;
-        e.ValorPromocao = d.ValorPromocao; e.PromocaoInicio = d.PromocaoInicio; e.PromocaoFim = d.PromocaoFim;
+        e.Markup = d.Markup; e.ValorVenda = d.ValorVenda; e.Pmc = d.Pmc;
+        e.ValorPromocao = d.ValorPromocao; e.ValorPromocaoPrazo = d.ValorPromocaoPrazo; e.PromocaoInicio = d.PromocaoInicio; e.PromocaoFim = d.PromocaoFim;
         e.DescontoMinimo = d.DescontoMinimo; e.DescontoMaxSemSenha = d.DescontoMaxSemSenha;
         e.DescontoMaxComSenha = d.DescontoMaxComSenha;
         e.Comissao = d.Comissao; e.ValorIncentivo = d.ValorIncentivo;
@@ -410,7 +411,8 @@ public class ProdutoService : IProdutoService
 
     /// <summary>Campos considerados "de preço" para propagação entre filiais.</summary>
     private static readonly string[] CamposPreco = {
-        "ValorVenda", "ValorPromocao", "Markup", "ProjecaoLucro",
+        "ValorVenda", "ValorPromocao", "ValorPromocaoPrazo", "Pmc",
+        "Markup", "ProjecaoLucro",
         "DescontoMinimo", "DescontoMaxSemSenha", "DescontoMaxComSenha",
         "Comissao", "ValorIncentivo"
     };
@@ -456,6 +458,8 @@ public class ProdutoService : IProdutoService
         {
             d.ValorVenda = dadosOrigem.ValorVenda;
             d.ValorPromocao = dadosOrigem.ValorPromocao;
+            d.ValorPromocaoPrazo = dadosOrigem.ValorPromocaoPrazo;
+            d.Pmc = dadosOrigem.Pmc;
             d.Markup = dadosOrigem.Markup;
             d.ProjecaoLucro = dadosOrigem.ProjecaoLucro;
             d.DescontoMinimo = dadosOrigem.DescontoMinimo;
@@ -512,13 +516,15 @@ public class ProdutoService : IProdutoService
             Id = d.Id, FilialId = d.FilialId,
             EstoqueAtual = d.EstoqueAtual, EstoqueMinimo = d.EstoqueMinimo,
             EstoqueMaximo = d.EstoqueMaximo, Demanda = d.Demanda, CurvaAbc = d.CurvaAbc,
+            EstoqueDeposito = d.EstoqueDeposito,
             UltimaCompraUnitario = d.UltimaCompraUnitario, UltimaCompraSt = d.UltimaCompraSt,
             UltimaCompraOutros = d.UltimaCompraOutros, UltimaCompraIpi = d.UltimaCompraIpi,
             UltimaCompraFpc = d.UltimaCompraFpc, UltimaCompraBoleto = d.UltimaCompraBoleto,
-            UltimaCompraDifal = d.UltimaCompraDifal,
+            UltimaCompraDifal = d.UltimaCompraDifal, UltimaCompraFrete = d.UltimaCompraFrete,
             CustoMedio = d.CustoMedio, ProjecaoLucro = d.ProjecaoLucro,
-            Markup = d.Markup, ValorVenda = d.ValorVenda,
-            ValorPromocao = d.ValorPromocao, PromocaoInicio = d.PromocaoInicio, PromocaoFim = d.PromocaoFim,
+            Markup = d.Markup, ValorVenda = d.ValorVenda, Pmc = d.Pmc,
+            ValorPromocao = d.ValorPromocao, ValorPromocaoPrazo = d.ValorPromocaoPrazo,
+            PromocaoInicio = d.PromocaoInicio, PromocaoFim = d.PromocaoFim,
             DescontoMinimo = d.DescontoMinimo, DescontoMaxSemSenha = d.DescontoMaxSemSenha,
             DescontoMaxComSenha = d.DescontoMaxComSenha,
             Comissao = d.Comissao, ValorIncentivo = d.ValorIncentivo,

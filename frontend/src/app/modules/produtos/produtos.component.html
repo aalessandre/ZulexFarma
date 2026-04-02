@@ -466,6 +466,145 @@
             </div>
           </details>
 
+          <!-- ESTOQUE / PREÇOS / GERAL (por filial — ProdutoDados) -->
+          @for (dd of produtoForm().dados; track $index; let di = $index) {
+
+          <!-- ESTOQUE -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-estoque">Estoque — Filial {{ dd.filialId }}</summary>
+            <div class="prod-acc-body">
+              <div class="prod-grid">
+                <div class="prod-field"><label>ESTOQUE ATUAL</label><input type="number" [value]="dd.estoqueAtual" (input)="updateDados(di, 'estoqueAtual', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>ESTOQUE MÍNIMO</label><input type="number" [value]="dd.estoqueMinimo" (input)="updateDados(di, 'estoqueMinimo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>ESTOQUE MÁXIMO</label><input type="number" [value]="dd.estoqueMaximo" (input)="updateDados(di, 'estoqueMaximo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>DEMANDA</label><input type="number" [value]="dd.demanda" (input)="updateDados(di, 'demanda', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CURVA ABC</label><input type="text" [value]="dd.curvaAbc || ''" (input)="updateDados(di, 'curvaAbc', $any($event.target).value)" maxlength="1" /></div>
+                <div class="prod-field"><label>ESTOQUE DEPÓSITO</label><input type="number" [value]="dd.estoqueDeposito" (input)="updateDados(di, 'estoqueDeposito', +$any($event.target).value)" step="0.01" /></div>
+              </div>
+            </div>
+          </details>
+
+          <!-- PREÇOS -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-precos">Preços — Filial {{ dd.filialId }}</summary>
+            <div class="prod-acc-body">
+              <div class="prod-section">Última Compra</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="number" [value]="dd.ultimaCompraUnitario" (input)="updateDados(di, 'ultimaCompraUnitario', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR ST</label><input type="number" [value]="dd.ultimaCompraSt" (input)="updateDados(di, 'ultimaCompraSt', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR OUTROS</label><input type="number" [value]="dd.ultimaCompraOutros" (input)="updateDados(di, 'ultimaCompraOutros', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>IPI</label><input type="number" [value]="dd.ultimaCompraIpi" (input)="updateDados(di, 'ultimaCompraIpi', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>FPC</label><input type="number" [value]="dd.ultimaCompraFpc" (input)="updateDados(di, 'ultimaCompraFpc', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>BOLETO</label><input type="number" [value]="dd.ultimaCompraBoleto" (input)="updateDados(di, 'ultimaCompraBoleto', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>DIFAL</label><input type="number" [value]="dd.ultimaCompraDifal" (input)="updateDados(di, 'ultimaCompraDifal', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>FRETE</label><input type="number" [value]="dd.ultimaCompraFrete" (input)="updateDados(di, 'ultimaCompraFrete', +$any($event.target).value)" step="0.01" /></div>
+              </div>
+              <div class="prod-section">Valores</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="number" [value]="dd.custoMedio" (input)="updateDados(di, 'custoMedio', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% PROJ LUCRO</label><input type="number" [value]="dd.projecaoLucro" (input)="updateDados(di, 'projecaoLucro', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% MARKUP</label><input type="number" [value]="dd.markup" (input)="updateDados(di, 'markup', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR VENDA</label><input type="number" [value]="dd.valorVenda" (input)="updateDados(di, 'valorVenda', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>PMC</label><input type="number" [value]="dd.pmc" (input)="updateDados(di, 'pmc', +$any($event.target).value)" step="0.01" /></div>
+              </div>
+              <div class="prod-section">Promoção</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>VLR PROMOÇÃO À VISTA</label><input type="number" [value]="dd.valorPromocao" (input)="updateDados(di, 'valorPromocao', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR PROMOÇÃO A PRAZO</label><input type="number" [value]="dd.valorPromocaoPrazo" (input)="updateDados(di, 'valorPromocaoPrazo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>DATA INÍCIO</label><input type="date" [value]="dd.promocaoInicio || ''" (input)="updateDados(di, 'promocaoInicio', $any($event.target).value || null)" /></div>
+                <div class="prod-field"><label>DATA TÉRMINO</label><input type="date" [value]="dd.promocaoFim || ''" (input)="updateDados(di, 'promocaoFim', $any($event.target).value || null)" /></div>
+              </div>
+              <div class="prod-section">Descontos</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="number" [value]="dd.descontoMinimo" (input)="updateDados(di, 'descontoMinimo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="number" [value]="dd.descontoMaxSemSenha" (input)="updateDados(di, 'descontoMaxSemSenha', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="number" [value]="dd.descontoMaxComSenha" (input)="updateDados(di, 'descontoMaxComSenha', +$any($event.target).value)" step="0.01" /></div>
+              </div>
+            </div>
+          </details>
+
+          <!-- GERAL -->
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-geral">Geral — Filial {{ dd.filialId }}</summary>
+            <div class="prod-acc-body">
+              <div class="prod-grid">
+                <div class="prod-field"><label>% COMISSÃO</label><input type="number" [value]="dd.comissao" (input)="updateDados(di, 'comissao', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR INCENTIVO</label><input type="number" [value]="dd.valorIncentivo" (input)="updateDados(di, 'valorIncentivo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field">
+                  <label>LOCAL</label>
+                  <div class="lookup-wrap">
+                    <input type="text" [value]="dd.produtoLocalNome || ''"
+                           (input)="onDadosLookupInput(di, 'local', $any($event.target).value)"
+                           placeholder="Buscar local..." autocomplete="off" />
+                    @if (dd.produtoLocalId) {
+                      <button class="lookup-clear" (click)="updateDados(di, 'produtoLocalId', null); updateDados(di, 'produtoLocalNome', '')">&times;</button>
+                    }
+                    @if (lookupAberto() === 'local' && lookupLocal().length) {
+                      <ul class="lookup-list">
+                        @for (item of lookupLocal(); track item.id) {
+                          <li (mousedown)="selecionarDadosLookup(di, 'local', item)">{{ item.texto }}</li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                </div>
+                <div class="prod-field">
+                  <label>FAMÍLIA</label>
+                  <div class="lookup-wrap">
+                    <input type="text" [value]="dd.produtoFamiliaId ? dd.produtoFamiliaId : ''"
+                           (input)="onDadosLookupInput(di, 'familia', $any($event.target).value)"
+                           placeholder="Buscar família..." autocomplete="off" />
+                    @if (dd.produtoFamiliaId) {
+                      <button class="lookup-clear" (click)="updateDados(di, 'produtoFamiliaId', null)">&times;</button>
+                    }
+                    @if (lookupAberto() === 'familia' && lookupFamilia().length) {
+                      <ul class="lookup-list">
+                        @for (item of lookupFamilia(); track item.id) {
+                          <li (mousedown)="selecionarDadosLookup(di, 'familia', item)">{{ item.texto }}</li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                </div>
+                <div class="prod-field">
+                  <label>SEÇÃO</label>
+                  <div class="lookup-wrap">
+                    <input type="text" [value]="dd.secaoId ? dd.secaoId : ''"
+                           (input)="onDadosLookupInput(di, 'secao', $any($event.target).value)"
+                           placeholder="Buscar seção..." autocomplete="off" />
+                    @if (dd.secaoId) {
+                      <button class="lookup-clear" (click)="updateDados(di, 'secaoId', null)">&times;</button>
+                    }
+                    @if (lookupAberto() === 'secao' && lookupFamilia().length) {
+                      <ul class="lookup-list">
+                        @for (item of lookupFamilia(); track item.id) {
+                          <li (mousedown)="selecionarDadosLookup(di, 'secao', item)">{{ item.texto }}</li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                </div>
+                <div class="prod-field"><label>NOME ETIQUETA</label><input type="text" [value]="dd.nomeEtiqueta || ''" (input)="updateDados(di, 'nomeEtiqueta', $any($event.target).value)" maxlength="60" /></div>
+                <div class="prod-field prod-field-full"><label>MENSAGEM</label><textarea rows="2" [value]="dd.mensagem || ''" (input)="updateDados(di, 'mensagem', $any($event.target).value)" maxlength="200" placeholder="Máximo 200 caracteres"></textarea></div>
+              </div>
+              <div class="prod-section">Flags</div>
+              <div class="prod-grid prod-grid-checks">
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearDesconto" (change)="updateDados(di, 'bloquearDesconto', $any($event.target).checked)" /><span>Bloquear Desconto</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearPromocao" (change)="updateDados(di, 'bloquearPromocao', $any($event.target).checked)" /><span>Bloquear Promoção</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.naoAtualizarAbcfarma" (change)="updateDados(di, 'naoAtualizarAbcfarma', $any($event.target).checked)" /><span>Não Atualizar ABCFarma</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.naoAtualizarGestorTributario" (change)="updateDados(di, 'naoAtualizarGestorTributario', $any($event.target).checked)" /><span>Não Atualizar Gestor Tributário</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearCompras" (change)="updateDados(di, 'bloquearCompras', $any($event.target).checked)" /><span>Bloquear Compras</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.produtoFormula" (change)="updateDados(di, 'produtoFormula', $any($event.target).checked)" /><span>Produto Fórmula (Manipulação)</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearComissao" (change)="updateDados(di, 'bloquearComissao', $any($event.target).checked)" /><span>Bloquear Comissão</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearCoberturaOferta" (change)="updateDados(di, 'bloquearCoberturaOferta', $any($event.target).checked)" /><span>Bloquear Cobertura de Oferta</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.usoContinuo" (change)="updateDados(di, 'usoContinuo', $any($event.target).checked)" /><span>Uso Contínuo</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.avisoFracao" (change)="updateDados(di, 'avisoFracao', $any($event.target).checked)" /><span>Aviso de Fração</span></label></div>
+              </div>
+            </div>
+          </details>
+
+          }
+
           <!-- VÍNCULOS FORNECEDORES -->
           <details class="prod-accordion">
             <summary class="prod-acc-header acc-fornecedores">Fornecedores ({{ produtoForm().fornecedores.length }})</summary>

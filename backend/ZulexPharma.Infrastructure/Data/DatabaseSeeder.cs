@@ -47,7 +47,7 @@ public static class DatabaseSeeder
             await context.SaveChangesAsync();
             // Forçar ID fixo
             if (filial.Id != filialSeedId)
-                await context.Database.ExecuteSqlRawAsync(
+                await context.Database.ExecuteSqlAsync(
                     $"UPDATE \"Filiais\" SET \"Id\" = {filialSeedId} WHERE \"Id\" = {filial.Id}");
         }
 
@@ -69,7 +69,7 @@ public static class DatabaseSeeder
                 context.UsuariosGrupos.Add(grupo);
                 await context.SaveChangesAsync();
                 // Forçar ID fixo via SQL direto (o EF gerou um ID pela faixa, precisamos corrigir)
-                await context.Database.ExecuteSqlRawAsync(
+                await context.Database.ExecuteSqlAsync(
                     $"UPDATE \"UsuariosGrupos\" SET \"Id\" = {id} WHERE \"Id\" = {grupo.Id}");
             }
         }

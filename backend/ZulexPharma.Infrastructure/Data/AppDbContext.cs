@@ -483,11 +483,15 @@ public class AppDbContext : DbContext
             e.Property(x => x.UltimaCompraFpc).HasColumnType("numeric(10,4)");
             e.Property(x => x.UltimaCompraBoleto).HasColumnType("numeric(10,4)");
             e.Property(x => x.UltimaCompraDifal).HasColumnType("numeric(10,4)");
+            e.Property(x => x.UltimaCompraFrete).HasColumnType("numeric(10,4)");
             e.Property(x => x.CustoMedio).HasColumnType("numeric(10,4)");
             e.Property(x => x.ProjecaoLucro).HasColumnType("numeric(5,2)");
             e.Property(x => x.Markup).HasColumnType("numeric(5,2)");
             e.Property(x => x.ValorVenda).HasColumnType("numeric(10,4)");
+            e.Property(x => x.Pmc).HasColumnType("numeric(10,4)");
             e.Property(x => x.ValorPromocao).HasColumnType("numeric(10,4)");
+            e.Property(x => x.ValorPromocaoPrazo).HasColumnType("numeric(10,4)");
+            e.Property(x => x.EstoqueDeposito).HasColumnType("numeric(10,4)");
 
             // Descontos / Geral
             e.Property(x => x.DescontoMinimo).HasColumnType("numeric(5,2)");
