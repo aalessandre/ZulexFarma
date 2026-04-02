@@ -195,5 +195,7 @@ public static class SyncApplicator
         ["NcmIcmsUfs"] = typeof(NcmIcmsUf),
         ["NcmStUfs"] = typeof(NcmStUf),
         ["Configuracoes"] = typeof(Configuracao),
+        ["LogsAcao"] = typeof(LogAcao),
+        ["LogsErro"] = typeof(LogErro),
     };
 }

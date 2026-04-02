@@ -563,13 +563,13 @@ public class AppDbContext : DbContext
     }
 
     // Tabelas que NÃO geram Codigo nem entram na SyncFila
-    // Tabelas que NÃO geram SyncFila (infraestrutura local).
-    // REGRA: todas as filiais veem dados de todas as filiais. Tudo replica exceto infraestrutura.
+    // Tabelas que NÃO geram SyncFila (infraestrutura de sync apenas).
+    // REGRA: todas as filiais veem dados de todas as filiais. TUDO replica.
     // Nota: DicionarioTabelas/Revisoes/Relacionamentos não herdam BaseEntity,
     // então não passam pelo interceptor — não precisam estar aqui.
     private static readonly HashSet<string> _tabelasSemSync = new()
     {
-        "SyncFila", "SequenciasLocais", "LogsAcao", "LogsErro"
+        "SyncFila", "SequenciasLocais"
     };
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

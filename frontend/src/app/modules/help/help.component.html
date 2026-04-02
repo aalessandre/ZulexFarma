@@ -212,15 +212,15 @@
 
             <div class="cmd-grupo">
               <div class="cmd-label">Regra Fundamental: Todas as filiais veem tudo</div>
-              <span class="cmd-obs">TODAS as filiais veem dados de TODAS as filiais. TUDO replica, exceto infraestrutura local (SyncFila, SequenciasLocais, LogsAcao, LogsErro). Configuracoes tambem replicam. DicionarioTabelas/Revisoes/Relacionamentos nao herdam BaseEntity, sao identicos pelo seed.</span>
+              <span class="cmd-obs">TODAS as filiais veem dados de TODAS as filiais. TUDO replica, incluindo Configuracoes, LogsAcao e LogsErro. Unicas excecoes: SyncFila e SequenciasLocais (infraestrutura de sync). DicionarioTabelas/Revisoes/Relacionamentos nao herdam BaseEntity, sao identicos pelo seed.</span>
             </div>
 
             <div class="cmd-grupo">
               <div class="cmd-label">Tabelas Globais vs Por Filial</div>
               <span class="cmd-obs">
-                Globais (replicam para todas): Produto, ProdutoBarras, ProdutoMs, ProdutoSubstancia, Fabricante, GrupoPrincipal, GrupoProduto, SubGrupo, Secao, NCM, Substancia, Fornecedor, Pessoa, Colaborador, GrupoUsuario, Filial, Configuracoes.
+                Globais (replicam para todas): Produto, ProdutoBarras, ProdutoMs, ProdutoSubstancia, Fabricante, GrupoPrincipal, GrupoProduto, SubGrupo, Secao, NCM, Substancia, Fornecedor, Pessoa, Colaborador, GrupoUsuario, Filial, Configuracoes, LogsAcao, LogsErro.
                 Por Filial (replicam, dados variam por filial): ProdutoDados, ProdutoFiscal, ProdutoFornecedor, ProdutosLocais.
-                NAO replicam (infraestrutura): SyncFila, SequenciasLocais, LogsAcao, LogsErro.
+                NAO replicam (infraestrutura de sync): SyncFila, SequenciasLocais.
                 Nao participam do sync (nao herdam BaseEntity): DicionarioTabelas, DicionarioRevisoes, DicionarioRelacionamentos.
               </span>
             </div>
