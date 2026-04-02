@@ -210,8 +210,6 @@
           <h2>{{ modoEdicao() ? 'Editar' : 'Novo' }} Produto</h2>
         </div>
 
-        @if (erro()) { <div class="form-erro">{{ erro() }}</div> }
-
         <!-- SELETOR DE FILIAL -->
         @if (filiaisDisponiveis().length > 0) {
           <div class="filial-selector" [class.filial-diferente]="isFilialDiferente()">
@@ -694,7 +692,6 @@
         <div class="form-titulo">{{ modoEdicao() ? 'Editar' : 'Novo' }} {{ getNomeAba() }}</div>
 
         @if (erro()) {
-          <div class="form-erro">{{ erro() }}</div>
         }
 
         @if (modoEdicao()) {

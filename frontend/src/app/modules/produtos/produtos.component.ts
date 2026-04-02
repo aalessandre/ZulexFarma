@@ -548,7 +548,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       },
       error: (e) => {
         this.salvando.set(false);
-        this.erro.set(e?.error?.message ?? 'Erro ao salvar registro.');
+        this.modal.erro('Erro', e?.error?.message ?? 'Erro ao salvar registro.');
       }
     });
   }
@@ -648,7 +648,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   private validar(): boolean {
     const f = this.registroForm();
     if (!f.nome?.trim()) {
-      this.erro.set('O campo Nome é obrigatório.');
+      this.modal.erro('Validação', 'O campo Nome é obrigatório.');
       return false;
     }
     this.erro.set('');
@@ -764,7 +764,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   async salvarProduto() {
     if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
     const f = { ...this.produtoForm() } as any;
-    if (!f.nome?.trim()) { this.erro.set('Nome é obrigatório.'); return; }
+    if (!f.nome?.trim()) { this.modal.erro('Validação', 'Nome é obrigatório.'); return; }
 
     // Verificar propagação de preço (só em edição)
     if (this.modoEdicao() && f.dados?.length > 0) {
@@ -792,7 +792,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         }
         this.produtoFormOriginal = JSON.stringify(this.produtoForm());
       },
-      error: (err: any) => { this.salvando.set(false); this.erro.set(err?.error?.message || 'Erro ao salvar.'); }
+      error: (err: any) => { this.salvando.set(false); this.modal.erro('Erro ao Salvar', err?.error?.message || 'Erro ao salvar produto.'); }
     });
   }
 

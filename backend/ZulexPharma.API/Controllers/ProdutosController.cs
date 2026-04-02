@@ -40,7 +40,7 @@ public class ProdutosController : ControllerBase
     {
         try { return Created("", new { success = true, data = await _service.CriarAsync(dto) }); }
         catch (ArgumentException ex) { return BadRequest(new { success = false, message = ex.Message }); }
-        catch (Exception ex) { Log.Error(ex, "Erro ao criar Produto"); return StatusCode(500, new { success = false, message = "Erro ao criar." }); }
+        catch (Exception ex) { Log.Error(ex, "Erro ao criar Produto"); return StatusCode(500, new { success = false, message = ex.InnerException?.Message ?? ex.Message }); }
     }
 
     [HttpPut("{id:long}")]
@@ -49,7 +49,7 @@ public class ProdutosController : ControllerBase
         try { await _service.AtualizarAsync(id, dto); return Ok(new { success = true }); }
         catch (KeyNotFoundException) { return NotFound(new { success = false, message = "Não encontrado." }); }
         catch (ArgumentException ex) { return BadRequest(new { success = false, message = ex.Message }); }
-        catch (Exception ex) { Log.Error(ex, "Erro ao atualizar Produto {Id}", id); return StatusCode(500, new { success = false, message = "Erro ao atualizar." }); }
+        catch (Exception ex) { Log.Error(ex, "Erro ao atualizar Produto {Id}", id); return StatusCode(500, new { success = false, message = ex.InnerException?.Message ?? ex.Message }); }
     }
 
     [HttpDelete("{id:long}")]
