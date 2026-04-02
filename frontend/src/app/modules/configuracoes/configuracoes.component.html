@@ -50,6 +50,23 @@
           </div>
         </div>
 
+        <!-- PRODUTOS -->
+        <div class="form-secao">Produtos</div>
+        <div class="form-grid">
+          <div class="field field-2">
+            <label>
+              ATUALIZAÇÃO DE PREÇO ENTRE FILIAIS
+              <span class="field-info" title="Define o comportamento ao alterar preço de um produto. 'Perguntar' exibe modal para escolher. 'Todas as filiais' aplica automaticamente. 'Apenas filial atual' não propaga."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
+            </label>
+            <select [value]="getConfig('produto.preco.regra', 'perguntar')"
+                    (change)="setConfig('produto.preco.regra', $any($event.target).value)">
+              <option value="perguntar">Perguntar ao usuário</option>
+              <option value="todas">Aplicar para todas as filiais automaticamente</option>
+              <option value="atual">Apenas filial atual (não propagar)</option>
+            </select>
+          </div>
+        </div>
+
         <!-- SINCRONISMO -->
         <div class="form-secao">Sincronismo</div>
         <div class="form-grid">
