@@ -152,6 +152,9 @@ public static class SyncApplicator
         // Nível 4 — depende de nível 3
         "UsuarioFilialGrupos"      => 4,
 
+        // Nível 0 — configurações (sem dependência)
+        "Configuracoes"            => 0,
+
         // Tabelas locais (não replicam, mas listadas por completude)
         "LogsAcao"                 => 5,
         "LogsErro"                 => 5,
@@ -191,5 +194,6 @@ public static class SyncApplicator
         ["NcmFederais"] = typeof(NcmFederal),
         ["NcmIcmsUfs"] = typeof(NcmIcmsUf),
         ["NcmStUfs"] = typeof(NcmStUf),
+        ["Configuracoes"] = typeof(Configuracao),
     };
 }

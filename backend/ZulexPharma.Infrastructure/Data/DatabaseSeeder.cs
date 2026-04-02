@@ -216,6 +216,22 @@ public static class DatabaseSeeder
             }
         }
 
+        // Configurações
+        var configs = await context.Configuracoes.ToListAsync();
+        foreach (var cfg in configs)
+        {
+            if (!await context.SyncFila.AnyAsync(s => s.Tabela == "Configuracoes" && s.RegistroId == cfg.Id && s.Operacao == "I"))
+            {
+                context.SyncFila.Add(new SyncFila
+                {
+                    Tabela = "Configuracoes", Operacao = "I", RegistroId = cfg.Id,
+                    RegistroCodigo = cfg.Codigo,
+                    DadosJson = System.Text.Json.JsonSerializer.Serialize(cfg, jsonOpts),
+                    FilialOrigemId = filialCodigo, Enviado = false
+                });
+            }
+        }
+
         await context.SaveChangesAsync();
     }
 
