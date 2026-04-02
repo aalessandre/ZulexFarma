@@ -235,6 +235,10 @@
               <label>CÓDIGO</label>
               <input type="text" disabled class="field-disabled" [value]="produtoEditandoId()" />
             </div>
+            <div class="prod-field">
+              <label>DATA CADASTRO</label>
+              <input type="text" disabled class="field-disabled" [value]="produtoForm().criadoEm ? (produtoForm().criadoEm | date:'dd/MM/yyyy HH:mm') : ''" />
+            </div>
           }
           <div class="prod-field prod-field-2">
             <label>CÓDIGO DE BARRAS</label>
@@ -520,7 +524,7 @@
                 <div class="prod-field"><label>VLR PROMOÇÃO À VISTA</label><input type="number" [value]="dd.valorPromocao" (input)="updateDados(dadosFilialIdx(), 'valorPromocao', +$any($event.target).value)" step="0.01" /></div>
                 <div class="prod-field"><label>VLR PROMOÇÃO A PRAZO</label><input type="number" [value]="dd.valorPromocaoPrazo" (input)="updateDados(dadosFilialIdx(), 'valorPromocaoPrazo', +$any($event.target).value)" step="0.01" /></div>
                 <div class="prod-field"><label>DATA INÍCIO</label><input type="date" [value]="dd.promocaoInicio || ''" (input)="updateDados(dadosFilialIdx(), 'promocaoInicio', $any($event.target).value || null)" /></div>
-                <div class="prod-field"><label>DATA TÉRMINO</label><input type="date" [value]="dd.promocaoFim || ''" (input)="updateDados(dadosFilialIdx(), 'promocaoFim', $any($event.target).value || null)" /></div>
+                <div class="prod-field"><label>DATA TÉRMINO</label><input type="date" [value]="dd.promocaoFim || ''" [min]="dd.promocaoInicio || ''" (input)="updateDados(dadosFilialIdx(), 'promocaoFim', $any($event.target).value || null)" /></div>
               </div>
               <div class="prod-section">Descontos</div>
               <div class="prod-grid">

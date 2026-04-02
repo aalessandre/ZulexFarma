@@ -363,7 +363,13 @@ public class ProdutoService : IProdutoService
         e.UltimaCompraDifal = d.UltimaCompraDifal; e.UltimaCompraFrete = d.UltimaCompraFrete;
         e.CustoMedio = d.CustoMedio; e.ProjecaoLucro = d.ProjecaoLucro;
         e.Markup = d.Markup; e.ValorVenda = d.ValorVenda; e.Pmc = d.Pmc;
-        e.ValorPromocao = d.ValorPromocao; e.ValorPromocaoPrazo = d.ValorPromocaoPrazo; e.PromocaoInicio = d.PromocaoInicio; e.PromocaoFim = d.PromocaoFim;
+        e.ValorPromocao = d.ValorPromocao; e.ValorPromocaoPrazo = d.ValorPromocaoPrazo;
+        e.PromocaoInicio = d.PromocaoInicio;
+        // Data fim = 23:59:59 do dia selecionado (promoção vale o dia inteiro)
+        e.PromocaoFim = d.PromocaoFim.HasValue ? d.PromocaoFim.Value.Date.AddDays(1).AddSeconds(-1) : null;
+        // Validar: fim não pode ser anterior ao início
+        if (e.PromocaoInicio.HasValue && e.PromocaoFim.HasValue && e.PromocaoFim < e.PromocaoInicio)
+            e.PromocaoFim = e.PromocaoInicio.Value.Date.AddDays(1).AddSeconds(-1);
         e.DescontoMinimo = d.DescontoMinimo; e.DescontoMaxSemSenha = d.DescontoMaxSemSenha;
         e.DescontoMaxComSenha = d.DescontoMaxComSenha;
         e.Comissao = d.Comissao; e.ValorIncentivo = d.ValorIncentivo;

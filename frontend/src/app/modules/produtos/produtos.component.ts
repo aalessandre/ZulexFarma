@@ -88,7 +88,7 @@ interface ProdutoDadosItem {
 
 interface ProdutoForm {
   nome: string; codigoBarras?: string; qtdeEmbalagem: number; precoFp?: number;
-  lista: string; fracao: number; ativo: boolean; eliminado: boolean;
+  lista: string; fracao: number; ativo: boolean; eliminado: boolean; criadoEm?: string;
   fabricanteId?: number; grupoPrincipalId?: number; grupoProdutoId?: number; subGrupoId?: number; ncmId?: number;
   fabricanteNome?: string; grupoPrincipalNome?: string; grupoProdutoNome?: string; subGrupoNome?: string; ncmCodigo?: string;
   barras: ProdutoBarrasItem[]; registrosMs: ProdutoMsItem[];
@@ -745,9 +745,15 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           grupoProdutoId: d.grupoProdutoId, subGrupoId: d.subGrupoId, ncmId: d.ncmId,
           fabricanteNome: d.fabricanteNome, grupoPrincipalNome: d.grupoPrincipalNome,
           grupoProdutoNome: d.grupoProdutoNome, subGrupoNome: d.subGrupoNome, ncmCodigo: d.ncmCodigo,
+          criadoEm: d.criadoEm,
           barras: d.barras ?? [], registrosMs: d.registrosMs ?? [],
           substancias: d.substancias ?? [], fornecedores: d.fornecedores ?? [],
-          fiscais: d.fiscais ?? [], dados: d.dados ?? []
+          fiscais: d.fiscais ?? [],
+          dados: (d.dados ?? []).map((dd: any) => ({
+            ...dd,
+            promocaoInicio: this.toDateInput(dd.promocaoInicio),
+            promocaoFim: this.toDateInput(dd.promocaoFim)
+          }))
         };
         this.produtoForm.set(f);
         this.produtoFormOriginal = JSON.stringify(f);
@@ -1163,6 +1169,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   private getLookupSignalDados(tipo: string) {
     return tipo === 'local' ? this.lookupLocal : this.lookupFamilia;
+  }
+
+  /** Converte ISO datetime "2026-03-31T00:00:00" para "2026-03-31" para input[type=date] */
+  private toDateInput(val: string | null | undefined): string | undefined {
+    if (!val) return undefined;
+    return val.substring(0, 10);
   }
 
   isProdutoAba(): boolean { return this.abaAtiva() === 'produtos'; }
