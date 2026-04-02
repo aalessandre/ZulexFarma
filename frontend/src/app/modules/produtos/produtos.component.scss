@@ -167,6 +167,40 @@
   &.prod-field-check { justify-content: center; }
 }
 
+// ── Seletor de filial ────────────────────────────────────────────
+.filial-selector {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 12px; padding: 10px 14px;
+  background: #f0f4f8; border-radius: 6px; border: 1px solid #d0d5dd;
+
+  label {
+    font-size: 12px; font-weight: 700; color: #6a7888;
+    letter-spacing: 0.3px; text-transform: uppercase; white-space: nowrap;
+  }
+
+  select {
+    max-width: 300px; height: 34px; padding: 0 10px;
+    border: 1px solid #d0d5dd; border-radius: 4px;
+    font-size: 13px; font-family: inherit; cursor: pointer;
+    &:focus { border-color: var(--erp-blue, #2c5fad); }
+  }
+
+  &.filial-diferente {
+    border-color: #e67e22; background: #fef5e7;
+    animation: filialPulse 2s ease-in-out infinite;
+  }
+
+  .filial-aviso {
+    font-size: 12px; color: #e67e22; font-weight: 600;
+    display: flex; align-items: center; gap: 4px;
+  }
+}
+
+@keyframes filialPulse {
+  0%, 100% { border-color: #e67e22; }
+  50% { border-color: #f39c12; box-shadow: 0 0 8px rgba(243, 156, 18, 0.3); }
+}
+
 .field-disabled {
   background: #f5f6f8 !important; color: #9aa5b5 !important; cursor: not-allowed;
 }

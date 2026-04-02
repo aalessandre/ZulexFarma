@@ -193,6 +193,30 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   private produtoFormOriginal = '';
   produtoEditandoId = signal<number | null>(null);
   produtoBusca = signal('');
+  filialSelecionada = signal<number>(0);
+  filialLocal = signal<number>(0);
+  filiaisDisponiveis = signal<{ id: number; nome: string }[]>([]);
+  isFilialDiferente = computed(() => this.filialLocal() > 0 && this.filialSelecionada() !== this.filialLocal());
+
+  dadosFilialAtual = computed(() => {
+    const fId = this.filialSelecionada();
+    return this.produtoForm().dados.find(d => d.filialId === fId) ?? null;
+  });
+
+  dadosFilialIdx = computed(() => {
+    const fId = this.filialSelecionada();
+    return this.produtoForm().dados.findIndex(d => d.filialId === fId);
+  });
+
+  fiscalFilialAtual = computed(() => {
+    const fId = this.filialSelecionada();
+    return this.produtoForm().fiscais.find(f => f.filialId === fId) ?? null;
+  });
+
+  fiscalFilialIdx = computed(() => {
+    const fId = this.filialSelecionada();
+    return this.produtoForm().fiscais.findIndex(f => f.filialId === fId);
+  });
   private buscaProdutoTimer: any = null;
 
   produtosFiltrados = computed(() => {
@@ -231,6 +255,27 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     if (!this.isProdutoAba()) this.carregar();
+    this.carregarFiliais();
+  }
+
+  private carregarFiliais() {
+    this.http.get<any>(`${environment.apiUrl}/filiais`).subscribe({
+      next: resp => {
+        const filiais = (resp?.data ?? []).map((f: any) => ({ id: f.id, nome: f.nomeFilial || `Filial ${f.id}` }));
+        this.filiaisDisponiveis.set(filiais);
+        // Buscar filial local via status do sync
+        this.http.get<any>(`${environment.apiUrl}/sync/status`).subscribe({
+          next: sr => {
+            const cod = sr?.data?.filialCodigo;
+            const filialLocal = filiais.find((f: any) => f.id === cod);
+            const fId = filialLocal?.id ?? filiais[0]?.id ?? 0;
+            this.filialSelecionada.set(fId);
+            this.filialLocal.set(fId);
+          },
+          error: () => { if (filiais.length) this.filialSelecionada.set(filiais[0].id); }
+        });
+      }
+    });
   }
 
   // ── Permissões ────────────────────────────────────────────────────

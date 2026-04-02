@@ -212,6 +212,24 @@
 
         @if (erro()) { <div class="form-erro">{{ erro() }}</div> }
 
+        <!-- SELETOR DE FILIAL -->
+        @if (filiaisDisponiveis().length > 0) {
+          <div class="filial-selector" [class.filial-diferente]="isFilialDiferente()">
+            <label>FILIAL</label>
+            <select [value]="filialSelecionada()" (change)="filialSelecionada.set(+$any($event.target).value)">
+              @for (f of filiaisDisponiveis(); track f.id) {
+                <option [value]="f.id">{{ f.nome }}</option>
+              }
+            </select>
+            @if (isFilialDiferente()) {
+              <span class="filial-aviso">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e67e22" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Visualizando outra filial
+              </span>
+            }
+          </div>
+        }
+
         <div class="prod-section">Identificação</div>
         <div class="prod-grid">
           @if (modoEdicao()) {
@@ -438,111 +456,103 @@
             </div>
           </details>
 
-          <!-- FISCAL (por filial) -->
+          <!-- FISCAL (filial selecionada) -->
+          @if (fiscalFilialAtual(); as fi) {
           <details class="prod-accordion">
-            <summary class="prod-acc-header acc-fiscal">Fiscal ({{ produtoForm().fiscais.length }})</summary>
-            <div class="prod-acc-body">
-              @for (fi of produtoForm().fiscais; track $index; let i = $index) {
-                <div class="sub-card">
-                  <div class="sub-card-header"><span>Filial {{ fi.filialId }}</span></div>
-                  <div class="prod-grid">
-                    <div class="prod-field"><label>CEST</label><input type="text" [value]="fi.cest || ''" (input)="updateFiscal(i, 'cest', $any($event.target).value)" maxlength="9" /></div>
-                    <div class="prod-field"><label>ORIGEM MERCADORIA</label><input type="text" [value]="fi.origemMercadoria || ''" (input)="updateFiscal(i, 'origemMercadoria', $any($event.target).value)" maxlength="1" /></div>
-                    <div class="prod-field"><label>CST ICMS</label><input type="text" [value]="fi.cstIcms || ''" (input)="updateFiscal(i, 'cstIcms', $any($event.target).value)" maxlength="3" /></div>
-                    <div class="prod-field"><label>CSOSN</label><input type="text" [value]="fi.csosn || ''" (input)="updateFiscal(i, 'csosn', $any($event.target).value)" maxlength="4" /></div>
-                    <div class="prod-field"><label>% ICMS</label><input type="number" [value]="fi.aliquotaIcms || 0" (input)="updateFiscal(i, 'aliquotaIcms', +$any($event.target).value)" step="0.01" /></div>
-                    <div class="prod-field"><label>CST PIS</label><input type="text" [value]="fi.cstPis || ''" (input)="updateFiscal(i, 'cstPis', $any($event.target).value)" maxlength="2" /></div>
-                    <div class="prod-field"><label>% PIS</label><input type="number" [value]="fi.aliquotaPis || 0" (input)="updateFiscal(i, 'aliquotaPis', +$any($event.target).value)" step="0.01" /></div>
-                    <div class="prod-field"><label>CST COFINS</label><input type="text" [value]="fi.cstCofins || ''" (input)="updateFiscal(i, 'cstCofins', $any($event.target).value)" maxlength="2" /></div>
-                    <div class="prod-field"><label>% COFINS</label><input type="number" [value]="fi.aliquotaCofins || 0" (input)="updateFiscal(i, 'aliquotaCofins', +$any($event.target).value)" step="0.01" /></div>
-                    <div class="prod-field"><label>CST IPI</label><input type="text" [value]="fi.cstIpi || ''" (input)="updateFiscal(i, 'cstIpi', $any($event.target).value)" maxlength="3" /></div>
-                    <div class="prod-field"><label>% IPI</label><input type="number" [value]="fi.aliquotaIpi || 0" (input)="updateFiscal(i, 'aliquotaIpi', +$any($event.target).value)" step="0.01" /></div>
-                  </div>
-                </div>
-              }
-              @if (produtoForm().fiscais.length === 0) {
-                <div class="prod-acc-placeholder">Dados fiscais serao criados automaticamente ao salvar.</div>
-              }
-            </div>
-          </details>
-
-          <!-- ESTOQUE / PREÇOS / GERAL (por filial — ProdutoDados) -->
-          @for (dd of produtoForm().dados; track $index; let di = $index) {
-
-          <!-- ESTOQUE -->
-          <details class="prod-accordion">
-            <summary class="prod-acc-header acc-estoque">Estoque — Filial {{ dd.filialId }}</summary>
+            <summary class="prod-acc-header acc-fiscal">Fiscal</summary>
             <div class="prod-acc-body">
               <div class="prod-grid">
-                <div class="prod-field"><label>ESTOQUE ATUAL</label><input type="number" [value]="dd.estoqueAtual" (input)="updateDados(di, 'estoqueAtual', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>ESTOQUE MÍNIMO</label><input type="number" [value]="dd.estoqueMinimo" (input)="updateDados(di, 'estoqueMinimo', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>ESTOQUE MÁXIMO</label><input type="number" [value]="dd.estoqueMaximo" (input)="updateDados(di, 'estoqueMaximo', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>DEMANDA</label><input type="number" [value]="dd.demanda" (input)="updateDados(di, 'demanda', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>CURVA ABC</label><input type="text" [value]="dd.curvaAbc || ''" (input)="updateDados(di, 'curvaAbc', $any($event.target).value)" maxlength="1" /></div>
-                <div class="prod-field"><label>ESTOQUE DEPÓSITO</label><input type="number" [value]="dd.estoqueDeposito" (input)="updateDados(di, 'estoqueDeposito', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CEST</label><input type="text" [value]="fi.cest || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cest', $any($event.target).value)" maxlength="9" /></div>
+                <div class="prod-field"><label>ORIGEM MERCADORIA</label><input type="text" [value]="fi.origemMercadoria || ''" (input)="updateFiscal(fiscalFilialIdx(), 'origemMercadoria', $any($event.target).value)" maxlength="1" /></div>
+                <div class="prod-field"><label>CST ICMS</label><input type="text" [value]="fi.cstIcms || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIcms', $any($event.target).value)" maxlength="3" /></div>
+                <div class="prod-field"><label>CSOSN</label><input type="text" [value]="fi.csosn || ''" (input)="updateFiscal(fiscalFilialIdx(), 'csosn', $any($event.target).value)" maxlength="4" /></div>
+                <div class="prod-field"><label>% ICMS</label><input type="number" [value]="fi.aliquotaIcms || 0" (input)="updateFiscal(fiscalFilialIdx(), 'aliquotaIcms', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CST PIS</label><input type="text" [value]="fi.cstPis || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstPis', $any($event.target).value)" maxlength="2" /></div>
+                <div class="prod-field"><label>% PIS</label><input type="number" [value]="fi.aliquotaPis || 0" (input)="updateFiscal(fiscalFilialIdx(), 'aliquotaPis', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CST COFINS</label><input type="text" [value]="fi.cstCofins || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstCofins', $any($event.target).value)" maxlength="2" /></div>
+                <div class="prod-field"><label>% COFINS</label><input type="number" [value]="fi.aliquotaCofins || 0" (input)="updateFiscal(fiscalFilialIdx(), 'aliquotaCofins', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CST IPI</label><input type="text" [value]="fi.cstIpi || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIpi', $any($event.target).value)" maxlength="3" /></div>
+                <div class="prod-field"><label>% IPI</label><input type="number" [value]="fi.aliquotaIpi || 0" (input)="updateFiscal(fiscalFilialIdx(), 'aliquotaIpi', +$any($event.target).value)" step="0.01" /></div>
+              </div>
+            </div>
+          </details>
+          }
+
+          <!-- ESTOQUE (filial selecionada) -->
+          @if (dadosFilialAtual(); as dd) {
+          <details class="prod-accordion">
+            <summary class="prod-acc-header acc-estoque">Estoque</summary>
+            <div class="prod-acc-body">
+              <div class="prod-grid">
+                <div class="prod-field"><label>ESTOQUE ATUAL</label><input type="number" [value]="dd.estoqueAtual" (input)="updateDados(dadosFilialIdx(), 'estoqueAtual', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>ESTOQUE MÍNIMO</label><input type="number" [value]="dd.estoqueMinimo" (input)="updateDados(dadosFilialIdx(), 'estoqueMinimo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>ESTOQUE MÁXIMO</label><input type="number" [value]="dd.estoqueMaximo" (input)="updateDados(dadosFilialIdx(), 'estoqueMaximo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>DEMANDA</label><input type="number" [value]="dd.demanda" (input)="updateDados(dadosFilialIdx(), 'demanda', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CURVA ABC</label><input type="text" [value]="dd.curvaAbc || ''" (input)="updateDados(dadosFilialIdx(), 'curvaAbc', $any($event.target).value)" maxlength="1" /></div>
+                <div class="prod-field"><label>ESTOQUE DEPÓSITO</label><input type="number" [value]="dd.estoqueDeposito" (input)="updateDados(dadosFilialIdx(), 'estoqueDeposito', +$any($event.target).value)" step="0.01" /></div>
               </div>
             </div>
           </details>
 
-          <!-- PREÇOS -->
+          <!-- PREÇOS (filial selecionada) -->
           <details class="prod-accordion">
-            <summary class="prod-acc-header acc-precos">Preços — Filial {{ dd.filialId }}</summary>
+            <summary class="prod-acc-header acc-precos">Preços</summary>
             <div class="prod-acc-body">
               <div class="prod-section">Última Compra</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="number" [value]="dd.ultimaCompraUnitario" (input)="updateDados(di, 'ultimaCompraUnitario', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR ST</label><input type="number" [value]="dd.ultimaCompraSt" (input)="updateDados(di, 'ultimaCompraSt', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR OUTROS</label><input type="number" [value]="dd.ultimaCompraOutros" (input)="updateDados(di, 'ultimaCompraOutros', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>IPI</label><input type="number" [value]="dd.ultimaCompraIpi" (input)="updateDados(di, 'ultimaCompraIpi', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>FPC</label><input type="number" [value]="dd.ultimaCompraFpc" (input)="updateDados(di, 'ultimaCompraFpc', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>BOLETO</label><input type="number" [value]="dd.ultimaCompraBoleto" (input)="updateDados(di, 'ultimaCompraBoleto', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>DIFAL</label><input type="number" [value]="dd.ultimaCompraDifal" (input)="updateDados(di, 'ultimaCompraDifal', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>FRETE</label><input type="number" [value]="dd.ultimaCompraFrete" (input)="updateDados(di, 'ultimaCompraFrete', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="number" [value]="dd.ultimaCompraUnitario" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraUnitario', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR ST</label><input type="number" [value]="dd.ultimaCompraSt" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraSt', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR OUTROS</label><input type="number" [value]="dd.ultimaCompraOutros" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraOutros', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>IPI</label><input type="number" [value]="dd.ultimaCompraIpi" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraIpi', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>FPC</label><input type="number" [value]="dd.ultimaCompraFpc" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraFpc', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>BOLETO</label><input type="number" [value]="dd.ultimaCompraBoleto" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraBoleto', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>DIFAL</label><input type="number" [value]="dd.ultimaCompraDifal" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraDifal', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>FRETE</label><input type="number" [value]="dd.ultimaCompraFrete" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraFrete', +$any($event.target).value)" step="0.01" /></div>
               </div>
               <div class="prod-section">Valores</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="number" [value]="dd.custoMedio" (input)="updateDados(di, 'custoMedio', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>% PROJ LUCRO</label><input type="number" [value]="dd.projecaoLucro" (input)="updateDados(di, 'projecaoLucro', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>% MARKUP</label><input type="number" [value]="dd.markup" (input)="updateDados(di, 'markup', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR VENDA</label><input type="number" [value]="dd.valorVenda" (input)="updateDados(di, 'valorVenda', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>PMC</label><input type="number" [value]="dd.pmc" (input)="updateDados(di, 'pmc', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="number" [value]="dd.custoMedio" (input)="updateDados(dadosFilialIdx(), 'custoMedio', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% PROJ LUCRO</label><input type="number" [value]="dd.projecaoLucro" (input)="updateDados(dadosFilialIdx(), 'projecaoLucro', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% MARKUP</label><input type="number" [value]="dd.markup" (input)="updateDados(dadosFilialIdx(), 'markup', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR VENDA</label><input type="number" [value]="dd.valorVenda" (input)="updateDados(dadosFilialIdx(), 'valorVenda', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>PMC</label><input type="number" [value]="dd.pmc" (input)="updateDados(dadosFilialIdx(), 'pmc', +$any($event.target).value)" step="0.01" /></div>
               </div>
               <div class="prod-section">Promoção</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>VLR PROMOÇÃO À VISTA</label><input type="number" [value]="dd.valorPromocao" (input)="updateDados(di, 'valorPromocao', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR PROMOÇÃO A PRAZO</label><input type="number" [value]="dd.valorPromocaoPrazo" (input)="updateDados(di, 'valorPromocaoPrazo', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>DATA INÍCIO</label><input type="date" [value]="dd.promocaoInicio || ''" (input)="updateDados(di, 'promocaoInicio', $any($event.target).value || null)" /></div>
-                <div class="prod-field"><label>DATA TÉRMINO</label><input type="date" [value]="dd.promocaoFim || ''" (input)="updateDados(di, 'promocaoFim', $any($event.target).value || null)" /></div>
+                <div class="prod-field"><label>VLR PROMOÇÃO À VISTA</label><input type="number" [value]="dd.valorPromocao" (input)="updateDados(dadosFilialIdx(), 'valorPromocao', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR PROMOÇÃO A PRAZO</label><input type="number" [value]="dd.valorPromocaoPrazo" (input)="updateDados(dadosFilialIdx(), 'valorPromocaoPrazo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>DATA INÍCIO</label><input type="date" [value]="dd.promocaoInicio || ''" (input)="updateDados(dadosFilialIdx(), 'promocaoInicio', $any($event.target).value || null)" /></div>
+                <div class="prod-field"><label>DATA TÉRMINO</label><input type="date" [value]="dd.promocaoFim || ''" (input)="updateDados(dadosFilialIdx(), 'promocaoFim', $any($event.target).value || null)" /></div>
               </div>
               <div class="prod-section">Descontos</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="number" [value]="dd.descontoMinimo" (input)="updateDados(di, 'descontoMinimo', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="number" [value]="dd.descontoMaxSemSenha" (input)="updateDados(di, 'descontoMaxSemSenha', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="number" [value]="dd.descontoMaxComSenha" (input)="updateDados(di, 'descontoMaxComSenha', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="number" [value]="dd.descontoMinimo" (input)="updateDados(dadosFilialIdx(), 'descontoMinimo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="number" [value]="dd.descontoMaxSemSenha" (input)="updateDados(dadosFilialIdx(), 'descontoMaxSemSenha', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="number" [value]="dd.descontoMaxComSenha" (input)="updateDados(dadosFilialIdx(), 'descontoMaxComSenha', +$any($event.target).value)" step="0.01" /></div>
               </div>
             </div>
           </details>
 
-          <!-- GERAL -->
+          <!-- GERAL (filial selecionada) -->
           <details class="prod-accordion">
-            <summary class="prod-acc-header acc-geral">Geral — Filial {{ dd.filialId }}</summary>
+            <summary class="prod-acc-header acc-geral">Geral</summary>
             <div class="prod-acc-body">
               <div class="prod-grid">
-                <div class="prod-field"><label>% COMISSÃO</label><input type="number" [value]="dd.comissao" (input)="updateDados(di, 'comissao', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR INCENTIVO</label><input type="number" [value]="dd.valorIncentivo" (input)="updateDados(di, 'valorIncentivo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% COMISSÃO</label><input type="number" [value]="dd.comissao" (input)="updateDados(dadosFilialIdx(), 'comissao', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR INCENTIVO</label><input type="number" [value]="dd.valorIncentivo" (input)="updateDados(dadosFilialIdx(), 'valorIncentivo', +$any($event.target).value)" step="0.01" /></div>
                 <div class="prod-field">
                   <label>LOCAL</label>
                   <div class="lookup-wrap">
                     <input type="text" [value]="dd.produtoLocalNome || ''"
-                           (input)="onDadosLookupInput(di, 'local', $any($event.target).value)"
+                           (input)="onDadosLookupInput(dadosFilialIdx(), 'local', $any($event.target).value)"
                            placeholder="Buscar local..." autocomplete="off" />
                     @if (dd.produtoLocalId) {
-                      <button class="lookup-clear" (click)="updateDados(di, 'produtoLocalId', null); updateDados(di, 'produtoLocalNome', '')">&times;</button>
+                      <button class="lookup-clear" (click)="updateDados(dadosFilialIdx(), 'produtoLocalId', null); updateDados(dadosFilialIdx(), 'produtoLocalNome', '')">&times;</button>
                     }
                     @if (lookupAberto() === 'local' && lookupLocal().length) {
                       <ul class="lookup-list">
                         @for (item of lookupLocal(); track item.id) {
-                          <li (mousedown)="selecionarDadosLookup(di, 'local', item)">{{ item.texto }}</li>
+                          <li (mousedown)="selecionarDadosLookup(dadosFilialIdx(), 'local', item)">{{ item.texto }}</li>
                         }
                       </ul>
                     }
@@ -551,16 +561,16 @@
                 <div class="prod-field">
                   <label>FAMÍLIA</label>
                   <div class="lookup-wrap">
-                    <input type="text" [value]="dd.produtoFamiliaId ? dd.produtoFamiliaId : ''"
-                           (input)="onDadosLookupInput(di, 'familia', $any($event.target).value)"
+                    <input type="text" [value]="''"
+                           (input)="onDadosLookupInput(dadosFilialIdx(), 'familia', $any($event.target).value)"
                            placeholder="Buscar família..." autocomplete="off" />
                     @if (dd.produtoFamiliaId) {
-                      <button class="lookup-clear" (click)="updateDados(di, 'produtoFamiliaId', null)">&times;</button>
+                      <button class="lookup-clear" (click)="updateDados(dadosFilialIdx(), 'produtoFamiliaId', null)">&times;</button>
                     }
                     @if (lookupAberto() === 'familia' && lookupFamilia().length) {
                       <ul class="lookup-list">
                         @for (item of lookupFamilia(); track item.id) {
-                          <li (mousedown)="selecionarDadosLookup(di, 'familia', item)">{{ item.texto }}</li>
+                          <li (mousedown)="selecionarDadosLookup(dadosFilialIdx(), 'familia', item)">{{ item.texto }}</li>
                         }
                       </ul>
                     }
@@ -569,40 +579,39 @@
                 <div class="prod-field">
                   <label>SEÇÃO</label>
                   <div class="lookup-wrap">
-                    <input type="text" [value]="dd.secaoId ? dd.secaoId : ''"
-                           (input)="onDadosLookupInput(di, 'secao', $any($event.target).value)"
+                    <input type="text" [value]="''"
+                           (input)="onDadosLookupInput(dadosFilialIdx(), 'secao', $any($event.target).value)"
                            placeholder="Buscar seção..." autocomplete="off" />
                     @if (dd.secaoId) {
-                      <button class="lookup-clear" (click)="updateDados(di, 'secaoId', null)">&times;</button>
+                      <button class="lookup-clear" (click)="updateDados(dadosFilialIdx(), 'secaoId', null)">&times;</button>
                     }
                     @if (lookupAberto() === 'secao' && lookupFamilia().length) {
                       <ul class="lookup-list">
                         @for (item of lookupFamilia(); track item.id) {
-                          <li (mousedown)="selecionarDadosLookup(di, 'secao', item)">{{ item.texto }}</li>
+                          <li (mousedown)="selecionarDadosLookup(dadosFilialIdx(), 'secao', item)">{{ item.texto }}</li>
                         }
                       </ul>
                     }
                   </div>
                 </div>
-                <div class="prod-field"><label>NOME ETIQUETA</label><input type="text" [value]="dd.nomeEtiqueta || ''" (input)="updateDados(di, 'nomeEtiqueta', $any($event.target).value)" maxlength="60" /></div>
-                <div class="prod-field prod-field-full"><label>MENSAGEM</label><textarea rows="2" [value]="dd.mensagem || ''" (input)="updateDados(di, 'mensagem', $any($event.target).value)" maxlength="200" placeholder="Máximo 200 caracteres"></textarea></div>
+                <div class="prod-field"><label>NOME ETIQUETA</label><input type="text" [value]="dd.nomeEtiqueta || ''" (input)="updateDados(dadosFilialIdx(), 'nomeEtiqueta', $any($event.target).value)" maxlength="60" /></div>
+                <div class="prod-field prod-field-full"><label>MENSAGEM</label><textarea rows="2" [value]="dd.mensagem || ''" (input)="updateDados(dadosFilialIdx(), 'mensagem', $any($event.target).value)" maxlength="200" placeholder="Máximo 200 caracteres"></textarea></div>
               </div>
               <div class="prod-section">Flags</div>
               <div class="prod-grid prod-grid-checks">
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearDesconto" (change)="updateDados(di, 'bloquearDesconto', $any($event.target).checked)" /><span>Bloquear Desconto</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearPromocao" (change)="updateDados(di, 'bloquearPromocao', $any($event.target).checked)" /><span>Bloquear Promoção</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.naoAtualizarAbcfarma" (change)="updateDados(di, 'naoAtualizarAbcfarma', $any($event.target).checked)" /><span>Não Atualizar ABCFarma</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.naoAtualizarGestorTributario" (change)="updateDados(di, 'naoAtualizarGestorTributario', $any($event.target).checked)" /><span>Não Atualizar Gestor Tributário</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearCompras" (change)="updateDados(di, 'bloquearCompras', $any($event.target).checked)" /><span>Bloquear Compras</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.produtoFormula" (change)="updateDados(di, 'produtoFormula', $any($event.target).checked)" /><span>Produto Fórmula (Manipulação)</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearComissao" (change)="updateDados(di, 'bloquearComissao', $any($event.target).checked)" /><span>Bloquear Comissão</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearCoberturaOferta" (change)="updateDados(di, 'bloquearCoberturaOferta', $any($event.target).checked)" /><span>Bloquear Cobertura de Oferta</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.usoContinuo" (change)="updateDados(di, 'usoContinuo', $any($event.target).checked)" /><span>Uso Contínuo</span></label></div>
-                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.avisoFracao" (change)="updateDados(di, 'avisoFracao', $any($event.target).checked)" /><span>Aviso de Fração</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearDesconto" (change)="updateDados(dadosFilialIdx(), 'bloquearDesconto', $any($event.target).checked)" /><span>Bloquear Desconto</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearPromocao" (change)="updateDados(dadosFilialIdx(), 'bloquearPromocao', $any($event.target).checked)" /><span>Bloquear Promoção</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.naoAtualizarAbcfarma" (change)="updateDados(dadosFilialIdx(), 'naoAtualizarAbcfarma', $any($event.target).checked)" /><span>Não Atualizar ABCFarma</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.naoAtualizarGestorTributario" (change)="updateDados(dadosFilialIdx(), 'naoAtualizarGestorTributario', $any($event.target).checked)" /><span>Não Atualizar Gestor Tributário</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearCompras" (change)="updateDados(dadosFilialIdx(), 'bloquearCompras', $any($event.target).checked)" /><span>Bloquear Compras</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.produtoFormula" (change)="updateDados(dadosFilialIdx(), 'produtoFormula', $any($event.target).checked)" /><span>Produto Fórmula (Manipulação)</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearComissao" (change)="updateDados(dadosFilialIdx(), 'bloquearComissao', $any($event.target).checked)" /><span>Bloquear Comissão</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.bloquearCoberturaOferta" (change)="updateDados(dadosFilialIdx(), 'bloquearCoberturaOferta', $any($event.target).checked)" /><span>Bloquear Cobertura de Oferta</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.usoContinuo" (change)="updateDados(dadosFilialIdx(), 'usoContinuo', $any($event.target).checked)" /><span>Uso Contínuo</span></label></div>
+                <div class="prod-field prod-field-check"><label class="check-label"><input type="checkbox" [checked]="dd.avisoFracao" (change)="updateDados(dadosFilialIdx(), 'avisoFracao', $any($event.target).checked)" /><span>Aviso de Fração</span></label></div>
               </div>
             </div>
           </details>
-
           }
 
           <!-- VÍNCULOS FORNECEDORES -->
