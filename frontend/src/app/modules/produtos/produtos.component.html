@@ -587,9 +587,9 @@
                     @if (dd.secaoId) {
                       <button class="lookup-clear" (click)="updateDados(dadosFilialIdx(), 'secaoId', null)">&times;</button>
                     }
-                    @if (lookupAberto() === 'secao' && lookupFamilia().length) {
+                    @if (lookupAberto() === 'secao' && lookupSecao().length) {
                       <ul class="lookup-list">
-                        @for (item of lookupFamilia(); track item.id) {
+                        @for (item of lookupSecao(); track item.id) {
                           <li (mousedown)="selecionarDadosLookup(dadosFilialIdx(), 'secao', item)">{{ item.texto }}</li>
                         }
                       </ul>

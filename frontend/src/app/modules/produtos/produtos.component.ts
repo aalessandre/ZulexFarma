@@ -240,6 +240,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   fornecedorBuscaIdx = signal<number | null>(null);
   lookupLocal = signal<LookupItem[]>([]);
   lookupFamilia = signal<LookupItem[]>([]);
+  lookupSecao = signal<LookupItem[]>([]);
   private lookupTimers: Record<string, any> = {};
   private lookupCaches: Record<string, { data: any[]; ts: number }> = {};
 
@@ -1213,7 +1214,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   private getLookupSignalDados(tipo: string) {
-    return tipo === 'local' ? this.lookupLocal : this.lookupFamilia;
+    return tipo === 'local' ? this.lookupLocal : tipo === 'secao' ? this.lookupSecao : this.lookupFamilia;
   }
 
   /** Converte ISO datetime "2026-03-31T00:00:00" para "2026-03-31" para input[type=date] */
