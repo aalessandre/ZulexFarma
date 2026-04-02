@@ -167,6 +167,56 @@ public static class DatabaseSeeder
         await context.SaveChangesAsync();
 
         context.AplicandoSync = false;
+
+        // Enfileirar na SyncFila registros do seed que precisam replicar
+        // (Filial e Usuario — GruposUsuario têm IDs fixos idênticos em todos os PCs)
+        if (filialCodigo > 0)
+            await EnfileirarSeedParaSync(context, filialCodigo);
+    }
+
+    /// <summary>
+    /// Insere na SyncFila os registros do seed que precisam replicar para o Railway e outras filiais.
+    /// Só enfileira se ainda não existir um registro de INSERT para essa entidade na SyncFila.
+    /// </summary>
+    private static async Task EnfileirarSeedParaSync(AppDbContext context, int filialCodigo)
+    {
+        var jsonOpts = new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
+        // Filial
+        var filial = await context.Filiais.FindAsync((long)filialCodigo);
+        if (filial != null && !await context.SyncFila.AnyAsync(s => s.Tabela == "Filiais" && s.RegistroId == filial.Id && s.Operacao == "I"))
+        {
+            context.SyncFila.Add(new SyncFila
+            {
+                Tabela = "Filiais", Operacao = "I", RegistroId = filial.Id,
+                RegistroCodigo = filial.Codigo,
+                DadosJson = System.Text.Json.JsonSerializer.Serialize(filial, jsonOpts),
+                FilialOrigemId = filialCodigo, Enviado = false
+            });
+        }
+
+        // Usuarios (todos os locais)
+        var usuarios = await context.Usuarios.Where(u => u.FilialOrigemId == filialCodigo || u.FilialOrigemId == null).ToListAsync();
+        foreach (var usuario in usuarios)
+        {
+            if (!await context.SyncFila.AnyAsync(s => s.Tabela == "Usuarios" && s.RegistroId == usuario.Id && s.Operacao == "I"))
+            {
+                context.SyncFila.Add(new SyncFila
+                {
+                    Tabela = "Usuarios", Operacao = "I", RegistroId = usuario.Id,
+                    RegistroCodigo = usuario.Codigo,
+                    DadosJson = System.Text.Json.JsonSerializer.Serialize(usuario, jsonOpts),
+                    FilialOrigemId = filialCodigo, Enviado = false
+                });
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
