@@ -5,6 +5,9 @@ using Serilog;
 using System.Text;
 using ZulexPharma.Infrastructure.Data;
 
+// Permitir DateTime sem Kind (Unspecified) no PostgreSQL — evita erro com datas do frontend
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ─── Serilog ───────────────────────────────────────────────────────────────
