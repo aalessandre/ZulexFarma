@@ -24,11 +24,13 @@ public static class DatabaseSeeder
         // Seed é setup local — não deve entrar na SyncFila
         context.AplicandoSync = true;
 
-        if (!await context.Filiais.AnyAsync())
+        // Filial seed com ID fixo baseado no código da filial (ou 1 para Railway/default)
+        var filialSeedId = filialCodigo > 0 ? (long)filialCodigo : 1L;
+        if (!await context.Filiais.AnyAsync(f => f.Id == filialSeedId))
         {
-            context.Filiais.Add(new Filial
+            var filial = new Filial
             {
-                NomeFilial    = "Matriz",
+                NomeFilial    = filialCodigo > 0 ? $"Filial {filialCodigo:D2}" : "Matriz",
                 RazaoSocial   = "ZulexPharma Farmácia LTDA",
                 NomeFantasia  = "ZulexPharma",
                 Cnpj          = "00.000.000/0001-00",
@@ -40,35 +42,48 @@ public static class DatabaseSeeder
                 Uf            = "SP",
                 Telefone      = "(11) 0000-0000",
                 Email         = "contato@zulexpharma.com.br"
-            });
+            };
+            context.Filiais.Add(filial);
             await context.SaveChangesAsync();
+            // Forçar ID fixo
+            if (filial.Id != filialSeedId)
+                await context.Database.ExecuteSqlRawAsync(
+                    $"UPDATE \"Filiais\" SET \"Id\" = {filialSeedId} WHERE \"Id\" = {filial.Id}");
         }
 
-        if (!await context.UsuariosGrupos.AnyAsync())
+        // GruposUsuario com IDs fixos (1-5) — fora da faixa de filiais (1 bilhão+)
+        // Garante que todas as filiais e o Railway referenciam os mesmos IDs.
+        var gruposSeed = new (long id, string nome, string descricao)[]
         {
-            context.UsuariosGrupos.AddRange(
-                new GrupoUsuario { Nome = "Administrador", Descricao = "Acesso total ao sistema" },
-                new GrupoUsuario { Nome = "Gerente",       Descricao = "Gerência da filial" },
-                new GrupoUsuario { Nome = "Caixa",         Descricao = "Operador de caixa" },
-                new GrupoUsuario { Nome = "Vendedor",      Descricao = "Atendimento e vendas" },
-                new GrupoUsuario { Nome = "Estoquista",    Descricao = "Controle de estoque" }
-            );
-            await context.SaveChangesAsync();
+            (1, "Administrador", "Acesso total ao sistema"),
+            (2, "Gerente",       "Gerência da filial"),
+            (3, "Caixa",         "Operador de caixa"),
+            (4, "Vendedor",      "Atendimento e vendas"),
+            (5, "Estoquista",    "Controle de estoque")
+        };
+        foreach (var (id, nome, descricao) in gruposSeed)
+        {
+            if (!await context.UsuariosGrupos.AnyAsync(g => g.Id == id))
+            {
+                var grupo = new GrupoUsuario { Nome = nome, Descricao = descricao };
+                context.UsuariosGrupos.Add(grupo);
+                await context.SaveChangesAsync();
+                // Forçar ID fixo via SQL direto (o EF gerou um ID pela faixa, precisamos corrigir)
+                await context.Database.ExecuteSqlRawAsync(
+                    $"UPDATE \"UsuariosGrupos\" SET \"Id\" = {id} WHERE \"Id\" = {grupo.Id}");
+            }
         }
 
         if (!await context.Usuarios.AnyAsync())
         {
-            var filial = await context.Filiais.FirstAsync();
-            var grupo  = await context.UsuariosGrupos.FirstAsync();
-
             context.Usuarios.Add(new Usuario
             {
                 Nome           = "Administrador",
                 Login          = "admin",
                 SenhaHash      = BCrypt.Net.BCrypt.HashPassword("admin123"),
                 IsAdministrador = true,
-                GrupoUsuarioId = grupo.Id,
-                FilialId       = filial.Id
+                GrupoUsuarioId = 1,             // ID fixo do grupo Administrador
+                FilialId       = filialSeedId   // ID fixo da filial
             });
             await context.SaveChangesAsync();
         }
