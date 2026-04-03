@@ -75,7 +75,11 @@ public class SyncBackgroundService : BackgroundService
             try
             {
                 var token = await ObterToken(stoppingToken);
-                if (string.IsNullOrEmpty(token)) { FalhasConsecutivas++; }
+                if (string.IsNullOrEmpty(token))
+                {
+                    FalhasConsecutivas++;
+                    Log.Warning("Sync: falha ao obter token da central ({Falhas} consecutivas)", FalhasConsecutivas);
+                }
                 else
                 {
                     _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -306,7 +310,12 @@ public class SyncBackgroundService : BackgroundService
             var content = new StringContent(loginJson, Encoding.UTF8, "application/json");
             var response = await _httpClient.PostAsync($"{_urlCentral}/api/auth/login", content, ct);
 
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                var errBody = await response.Content.ReadAsStringAsync(ct);
+                Log.Warning("Sync token: login SISTEMA falhou ({Status}): {Body}", response.StatusCode, errBody);
+                return null;
+            }
 
             var body = await response.Content.ReadAsStringAsync(ct);
             var result = JsonDocument.Parse(body);
