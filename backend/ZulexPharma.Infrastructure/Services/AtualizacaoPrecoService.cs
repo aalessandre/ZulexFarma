@@ -219,8 +219,25 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
             var dados = await _db.ProdutosDados.FindAsync(item.ProdutoDadosId);
             if (dados == null) continue;
 
+            var vendaAtual = dados.ValorVenda;
+            var pmcAtual = dados.Pmc;
+
             dados.ValorVenda = item.ValorVendaAnterior;
             dados.Pmc = item.PmcAnterior;
+            dados.Markup = item.MarkupAnterior;
+            dados.ProjecaoLucro = item.ProjecaoLucroAnterior;
+
+            await _log.RegistrarAsync("Produtos", "REVERSÃO PREÇO", "Produto", item.ProdutoId,
+                anterior: new Dictionary<string, string?> {
+                    ["Vlr Venda"] = vendaAtual.ToString("N2"),
+                    ["PMC"] = pmcAtual.ToString("N2")
+                },
+                novo: new Dictionary<string, string?> {
+                    ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
+                    ["PMC"] = dados.Pmc.ToString("N2"),
+                    ["Markup %"] = dados.Markup.ToString("N2"),
+                    ["Proj. Lucro %"] = dados.ProjecaoLucro.ToString("N2")
+                });
         }
 
         atualizacao.Status = "REVERTIDA";
@@ -277,6 +294,12 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
                 ProjecaoLucroAnterior = dados.ProjecaoLucro
             });
 
+            // Snapshot dos valores anteriores para log
+            var vendaAnterior = dados.ValorVenda;
+            var pmcAnterior = dados.Pmc;
+            var markupAnterior = dados.Markup;
+            var projecaoAnterior = dados.ProjecaoLucro;
+
             // Aplicar: PMC e Valor de Venda = PMC da ABCFarma
             dados.Pmc = item.PmcNovo;
             dados.ValorVenda = item.ValorVendaNovo;
@@ -287,6 +310,21 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
                 dados.Markup = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.CustoMedio) * 100, 2);
                 dados.ProjecaoLucro = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.ValorVenda) * 100, 2);
             }
+
+            // Log de auditoria por produto
+            await _log.RegistrarAsync("Produtos", "ATUALIZAÇÃO PREÇO (ABCFARMA)", "Produto", item.ProdutoId,
+                anterior: new Dictionary<string, string?> {
+                    ["Vlr Venda"] = vendaAnterior.ToString("N2"),
+                    ["PMC"] = pmcAnterior.ToString("N2"),
+                    ["Markup %"] = markupAnterior.ToString("N2"),
+                    ["Proj. Lucro %"] = projecaoAnterior.ToString("N2")
+                },
+                novo: new Dictionary<string, string?> {
+                    ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
+                    ["PMC"] = dados.Pmc.ToString("N2"),
+                    ["Markup %"] = dados.Markup.ToString("N2"),
+                    ["Proj. Lucro %"] = dados.ProjecaoLucro.ToString("N2")
+                });
         }
 
         await _db.SaveChangesAsync();
