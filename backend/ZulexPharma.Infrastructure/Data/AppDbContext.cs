@@ -499,7 +499,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.DescontoMaxComSenha).HasColumnType("numeric(5,2)");
             e.Property(x => x.Comissao).HasColumnType("numeric(5,2)");
             e.Property(x => x.ValorIncentivo).HasColumnType("numeric(10,4)");
-            e.Property(x => x.NomeEtiqueta).HasMaxLength(60);
+            e.Property(x => x.NomeEtiqueta).HasMaxLength(110);
             e.Property(x => x.Mensagem).HasMaxLength(200);
         });
 

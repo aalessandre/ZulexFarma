@@ -1172,7 +1172,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.produtoForm.update(f => ({ ...f, [cfg.nomeField]: valor, [cfg.idField]: null }));
     clearTimeout(this.lookupTimers[tipo]);
 
-    const minChars = tipo === 'ncm' ? 4 : 1;
+    const minChars = tipo === 'ncm' ? 4 : 0;
     if (valor.trim().length < minChars) {
       this.getLookupSignal(cfg.signalKey).set([]);
       this.lookupAberto.set(null);
@@ -1221,10 +1221,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   onLookupFocus(tipo: string, valor: string) {
     const cfg = this.LOOKUP_CONFIG[tipo];
     if (!cfg) return;
-    // Se já tem ID selecionado, mostra lista com cache se possível
+    // Se já tem ID selecionado, não reabrir dropdown
     if ((this.produtoForm() as any)[cfg.idField]) return;
-    // Se tem texto sem seleção, dispara busca
-    if (valor.trim().length >= (tipo === 'ncm' ? 4 : 1)) {
+    // NCM requer 4+ chars; demais abrem dropdown imediatamente (poucos registros)
+    if (tipo === 'ncm') {
+      if (valor.trim().length >= 4) this.onLookupInput(tipo, valor);
+    } else {
+      // Carregar todos (valor vazio ou com texto)
       this.onLookupInput(tipo, valor);
     }
   }
@@ -1311,6 +1314,21 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   private toDateInput(val: string | null | undefined): string | undefined {
     if (!val) return undefined;
     return val.substring(0, 10);
+  }
+
+  // ── Validações de entrada ──────────────────────────────────────────
+
+  /** Bloqueia qualquer caractere não-numérico (usado em barras, MS) */
+  somenteNumeros(event: KeyboardEvent) {
+    if (!/[0-9]/.test(event.key)) event.preventDefault();
+  }
+
+  /** Limita valor entre 0 e 100 e retorna o número (usado em campos %) */
+  clampPercent(input: HTMLInputElement): number {
+    let v = +input.value;
+    if (v < 0) { v = 0; input.value = '0'; }
+    if (v > 100) { v = 100; input.value = '100'; }
+    return v;
   }
 
   // ── Abas de edição (sidebar cards) ─────────────────────────────────

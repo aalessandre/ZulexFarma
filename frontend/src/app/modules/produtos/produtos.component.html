@@ -265,11 +265,11 @@
           }
           <div class="prod-field prod-field-2">
             <label>CÓDIGO DE BARRAS</label>
-            <input type="text" [value]="produtoForm().codigoBarras || ''" (input)="updateProdutoForm('codigoBarras', $any($event.target).value)" placeholder="Código de barras principal" />
+            <input type="text" [value]="produtoForm().codigoBarras || ''" (input)="updateProdutoForm('codigoBarras', $any($event.target).value)" placeholder="Código de barras principal" maxlength="13" (keypress)="somenteNumeros($event)" />
           </div>
           <div class="prod-field prod-field-full">
             <label>NOME *</label>
-            <input type="text" [value]="produtoForm().nome" (input)="updateProdutoForm('nome', $any($event.target).value)" placeholder="Nome do produto" />
+            <input type="text" [value]="produtoForm().nome" (input)="updateProdutoForm('nome', $any($event.target).value)" placeholder="Nome do produto" maxlength="120" />
           </div>
           <div class="prod-field">
             <label>QTDE EMBALAGEM</label>
@@ -325,8 +325,8 @@
             <div class="lookup-wrap">
               <input type="text" [value]="getLookupDisplay('grupoPrincipal')"
                      (input)="onLookupInput('grupoPrincipal', $any($event.target).value)"
-                     (focus)="onLookupFocus('grupoPrincipal', $any($event.target).value)"
-                     placeholder="Digite para buscar..." autocomplete="off" />
+                     (focus)="onLookupFocus('grupoPrincipal', '')"
+                     placeholder="Selecione ou digite..." autocomplete="off" />
               @if (produtoForm().grupoPrincipalId) {
                 <button class="lookup-clear" (click)="limparLookup('grupoPrincipal')" title="Limpar">&times;</button>
               }
@@ -345,8 +345,8 @@
             <div class="lookup-wrap">
               <input type="text" [value]="getLookupDisplay('grupo')"
                      (input)="onLookupInput('grupo', $any($event.target).value)"
-                     (focus)="onLookupFocus('grupo', $any($event.target).value)"
-                     placeholder="Digite para buscar..." autocomplete="off" />
+                     (focus)="onLookupFocus('grupo', '')"
+                     placeholder="Selecione ou digite..." autocomplete="off" />
               @if (produtoForm().grupoProdutoId) {
                 <button class="lookup-clear" (click)="limparLookup('grupo')" title="Limpar">&times;</button>
               }
@@ -365,8 +365,8 @@
             <div class="lookup-wrap">
               <input type="text" [value]="getLookupDisplay('subGrupo')"
                      (input)="onLookupInput('subGrupo', $any($event.target).value)"
-                     (focus)="onLookupFocus('subGrupo', $any($event.target).value)"
-                     placeholder="Digite para buscar..." autocomplete="off" />
+                     (focus)="onLookupFocus('subGrupo', '')"
+                     placeholder="Selecione ou digite..." autocomplete="off" />
               @if (produtoForm().subGrupoId) {
                 <button class="lookup-clear" (click)="limparLookup('subGrupo')" title="Limpar">&times;</button>
               }
@@ -440,7 +440,7 @@
             <summary class="prod-acc-header acc-estoque">Códigos de Barras ({{ produtoForm().barras.length }})</summary>
             <div class="prod-acc-body">
               <div class="acc-input-row">
-                <input type="text" #inputBarras placeholder="Digite o código de barras e clique Adicionar" (keydown.enter)="adicionarBarras(inputBarras)" />
+                <input type="text" #inputBarras placeholder="Digite o código de barras e clique Adicionar" (keydown.enter)="adicionarBarras(inputBarras)" maxlength="13" (keypress)="somenteNumeros($event)" />
                 <button (click)="adicionarBarras(inputBarras)" [disabled]="!inputBarras.value.trim()">Adicionar</button>
               </div>
               @if (produtoForm().barras.length) {
@@ -463,7 +463,7 @@
             <summary class="prod-acc-header acc-fiscal">Registros MS ({{ produtoForm().registrosMs.length }})</summary>
             <div class="prod-acc-body">
               <div class="acc-input-row">
-                <input type="text" #inputMs placeholder="Digite o número MS e clique Adicionar" (keydown.enter)="adicionarMs(inputMs)" />
+                <input type="text" #inputMs placeholder="Digite o número MS e clique Adicionar" (keydown.enter)="adicionarMs(inputMs)" maxlength="14" (keypress)="somenteNumeros($event)" />
                 <button (click)="adicionarMs(inputMs)" [disabled]="!inputMs.value.trim()">Adicionar</button>
               </div>
               @if (produtoForm().registrosMs.length) {
@@ -551,9 +551,9 @@
               </div>
               <div class="prod-section">Descontos</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="number" [value]="dd.descontoMinimo" (input)="updateDados(dadosFilialIdx(), 'descontoMinimo', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="number" [value]="dd.descontoMaxSemSenha" (input)="updateDados(dadosFilialIdx(), 'descontoMaxSemSenha', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="number" [value]="dd.descontoMaxComSenha" (input)="updateDados(dadosFilialIdx(), 'descontoMaxComSenha', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="number" [value]="dd.descontoMinimo" (input)="updateDados(dadosFilialIdx(), 'descontoMinimo', clampPercent($any($event.target)))" step="0.01" min="0" max="100" /></div>
+                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="number" [value]="dd.descontoMaxSemSenha" (input)="updateDados(dadosFilialIdx(), 'descontoMaxSemSenha', clampPercent($any($event.target)))" step="0.01" min="0" max="100" /></div>
+                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="number" [value]="dd.descontoMaxComSenha" (input)="updateDados(dadosFilialIdx(), 'descontoMaxComSenha', clampPercent($any($event.target)))" step="0.01" min="0" max="100" /></div>
               </div>
             </div>
           </details>
@@ -619,7 +619,7 @@
                     }
                   </div>
                 </div>
-                <div class="prod-field"><label>NOME ETIQUETA</label><input type="text" [value]="dd.nomeEtiqueta || ''" (input)="updateDados(dadosFilialIdx(), 'nomeEtiqueta', $any($event.target).value)" maxlength="60" /></div>
+                <div class="prod-field"><label>NOME ETIQUETA</label><input type="text" [value]="dd.nomeEtiqueta || ''" (input)="updateDados(dadosFilialIdx(), 'nomeEtiqueta', $any($event.target).value)" maxlength="110" /></div>
                 <div class="prod-field prod-field-full"><label>MENSAGEM</label><textarea rows="2" [value]="dd.mensagem || ''" (input)="updateDados(dadosFilialIdx(), 'mensagem', $any($event.target).value)" maxlength="200" placeholder="Máximo 200 caracteres"></textarea></div>
               </div>
               <div class="prod-section">Flags</div>
