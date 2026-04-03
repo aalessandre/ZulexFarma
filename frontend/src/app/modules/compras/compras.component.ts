@@ -389,10 +389,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   abrirModalVincular(item: CompraProduto) {
     this.itemParaVincular.set(item);
-    this.buscaProduto.set(item.descricaoXml?.split(' ').slice(0, 2).join(' ') || '');
+    this.buscaProduto.set('');
     this.produtosBusca.set([]);
     this.modalVincular.set(true);
-    if (this.buscaProduto()) this.buscarProdutos();
   }
 
   fecharModalVincular() {
@@ -403,10 +402,15 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   buscarProdutos() {
     const termo = this.buscaProduto().trim();
-    if (!termo || termo.length < 3) return;
+    if (!termo || termo.length < 3) {
+      this.erro.set('Digite ao menos 3 caracteres para buscar.');
+      return;
+    }
 
     this.buscandoProduto.set(true);
-    this.http.get<any>(`${this.produtosApiUrl}?busca=${encodeURIComponent(termo)}`).subscribe({
+    this.erro.set('');
+    const url = `${this.produtosApiUrl}?busca=${encodeURIComponent(termo)}`;
+    this.http.get<any>(url).subscribe({
       next: r => {
         const produtos: any[] = r.data ?? [];
         this.produtosBusca.set(
@@ -418,7 +422,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
         );
         this.buscandoProduto.set(false);
       },
-      error: () => {
+      error: e => {
+        this.erro.set(e?.error?.message || 'Erro ao buscar produtos.');
         this.buscandoProduto.set(false);
       }
     });
