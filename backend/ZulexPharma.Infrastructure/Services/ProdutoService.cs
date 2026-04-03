@@ -109,18 +109,47 @@ public class ProdutoService : IProdutoService
 
         SincronizarSubTabelas(p, dto);
 
-        // Criar registros por filial para todas as filiais ativas que não vieram no DTO
+        // Criar registros por filial para todas as filiais ativas que não vieram no DTO,
+        // copiando os valores da filial de origem (exceto estoque que fica zerado).
         var todasFiliais = await _db.Filiais.Where(f => f.Ativo).Select(f => f.Id).ToListAsync();
 
-        // ProdutoDados
+        // ProdutoDados — copiar valores da primeira filial do DTO (a que está criando)
+        var dadosOrigem = dto.Dados.FirstOrDefault();
         var filiaisDados = dto.Dados.Select(d => d.FilialId).ToHashSet();
         foreach (var filialId in todasFiliais.Where(fId => !filiaisDados.Contains(fId)))
-            _db.ProdutosDados.Add(new ProdutoDados { ProdutoId = p.Id, FilialId = filialId });
+        {
+            var novoDados = new ProdutoDados { ProdutoId = p.Id, FilialId = filialId };
+            if (dadosOrigem != null) CopiarDadosSemEstoque(novoDados, dadosOrigem);
+            _db.ProdutosDados.Add(novoDados);
+        }
 
-        // ProdutoFiscal
+        // ProdutoFiscal — copiar valores da primeira filial do DTO
+        var fiscalOrigem = dto.Fiscais.FirstOrDefault();
         var filiaisFiscal = dto.Fiscais.Select(d => d.FilialId).ToHashSet();
         foreach (var filialId in todasFiliais.Where(fId => !filiaisFiscal.Contains(fId)))
-            _db.ProdutosFiscal.Add(new ProdutoFiscal { ProdutoId = p.Id, FilialId = filialId });
+        {
+            var novoFiscal = new ProdutoFiscal { ProdutoId = p.Id, FilialId = filialId };
+            if (fiscalOrigem != null) CopiarFiscal(novoFiscal, fiscalOrigem);
+            _db.ProdutosFiscal.Add(novoFiscal);
+        }
+
+        // ProdutoFornecedores — copiar vínculos da filial de origem
+        var fornecedoresOrigem = dto.Fornecedores.ToList();
+        var filiaisFornecedor = dto.Fornecedores.Select(d => d.FilialId).ToHashSet();
+        foreach (var filialId in todasFiliais.Where(fId => !filiaisFornecedor.Contains(fId)))
+        {
+            foreach (var fo in fornecedoresOrigem)
+            {
+                _db.ProdutosFornecedores.Add(new ProdutoFornecedor
+                {
+                    ProdutoId = p.Id, FilialId = filialId,
+                    FornecedorId = fo.FornecedorId,
+                    CodigoProdutoFornecedor = fo.CodigoProdutoFornecedor?.Trim(),
+                    NomeProduto = fo.NomeProduto?.Trim(),
+                    Fracao = fo.Fracao
+                });
+            }
+        }
 
         await _db.SaveChangesAsync();
 
@@ -384,6 +413,50 @@ public class ProdutoService : IProdutoService
         e.BloquearComissao = d.BloquearComissao; e.BloquearCoberturaOferta = d.BloquearCoberturaOferta;
         e.UsoContinuo = d.UsoContinuo; e.AvisoFracao = d.AvisoFracao;
         e.UltimaCompraEm = d.UltimaCompraEm; e.UltimaVendaEm = d.UltimaVendaEm;
+    }
+
+    /// <summary>Copia valores de ProdutoDados do DTO para a entidade, zerando campos de estoque.</summary>
+    private static void CopiarDadosSemEstoque(ProdutoDados e, ProdutoDadosDto d)
+    {
+        // Estoque fica zerado (cada filial controla o seu)
+        // Preços e configurações são copiados
+        e.UltimaCompraUnitario = d.UltimaCompraUnitario; e.UltimaCompraSt = d.UltimaCompraSt;
+        e.UltimaCompraOutros = d.UltimaCompraOutros; e.UltimaCompraIpi = d.UltimaCompraIpi;
+        e.UltimaCompraFpc = d.UltimaCompraFpc; e.UltimaCompraBoleto = d.UltimaCompraBoleto;
+        e.UltimaCompraDifal = d.UltimaCompraDifal; e.UltimaCompraFrete = d.UltimaCompraFrete;
+        e.CustoMedio = d.CustoMedio; e.ProjecaoLucro = d.ProjecaoLucro;
+        e.Markup = d.Markup; e.ValorVenda = d.ValorVenda; e.Pmc = d.Pmc;
+        e.ValorPromocao = d.ValorPromocao; e.ValorPromocaoPrazo = d.ValorPromocaoPrazo;
+        e.PromocaoInicio = d.PromocaoInicio;
+        e.PromocaoFim = d.PromocaoFim.HasValue ? d.PromocaoFim.Value.Date.AddDays(1).AddSeconds(-1) : null;
+        e.DescontoMinimo = d.DescontoMinimo; e.DescontoMaxSemSenha = d.DescontoMaxSemSenha;
+        e.DescontoMaxComSenha = d.DescontoMaxComSenha;
+        e.Comissao = d.Comissao; e.ValorIncentivo = d.ValorIncentivo;
+        e.ProdutoLocalId = d.ProdutoLocalId; e.SecaoId = d.SecaoId; e.ProdutoFamiliaId = d.ProdutoFamiliaId;
+        e.NomeEtiqueta = d.NomeEtiqueta?.Trim(); e.Mensagem = d.Mensagem?.Trim();
+        e.BloquearDesconto = d.BloquearDesconto; e.BloquearPromocao = d.BloquearPromocao;
+        e.NaoAtualizarAbcfarma = d.NaoAtualizarAbcfarma;
+        e.NaoAtualizarGestorTributario = d.NaoAtualizarGestorTributario;
+        e.BloquearCompras = d.BloquearCompras; e.ProdutoFormula = d.ProdutoFormula;
+        e.BloquearComissao = d.BloquearComissao; e.BloquearCoberturaOferta = d.BloquearCoberturaOferta;
+        e.UsoContinuo = d.UsoContinuo; e.AvisoFracao = d.AvisoFracao;
+    }
+
+    /// <summary>Copia valores de ProdutoFiscal do DTO para a entidade.</summary>
+    private static void CopiarFiscal(ProdutoFiscal e, ProdutoFiscalDto d)
+    {
+        e.NcmId = d.NcmId;
+        e.Cest = d.Cest?.Trim();
+        e.OrigemMercadoria = d.OrigemMercadoria?.Trim();
+        e.CstIcms = d.CstIcms?.Trim();
+        e.Csosn = d.Csosn?.Trim();
+        e.AliquotaIcms = d.AliquotaIcms;
+        e.CstPis = d.CstPis?.Trim();
+        e.AliquotaPis = d.AliquotaPis;
+        e.CstCofins = d.CstCofins?.Trim();
+        e.AliquotaCofins = d.AliquotaCofins;
+        e.CstIpi = d.CstIpi?.Trim();
+        e.AliquotaIpi = d.AliquotaIpi;
     }
 
     // ── Helper genérico sync ────────────────────────────────────────
