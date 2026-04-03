@@ -106,8 +106,11 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
 
         var dadosProdutos = await query.ToListAsync();
 
-        // Carregar base ABCFarma
-        var baseAbc = await _db.AbcFarmaBase.ToDictionaryAsync(x => x.Ean, x => x);
+        // Carregar base ABCFarma (GroupBy para lidar com EANs duplicados — pega o mais recente)
+        var baseAbcList = await _db.AbcFarmaBase.ToListAsync();
+        var baseAbc = baseAbcList
+            .GroupBy(x => x.Ean)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.AtualizadoEm).First());
 
         var itensPreview = new List<AtualizacaoPrecoPreviewItem>();
 
