@@ -101,6 +101,11 @@ export const ErpRoutes: Routes = [
       {
         path: 'compras',
         loadComponent: () =>
+          import('../compras-menu/compras-menu.component').then(m => m.ComprasMenuComponent),
+      },
+      {
+        path: 'lancar-compras',
+        loadComponent: () =>
           import('../compras/compras.component').then(m => m.ComprasComponent),
       },
       // Placeholders — módulos futuros
