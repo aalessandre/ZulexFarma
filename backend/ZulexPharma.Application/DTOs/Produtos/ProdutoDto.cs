@@ -208,7 +208,6 @@ public class ProdutoDadosDto
 public class ProdutoLocalListDto
 {
     public long Id { get; set; }
-    public long FilialId { get; set; }
     public string Nome { get; set; } = "";
     public bool Ativo { get; set; }
     public DateTime CriadoEm { get; set; }
@@ -216,7 +215,6 @@ public class ProdutoLocalListDto
 
 public class ProdutoLocalFormDto
 {
-    public long FilialId { get; set; }
     public string Nome { get; set; } = "";
     public bool Ativo { get; set; } = true;
 }

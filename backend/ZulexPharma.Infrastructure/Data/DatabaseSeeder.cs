@@ -154,7 +154,7 @@ public static class DatabaseSeeder
         // ── Produto ──────────────────────────────────────────────
         var tabelasProduto = new[] { "Produtos", "ProdutosBarras", "ProdutosMs", "ProdutosSubstancias",
             "ProdutosFornecedores", "ProdutosFiscal", "ProdutosDados", "ProdutosLocais", "ProdutoFamilias" };
-        var tabelasProdutoFilial = new HashSet<string> { "ProdutosDados", "ProdutosFiscal", "ProdutosFornecedores", "ProdutosLocais" };
+        var tabelasProdutoFilial = new HashSet<string> { "ProdutosDados", "ProdutosFiscal", "ProdutosFornecedores" };
         foreach (var tabela in tabelasProduto)
         {
             var escopo = tabelasProdutoFilial.Contains(tabela) ? "filial" : "global";
@@ -167,7 +167,7 @@ public static class DatabaseSeeder
                 "ProdutosFornecedores" => "Vinculo produto-fornecedor por filial. Cada filial pode ter fornecedores diferentes. Tem FilialId.",
                 "ProdutosFiscal" => "Dados fiscais/tributarios do produto por filial. ICMS/PIS/COFINS variam por UF. Tem FilialId. Auto-criado para cada filial ao cadastrar produto.",
                 "ProdutosDados" => "Dados por filial: estoque, precos, promocao, descontos, flags. Tem FilialId. Auto-criado para cada filial ao cadastrar produto.",
-                "ProdutosLocais" => "Localizacao fisica do produto por filial (ex: Prateleira Azul). Tem FilialId.",
+                "ProdutosLocais" => "Localizacao fisica do produto (ex: Prateleira Azul, Gondola 5). Cadastro global.",
                 "ProdutoFamilias" => "Familias de produtos. Classificacao simples com nome. Global.",
                 _ => (string?)null
             };

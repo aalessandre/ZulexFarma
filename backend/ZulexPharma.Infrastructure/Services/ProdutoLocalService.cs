@@ -20,7 +20,7 @@ public class ProdutoLocalService : IProdutoLocalService
         return await _db.ProdutosLocais.OrderBy(l => l.Nome)
             .Select(l => new ProdutoLocalListDto
             {
-                Id = l.Id, FilialId = l.FilialId, Nome = l.Nome, Ativo = l.Ativo, CriadoEm = l.CriadoEm
+                Id = l.Id, Nome = l.Nome, Ativo = l.Ativo, CriadoEm = l.CriadoEm
             })
             .ToListAsync();
     }
@@ -28,12 +28,12 @@ public class ProdutoLocalService : IProdutoLocalService
     public async Task<ProdutoLocalListDto> CriarAsync(ProdutoLocalFormDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Nome)) throw new ArgumentException("Nome é obrigatório.");
-        var e = new ProdutoLocal { FilialId = dto.FilialId, Nome = dto.Nome.Trim().ToUpper(), Ativo = dto.Ativo };
+        var e = new ProdutoLocal { Nome = dto.Nome.Trim().ToUpper(), Ativo = dto.Ativo };
         _db.ProdutosLocais.Add(e);
         await _db.SaveChangesAsync();
         await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, e.Id,
             novo: new Dictionary<string, string?> { ["Nome"] = e.Nome });
-        return new ProdutoLocalListDto { Id = e.Id, FilialId = e.FilialId, Nome = e.Nome, Ativo = e.Ativo, CriadoEm = e.CriadoEm };
+        return new ProdutoLocalListDto { Id = e.Id, Nome = e.Nome, Ativo = e.Ativo, CriadoEm = e.CriadoEm };
     }
 
     public async Task AtualizarAsync(long id, ProdutoLocalFormDto dto)
@@ -41,7 +41,6 @@ public class ProdutoLocalService : IProdutoLocalService
         var e = await _db.ProdutosLocais.FindAsync(id)
             ?? throw new KeyNotFoundException($"Local {id} não encontrado.");
         if (string.IsNullOrWhiteSpace(dto.Nome)) throw new ArgumentException("Nome é obrigatório.");
-        e.FilialId = dto.FilialId;
         e.Nome = dto.Nome.Trim().ToUpper();
         e.Ativo = dto.Ativo;
         await _db.SaveChangesAsync();
