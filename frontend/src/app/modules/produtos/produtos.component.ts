@@ -1462,17 +1462,17 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   /** Valida projeção de lucro — máximo 100% */
   onProjecaoLucroChange(dadosIdx: number, valor: number) {
-    if (valor > 100) {
-      this.modal.aviso('Valor excedido', 'A projeção de lucro não pode ultrapassar 100%. O valor foi ajustado automaticamente.');
-      valor = 100;
+    if (valor >= 100) {
+      this.modal.aviso('Valor excedido', 'A projeção de lucro só é possível até 99%. O valor foi ajustado automaticamente.');
+      valor = 99;
     }
     this.updateDados(dadosIdx, 'projecaoLucro', valor);
   }
 
   onProjecaoLucroChangeRecalc(dadosIdx: number, valor: number) {
-    if (valor > 100) {
-      this.modal.aviso('Valor excedido', 'A projeção de lucro não pode ultrapassar 100%. O valor foi ajustado automaticamente.');
-      valor = 100;
+    if (valor >= 100) {
+      this.modal.aviso('Valor excedido', 'A projeção de lucro só é possível até 99%. O valor foi ajustado automaticamente.');
+      valor = 99;
     }
     this.updateDadosRecalc(dadosIdx, 'projecaoLucro', valor);
   }
@@ -1520,7 +1520,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     } else {
       // Projeção de Lucro: valorVenda = custoBase / (1 - projecao/100)
       const projecao = dd.projecaoLucro || 0;
-      if (projecao >= 100) {
+      if (projecao >= 99) {
         valorVenda = dd.valorVenda || 0; // Não pode calcular com 100%
       } else {
         valorVenda = custoBase / (1 - projecao / 100);
