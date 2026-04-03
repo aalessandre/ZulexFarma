@@ -76,12 +76,13 @@ public static class DatabaseSeeder
             }
         }
 
-        if (!await context.Usuarios.AnyAsync())
+        var loginAdmin = filialCodigo > 0 ? $"admin{filialCodigo}" : "admin";
+        if (!await context.Usuarios.AnyAsync(u => u.Login == loginAdmin))
         {
             context.Usuarios.Add(new Usuario
             {
-                Nome           = "Administrador",
-                Login          = "admin",
+                Nome           = filialCodigo > 0 ? $"Administrador Filial {filialCodigo}" : "Administrador",
+                Login          = loginAdmin,
                 SenhaHash      = BCrypt.Net.BCrypt.HashPassword("admin123"),
                 IsAdministrador = true,
                 GrupoUsuarioId = 1,
@@ -106,22 +107,26 @@ public static class DatabaseSeeder
             await context.SaveChangesAsync();
         }
 
-        if (!await context.Configuracoes.AnyAsync())
+        // Configurações com IDs fixos (6-9) — idênticas em todas as filiais e Railway.
+        // Garante que o sync não conflita (mesmo Id = skip por idempotência).
+        var configsSeed = new (long id, string chave, string valor, string descricao)[]
         {
-            context.Configuracoes.AddRange(
-                new Configuracao { Chave = "sessao.maxima.minutos", Valor = "480", Descricao = "Tempo maximo de sessao em minutos (0 = sem limite)" },
-                new Configuracao { Chave = "sessao.inatividade.minutos", Valor = "10", Descricao = "Tempo de inatividade para encerrar sessao (0 = sem limite)" },
-                new Configuracao { Chave = "sistema.nome", Valor = "ZulexPharma", Descricao = "Nome do sistema exibido no topo" },
-                new Configuracao { Chave = "produto.preco.regra", Valor = "perguntar", Descricao = "Ao alterar preco: perguntar | todas | atual" }
-            );
-            await context.SaveChangesAsync();
-        }
-
-        // Seed de configurações adicionais (para bancos já existentes)
-        if (!await context.Configuracoes.AnyAsync(c => c.Chave == "produto.preco.regra"))
+            (6, "sessao.maxima.minutos",     "480",       "Tempo maximo de sessao em minutos (0 = sem limite)"),
+            (7, "sessao.inatividade.minutos", "10",        "Tempo de inatividade para encerrar sessao (0 = sem limite)"),
+            (8, "sistema.nome",              "ZulexPharma", "Nome do sistema exibido no topo"),
+            (9, "produto.preco.regra",       "perguntar",  "Ao alterar preco: perguntar | todas | atual"),
+        };
+        foreach (var (id, chave, valor, descricao) in configsSeed)
         {
-            context.Configuracoes.Add(new Configuracao { Chave = "produto.preco.regra", Valor = "perguntar", Descricao = "Ao alterar preco: perguntar | todas | atual" });
-            await context.SaveChangesAsync();
+            if (!await context.Configuracoes.AnyAsync(c => c.Id == id))
+            {
+                var cfg = new Configuracao { Chave = chave, Valor = valor, Descricao = descricao };
+                context.Configuracoes.Add(cfg);
+                await context.SaveChangesAsync();
+                if (cfg.Id != id)
+                    await context.Database.ExecuteSqlAsync(
+                        $"UPDATE \"Configuracoes\" SET \"Id\" = {id} WHERE \"Id\" = {cfg.Id}");
+            }
         }
 
         // Seed de DicionarioTabelas para tabelas NCM (se não existirem)
@@ -194,8 +199,8 @@ public static class DatabaseSeeder
 
     /// <summary>
     /// Insere na SyncFila os registros do seed que precisam replicar para o Railway e outras filiais.
-    /// Apenas a Filial replica — Configuracoes e Usuarios são seeds idênticos em todos os PCs,
-    /// não precisam replicar (se o usuário alterar, o UPDATE normal do ERP fará o sync).
+    /// Filial e Usuario replicam (dados únicos por filial: CNPJ, Login).
+    /// Configuracoes e GruposUsuario NÃO replicam (IDs fixos idênticos em todos os PCs — skip por idempotência).
     /// </summary>
     private static async Task EnfileirarSeedParaSync(AppDbContext context, int filialCodigo)
     {
@@ -206,7 +211,7 @@ public static class DatabaseSeeder
             DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
         };
 
-        // Filial — cada filial tem Id e CNPJ únicos, precisa replicar para as outras saberem
+        // Filial — CNPJ único por filial
         var filial = await context.Filiais.FindAsync((long)filialCodigo);
         if (filial != null && !await context.SyncFila.AnyAsync(s => s.Tabela == "Filiais" && s.RegistroId == filial.Id && s.Operacao == "I"))
         {
@@ -217,6 +222,22 @@ public static class DatabaseSeeder
                 DadosJson = System.Text.Json.JsonSerializer.Serialize(filial, jsonOpts),
                 FilialOrigemId = filialCodigo, Enviado = false
             });
+        }
+
+        // Usuarios — Login único por filial (admin1, admin2, etc.)
+        var usuarios = await context.Usuarios.Where(u => u.FilialOrigemId == filialCodigo).ToListAsync();
+        foreach (var usuario in usuarios)
+        {
+            if (!await context.SyncFila.AnyAsync(s => s.Tabela == "Usuarios" && s.RegistroId == usuario.Id && s.Operacao == "I"))
+            {
+                context.SyncFila.Add(new SyncFila
+                {
+                    Tabela = "Usuarios", Operacao = "I", RegistroId = usuario.Id,
+                    RegistroCodigo = usuario.Codigo,
+                    DadosJson = System.Text.Json.JsonSerializer.Serialize(usuario, jsonOpts),
+                    FilialOrigemId = filialCodigo, Enviado = false
+                });
+            }
         }
 
         await context.SaveChangesAsync();
