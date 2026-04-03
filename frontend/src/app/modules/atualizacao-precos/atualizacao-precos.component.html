@@ -146,7 +146,7 @@
                     </td>
                     <td class="td-center">
                       @if (h.status === 'APLICADA') {
-                        <button class="btn-reverter" [disabled]="revertendo() === h.id" (click)="reverter(h.id)">
+                        <button class="btn-reverter" [disabled]="revertendo() === h.id" (click)="pedirReverter(h.id)">
                           @if (revertendo() === h.id) { ... } @else { Reverter }
                         </button>
                       }
@@ -166,39 +166,55 @@
         <h3>Resultado da Atualizacao</h3>
         <div class="resultado-info">
           <span>Analisados: <strong>{{ totalAnalisados() }}</strong></span>
-          <span>Alterados: <strong>{{ totalAlterados() }}</strong></span>
+          <span>Encontrados: <strong>{{ totalAlterados() }}</strong></span>
           @if (atualizacaoId()) {
             <span class="badge-status status-aplicada">APLICADA</span>
           } @else {
             <span class="badge-status status-preview">PREVIEW</span>
+            @if (itensSelecionados().size > 0) {
+              <span>Selecionados: <strong>{{ itensSelecionados().size }}</strong></span>
+            }
           }
         </div>
-        <button class="btn-voltar" (click)="fecharResultado()">Voltar</button>
+        <div class="resultado-acoes">
+          @if (!atualizacaoId()) {
+            <button class="btn-aplicar" (click)="aplicarDoPreview()" [disabled]="processando()">
+              @if (processando()) { Aplicando... } @else { Aplicar Selecionados }
+            </button>
+          }
+          <button class="btn-voltar" (click)="fecharResultado()">Voltar</button>
+        </div>
       </div>
 
       <div class="grid-wrapper">
         <table class="erp-grid">
           <thead>
             <tr>
+              @if (!atualizacaoId()) {
+                <th style="width:36px">
+                  <input type="checkbox" class="grid-check" [checked]="todosSelecionados()" (change)="toggleTodosSelecionados()" />
+                </th>
+              }
               <th style="width:200px">Produto</th>
               <th style="width:130px">EAN</th>
               <th style="width:150px">Grupo</th>
-              <th style="width:100px">Venda Atual</th>
-              <th style="width:100px">Venda Novo</th>
-              <th style="width:100px">PMC Atual</th>
+              <th style="width:100px">Vlr Venda Atual</th>
               <th style="width:100px">PMC Novo</th>
               <th style="width:80px">Variacao</th>
             </tr>
           </thead>
           <tbody>
-            @for (item of resultado(); track item.produtoId) {
-              <tr [class.preco-subiu]="item.variacaoPercent > 0" [class.preco-desceu]="item.variacaoPercent < 0">
+            @for (item of resultado(); track item.produtoDadosId) {
+              <tr [class.item-selecionado]="isItemSelecionado(item.produtoDadosId)">
+                @if (!atualizacaoId()) {
+                  <td class="td-check">
+                    <input type="checkbox" class="grid-check" [checked]="isItemSelecionado(item.produtoDadosId)" (change)="toggleItemSelecionado(item.produtoDadosId)" />
+                  </td>
+                }
                 <td>{{ item.produtoNome }}</td>
                 <td>{{ item.ean }}</td>
                 <td>{{ item.grupoPrincipalNome }}</td>
                 <td class="td-valor">{{ item.valorVendaAtual | number:'1.2-2':'pt-BR' }}</td>
-                <td class="td-valor"><strong>{{ item.valorVendaNovo | number:'1.2-2':'pt-BR' }}</strong></td>
-                <td class="td-valor">{{ item.pmcAtual | number:'1.2-2':'pt-BR' }}</td>
                 <td class="td-valor"><strong>{{ item.pmcNovo | number:'1.2-2':'pt-BR' }}</strong></td>
                 <td class="td-center" [class.var-positiva]="item.variacaoPercent > 0" [class.var-negativa]="item.variacaoPercent < 0">
                   {{ item.variacaoPercent > 0 ? '+' : '' }}{{ item.variacaoPercent | number:'1.2-2':'pt-BR' }}%
@@ -206,7 +222,7 @@
               </tr>
             }
             @if (resultado().length === 0) {
-              <tr><td colspan="8" class="grid-vazio">Nenhum produto encontrado para os filtros selecionados.</td></tr>
+              <tr><td [attr.colspan]="atualizacaoId() ? 6 : 7" class="grid-vazio">Nenhum produto encontrado para os filtros selecionados.</td></tr>
             }
           </tbody>
         </table>
@@ -214,7 +230,32 @@
 
       <div class="grid-rodape">
         <span>Produtos: <strong>{{ resultado().length }}</strong></span>
+        @if (itensSelecionados().size > 0) {
+          <span class="rodape-sep">|</span>
+          <span>Selecionados: <strong>{{ itensSelecionados().size }}</strong></span>
+        }
       </div>
     }
   </div>
 </div>
+
+<!-- ══════════ MODAL CONFIRMAÇÃO ══════════ -->
+@if (modalConfirm()) {
+  <div class="modal-overlay" (click)="fecharModal()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div class="modal-titulo">{{ modalTitulo() }}</div>
+      <div class="modal-mensagem">{{ modalMensagem() }}</div>
+      <div class="modal-acoes">
+        @if (modalCallback) {
+          <button class="modal-btn modal-btn-cancelar" (click)="fecharModal()">Cancelar</button>
+          <button class="modal-btn modal-btn-confirmar" (click)="confirmarModal()">Confirmar</button>
+        } @else {
+          <button class="modal-btn modal-btn-cancelar" (click)="fecharModal()">OK</button>
+        }
+      </div>
+    </div>
+  </div>
+}

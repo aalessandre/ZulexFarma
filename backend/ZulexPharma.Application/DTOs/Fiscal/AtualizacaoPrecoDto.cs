@@ -29,6 +29,11 @@ public class ProcessarAtualizacaoRequest
 
     /// <summary>"AUTOMATICO" ou "LISTA"</summary>
     public string Acao { get; set; } = "LISTA";
+
+    public string? NomeUsuario { get; set; }
+
+    /// <summary>IDs específicos para aplicar (do preview com checkboxes)</summary>
+    public List<long>? ProdutoDadosIds { get; set; }
 }
 
 // ── Resultado/Lista de preview ──────────────────────────────────────

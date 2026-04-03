@@ -144,7 +144,52 @@
   &:hover { background: var(--erp-bg); }
 }
 
-.preco-subiu { }
-.preco-desceu { }
 .var-positiva { color: #e74c3c; font-weight: 600; }
 .var-negativa { color: #27ae60; font-weight: 600; }
+
+.resultado-acoes { display: flex; gap: 8px; margin-left: auto; }
+
+.btn-aplicar {
+  padding: 6px 20px; background: #27ae60; color: #fff; border: none; border-radius: 4px;
+  font-size: var(--erp-fs-body); font-weight: 600; cursor: pointer;
+  &:hover { filter: brightness(1.1); }
+  &:disabled { opacity: 0.5; }
+}
+
+.rodape-sep { color: var(--erp-border); }
+
+.grid-check { width: 16px; height: 16px; accent-color: var(--erp-blue, #2c5fad); cursor: pointer; margin: 0; }
+.td-check { width: 36px; text-align: center; padding: 7px 6px !important; }
+.item-selecionado { background: rgba(44, 95, 173, 0.08) !important; }
+
+/* ── Modal ──────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex;
+  align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px);
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.92) translateY(-10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-box {
+  background: var(--erp-surface, #fff); border-radius: 12px; padding: 36px 40px 32px;
+  width: 420px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  animation: modal-in 0.18s ease-out;
+}
+
+.modal-icon { margin-bottom: 20px; }
+.modal-titulo { font-size: 18px; font-weight: 700; color: var(--erp-text); margin-bottom: 12px; }
+.modal-mensagem { font-size: 14px; color: var(--erp-text-muted); line-height: 1.6; margin-bottom: 28px; }
+
+.modal-acoes { display: flex; gap: 12px; width: 100%; }
+.modal-btn {
+  flex: 1; height: 44px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+  &:hover:not(:disabled) { filter: brightness(1.08); }
+  &:active:not(:disabled) { transform: scale(0.98); }
+}
+.modal-btn-cancelar { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
+.modal-btn-confirmar { background: #e74c3c; color: #fff; }

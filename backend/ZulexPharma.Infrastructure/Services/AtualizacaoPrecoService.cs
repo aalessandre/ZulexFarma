@@ -136,15 +136,10 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
             var pmcAtual = dados.Pmc;
             var vendaAtual = dados.ValorVenda;
 
-            // Calcular novo valor de venda mantendo a mesma margem
-            var vendaNovo = pmcNovo; // Por padrão usa PMC como referência
-            if (vendaAtual > 0 && pmcAtual > 0)
-            {
-                // Manter a proporção: vendaNovo = pmcNovo * (vendaAtual / pmcAtual)
-                vendaNovo = Math.Round(pmcNovo * (vendaAtual / pmcAtual), 2);
-            }
+            // Para produtos com PMC: valor de venda = PMC
+            var vendaNovo = pmcNovo;
 
-            // Aplicar filtro de modo
+            // Aplicar filtro de modo (compara PMC novo vs valor de venda atual)
             if (request.Modo == "AUMENTAR" && vendaNovo <= vendaAtual) continue;
             if (request.Modo == "REDUZIR" && vendaNovo >= vendaAtual) continue;
 
@@ -167,6 +162,10 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
                 VariacaoPercent = variacao
             });
         }
+
+        // Filtrar por IDs específicos (quando vem do preview com checkboxes)
+        if (request.ProdutoDadosIds is { Count: > 0 })
+            itensPreview = itensPreview.Where(i => request.ProdutoDadosIds.Contains(i.ProdutoDadosId)).ToList();
 
         // Se modo AUTOMATICO, aplicar
         long? atualizacaoId = null;
@@ -248,6 +247,7 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
             FilialId = request.FilialId,
             Tipo = "ABCFARMA",
             DataExecucao = DateTime.UtcNow,
+            NomeUsuario = request.NomeUsuario,
             FiltroJson = JsonSerializer.Serialize(new { request.Modo, request.GruposPrincipaisIds, request.ReajustarPromocoes, request.ReajustarOfertas }),
             TotalProdutos = dadosProdutos.Count,
             TotalAlterados = itens.Count,
@@ -261,7 +261,7 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
             var dados = dadosProdutos.FirstOrDefault(d => d.Id == item.ProdutoDadosId);
             if (dados == null) continue;
 
-            // Salvar snapshot antes
+            // Salvar snapshot antes da alteração
             _db.AtualizacoesPrecoItens.Add(new AtualizacaoPrecoItem
             {
                 AtualizacaoPrecoId = atualizacao.Id,
@@ -277,9 +277,16 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
                 ProjecaoLucroAnterior = dados.ProjecaoLucro
             });
 
-            // Aplicar novos valores
-            dados.ValorVenda = item.ValorVendaNovo;
+            // Aplicar: PMC e Valor de Venda = PMC da ABCFarma
             dados.Pmc = item.PmcNovo;
+            dados.ValorVenda = item.ValorVendaNovo;
+
+            // Recalcular markup e projeção de lucro com base no custo médio
+            if (dados.CustoMedio > 0 && dados.ValorVenda > 0)
+            {
+                dados.Markup = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.CustoMedio) * 100, 2);
+                dados.ProjecaoLucro = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.ValorVenda) * 100, 2);
+            }
         }
 
         await _db.SaveChangesAsync();
@@ -288,6 +295,7 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
             novo: new Dictionary<string, string?> {
                 ["Tipo"] = "ABCFARMA",
                 ["Modo"] = request.Modo,
+                ["Usuário"] = request.NomeUsuario,
                 ["Produtos alterados"] = itens.Count.ToString(),
                 ["Total analisados"] = dadosProdutos.Count.ToString()
             });

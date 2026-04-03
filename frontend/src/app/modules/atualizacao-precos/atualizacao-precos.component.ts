@@ -54,6 +54,15 @@ export class AtualizacaoPrecosComponent implements OnInit {
   historico = signal<Historico[]>([]);
   revertendo = signal<number | null>(null);
 
+  // ── Seleção no preview ─────────────────────────────────────────
+  itensSelecionados = signal<Set<number>>(new Set());
+
+  // ── Modal ─────────────────────────────────────────────────────
+  modalConfirm = signal(false);
+  modalTitulo = signal('');
+  modalMensagem = signal('');
+  modalCallback: (() => void) | null = null;
+
   // ── Geral ─────────────────────────────────────────────────────
   erro = signal('');
   mensagem = signal('');
@@ -147,6 +156,7 @@ export class AtualizacaoPrecosComponent implements OnInit {
     this.erro.set('');
     this.mensagem.set('');
     this.resultado.set([]);
+    this.itensSelecionados.set(new Set());
 
     this.http.post<any>(`${this.apiUrl}/processar`, {
       filialId,
@@ -154,7 +164,8 @@ export class AtualizacaoPrecosComponent implements OnInit {
       gruposPrincipaisIds: this.gruposSelecionados(),
       reajustarPromocoes: this.reajustarPromocoes(),
       reajustarOfertas: this.reajustarOfertas(),
-      acao: this.acao()
+      acao: this.acao(),
+      nomeUsuario: usuario?.nome || ''
     }).subscribe({
       next: r => {
         const d = r.data;
@@ -179,21 +190,100 @@ export class AtualizacaoPrecosComponent implements OnInit {
 
   // ── Reverter ──────────────────────────────────────────────────
 
-  reverter(id: number) {
-    if (!confirm('Reverter esta atualização? Os preços voltarão aos valores anteriores.')) return;
-    this.revertendo.set(id);
-    this.http.post<any>(`${this.apiUrl}/reverter/${id}`, {}).subscribe({
-      next: () => {
-        this.mensagem.set('Atualização revertida com sucesso.');
-        this.revertendo.set(null);
-        this.carregarHistorico();
-      },
-      error: e => {
-        this.erro.set(e?.error?.message || 'Erro ao reverter.');
-        this.revertendo.set(null);
-      }
+  pedirReverter(id: number) {
+    this.abrirModal('Reverter Atualizacao', 'Os precos voltarao aos valores anteriores. Deseja continuar?', () => {
+      this.revertendo.set(id);
+      this.http.post<any>(`${this.apiUrl}/reverter/${id}`, {}).subscribe({
+        next: () => {
+          this.mensagem.set('Atualizacao revertida com sucesso.');
+          this.revertendo.set(null);
+          this.carregarHistorico();
+        },
+        error: e => {
+          this.erro.set(e?.error?.message || 'Erro ao reverter.');
+          this.revertendo.set(null);
+        }
+      });
     });
   }
+
+  // ── Aplicar do preview ────────────────────────────────────────
+
+  aplicarDoPreview() {
+    const selecionados = this.itensSelecionados();
+    if (selecionados.size === 0) {
+      this.abrirModal('Nenhum produto selecionado', 'Selecione os produtos que deseja atualizar usando os checkboxes da lista.', null);
+      return;
+    }
+
+    this.abrirModal('Aplicar Atualizacao',
+      `Deseja aplicar a atualizacao de precos para ${selecionados.size} produto(s) selecionado(s)?`, () => {
+      const usuario = this.auth.usuarioLogado();
+      const filialId = parseInt(usuario?.filialId || '1', 10);
+
+      this.processando.set(true);
+      this.http.post<any>(`${this.apiUrl}/processar`, {
+        filialId,
+        modo: this.modo(),
+        gruposPrincipaisIds: this.gruposSelecionados(),
+        reajustarPromocoes: this.reajustarPromocoes(),
+        reajustarOfertas: this.reajustarOfertas(),
+        acao: 'AUTOMATICO',
+        nomeUsuario: usuario?.nome || '',
+        produtoDadosIds: Array.from(selecionados)
+      }).subscribe({
+        next: r => {
+          this.mensagem.set(`Atualizacao aplicada: ${r.data.totalAlterados} produtos alterados.`);
+          this.processando.set(false);
+          this.mostrarResultado.set(false);
+          this.itensSelecionados.set(new Set());
+          this.carregarHistorico();
+        },
+        error: e => {
+          this.erro.set(e?.error?.message || 'Erro ao aplicar.');
+          this.processando.set(false);
+        }
+      });
+    });
+  }
+
+  // ── Seleção de itens no preview ───────────────────────────────
+
+  toggleItemSelecionado(id: number) {
+    this.itensSelecionados.update(s => {
+      const novo = new Set(s);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  }
+
+  toggleTodosSelecionados() {
+    const itens = this.resultado();
+    if (this.itensSelecionados().size === itens.length) {
+      this.itensSelecionados.set(new Set());
+    } else {
+      this.itensSelecionados.set(new Set(itens.map(i => i.produtoDadosId)));
+    }
+  }
+
+  isItemSelecionado(id: number): boolean { return this.itensSelecionados().has(id); }
+  todosSelecionados(): boolean { return this.resultado().length > 0 && this.itensSelecionados().size === this.resultado().length; }
+
+  // ── Modal genérica ────────────────────────────────────────────
+
+  abrirModal(titulo: string, mensagem: string, callback: (() => void) | null) {
+    this.modalTitulo.set(titulo);
+    this.modalMensagem.set(mensagem);
+    this.modalCallback = callback;
+    this.modalConfirm.set(true);
+  }
+
+  confirmarModal() {
+    this.modalConfirm.set(false);
+    if (this.modalCallback) this.modalCallback();
+  }
+
+  fecharModal() { this.modalConfirm.set(false); }
 
   // ── Helpers ───────────────────────────────────────────────────
 
