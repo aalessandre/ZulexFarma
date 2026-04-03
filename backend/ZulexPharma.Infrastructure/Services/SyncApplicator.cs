@@ -161,6 +161,8 @@ public static class SyncApplicator
 
         // Nível 0 — referência
         "IcmsUfs"                  => 0,
+        "AtualizacoesPreco"        => 3,
+        "AtualizacoesPrecoItens"   => 4,
 
         // Nível 0 — configurações (sem dependência)
         "Configuracoes"            => 0,
@@ -206,6 +208,8 @@ public static class SyncApplicator
         ["NcmStUfs"] = typeof(NcmStUf),
         ["Configuracoes"] = typeof(Configuracao),
         ["IcmsUfs"] = typeof(IcmsUf),
+        ["AtualizacoesPreco"] = typeof(AtualizacaoPreco),
+        ["AtualizacoesPrecoItens"] = typeof(AtualizacaoPrecoItem),
         ["Compras"] = typeof(Compra),
         ["ComprasProdutos"] = typeof(CompraProduto),
         ["ComprasFiscal"] = typeof(CompraFiscal),

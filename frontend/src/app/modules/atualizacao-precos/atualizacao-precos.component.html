@@ -1,0 +1,219 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar">
+      <span>ABCFarma</span>
+      <span class="sidebar-sub">Atualizacao de precos</span>
+    </div>
+
+    <label class="sidebar-item tile-importar" [class.disabled]="uploadando()">
+      <input type="file" accept=".json" (change)="onFileSelected($event)" hidden [disabled]="uploadando()">
+      @if (uploadando()) {
+        <span>Carregando...</span>
+      } @else {
+        <span>Atualizar Base</span>
+        <span class="sidebar-sub">Carregar arquivo</span>
+      }
+    </label>
+
+    <div class="sidebar-item tile-processar" [class.disabled]="processando() || baseTotal() === 0" (click)="processar()">
+      @if (processando()) {
+        <span>Processando...</span>
+      } @else {
+        <span>Atualizar Produtos</span>
+        <span class="sidebar-sub">Aplicar precos</span>
+      }
+    </div>
+
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+
+    <!-- Info da base -->
+    <div class="sidebar-resumo">
+      <div class="resumo-titulo">BASE ABCFARMA</div>
+      <div class="resumo-texto">
+        {{ baseTotal() | number:'1.0-0':'pt-BR' }} registros
+      </div>
+      @if (baseUltimaAtualizacao()) {
+        <div class="resumo-texto" style="font-size:10px">
+          Atualizado: {{ baseUltimaAtualizacao() | date:'dd/MM/yyyy HH:mm' }}
+        </div>
+      }
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    @if (erro()) {
+      <div class="form-erro">{{ erro() }}
+        <button class="form-erro-fechar" (click)="erro.set('')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    }
+    @if (mensagem()) {
+      <div class="form-sucesso">{{ mensagem() }}
+        <button class="form-erro-fechar" (click)="mensagem.set('')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    }
+
+    @if (!mostrarResultado()) {
+      <!-- ══════════ FILTROS ══════════ -->
+      <div class="config-panel">
+        <h3>Configuracoes da Atualizacao</h3>
+
+        <div class="config-grid">
+          <div class="config-campo">
+            <label>ACAO</label>
+            <select [ngModel]="modo()" (ngModelChange)="modo.set($event)">
+              <option value="AMBOS">Aumentar e Reduzir</option>
+              <option value="AUMENTAR">Apenas Aumentar</option>
+              <option value="REDUZIR">Apenas Reduzir</option>
+            </select>
+          </div>
+
+          <div class="config-campo">
+            <label>MODO</label>
+            <select [ngModel]="acao()" (ngModelChange)="acao.set($event)">
+              <option value="LISTA">Criar Lista (preview)</option>
+              <option value="AUTOMATICO">Atualizar Automaticamente</option>
+            </select>
+          </div>
+
+          <div class="config-campo config-checks">
+            <label class="check-label">
+              <input type="checkbox" [checked]="reajustarPromocoes()" (change)="reajustarPromocoes.set($any($event.target).checked)" />
+              <span>Reajustar promocoes</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" [checked]="reajustarOfertas()" (change)="reajustarOfertas.set($any($event.target).checked)" />
+              <span>Reajustar ofertas</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="config-grupos">
+          <label>GRUPOS PRINCIPAIS <span class="grupos-hint">(vazio = todos)</span></label>
+          <div class="grupos-grid">
+            @for (g of gruposPrincipais(); track g.id) {
+              <label class="grupo-chip" [class.selecionado]="isGrupoSelecionado(g.id)" (click)="toggleGrupo(g.id)">
+                {{ g.nome }}
+              </label>
+            }
+            @if (gruposPrincipais().length === 0) {
+              <span class="grupos-vazio">Nenhum grupo cadastrado</span>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ HISTÓRICO ══════════ -->
+      <div class="historico-panel">
+        <h3>Historico de Atualizacoes</h3>
+        @if (historico().length === 0) {
+          <div class="grid-vazio">Nenhuma atualizacao realizada.</div>
+        } @else {
+          <div class="grid-wrapper">
+            <table class="erp-grid">
+              <thead>
+                <tr>
+                  <th style="width:60px">ID</th>
+                  <th style="width:100px">Tipo</th>
+                  <th style="width:150px">Data</th>
+                  <th style="width:150px">Usuario</th>
+                  <th style="width:100px">Analisados</th>
+                  <th style="width:100px">Alterados</th>
+                  <th style="width:100px">Status</th>
+                  <th style="width:100px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of historico(); track h.id) {
+                  <tr>
+                    <td>{{ h.id }}</td>
+                    <td>{{ h.tipo }}</td>
+                    <td>{{ h.dataExecucao | date:'dd/MM/yyyy HH:mm' }}</td>
+                    <td>{{ h.nomeUsuario }}</td>
+                    <td class="td-center">{{ h.totalProdutos }}</td>
+                    <td class="td-center">{{ h.totalAlterados }}</td>
+                    <td>
+                      <span class="badge-status" [class.status-aplicada]="h.status === 'APLICADA'" [class.status-revertida]="h.status === 'REVERTIDA'">
+                        {{ h.status }}
+                      </span>
+                    </td>
+                    <td class="td-center">
+                      @if (h.status === 'APLICADA') {
+                        <button class="btn-reverter" [disabled]="revertendo() === h.id" (click)="reverter(h.id)">
+                          @if (revertendo() === h.id) { ... } @else { Reverter }
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    @if (mostrarResultado()) {
+      <!-- ══════════ RESULTADO ══════════ -->
+      <div class="resultado-header">
+        <h3>Resultado da Atualizacao</h3>
+        <div class="resultado-info">
+          <span>Analisados: <strong>{{ totalAnalisados() }}</strong></span>
+          <span>Alterados: <strong>{{ totalAlterados() }}</strong></span>
+          @if (atualizacaoId()) {
+            <span class="badge-status status-aplicada">APLICADA</span>
+          } @else {
+            <span class="badge-status status-preview">PREVIEW</span>
+          }
+        </div>
+        <button class="btn-voltar" (click)="fecharResultado()">Voltar</button>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th style="width:200px">Produto</th>
+              <th style="width:130px">EAN</th>
+              <th style="width:150px">Grupo</th>
+              <th style="width:100px">Venda Atual</th>
+              <th style="width:100px">Venda Novo</th>
+              <th style="width:100px">PMC Atual</th>
+              <th style="width:100px">PMC Novo</th>
+              <th style="width:80px">Variacao</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of resultado(); track item.produtoId) {
+              <tr [class.preco-subiu]="item.variacaoPercent > 0" [class.preco-desceu]="item.variacaoPercent < 0">
+                <td>{{ item.produtoNome }}</td>
+                <td>{{ item.ean }}</td>
+                <td>{{ item.grupoPrincipalNome }}</td>
+                <td class="td-valor">{{ item.valorVendaAtual | number:'1.2-2':'pt-BR' }}</td>
+                <td class="td-valor"><strong>{{ item.valorVendaNovo | number:'1.2-2':'pt-BR' }}</strong></td>
+                <td class="td-valor">{{ item.pmcAtual | number:'1.2-2':'pt-BR' }}</td>
+                <td class="td-valor"><strong>{{ item.pmcNovo | number:'1.2-2':'pt-BR' }}</strong></td>
+                <td class="td-center" [class.var-positiva]="item.variacaoPercent > 0" [class.var-negativa]="item.variacaoPercent < 0">
+                  {{ item.variacaoPercent > 0 ? '+' : '' }}{{ item.variacaoPercent | number:'1.2-2':'pt-BR' }}%
+                </td>
+              </tr>
+            }
+            @if (resultado().length === 0) {
+              <tr><td colspan="8" class="grid-vazio">Nenhum produto encontrado para os filtros selecionados.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Produtos: <strong>{{ resultado().length }}</strong></span>
+      </div>
+    }
+  </div>
+</div>

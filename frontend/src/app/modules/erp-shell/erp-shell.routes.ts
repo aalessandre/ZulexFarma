@@ -118,6 +118,11 @@ export const ErpRoutes: Routes = [
         loadComponent: () =>
           import('../icms-uf/icms-uf.component').then(m => m.IcmsUfComponent),
       },
+      {
+        path: 'atualizacao-precos',
+        loadComponent: () =>
+          import('../atualizacao-precos/atualizacao-precos.component').then(m => m.AtualizacaoPrecosComponent),
+      },
       // Placeholders — módulos futuros
       {
         path: '**',

@@ -10,6 +10,9 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Aumentar limite de request body para upload ABCFarma (~25MB JSON)
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 60_000_000);
+
 // ─── Serilog ───────────────────────────────────────────────────────────────
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
@@ -122,6 +125,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ICompraService,
                             ZulexPharma.Infrastructure.Services.CompraService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IIcmsUfService,
                             ZulexPharma.Infrastructure.Services.IcmsUfService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAtualizacaoPrecoService,
+                            ZulexPharma.Infrastructure.Services.AtualizacaoPrecoService>();
 
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();

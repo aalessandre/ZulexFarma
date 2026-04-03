@@ -61,6 +61,9 @@ public class AppDbContext : DbContext
     public DbSet<CompraProduto> ComprasProdutos => Set<CompraProduto>();
     public DbSet<CompraFiscal> ComprasFiscal => Set<CompraFiscal>();
     public DbSet<IcmsUf> IcmsUfs => Set<IcmsUf>();
+    public DbSet<AbcFarmaBase> AbcFarmaBase => Set<AbcFarmaBase>();
+    public DbSet<AtualizacaoPreco> AtualizacoesPreco => Set<AtualizacaoPreco>();
+    public DbSet<AtualizacaoPrecoItem> AtualizacoesPrecoItens => Set<AtualizacaoPrecoItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -614,6 +617,43 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.CompraProduto).WithOne(p => p.Fiscal).HasForeignKey<CompraFiscal>(x => x.CompraProdutoId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        // ── AbcFarmaBase (NÃO herda BaseEntity, NÃO replica) ────────
+        modelBuilder.Entity<AbcFarmaBase>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Ean).HasMaxLength(14).IsRequired();
+            e.Property(x => x.RegistroAnvisa).HasMaxLength(20);
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Descricao).HasMaxLength(300);
+            e.Property(x => x.Composicao).HasMaxLength(500);
+            e.Property(x => x.NomeFabricante).HasMaxLength(200);
+            e.Property(x => x.ClasseTerapeutica).HasMaxLength(200);
+            e.Property(x => x.Ncm).HasMaxLength(10);
+            e.HasIndex(x => x.Ean);
+            e.HasIndex(x => x.RegistroAnvisa);
+        });
+
+        // ── AtualizacaoPreco (histórico de atualizações) ───────────
+        modelBuilder.Entity<AtualizacaoPreco>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tipo).HasMaxLength(20).IsRequired();
+            e.Property(x => x.NomeUsuario).HasMaxLength(100);
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            e.HasIndex(x => x.FilialId);
+        });
+
+        // ── AtualizacaoPrecoItem ───────────────────────────────────
+        modelBuilder.Entity<AtualizacaoPrecoItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ProdutoNome).HasMaxLength(200);
+            e.HasOne(x => x.AtualizacaoPreco).WithMany(a => a.Itens).HasForeignKey(x => x.AtualizacaoPrecoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         // Configurações globais para todas as entidades BaseEntity
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -681,7 +721,7 @@ public class AppDbContext : DbContext
     // então não passam pelo interceptor — não precisam estar aqui.
     private static readonly HashSet<string> _tabelasSemSync = new()
     {
-        "SyncFila", "SequenciasLocais"
+        "SyncFila", "SequenciasLocais", "AbcFarmaBase"
     };
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
