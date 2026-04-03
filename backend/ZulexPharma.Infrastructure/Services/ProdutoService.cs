@@ -154,7 +154,7 @@ public class ProdutoService : IProdutoService
         if (string.IsNullOrWhiteSpace(dto.Nome))
             throw new ArgumentException("Nome é obrigatório.");
 
-        var anterior = new Dictionary<string, string?> { ["Nome"] = p.Nome, ["Ativo"] = p.Ativo ? "Sim" : "Não" };
+        var anterior = SnapshotProduto(p);
 
         p.Nome = dto.Nome.Trim().ToUpper();
         p.CodigoBarras = dto.CodigoBarras?.Trim();
@@ -177,7 +177,7 @@ public class ProdutoService : IProdutoService
 
         await _db.SaveChangesAsync();
 
-        var novo = new Dictionary<string, string?> { ["Nome"] = p.Nome, ["Ativo"] = p.Ativo ? "Sim" : "Não" };
+        var novo = SnapshotProduto(p);
         await _log.RegistrarAsync(TELA, "ALTERAÇÃO", ENTIDADE, id, anterior: anterior, novo: novo);
     }
 
@@ -445,6 +445,71 @@ public class ProdutoService : IProdutoService
         }
 
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>Captura snapshot de todos os campos do produto para log de auditoria.</summary>
+    private static Dictionary<string, string?> SnapshotProduto(Produto p)
+    {
+        var snap = new Dictionary<string, string?>
+        {
+            ["Nome"] = p.Nome,
+            ["CódigoBarras"] = p.CodigoBarras,
+            ["QtdeEmbalagem"] = p.QtdeEmbalagem.ToString(),
+            ["PreçoFP"] = p.PrecoFp?.ToString("F2"),
+            ["Lista"] = p.Lista,
+            ["Fração"] = p.Fracao.ToString(),
+            ["Ativo"] = p.Ativo ? "Sim" : "Não",
+            ["Eliminado"] = p.Eliminado ? "Sim" : "Não",
+            ["Barras"] = string.Join(", ", p.Barras.Select(b => b.Barras)),
+            ["RegistrosMS"] = string.Join(", ", p.RegistrosMs.Select(m => m.NumeroMs)),
+            ["Substâncias"] = string.Join(", ", p.Substancias.Select(s => s.Substancia?.Nome ?? s.SubstanciaId.ToString())),
+        };
+
+        // Dados por filial
+        foreach (var d in p.Dados.OrderBy(d => d.FilialId))
+        {
+            var f = $"F{d.FilialId}";
+            snap[$"{f}.ValorVenda"] = d.ValorVenda.ToString("F2");
+            snap[$"{f}.CustoMédio"] = d.CustoMedio.ToString("F2");
+            snap[$"{f}.Markup"] = d.Markup.ToString("F2");
+            snap[$"{f}.ProjLucro"] = d.ProjecaoLucro.ToString("F2");
+            snap[$"{f}.PMC"] = d.Pmc.ToString("F2");
+            snap[$"{f}.VlrPromoção"] = d.ValorPromocao.ToString("F2");
+            snap[$"{f}.VlrPromoçãoPrazo"] = d.ValorPromocaoPrazo.ToString("F2");
+            snap[$"{f}.PromInício"] = d.PromocaoInicio?.ToString("dd/MM/yyyy");
+            snap[$"{f}.PromFim"] = d.PromocaoFim?.ToString("dd/MM/yyyy");
+            snap[$"{f}.DescMin"] = d.DescontoMinimo.ToString("F2");
+            snap[$"{f}.DescMaxSemSenha"] = d.DescontoMaxSemSenha.ToString("F2");
+            snap[$"{f}.DescMaxComSenha"] = d.DescontoMaxComSenha.ToString("F2");
+            snap[$"{f}.Comissão"] = d.Comissao.ToString("F2");
+            snap[$"{f}.Incentivo"] = d.ValorIncentivo.ToString("F2");
+            snap[$"{f}.Estoque"] = d.EstoqueAtual.ToString("F3");
+            snap[$"{f}.EstoqueMin"] = d.EstoqueMinimo.ToString("F3");
+            snap[$"{f}.EstoqueMax"] = d.EstoqueMaximo.ToString("F3");
+            snap[$"{f}.NomeEtiqueta"] = d.NomeEtiqueta;
+            snap[$"{f}.Mensagem"] = d.Mensagem;
+        }
+
+        // Fiscal por filial
+        foreach (var fi in p.Fiscais.OrderBy(f => f.FilialId))
+        {
+            var f = $"F{fi.FilialId}";
+            snap[$"{f}.ICMS"] = fi.AliquotaIcms.ToString("F2");
+            snap[$"{f}.PIS"] = fi.AliquotaPis.ToString("F2");
+            snap[$"{f}.COFINS"] = fi.AliquotaCofins.ToString("F2");
+            snap[$"{f}.IPI"] = fi.AliquotaIpi.ToString("F2");
+            snap[$"{f}.CstIcms"] = fi.CstIcms;
+            snap[$"{f}.CstPis"] = fi.CstPis;
+            snap[$"{f}.CstCofins"] = fi.CstCofins;
+            snap[$"{f}.CstIpi"] = fi.CstIpi;
+        }
+
+        // Fornecedores
+        var fornecedores = p.Fornecedores.OrderBy(f => f.FilialId).ThenBy(f => f.FornecedorId)
+            .Select(f => $"F{f.FilialId}:{f.Fornecedor?.Pessoa?.Nome ?? f.FornecedorId.ToString()}");
+        snap["Fornecedores"] = string.Join(", ", fornecedores);
+
+        return snap;
     }
 
     /// <summary>Copia valores de ProdutoDados do DTO para a entidade, zerando campos de estoque.</summary>
