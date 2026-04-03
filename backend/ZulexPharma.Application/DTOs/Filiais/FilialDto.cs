@@ -16,6 +16,7 @@ public class FilialListDto
     public string Uf { get; set; } = string.Empty;
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public decimal AliquotaIcms { get; set; }
     public DateTime CriadoEm { get; set; }
     public bool Ativo { get; set; }
 }
@@ -35,5 +36,6 @@ public class FilialFormDto
     public string Uf { get; set; } = string.Empty;
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public decimal AliquotaIcms { get; set; }
     public bool Ativo { get; set; } = true;
 }

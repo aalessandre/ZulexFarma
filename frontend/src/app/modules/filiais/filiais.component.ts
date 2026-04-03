@@ -38,8 +38,16 @@ interface Filial {
   uf: string;
   telefone: string;
   email: string;
+  aliquotaIcms: number;
   ativo: boolean;
   criadoEm?: string;
+}
+
+interface IcmsUfOption {
+  id: number;
+  uf: string;
+  nomeEstado: string;
+  aliquotaInterna: number;
 }
 
 interface AbaEdicao {
@@ -81,6 +89,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   isDirty = signal(false);
   erro = signal('');
   errosCampos = signal<Record<string, string>>({});
+  icmsUfOptions = signal<IcmsUfOption[]>([]);
   private formOriginal: Filial | null = null;
   modalLog = signal(false);
   logRegistros = signal<LogEntry[]>([]);
@@ -122,7 +131,12 @@ export class FiliaisComponent implements OnInit, OnDestroy {
 
   private primeiroCarregamento = true;
 
-  ngOnInit() { this.carregar(); }
+  ngOnInit() {
+    this.carregar();
+    this.http.get<any>(`${environment.apiUrl}/icms-uf`).subscribe({
+      next: r => this.icmsUfOptions.set((r.data ?? []).filter((x: any) => x.ativo))
+    });
+  }
 
   ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
 
@@ -648,7 +662,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     return {
       nomeFilial: '', razaoSocial: '', nomeFantasia: '', cnpj: '',
       inscricaoEstadual: '', cep: '', rua: '', numero: '', bairro: '',
-      cidade: '', uf: '', telefone: '', email: '', ativo: true
+      cidade: '', uf: '', telefone: '', email: '', aliquotaIcms: 0, ativo: true
     };
   }
 

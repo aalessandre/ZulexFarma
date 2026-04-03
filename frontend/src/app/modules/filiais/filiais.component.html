@@ -291,6 +291,17 @@
             @if (erroCampo('email')) { <span class="field-erro">{{ erroCampo('email') }}</span> }
           </div>
 
+          <div class="field">
+            <label>ICMS % *</label>
+            <select [value]="filialForm().aliquotaIcms || 0"
+                    (change)="updateForm('aliquotaIcms', +$any($event.target).value)">
+              <option value="0">Selecione...</option>
+              @for (icms of icmsUfOptions(); track icms.id) {
+                <option [value]="icms.aliquotaInterna">{{ icms.uf }} - {{ icms.nomeEstado }} ({{ icms.aliquotaInterna }}%)</option>
+              }
+            </select>
+          </div>
+
           <div class="field field-check">
             <label class="check-label">
               <input type="checkbox" [checked]="filialForm().ativo"

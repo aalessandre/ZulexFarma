@@ -72,7 +72,10 @@ builder.Services.AddResponseCompression(opts =>
 });
 
 // ─── Controllers + OpenAPI ─────────────────────────────────────────────────
-builder.Services.AddControllers();
+builder.Services.AddControllers(o => o.MaxModelBindingCollectionSize = int.MaxValue)
+    .AddJsonOptions(o => {
+        o.JsonSerializerOptions.MaxDepth = 128;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
