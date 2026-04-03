@@ -426,31 +426,18 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.produtosBusca.set([]);
     this.modalVincular.set(true);
 
-    // Auto-buscar por código de barras se disponível
-    if (item.codigoBarrasXml && item.codigoBarrasXml.length >= 3) {
-      this.buscaProduto.set(item.codigoBarrasXml);
-      setTimeout(() => {
-        this.buscandoProduto.set(true);
-        this.erro.set('');
-        const url = `${this.produtosApiUrl}?busca=${encodeURIComponent(item.codigoBarrasXml)}`;
-        this.http.get<any>(url).subscribe({
-          next: r => {
-            const produtos: any[] = r.data ?? [];
-            const lista = produtos.slice(0, 30).map((p: any) => ({
-              id: p.id, nome: p.nome, codigoBarras: p.codigoBarras
-            }));
-            this.produtosBusca.set(lista);
-            this.buscandoProduto.set(false);
-
-            // Se encontrou exatamente 1 produto com o mesmo barras, vincular automaticamente
-            const match = lista.find(p => p.codigoBarras === item.codigoBarrasXml);
-            if (match && lista.length === 1) {
-              this.selecionarProduto(match);
-            }
-          },
-          error: () => this.buscandoProduto.set(false)
-        });
-      }, 100);
+    // Busca silenciosa por código de barras — se encontrar, vincula sem mostrar nada
+    if (!item.vinculado && item.codigoBarrasXml && item.codigoBarrasXml.length >= 3) {
+      const url = `${this.produtosApiUrl}?busca=${encodeURIComponent(item.codigoBarrasXml)}`;
+      this.http.get<any>(url).subscribe({
+        next: r => {
+          const produtos: any[] = r.data ?? [];
+          const match = produtos.find((p: any) => p.codigoBarras === item.codigoBarrasXml);
+          if (match) {
+            this.selecionarProduto({ id: match.id, nome: match.nome, codigoBarras: match.codigoBarras });
+          }
+        }
+      });
     }
   }
 
