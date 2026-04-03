@@ -400,6 +400,24 @@ export class ComprasComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Atualizar (re-vincular automaticamente) ────────────────────
+
+  atualizarVinculos() {
+    const detalhe = this.compraDetalhe();
+    if (!detalhe) return;
+    this.carregando.set(true);
+    this.http.get<any>(`${this.apiUrl}/${detalhe.id}`).subscribe({
+      next: r => {
+        this.compraDetalhe.set(r.data);
+        this.carregando.set(false);
+      },
+      error: e => {
+        this.erro.set(e?.error?.message || 'Erro ao atualizar.');
+        this.carregando.set(false);
+      }
+    });
+  }
+
   // ── Vincular produto ──────────────────────────────────────────
 
   abrirModalVincular(item: CompraProduto) {
@@ -407,6 +425,33 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.buscaProduto.set('');
     this.produtosBusca.set([]);
     this.modalVincular.set(true);
+
+    // Auto-buscar por código de barras se disponível
+    if (item.codigoBarrasXml && item.codigoBarrasXml.length >= 3) {
+      this.buscaProduto.set(item.codigoBarrasXml);
+      setTimeout(() => {
+        this.buscandoProduto.set(true);
+        this.erro.set('');
+        const url = `${this.produtosApiUrl}?busca=${encodeURIComponent(item.codigoBarrasXml)}`;
+        this.http.get<any>(url).subscribe({
+          next: r => {
+            const produtos: any[] = r.data ?? [];
+            const lista = produtos.slice(0, 30).map((p: any) => ({
+              id: p.id, nome: p.nome, codigoBarras: p.codigoBarras
+            }));
+            this.produtosBusca.set(lista);
+            this.buscandoProduto.set(false);
+
+            // Se encontrou exatamente 1 produto com o mesmo barras, vincular automaticamente
+            const match = lista.find(p => p.codigoBarras === item.codigoBarrasXml);
+            if (match && lista.length === 1) {
+              this.selecionarProduto(match);
+            }
+          },
+          error: () => this.buscandoProduto.set(false)
+        });
+      }, 100);
+    }
   }
 
   fecharModalVincular() {
@@ -475,6 +520,26 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.http.post<any>(`${this.apiUrl}/desvincular/${item.id}`, {}, { headers }).subscribe({
       next: r => {
         this.atualizarItemNoDetalhe(r.data);
+        this.vinculando.set(null);
+      },
+      error: e => {
+        this.erro.set(e?.error?.message || 'Erro ao desvincular.');
+        this.vinculando.set(null);
+      }
+    });
+  }
+
+  async desvincularDaModal(item: CompraProduto) {
+    if (!confirm(`Desvincular "${item.produtoNome}" deste item?`)) return;
+    if (!await this.verificarPermissao('a')) return;
+
+    this.vinculando.set(item.id);
+    const headers = this.headerLiberacao();
+    this.http.post<any>(`${this.apiUrl}/desvincular/${item.id}`, {}, { headers }).subscribe({
+      next: r => {
+        this.atualizarItemNoDetalhe(r.data);
+        // Atualizar o item na modal
+        this.itemParaVincular.set(r.data);
         this.vinculando.set(null);
       },
       error: e => {

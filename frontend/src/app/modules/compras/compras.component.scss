@@ -51,6 +51,7 @@
 
   &.tile-procurar  { background: linear-gradient(135deg, #2471a3, #2e86c1); }
   &.tile-importar  { background: linear-gradient(135deg, #1abc9c, #16a085); }
+  &.tile-atualizar { background: linear-gradient(135deg, #2980b9, #3498db); }
   &.tile-sair      { background: linear-gradient(135deg, #c0392b, #e74c3c); }
 }
 
@@ -504,6 +505,27 @@
   gap: 6px;
   color: var(--erp-text-muted);
   strong { color: var(--erp-text); }
+}
+
+.modal-vinculado-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  background: #d4edda;
+  border-bottom: 1px solid #c3e6cb;
+  font-size: var(--erp-fs-body);
+  color: #155724;
+
+  .vinculado-badge {
+    font-weight: 700;
+  }
+}
+
+.btn-desvincular-modal {
+  background: #e74c3c !important;
+  margin-left: auto;
+  &:hover { filter: brightness(1.1); }
 }
 
 .modal-log-filtros {

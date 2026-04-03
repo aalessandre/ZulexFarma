@@ -18,6 +18,10 @@
     </label>
 
     @if (modo() === 'detalhe') {
+      <div class="sidebar-item tile-atualizar" (click)="atualizarVinculos()" [class.disabled]="carregando()">
+        <span>Atualizar</span>
+        <span class="sidebar-sub">Re-vincular itens</span>
+      </div>
       <div class="sidebar-item tile-sair" (click)="excluir()">
         <span>Excluir</span>
         <span class="sidebar-sub">Remover nota</span>
@@ -217,7 +221,7 @@
           </thead>
           <tbody>
             @for (p of itensFiltrados(); track p.id) {
-              <tr [class.selecionado]="false" [class.nao-vinculado]="!p.vinculado">
+              <tr [class.nao-vinculado]="!p.vinculado" (dblclick)="abrirModalVincular(p)">
                 <td class="td-arrow">
                   @if (p.vinculado) {
                     <span class="icon-vinc-ok">&#10004;</span>
@@ -296,6 +300,14 @@
           <div class="info-campo"><span>Barras:</span><strong>{{ item.codigoBarrasXml || 'N/A' }}</strong></div>
           <div class="info-campo"><span>Cod. Forn.:</span><strong>{{ item.codigoProdutoFornecedor }}</strong></div>
         </div>
+        @if (item.vinculado && item.produtoNome) {
+          <div class="modal-vinculado-info">
+            <span class="vinculado-badge">Vinculado:</span>
+            <strong>{{ item.produtoNome }}</strong>
+            <span>(ID: {{ item.produtoId }})</span>
+            <button class="log-btn-filtrar btn-desvincular-modal" (click)="desvincularDaModal(item)">Desvincular</button>
+          </div>
+        }
       }
 
       <div class="modal-log-filtros">
