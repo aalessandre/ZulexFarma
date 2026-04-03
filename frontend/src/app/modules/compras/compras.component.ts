@@ -406,7 +406,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
     const detalhe = this.compraDetalhe();
     if (!detalhe) return;
     this.carregando.set(true);
-    this.http.get<any>(`${this.apiUrl}/${detalhe.id}`).subscribe({
+    this.http.post<any>(`${this.apiUrl}/${detalhe.id}/re-vincular`, {}).subscribe({
       next: r => {
         this.compraDetalhe.set(r.data);
         this.carregando.set(false);

@@ -117,6 +117,26 @@ public class ComprasController : ControllerBase
         }
     }
 
+    [HttpPost("{id:long}/re-vincular")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> ReVincular(long id)
+    {
+        try
+        {
+            var data = await _service.ReVincularAsync(id);
+            return Ok(new { success = true, data });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { success = false, message = "Compra não encontrada." });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em ComprasController.ReVincular | Id: {Id}", id);
+            return StatusCode(500, new { success = false, message = "Erro ao re-vincular." });
+        }
+    }
+
     [HttpDelete("{id:long}")]
     [Permissao("compras", "e")]
     public async Task<IActionResult> Excluir(long id)

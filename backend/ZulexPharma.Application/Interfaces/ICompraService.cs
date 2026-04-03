@@ -9,5 +9,6 @@ public interface ICompraService
     Task<CompraDetalheDto> ImportarXmlAsync(string xmlConteudo, long filialId);
     Task<CompraProdutoDto> VincularProdutoAsync(VincularProdutoDto dto);
     Task<CompraProdutoDto> DesvincularProdutoAsync(long compraProdutoId);
+    Task<CompraDetalheDto> ReVincularAsync(long compraId);
     Task<string> ExcluirAsync(long id);
 }

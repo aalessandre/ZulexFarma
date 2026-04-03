@@ -299,6 +299,18 @@ public class CompraService : ICompraService
         }
     }
 
+    // ── Re-vincular ──────────────────────────────────────────────────
+    public async Task<CompraDetalheDto> ReVincularAsync(long compraId)
+    {
+        var compra = await _db.Compras
+            .Include(c => c.Produtos)
+            .FirstOrDefaultAsync(c => c.Id == compraId)
+            ?? throw new KeyNotFoundException($"Compra {compraId} não encontrada.");
+
+        await AutoVincularProdutosAsync(compra.Id, compra.FornecedorId, compra.FilialId);
+        return await ObterAsync(compra.Id);
+    }
+
     // ── Excluir ──────────────────────────────────────────────────────
     public async Task<string> ExcluirAsync(long id)
     {
