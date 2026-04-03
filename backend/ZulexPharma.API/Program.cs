@@ -26,7 +26,10 @@ builder.Host.UseSerilog();
 
 // ─── Database ──────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .ConfigureWarnings(w => w.Log(
+               (Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.CommandError, LogLevel.Debug)
+           )));
 
 // ─── JWT ───────────────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");

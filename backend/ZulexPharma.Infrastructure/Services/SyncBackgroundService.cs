@@ -218,9 +218,8 @@ public class SyncBackgroundService : BackgroundService
             }
         }
 
-        db.AplicandoSync = false;
-
         // Sempre avançar o ponteiro para não reprocessar operações (inclusive falhas)
+        // Manter AplicandoSync = true para não gerar SyncFila (config local, não replica)
         if (lastSuccessId > ultimoId)
         {
             if (ultimoIdConfig == null)
@@ -233,6 +232,8 @@ public class SyncBackgroundService : BackgroundService
             }
             await db.SaveChangesAsync(ct);
         }
+
+        db.AplicandoSync = false;
 
         if (erros > 0) FalhasConsecutivas += erros;
         if (aplicados > 0) Log.Information("Sync PULL: {Count} aplicadas, {Erros} erros", aplicados, erros);

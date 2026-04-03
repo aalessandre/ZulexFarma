@@ -33,7 +33,7 @@ public static class DatabaseSeeder
                 NomeFilial    = filialCodigo > 0 ? $"Filial {filialCodigo:D2}" : "Matriz",
                 RazaoSocial   = "ZulexPharma Farmácia LTDA",
                 NomeFantasia  = "ZulexPharma",
-                Cnpj          = "00.000.000/0001-00",
+                Cnpj          = $"00.000.000/{filialSeedId:D4}-00",
                 Cep           = "00000-000",
                 Rua           = "Rua Exemplo",
                 Numero        = "1",

@@ -42,7 +42,7 @@ public static class SyncApplicator
         if (operacao == "I" && dadosJson != null)
         {
             var existente = await BuscarPorId(db, tipo, registroId);
-            if (existente != null) return false; // Já existe, skip (idempotência)
+            if (existente != null) return false; // Já existe por Id, skip (idempotência)
             var entidade = (BaseEntity?)JsonSerializer.Deserialize(dadosJson, tipo, _jsonOpts);
             if (entidade == null) return false;
             LimparNavigations(db, entidade);
@@ -52,13 +52,35 @@ public static class SyncApplicator
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
             {
-                // Unique constraint violation — registro local já tem o mesmo valor único (ex: Configuracoes.Chave).
-                // Desanexar a entidade e ignorar (o registro local prevalece).
+                // Unique constraint violation — registro local já tem o mesmo valor único.
+                // Desanexar a entidade falha e tentar localizar o conflitante para UPDATE.
                 db.Entry(entidade).State = EntityState.Detached;
-                Log.Warning("Sync INSERT ignorado: {Tabela} Id={Id} — conflito de unique constraint, registro local prevalece.", tabela, registroId);
-                return false;
+
+                var conflitante = await BuscarPorSyncGuid(db, tipo, entidade.SyncGuid);
+                if (conflitante != null)
+                {
+                    // Encontrou pelo SyncGuid — atualizar com dados remotos
+                    var incoming = (BaseEntity?)JsonSerializer.Deserialize(dadosJson, tipo, _jsonOpts);
+                    if (incoming != null)
+                    {
+                        LimparNavigations(db, incoming);
+                        db.Entry(conflitante).CurrentValues.SetValues(incoming);
+                        // Manter o Id local (não substituir pelo remoto)
+                        db.Entry(conflitante).Property("Id").CurrentValue = conflitante.Id;
+                        await db.SaveChangesAsync(ct);
+                        Log.Information("Sync UPSERT: {Tabela} Id={IdRemoto} → atualizado registro local Id={IdLocal} (conflito {Constraint}).",
+                            tabela, registroId, conflitante.Id, pgEx.ConstraintName);
+                        return true;
+                    }
+                }
+
+                // SyncGuid não encontrado — registro local é seed com dados equivalentes.
+                // Retornar true para que o ponteiro avance e não reprocesse.
+                Log.Debug("Sync INSERT ignorado: {Tabela} Id={Id} — conflito ({Constraint}), registro local prevalece.",
+                    tabela, registroId, pgEx.ConstraintName);
+                return true;
             }
             return true;
         }
@@ -92,6 +114,17 @@ public static class SyncApplicator
         var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipo);
         var dbSet = (IQueryable<BaseEntity>)method.Invoke(db, null)!;
         return await dbSet.FirstOrDefaultAsync(e => e.Id == id);
+    }
+
+    /// <summary>
+    /// Busca entidade por SyncGuid (útil para resolver conflitos de unique constraint).
+    /// </summary>
+    public static async Task<BaseEntity?> BuscarPorSyncGuid(AppDbContext db, Type tipo, Guid syncGuid)
+    {
+        if (syncGuid == Guid.Empty) return null;
+        var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipo);
+        var dbSet = (IQueryable<BaseEntity>)method.Invoke(db, null)!;
+        return await dbSet.FirstOrDefaultAsync(e => e.SyncGuid == syncGuid);
     }
 
     /// <summary>
