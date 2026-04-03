@@ -1654,6 +1654,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     }
   }
 
+  buscarAbcFarmaManual() {
+    const ean = this.produtoForm().codigoBarras;
+    if (!ean || ean.length < 7) return;
+    this.buscarAbcFarma(ean);
+  }
+
   buscarAbcFarma(ean: string) {
     // Buscar alíquota da filial
     const filialId = this.filialSelecionada();

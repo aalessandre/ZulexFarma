@@ -240,6 +240,21 @@
   &.prod-field-radio { grid-column: span 2; }
 }
 
+/* ── Barras + botão ABCFarma ──────────────────────────────────────── */
+.barras-row {
+  display: flex; gap: 6px; align-items: stretch;
+  input { flex: 1; }
+}
+
+.btn-abcfarma {
+  padding: 0 14px; border: none; border-radius: 4px;
+  background: linear-gradient(135deg, #1a5276, #2471a3);
+  color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  cursor: pointer; white-space: nowrap; transition: filter 0.15s;
+  &:hover:not(:disabled) { filter: brightness(1.15); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
 /* ── ABCFarma block ──────────────────────────────────────────────── */
 .prod-section-abc {
   display: flex; align-items: center; gap: 10px;

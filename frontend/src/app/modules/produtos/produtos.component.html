@@ -265,7 +265,12 @@
           }
           <div class="prod-field prod-field-2">
             <label>CÓDIGO DE BARRAS</label>
-            <input type="text" [value]="produtoForm().codigoBarras || ''" (input)="onCodigoBarrasChange($any($event.target).value)" placeholder="Código de barras principal" maxlength="13" (keypress)="somenteNumeros($event)" />
+            <div class="barras-row">
+              <input type="text" [value]="produtoForm().codigoBarras || ''" (input)="onCodigoBarrasChange($any($event.target).value)" placeholder="Código de barras principal" maxlength="13" (keypress)="somenteNumeros($event)" />
+              <button class="btn-abcfarma" (click)="buscarAbcFarmaManual()" [disabled]="!produtoForm().codigoBarras || produtoForm().codigoBarras!.length < 7" title="Buscar na base ABCFarma">
+                ABCFarma
+              </button>
+            </div>
           </div>
           <div class="prod-field prod-field-full">
             <label>NOME *</label>
