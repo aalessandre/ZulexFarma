@@ -89,6 +89,9 @@
         <table class="erp-grid">
           <thead>
             <tr>
+              <th class="th-check">
+                <input type="checkbox" class="grid-check" [checked]="todasNotasCompletasSelecionadas()" (change)="toggleTodasNotasSelecionadas()" title="Selecionar todas as completas" />
+              </th>
               <th class="th-arrow"></th>
               <th class="th-sort th-resize" [attr.data-col]="'id'" style="width:60px" (click)="ordenar('id')">
                 ID <span class="sort-icon">{{ sortIcon('id') }}</span>
@@ -132,7 +135,14 @@
             } @else {
               @for (c of comprasFiltradas(); track c.id) {
                 <tr [class.selecionado]="compraSelecionada()?.id === c.id"
+                    [class.item-selecionado]="isNotaSelecionada(c.id)"
                     (click)="selecionar(c)" (dblclick)="abrirDetalhe(c)">
+                  <td class="td-check" (click)="$event.stopPropagation()">
+                    <input type="checkbox" class="grid-check"
+                           [checked]="isNotaSelecionada(c.id)"
+                           [disabled]="!isNotaCompleta(c)"
+                           (change)="toggleNotaSelecionada(c.id)" />
+                  </td>
                   <td class="td-arrow">
                     @if (compraSelecionada()?.id === c.id) { <span>&#9654;</span> }
                   </td>
@@ -156,6 +166,10 @@
 
       <div class="grid-rodape">
         <span>Registro(s): <strong>{{ comprasFiltradas().length }}</strong></span>
+        @if (qtdeNotasSelecionadas() > 0) {
+          <span class="rodape-sep">|</span>
+          <span>Selecionadas: <strong>{{ qtdeNotasSelecionadas() }}</strong></span>
+        }
       </div>
     }
 
@@ -190,9 +204,6 @@
         <table class="erp-grid">
           <thead>
             <tr>
-              <th style="width:36px">
-                <input type="checkbox" class="grid-check" [checked]="todosSelecionados()" (change)="toggleTodosSelecionados()" title="Selecionar todos" />
-              </th>
               <th style="width:36px"></th>
               <th class="th-sort" style="width:44px" (click)="ordenarItens('numeroItem')">
                 # <span class="sort-icon">{{ sortItemIcon('numeroItem') }}</span>
@@ -224,10 +235,7 @@
           </thead>
           <tbody>
             @for (p of itensFiltrados(); track p.id) {
-              <tr [class.nao-vinculado]="!p.vinculado" [class.item-selecionado]="isItemSelecionado(p.id)" (dblclick)="abrirModalVincular(p)">
-                <td class="td-check" (click)="$event.stopPropagation()">
-                  <input type="checkbox" class="grid-check" [checked]="isItemSelecionado(p.id)" (change)="toggleItemSelecionado(p.id)" />
-                </td>
+              <tr [class.nao-vinculado]="!p.vinculado" (dblclick)="abrirModalVincular(p)">
                 <td class="td-arrow">
                   @if (p.vinculado) {
                     <span class="icon-vinc-ok">&#10004;</span>
@@ -275,10 +283,6 @@
         <span>Itens: <strong>{{ totalItens() }}</strong></span>
         <span class="rodape-sep">|</span>
         <span>Vinculados: <strong>{{ totalVinculados() }}</strong></span>
-        @if (qtdeSelecionados() > 0) {
-          <span class="rodape-sep">|</span>
-          <span>Selecionados: <strong>{{ qtdeSelecionados() }}</strong></span>
-        }
       </div>
     }
   </div>

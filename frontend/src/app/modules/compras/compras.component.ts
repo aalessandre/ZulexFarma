@@ -135,8 +135,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
   buscandoProduto = signal(false);
   private buscaProduto$ = new Subject<string>();
 
-  // ── Seleção de itens (checkboxes) ──────────────────────────────
-  itensSelecionados = signal<Set<number>>(new Set());
+  // ── Seleção de notas (checkboxes na lista) ─────────────────────
+  notasSelecionadas = signal<Set<number>>(new Set());
 
   // ── Modal fiscal ──────────────────────────────────────────────
   modalFiscal = signal(false);
@@ -621,37 +621,41 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   // ── Helpers ───────────────────────────────────────────────────
 
-  // ── Checkboxes de seleção ───────────────────────────────────────
+  // ── Checkboxes de seleção (notas na lista) ─────────────────────
 
-  toggleItemSelecionado(id: number) {
-    this.itensSelecionados.update(s => {
+  isNotaCompleta(c: CompraList): boolean {
+    return c.totalItens > 0 && c.itensVinculados === c.totalItens;
+  }
+
+  toggleNotaSelecionada(id: number) {
+    this.notasSelecionadas.update(s => {
       const novo = new Set(s);
       if (novo.has(id)) novo.delete(id); else novo.add(id);
       return novo;
     });
   }
 
-  toggleTodosSelecionados() {
-    const itens = this.itensFiltrados();
-    const selecionados = this.itensSelecionados();
-    if (selecionados.size === itens.length) {
-      this.itensSelecionados.set(new Set());
+  toggleTodasNotasSelecionadas() {
+    const completas = this.comprasFiltradas().filter(c => this.isNotaCompleta(c));
+    const selecionadas = this.notasSelecionadas();
+    if (completas.length > 0 && completas.every(c => selecionadas.has(c.id))) {
+      this.notasSelecionadas.set(new Set());
     } else {
-      this.itensSelecionados.set(new Set(itens.map(i => i.id)));
+      this.notasSelecionadas.set(new Set(completas.map(c => c.id)));
     }
   }
 
-  isItemSelecionado(id: number): boolean {
-    return this.itensSelecionados().has(id);
+  isNotaSelecionada(id: number): boolean {
+    return this.notasSelecionadas().has(id);
   }
 
-  todosSelecionados(): boolean {
-    const itens = this.itensFiltrados();
-    return itens.length > 0 && this.itensSelecionados().size === itens.length;
+  todasNotasCompletasSelecionadas(): boolean {
+    const completas = this.comprasFiltradas().filter(c => this.isNotaCompleta(c));
+    return completas.length > 0 && completas.every(c => this.notasSelecionadas().has(c.id));
   }
 
-  qtdeSelecionados(): number {
-    return this.itensSelecionados().size;
+  qtdeNotasSelecionadas(): number {
+    return this.notasSelecionadas().size;
   }
 
   // ── Helpers ───────────────────────────────────────────────────

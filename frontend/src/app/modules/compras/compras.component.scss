@@ -336,10 +336,16 @@
   margin: 0;
 }
 
+.th-check,
 .td-check {
   width: 36px;
   text-align: center;
   padding: 7px 6px !important;
+}
+
+.grid-check:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
 }
 
 .item-selecionado {
