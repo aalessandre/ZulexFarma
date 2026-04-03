@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed, HostListener } from '@a
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
@@ -132,6 +133,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   buscaProduto = signal('');
   produtosBusca = signal<ProdutoBusca[]>([]);
   buscandoProduto = signal(false);
+  private buscaProduto$ = new Subject<string>();
 
   // ── Modal fiscal ──────────────────────────────────────────────
   modalFiscal = signal(false);
@@ -196,10 +198,23 @@ export class ComprasComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.carregar();
     this.restaurarEstado();
+    this.buscaProduto$.pipe(
+      debounceTime(400),
+      distinctUntilChanged()
+    ).subscribe(termo => {
+      this.buscaProduto.set(termo);
+      this.buscarProdutos();
+    });
   }
 
   ngOnDestroy() {
     this.persistirEstado();
+    this.buscaProduto$.complete();
+  }
+
+  onBuscaProdutoInput(valor: string) {
+    this.buscaProduto.set(valor);
+    this.buscaProduto$.next(valor);
   }
 
   private persistirEstado() {
@@ -452,6 +467,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   async desvincular(item: CompraProduto) {
+    if (!confirm(`Desvincular "${item.produtoNome}" deste item?`)) return;
     if (!await this.verificarPermissao('a')) return;
 
     this.vinculando.set(item.id);
@@ -494,6 +510,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
         aliquotaPis: item.fiscal?.aliquotaPis ?? 0,
         cstCofins: item.fiscal?.cstCofins,
         aliquotaCofins: item.fiscal?.aliquotaCofins ?? 0,
+        codigoAnvisa: item.codigoAnvisa,
       }));
     }
     this.fecharModalVincular();

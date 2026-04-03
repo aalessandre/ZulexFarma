@@ -301,9 +301,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         novo.nome = (pre.nome || '').toUpperCase();
         novo.codigoBarras = pre.codigoBarras || undefined;
 
-        // Barras
-        if (pre.codigoBarras) {
-          novo.barras = [{ barras: pre.codigoBarras }];
+        // Registro MS (código ANVISA do XML)
+        if (pre.codigoAnvisa) {
+          novo.registrosMs = [{ numeroMs: pre.codigoAnvisa }];
         }
 
         // Fornecedor
@@ -351,13 +351,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           this.http.get<any>(`${environment.apiUrl}/ncm?busca=${pre.ncmXml}`).subscribe({
             next: resp => {
               const ncms: any[] = resp?.data ?? [];
-              const match = ncms.find((n: any) => n.codigo === pre.ncmXml);
+              const match = ncms.find((n: any) => n.codigoNcm === pre.ncmXml);
               if (match) {
                 novo.ncmId = match.id;
-                novo.ncmCodigo = match.codigo;
-                // Atualizar fiscal com ncmId
-                novo.fiscais.forEach(f => { if (!f.ncmId) f.ncmId = match.id; f.ncmCodigo = match.codigo; });
-                this.produtoForm.set({ ...this.produtoForm(), ncmId: match.id, ncmCodigo: match.codigo });
+                novo.ncmCodigo = match.codigoNcm;
+                novo.fiscais.forEach(f => { if (!f.ncmId) { f.ncmId = match.id; f.ncmCodigo = match.codigoNcm; } });
+                this.produtoForm.set({ ...this.produtoForm(), ncmId: match.id, ncmCodigo: match.codigoNcm });
               }
             }
           });
