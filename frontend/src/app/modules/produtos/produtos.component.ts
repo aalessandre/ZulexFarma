@@ -1350,6 +1350,11 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.isDirty.set(true);
     this.getLookupSignal(cfg.signalKey).set([]);
     this.lookupAberto.set(null);
+
+    // Recalcular herança ao selecionar classificação
+    if (['grupoPrincipal', 'grupo', 'subGrupo'].includes(tipo)) {
+      this.aplicarHerancaClassificacao();
+    }
   }
 
   limparLookup(tipo: string) {
@@ -1358,6 +1363,11 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.isDirty.set(true);
     this.getLookupSignal(cfg.signalKey).set([]);
     this.lookupAberto.set(null);
+
+    // Recalcular herança ao limpar classificação
+    if (['grupoPrincipal', 'grupo', 'subGrupo'].includes(tipo)) {
+      this.aplicarHerancaClassificacao();
+    }
   }
 
   getLookupDisplay(tipo: string): string {
@@ -1415,6 +1425,11 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.isDirty.set(true);
     this.getLookupSignalDados(tipo).set([]);
     this.lookupAberto.set(null);
+
+    // Recalcular herança ao selecionar seção
+    if (tipo === 'secao') {
+      this.aplicarHerancaClassificacao();
+    }
   }
 
   private getLookupSignalDados(tipo: string) {
@@ -1490,6 +1505,67 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   isProdutoAba(): boolean { return this.abaAtiva() === 'produtos'; }
+
+  // ── Herança de classificação (Seção > SubGrupo > Grupo > GrupoPrincipal) ──
+
+  /**
+   * Busca projecaoLucro e markupPadrao respeitando a hierarquia:
+   * 1. Seção (da filial selecionada)
+   * 2. SubGrupo
+   * 3. Grupo
+   * 4. GrupoPrincipal
+   * O primeiro que tiver valor > 0 é aplicado nos Dados da filial selecionada.
+   */
+  private aplicarHerancaClassificacao() {
+    const f = this.produtoForm();
+    const filialId = this.filialSelecionada();
+    const dadosIdx = f.dados.findIndex(d => d.filialId === filialId);
+    if (dadosIdx < 0) return;
+
+    // Montar lista de IDs a consultar na ordem de prioridade
+    const secaoId = f.dados[dadosIdx]?.secaoId;
+    const consultas: { url: string; id: number }[] = [];
+    if (secaoId) consultas.push({ url: '/secoes', id: secaoId });
+    if (f.subGrupoId) consultas.push({ url: '/sub-grupos', id: f.subGrupoId });
+    if (f.grupoProdutoId) consultas.push({ url: '/grupos-produtos', id: f.grupoProdutoId });
+    if (f.grupoPrincipalId) consultas.push({ url: '/grupos-principais', id: f.grupoPrincipalId });
+
+    if (consultas.length === 0) return;
+
+    this.buscarHerancaRecursivo(consultas, 0, dadosIdx);
+  }
+
+  private buscarHerancaRecursivo(consultas: { url: string; id: number }[], idx: number, dadosIdx: number) {
+    if (idx >= consultas.length) return;
+
+    const { url, id } = consultas[idx];
+    this.http.get<any>(`${environment.apiUrl}${url}/${id}`).subscribe({
+      next: resp => {
+        const d = resp?.data;
+        if (!d) { this.buscarHerancaRecursivo(consultas, idx + 1, dadosIdx); return; }
+
+        const projecao = d.projecaoLucro ?? 0;
+        const markup = d.markupPadrao ?? 0;
+
+        if (projecao > 0 || markup > 0) {
+          // Encontrou valores — aplicar nos dados da filial
+          this.produtoForm.update(f => ({
+            ...f,
+            dados: f.dados.map((dados, i) => i === dadosIdx ? {
+              ...dados,
+              projecaoLucro: projecao > 0 ? projecao : dados.projecaoLucro,
+              markup: markup > 0 ? markup : dados.markup,
+            } : dados)
+          }));
+          this.isDirty.set(true);
+        } else {
+          // Sem valores — tentar o próximo nível
+          this.buscarHerancaRecursivo(consultas, idx + 1, dadosIdx);
+        }
+      },
+      error: () => this.buscarHerancaRecursivo(consultas, idx + 1, dadosIdx)
+    });
+  }
 
   private novoProdutoForm(): ProdutoForm {
     return {
