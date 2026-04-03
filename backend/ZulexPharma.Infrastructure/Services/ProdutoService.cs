@@ -104,6 +104,12 @@ public class ProdutoService : IProdutoService
             NcmId = dto.NcmId
         };
 
+        // Corrigir FilialId = 0 em sub-tabelas por filial (frontend pode enviar 0 como default)
+        var filialPadrao = dto.Dados.FirstOrDefault(d => d.FilialId > 0)?.FilialId
+                        ?? dto.Fiscais.FirstOrDefault(f => f.FilialId > 0)?.FilialId ?? 0;
+        foreach (var f in dto.Fornecedores.Where(f => f.FilialId <= 0))
+            f.FilialId = filialPadrao;
+
         _db.Produtos.Add(p);
         await _db.SaveChangesAsync();
 

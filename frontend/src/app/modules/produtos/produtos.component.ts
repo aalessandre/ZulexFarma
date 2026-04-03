@@ -1060,7 +1060,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   // Fornecedores
   addFornecedor() {
-    this.produtoForm.update(f => ({ ...f, fornecedores: [...f.fornecedores, { filialId: 0, fornecedorId: 0, fracao: 1 }] }));
+    const filialId = this.filialSelecionada();
+    this.produtoForm.update(f => ({ ...f, fornecedores: [...f.fornecedores, { filialId, fornecedorId: 0, fracao: 1 }] }));
     this.isDirty.set(true);
   }
 
