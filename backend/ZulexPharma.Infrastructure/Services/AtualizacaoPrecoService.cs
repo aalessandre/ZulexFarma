@@ -108,9 +108,10 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
 
         // Carregar base ABCFarma (GroupBy para lidar com EANs duplicados — pega o mais recente)
         var baseAbcList = await _db.AbcFarmaBase.ToListAsync();
+        // EANs duplicados: pega o com maior DataVigencia (preço mais atual)
         var baseAbc = baseAbcList
             .GroupBy(x => x.Ean)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.AtualizadoEm).First());
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.DataVigencia ?? DateTime.MinValue).First());
 
         var itensPreview = new List<AtualizacaoPrecoPreviewItem>();
 
