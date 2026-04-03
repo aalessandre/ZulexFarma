@@ -420,69 +420,192 @@
         @if (isAberta('compras')) {
           <div class="secao-corpo">
             <div class="cmd-grupo">
-              <div class="cmd-label">Visão Geral</div>
-              <span class="cmd-obs">Módulo para lançamento de notas fiscais de entrada (compras de fornecedores). Permite registrar produtos comprados, atualizar estoque e preços automaticamente.</span>
+              <div class="cmd-label">Visao Geral</div>
+              <span class="cmd-obs">Modulo de lancamento de notas fiscais de entrada via importacao de XML NF-e. Acesso pelo menu: Compras > Lancar Compras (/erp/lancar-compras).</span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Entidades envolvidas</div>
+              <div class="cmd-label">Etapas do fluxo</div>
               <span class="cmd-obs">
-                <strong>Compra</strong> — Cabeçalho da nota (fornecedor, número NF, data entrada, data emissão, valor total, status)<br>
-                <strong>CompraItem</strong> — Itens da nota (produto, quantidade, valor unitário, desconto, valor total item, lote, validade)<br>
-                <strong>CompraFinanceiro</strong> — Parcelas/duplicatas (vencimento, valor, forma pagamento, status)
+                O lancamento de compras funciona em etapas controladas pelo campo Status da tabela Compras:<br><br>
+                <strong>1. Pre-Entrada</strong> — Importacao do XML e vinculacao de produtos<br>
+                <strong>2. Precificacao</strong> — Atualizacao de precos dos produtos (via modulo Atualizacao de Precos)<br>
+                <strong>3. Conferencia</strong> — Conferencia fisica das mercadorias (pendente)<br>
+                <strong>4. Finalizacao</strong> — Atualizacao de estoque, custos e precos finais (pendente)<br>
+                <strong>Cancelada</strong> — Nota cancelada (reverte se ja finalizada)
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Fluxo principal</div>
+              <div class="cmd-label">Etapa 1: Pre-Entrada (implementado)</div>
               <span class="cmd-obs">
-                1. Selecionar fornecedor (lookup)<br>
-                2. Informar dados da nota (número, série, data emissão, data entrada)<br>
-                3. Adicionar itens (busca produto por nome/barras, qtde, valores)<br>
-                4. Sistema calcula totais automaticamente<br>
-                5. Informar parcelas/financeiro<br>
-                6. Ao confirmar: atualiza estoque, preços de última compra e custo médio<br>
-                7. Gera log de auditoria completo
-              </span>
-            </div>
+                <strong>Importacao do XML:</strong><br>
+                — Usuario clica "Importar XML" e seleciona arquivo .xml da NF-e<br>
+                — Backend parseia XML (namespace http://www.portalfiscal.inf.br/nfe)<br>
+                — Verifica duplicata pela ChaveNfe (44 digitos, unique)<br>
+                — Cria fornecedor automaticamente se CNPJ nao existe (com endereco e telefone do XML)<br>
+                — Cria registros em Compras + ComprasProdutos + ComprasFiscal<br>
+                — XmlConteudo salvo no banco com [JsonIgnore] (nao replica entre filiais)<br><br>
 
-            <div class="cmd-grupo">
-              <div class="cmd-label">Regras de negócio</div>
-              <span class="cmd-obs">
-                — Compra é sempre por filial (FilialId obrigatório)<br>
-                — Ao confirmar compra, atualizar em ProdutoDados da filial:<br>
-                &nbsp;&nbsp;• estoqueAtual += quantidade comprada<br>
-                &nbsp;&nbsp;• ultimaCompraUnitario, ultimaCompraSt, etc.<br>
-                &nbsp;&nbsp;• custoMédio recalculado (média ponderada)<br>
-                &nbsp;&nbsp;• ultimaCompraEm = data da compra<br>
-                — Compra pode ser: Pendente, Confirmada, Cancelada<br>
-                — Compra confirmada não pode ser editada (apenas cancelada)<br>
-                — Compra cancelada reverte estoque
+                <strong>Auto-vinculacao:</strong><br>
+                — Busca por codigo de barras (ProdutosBarras)<br>
+                — Busca por CodigoProdutoFornecedor (ProdutosFornecedores)<br>
+                — Botao "Atualizar" re-executa auto-vinculacao (POST /api/compras/id/re-vincular)<br><br>
+
+                <strong>Vinculacao manual:</strong><br>
+                — Duplo click na linha abre modal de vinculacao<br>
+                — Busca silenciosa por barras ao abrir (vincula automatico se encontrar)<br>
+                — Busca por nome com debounce 400ms (minimo 3 caracteres)<br>
+                — Ao vincular: insere barras em ProdutosBarras + cria ProdutosFornecedores<br>
+                — Modal mostra botao Desvincular se item ja vinculado<br><br>
+
+                <strong>Cadastro de produto novo:</strong><br>
+                — Botao "Cadastrar" na modal salva dados do XML no sessionStorage<br>
+                — Abre Gerenciar Produtos em modo Adicionar com dados pre-preenchidos:<br>
+                &nbsp;&nbsp;Nome, Barras, NCM (lookup), CEST, Fornecedor, Fiscal (origem, CST, aliquotas),<br>
+                &nbsp;&nbsp;Precos (unitario, ST, custo medio), Registro MS (codigo ANVISA)<br>
+                — Estado da compra preservado via sessionStorage ao navegar entre abas<br><br>
+
+                <strong>Status na lista:</strong><br>
+                — Pre-Entrada (amarelo) = itens pendentes de vinculacao<br>
+                — Pre-Entrada OK (verde) = todos os itens vinculados<br>
+                — Checkbox habilitado apenas para notas com Pre-Entrada OK
               </span>
             </div>
 
             <div class="cmd-grupo">
               <div class="cmd-label">Tabelas no banco</div>
               <span class="cmd-obs">
-                <strong>Compras</strong> — Id, FilialId, FornecedorId, NumeroNf, Serie, DataEmissao, DataEntrada, ValorTotal, ValorDesconto, ValorFrete, ValorOutros, Status, Observacao<br>
-                <strong>CompraItens</strong> — Id, CompraId, ProdutoId, Quantidade, ValorUnitario, ValorDesconto, ValorSt, ValorIpi, ValorTotal, Lote, Validade<br>
-                <strong>CompraFinanceiro</strong> — Id, CompraId, Parcela, Vencimento, Valor, FormaPagamento, Status
+                <strong>Compras</strong> — Cabecalho: ChaveNfe (unique 44 dig), NumeroNf, SerieNf, NaturezaOperacao, DataEmissao, DataEntrada, FornecedorId, FilialId, totais (ValorProdutos, ValorSt, ValorFcpSt, ValorFrete, ValorSeguro, ValorDesconto, ValorIpi, ValorPis, ValorCofins, ValorOutros, ValorNota), Status (enum), XmlConteudo (text, JsonIgnore)<br><br>
+                <strong>ComprasProdutos</strong> — Itens: ProdutoId (nullable), NumeroItem, CodigoProdutoFornecedor, CodigoBarrasXml, DescricaoXml, NcmXml, CestXml, CfopXml, UnidadeXml, Quantidade, ValorUnitario, ValorTotal, ValorDesconto, ValorFrete, ValorOutros, ValorItemNota, Lote, DataFabricacao, DataValidade, CodigoAnvisa, PrecoMaximoConsumidor, Vinculado, InfoAdicional<br><br>
+                <strong>ComprasFiscal</strong> — Fiscal 1:1 com item: ICMS (origem, CST, base, aliq, valor, ST, FCP ST), PIS, COFINS, IBS/CBS (reforma tributaria)
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Checklist de implementação</div>
+              <div class="cmd-label">Sync</div>
               <span class="cmd-obs">
-                1. Criar entidades Domain: Compra, CompraItem, CompraFinanceiro<br>
-                2. Configurar DbContext (DbSets, Fluent API, índices)<br>
-                3. Criar DTOs (List, Detalhe, Form)<br>
-                4. Criar Service (CRUD + confirmar + cancelar)<br>
-                5. Criar Controller com endpoints<br>
-                6. Adicionar ao SyncApplicator (tabela + ordem de dependência)<br>
-                7. Criar migration<br>
-                8. Criar componente Angular (tela completa)<br>
-                9. Adicionar rota e registro no menu/busca<br>
-                10. Testar fluxo completo multi-filial
+                — Compras = nivel 3 (depende de Fornecedores)<br>
+                — ComprasProdutos = nivel 4 (depende de Compras e Produtos)<br>
+                — ComprasFiscal = nivel 5 (depende de ComprasProdutos)<br>
+                — XmlConteudo excluido do payload de sync ([JsonIgnore])
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">API Endpoints</div>
+              <span class="cmd-obs">
+                GET /api/compras — Lista de compras<br>
+                GET /api/compras/id — Detalhe com produtos e fiscal<br>
+                POST /api/compras/importar-xml — Importa XML NF-e<br>
+                POST /api/compras/vincular — Vincula produto a item<br>
+                POST /api/compras/desvincular/id — Desvincula produto<br>
+                POST /api/compras/id/re-vincular — Re-executa auto-vinculacao<br>
+                DELETE /api/compras/id — Exclui (so se nao finalizada)<br>
+                GET /api/compras/id/log — Historico de auditoria
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Etapas pendentes</div>
+              <span class="cmd-obs">
+                — Etapa 2: Precificacao (via modulo Atualizacao de Precos — ver secao abaixo)<br>
+                — Etapa 3: Conferencia fisica (comparar qtde XML vs qtde recebida)<br>
+                — Etapa 4: Finalizacao (atualiza estoque, ultima compra, custo medio, status final)<br>
+                — Busca XML direto do SEFAZ (certificado digital A1)<br>
+                — ComprasFinanceiro (sera criado junto com modulo Financeiro)
+              </span>
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- ATUALIZAÇÃO DE PREÇOS -->
+      <section class="help-secao">
+        <div class="secao-header precos" [class.aberto]="isAberta('precos')" (click)="toggleSecao('precos')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          <span>Atualizacao de Precos</span>
+        </div>
+        @if (isAberta('precos')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Visao Geral</div>
+              <span class="cmd-obs">Modulo para atualizacao de precos de venda dos produtos com base nos custos da compra. Pode ser acionado a partir do lancamento de compras (notas com pre-entrada concluida) ou de forma independente.</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Conceitos fundamentais</div>
+              <span class="cmd-obs">
+                <strong>Formacao de Preco:</strong> Define como o preco de venda e calculado<br>
+                — <strong>Markup:</strong> valorVenda = custoBase x (1 + markup/100)<br>
+                — <strong>Projecao de Lucro:</strong> valorVenda = custoBase / (1 - projecao/100). Maximo 99%.<br><br>
+
+                <strong>Base de Calculo:</strong> Define qual custo e usado como referencia<br>
+                — <strong>Custo da Compra:</strong> Soma de unitario + ST + outros + IPI + FPC + boleto + difal + frete<br>
+                — <strong>Custo Medio:</strong> Media ponderada = ((estoqueAtual x custoMedioAtual) + (qtdeCompra x custoUnitario)) / (estoqueAtual + qtdeCompra)<br><br>
+
+                <strong>Hierarquia de heranca:</strong> Os valores de formacaoPreco, baseCalculo, %projecaoLucro e %markup sao herdados do Grupo Principal do produto. O usuario pode sobrescrever direto no produto.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Campos envolvidos (ProdutoDados por filial)</div>
+              <span class="cmd-obs">
+                — FormacaoPreco: "MARKUP" ou "PROJECAO" (nullable, herda do GrupoPrincipal)<br>
+                — BaseCalculo: "CUSTO_COMPRA" ou "CUSTO_MEDIO" (nullable, herda do GrupoPrincipal)<br>
+                — UltimaCompraUnitario, UltimaCompraSt, UltimaCompraOutros, UltimaCompraIpi, UltimaCompraFpc, UltimaCompraBoleto, UltimaCompraDifal, UltimaCompraFrete<br>
+                — CustoMedio (media ponderada)<br>
+                — ProjecaoLucro (% max 99)<br>
+                — Markup (%)<br>
+                — ValorVenda (calculado ou manual)<br>
+                — Pmc (Preco Maximo ao Consumidor, vem do XML)<br><br>
+
+                <strong>Custo Total da Compra</strong> = soma dos 8 campos de ultima compra (campo calculado, exibido na tela)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Validacoes ao salvar produto</div>
+              <span class="cmd-obs">
+                — Grupo Principal e obrigatorio<br>
+                — Se formacao = Markup: markup nao pode ser zero<br>
+                — Se formacao = Projecao: projecao nao pode ser zero<br>
+                — Valor de Venda nao pode ser zero<br>
+                — Valor de Venda deve ser maior que o Custo Medio
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fluxo via Compras</div>
+              <span class="cmd-obs">
+                1. Usuario conclui pre-entrada (todos os itens vinculados — status verde)<br>
+                2. Na lista de compras, seleciona notas com checkbox (so notas verdes sao selecionaveis)<br>
+                3. Aciona precificacao para as notas selecionadas<br>
+                4. Sistema apresenta produtos das notas com precos atuais vs precos calculados<br>
+                5. Usuario revisa e confirma atualizacao<br>
+                6. Precos sao gravados em ProdutoDados da filial
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Campos do Grupo Principal (ClassificacaoProdutoBase)</div>
+              <span class="cmd-obs">
+                — FormacaoPreco: "MARKUP" (padrao) ou "PROJECAO"<br>
+                — BaseCalculo: "CUSTO_COMPRA" (padrao) ou "CUSTO_MEDIO"<br>
+                — ProjecaoLucro: % padrao para produtos do grupo<br>
+                — MarkupPadrao: % padrao para produtos do grupo<br>
+                — Esses valores sao herdados automaticamente ao selecionar o Grupo Principal no cadastro do produto
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Pendente de implementacao</div>
+              <span class="cmd-obs">
+                — Tela de precificacao em lote (a partir das notas selecionadas)<br>
+                — Comparativo de precos: preco atual vs preco calculado vs PMC<br>
+                — Aplicacao em lote dos novos precos<br>
+                — Historico de alteracoes de preco<br>
+                — Fase futura: comparativo com precos da regiao (filiais proprias, ABCFarma)
               </span>
             </div>
           </div>
