@@ -411,6 +411,84 @@
         }
       </section>
 
+      <!-- LANÇAMENTO DE COMPRAS -->
+      <section class="help-secao">
+        <div class="secao-header compras" [class.aberto]="isAberta('compras')" (click)="toggleSecao('compras')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          <span>Lançamento de Compras</span>
+        </div>
+        @if (isAberta('compras')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Visão Geral</div>
+              <span class="cmd-obs">Módulo para lançamento de notas fiscais de entrada (compras de fornecedores). Permite registrar produtos comprados, atualizar estoque e preços automaticamente.</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Entidades envolvidas</div>
+              <span class="cmd-obs">
+                <strong>Compra</strong> — Cabeçalho da nota (fornecedor, número NF, data entrada, data emissão, valor total, status)<br>
+                <strong>CompraItem</strong> — Itens da nota (produto, quantidade, valor unitário, desconto, valor total item, lote, validade)<br>
+                <strong>CompraFinanceiro</strong> — Parcelas/duplicatas (vencimento, valor, forma pagamento, status)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fluxo principal</div>
+              <span class="cmd-obs">
+                1. Selecionar fornecedor (lookup)<br>
+                2. Informar dados da nota (número, série, data emissão, data entrada)<br>
+                3. Adicionar itens (busca produto por nome/barras, qtde, valores)<br>
+                4. Sistema calcula totais automaticamente<br>
+                5. Informar parcelas/financeiro<br>
+                6. Ao confirmar: atualiza estoque, preços de última compra e custo médio<br>
+                7. Gera log de auditoria completo
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Regras de negócio</div>
+              <span class="cmd-obs">
+                — Compra é sempre por filial (FilialId obrigatório)<br>
+                — Ao confirmar compra, atualizar em ProdutoDados da filial:<br>
+                &nbsp;&nbsp;• estoqueAtual += quantidade comprada<br>
+                &nbsp;&nbsp;• ultimaCompraUnitario, ultimaCompraSt, etc.<br>
+                &nbsp;&nbsp;• custoMédio recalculado (média ponderada)<br>
+                &nbsp;&nbsp;• ultimaCompraEm = data da compra<br>
+                — Compra pode ser: Pendente, Confirmada, Cancelada<br>
+                — Compra confirmada não pode ser editada (apenas cancelada)<br>
+                — Compra cancelada reverte estoque
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tabelas no banco</div>
+              <span class="cmd-obs">
+                <strong>Compras</strong> — Id, FilialId, FornecedorId, NumeroNf, Serie, DataEmissao, DataEntrada, ValorTotal, ValorDesconto, ValorFrete, ValorOutros, Status, Observacao<br>
+                <strong>CompraItens</strong> — Id, CompraId, ProdutoId, Quantidade, ValorUnitario, ValorDesconto, ValorSt, ValorIpi, ValorTotal, Lote, Validade<br>
+                <strong>CompraFinanceiro</strong> — Id, CompraId, Parcela, Vencimento, Valor, FormaPagamento, Status
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Checklist de implementação</div>
+              <span class="cmd-obs">
+                1. Criar entidades Domain: Compra, CompraItem, CompraFinanceiro<br>
+                2. Configurar DbContext (DbSets, Fluent API, índices)<br>
+                3. Criar DTOs (List, Detalhe, Form)<br>
+                4. Criar Service (CRUD + confirmar + cancelar)<br>
+                5. Criar Controller com endpoints<br>
+                6. Adicionar ao SyncApplicator (tabela + ordem de dependência)<br>
+                7. Criar migration<br>
+                8. Criar componente Angular (tela completa)<br>
+                9. Adicionar rota e registro no menu/busca<br>
+                10. Testar fluxo completo multi-filial
+              </span>
+            </div>
+          </div>
+        }
+      </section>
+
     </div>
   </main>
 </div>
