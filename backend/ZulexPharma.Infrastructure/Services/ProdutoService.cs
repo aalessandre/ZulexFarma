@@ -73,7 +73,9 @@ public class ProdutoService : IProdutoService
             .Include(x => x.Substancias).ThenInclude(s => s.Substancia)
             .Include(x => x.Fornecedores).ThenInclude(f => f.Fornecedor).ThenInclude(fn => fn.Pessoa)
             .Include(x => x.Fiscais).ThenInclude(f => f.Ncm)
-            .Include(x => x.Dados)
+            .Include(x => x.Dados).ThenInclude(d => d.ProdutoLocal)
+            .Include(x => x.Dados).ThenInclude(d => d.Secao)
+            .Include(x => x.Dados).ThenInclude(d => d.ProdutoFamilia)
             .FirstOrDefaultAsync(x => x.Id == id)
             ?? throw new KeyNotFoundException($"Produto {id} não encontrado.");
 
@@ -534,7 +536,9 @@ public class ProdutoService : IProdutoService
             DescontoMinimo = d.DescontoMinimo, DescontoMaxSemSenha = d.DescontoMaxSemSenha,
             DescontoMaxComSenha = d.DescontoMaxComSenha,
             Comissao = d.Comissao, ValorIncentivo = d.ValorIncentivo,
-            ProdutoLocalId = d.ProdutoLocalId, SecaoId = d.SecaoId, ProdutoFamiliaId = d.ProdutoFamiliaId,
+            ProdutoLocalId = d.ProdutoLocalId, ProdutoLocalNome = d.ProdutoLocal?.Nome,
+            SecaoId = d.SecaoId, SecaoNome = d.Secao?.Nome,
+            ProdutoFamiliaId = d.ProdutoFamiliaId, ProdutoFamiliaNome = d.ProdutoFamilia?.Nome,
             NomeEtiqueta = d.NomeEtiqueta, Mensagem = d.Mensagem,
             BloquearDesconto = d.BloquearDesconto, BloquearPromocao = d.BloquearPromocao,
             NaoAtualizarAbcfarma = d.NaoAtualizarAbcfarma,

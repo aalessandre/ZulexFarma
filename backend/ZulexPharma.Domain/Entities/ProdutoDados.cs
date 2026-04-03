@@ -49,8 +49,11 @@ public class ProdutoDados : BaseEntity
     public decimal ValorIncentivo { get; set; }
 
     public long? ProdutoLocalId { get; set; }
+    public ProdutoLocal? ProdutoLocal { get; set; }
     public long? SecaoId { get; set; }
+    public Secao? Secao { get; set; }
     public long? ProdutoFamiliaId { get; set; }
+    public ProdutoFamilia? ProdutoFamilia { get; set; }
 
     public string? NomeEtiqueta { get; set; }
     public string? Mensagem { get; set; }

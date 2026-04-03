@@ -80,7 +80,7 @@ interface ProdutoDadosItem {
   valorPromocao: number; valorPromocaoPrazo: number; promocaoInicio?: string; promocaoFim?: string;
   descontoMinimo: number; descontoMaxSemSenha: number; descontoMaxComSenha: number;
   comissao: number; valorIncentivo: number;
-  produtoLocalId?: number; produtoLocalNome?: string; secaoId?: number; produtoFamiliaId?: number;
+  produtoLocalId?: number; produtoLocalNome?: string; secaoId?: number; secaoNome?: string; produtoFamiliaId?: number; produtoFamiliaNome?: string;
   nomeEtiqueta?: string; mensagem?: string;
   bloquearDesconto: boolean; bloquearPromocao: boolean; naoAtualizarAbcfarma: boolean; naoAtualizarGestorTributario: boolean; bloquearCompras: boolean; produtoFormula: boolean; bloquearComissao: boolean; bloquearCoberturaOferta: boolean; usoContinuo: boolean; avisoFracao: boolean;
   ultimaCompraEm?: string; ultimaVendaEm?: string;
@@ -97,6 +97,15 @@ interface ProdutoForm {
 }
 
 interface LookupItem { id: number; texto: string; }
+
+interface AbaEdicaoProduto {
+  key: number;              // produtoId for existing, negative for new
+  nome: string;
+  form: ProdutoForm;
+  formOriginal: string;
+  isDirty: boolean;
+  modoEdicao: boolean;
+}
 
 const CLASSIFICACAO_COLUNAS: ColunaDef[] = [
   { campo: 'id',                label: 'ID',           largura: 60,  minLargura: 50,  padrao: true },
@@ -197,6 +206,10 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   filialLocal = signal<number>(0);
   filiaisDisponiveis = signal<{ id: number; nome: string }[]>([]);
   isFilialDiferente = computed(() => this.filialLocal() > 0 && this.filialSelecionada() !== this.filialLocal());
+
+  // ── Abas de edição (sidebar cards) ──────────────────────────────────
+  abasEdicao = signal<AbaEdicaoProduto[]>([]);
+  abaAtivaId = signal<number | null>(null); // produtoId or -1 for new
 
   dadosFilialAtual = computed(() => {
     const fId = this.filialSelecionada();
@@ -323,7 +336,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     return NOME_ABA_MAP[this.abaAtiva()] ?? this.abaAtiva();
   }
 
-  sairDaTela() { this.tabService.fecharTabAtiva(); }
+  sairDaTela() {
+    this.abasEdicao.set([]);
+    this.abaAtivaId.set(null);
+    sessionStorage.removeItem(this.STORAGE_KEY_ESTADO);
+    this.tabService.fecharTabAtiva();
+  }
 
   // ── Dados ─────────────────────────────────────────────────────────
 
@@ -562,6 +580,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   fecharForm() {
+    if (this.isProdutoAba()) {
+      const key = this.abaAtivaId();
+      if (key != null) {
+        this.fecharAbaProduto(key);
+        return;
+      }
+    }
     this.modo.set('lista');
   }
 
@@ -671,12 +696,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     clearTimeout(this.buscaProdutoTimer);
-    this.salvarEstado();
+    sessionStorage.removeItem(this.STORAGE_KEY_ESTADO);
   }
 
   private readonly STORAGE_KEY_ESTADO = 'zulex_produtos_estado';
 
   private salvarEstado() {
+    this.salvarEstadoAbaAtiva();
     const estado = {
       abaAtiva: this.abaAtiva(),
       modo: this.modo(),
@@ -690,6 +716,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       registroForm: this.registroForm(),
       registroSelecionado: this.registroSelecionado(),
       formOriginal: this.formOriginal,
+      // Abas de edição
+      abasEdicao: this.abasEdicao(),
+      abaAtivaId: this.abaAtivaId(),
     };
     sessionStorage.setItem(this.STORAGE_KEY_ESTADO, JSON.stringify(estado));
   }
@@ -711,6 +740,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       if (e.registroForm) this.registroForm.set(e.registroForm);
       if (e.registroSelecionado) this.registroSelecionado.set(e.registroSelecionado);
       if (e.formOriginal) this.formOriginal = e.formOriginal;
+      if (e.abasEdicao) this.abasEdicao.set(e.abasEdicao);
+      if (e.abaAtivaId !== undefined) this.abaAtivaId.set(e.abaAtivaId);
       return true;
     } catch { return false; }
   }
@@ -751,6 +782,17 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       novo.fiscais = filiais.map((f: any) => this.novoFiscalFilial(f.id));
     } catch { /* silenciar — backend criará ao salvar */ }
 
+    this.salvarEstadoAbaAtiva();
+
+    const tempKey = -(Date.now());
+    const novaAba: AbaEdicaoProduto = {
+      key: tempKey, nome: 'Novo Produto',
+      form: JSON.parse(JSON.stringify(novo)), formOriginal: JSON.stringify(novo),
+      isDirty: false, modoEdicao: false
+    };
+    this.abasEdicao.update(tabs => [...tabs, novaAba]);
+    this.abaAtivaId.set(tempKey);
+
     this.produtoForm.set(novo);
     this.produtoFormOriginal = JSON.stringify(novo);
     this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(false);
@@ -778,6 +820,14 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   async editarProduto() {
     const s = this.produtoSelecionado();
     if (!s) return;
+
+    // Se já tem aba aberta para este produto, apenas ativa
+    const existente = this.abasEdicao().find(a => a.key === s.id);
+    if (existente) {
+      this.ativarAbaProduto(s.id);
+      return;
+    }
+
     if (!await this.verificarPermissao('a')) return;
     this.carregando.set(true);
     this.http.get<any>(`${this.produtoApiUrl}/${s.id}`).subscribe({
@@ -801,6 +851,17 @@ export class ProdutosComponent implements OnInit, OnDestroy {
             promocaoFim: this.toDateInput(dd.promocaoFim)
           }))
         };
+
+        this.salvarEstadoAbaAtiva();
+
+        const novaAba: AbaEdicaoProduto = {
+          key: s.id, nome: d.nome,
+          form: JSON.parse(JSON.stringify(f)), formOriginal: JSON.stringify(f),
+          isDirty: false, modoEdicao: true
+        };
+        this.abasEdicao.update(tabs => [...tabs, novaAba]);
+        this.abaAtivaId.set(s.id);
+
         this.produtoForm.set(f);
         this.produtoFormOriginal = JSON.stringify(f);
         this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(true);
@@ -838,9 +899,21 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       next: (r: any) => {
         this.salvando.set(false); this.isDirty.set(false);
         if (!this.modoEdicao() && r?.data) {
+          // Atualizar aba: trocar key temporária pelo ID real
+          const oldKey = this.abaAtivaId();
+          const newId = r.data.id;
+          this.abasEdicao.update(tabs =>
+            tabs.map(t => t.key === oldKey ? { ...t, key: newId, nome: r.data.nome, modoEdicao: true, isDirty: false } : t)
+          );
+          this.abaAtivaId.set(newId);
           this.produtoSelecionado.set(r.data);
-          this.produtoEditandoId.set(r.data.id);
+          this.produtoEditandoId.set(newId);
           this.modoEdicao.set(true);
+        } else {
+          // Atualizar nome na aba caso tenha mudado
+          this.abasEdicao.update(tabs =>
+            tabs.map(t => t.key === this.abaAtivaId() ? { ...t, nome: this.produtoForm().nome, isDirty: false } : t)
+          );
         }
         this.produtoFormOriginal = JSON.stringify(this.produtoForm());
       },
@@ -892,7 +965,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     if (!await this.verificarPermissao('e')) return;
     this.excluindo.set(true);
     this.http.delete<any>(`${this.produtoApiUrl}/${id}`, { headers: this.headerLiberacao() }).subscribe({
-      next: () => { this.excluindo.set(false); this.modo.set('lista'); this.pesquisarProdutos(); },
+      next: () => {
+        this.excluindo.set(false);
+        const key = this.abaAtivaId();
+        if (key != null) this.abasEdicao.update(tabs => tabs.filter(t => t.key !== key));
+        this.abaAtivaId.set(null);
+        this.modo.set('lista'); this.pesquisarProdutos();
+      },
       error: (e: any) => { this.excluindo.set(false); this.modal.erro('Erro', e?.error?.message || 'Erro ao excluir.'); }
     });
   }
@@ -900,6 +979,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   cancelarProduto() {
     this.produtoForm.set(JSON.parse(this.produtoFormOriginal));
     this.isDirty.set(false); this.erro.set('');
+    // Atualizar aba
+    const key = this.abaAtivaId();
+    if (key != null) {
+      this.abasEdicao.update(tabs =>
+        tabs.map(t => t.key === key ? { ...t, isDirty: false } : t)
+      );
+    }
   }
 
   updateProdutoForm(campo: string, valor: any) {
@@ -1175,7 +1261,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   onDadosLookupInput(dadosIdx: number, tipo: string, valor: string) {
     clearTimeout(this.lookupTimers[tipo]);
-    if (tipo === 'local') this.produtoForm.update(f => ({ ...f, dados: f.dados.map((d, i) => i === dadosIdx ? { ...d, produtoLocalNome: valor, produtoLocalId: undefined } : d) }));
+    const nomeField = tipo === 'local' ? 'produtoLocalNome' : tipo === 'familia' ? 'produtoFamiliaNome' : 'secaoNome';
+    const idField = tipo === 'local' ? 'produtoLocalId' : tipo === 'familia' ? 'produtoFamiliaId' : 'secaoId';
+    this.produtoForm.update(f => ({ ...f, dados: f.dados.map((d, i) => i === dadosIdx ? { ...d, [nomeField]: valor, [idField]: undefined } : d) }));
     if (valor.trim().length < 1) { this.getLookupSignalDados(tipo).set([]); this.lookupAberto.set(null); return; }
     this.lookupTimers[tipo] = setTimeout(() => {
       const url = tipo === 'local' ? '/produto-locais' : tipo === 'familia' ? '/produto-familias' : '/secoes';
@@ -1206,9 +1294,10 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   selecionarDadosLookup(dadosIdx: number, tipo: string, item: LookupItem) {
-    const campo = tipo === 'local' ? 'produtoLocalId' : tipo === 'familia' ? 'produtoFamiliaId' : 'secaoId';
-    this.updateDados(dadosIdx, campo, item.id);
-    if (tipo === 'local') this.produtoForm.update(f => ({ ...f, dados: f.dados.map((d, i) => i === dadosIdx ? { ...d, produtoLocalNome: item.texto } : d) }));
+    const idField = tipo === 'local' ? 'produtoLocalId' : tipo === 'familia' ? 'produtoFamiliaId' : 'secaoId';
+    const nomeField = tipo === 'local' ? 'produtoLocalNome' : tipo === 'familia' ? 'produtoFamiliaNome' : 'secaoNome';
+    this.produtoForm.update(f => ({ ...f, dados: f.dados.map((d, i) => i === dadosIdx ? { ...d, [idField]: item.id, [nomeField]: item.texto } : d) }));
+    this.isDirty.set(true);
     this.getLookupSignalDados(tipo).set([]);
     this.lookupAberto.set(null);
   }
@@ -1221,6 +1310,44 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   private toDateInput(val: string | null | undefined): string | undefined {
     if (!val) return undefined;
     return val.substring(0, 10);
+  }
+
+  // ── Abas de edição (sidebar cards) ─────────────────────────────────
+
+  ativarAbaProduto(key: number) {
+    this.salvarEstadoAbaAtiva();
+    this.abaAtivaId.set(key);
+    const aba = this.abasEdicao().find(a => a.key === key);
+    if (!aba) return;
+    this.produtoForm.set(JSON.parse(JSON.stringify(aba.form)));
+    this.produtoFormOriginal = aba.formOriginal;
+    this.isDirty.set(aba.isDirty);
+    this.modoEdicao.set(aba.modoEdicao);
+    this.produtoEditandoId.set(aba.key > 0 ? aba.key : null);
+    this.erro.set('');
+    this.modo.set('form');
+  }
+
+  fecharAbaProduto(key: number) {
+    const eraAtiva = this.abaAtivaId() === key && this.modo() === 'form';
+    this.abasEdicao.update(tabs => tabs.filter(t => t.key !== key));
+    if (eraAtiva) {
+      const restantes = this.abasEdicao();
+      if (restantes.length > 0) this.ativarAbaProduto(restantes[restantes.length - 1].key);
+      else { this.abaAtivaId.set(null); this.modo.set('lista'); }
+    }
+  }
+
+  salvarEstadoAbaAtiva() {
+    const key = this.abaAtivaId();
+    if (key == null) return;
+    if (this.modo() !== 'form') return;
+    if (!this.isProdutoAba()) return;
+    const form = this.produtoForm();
+    const dirty = this.isDirty();
+    this.abasEdicao.update(tabs =>
+      tabs.map(t => t.key === key ? { ...t, form: JSON.parse(JSON.stringify(form)), isDirty: dirty, nome: form.nome || 'Novo Produto' } : t)
+    );
   }
 
   isProdutoAba(): boolean { return this.abaAtiva() === 'produtos'; }

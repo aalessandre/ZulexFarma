@@ -137,10 +137,10 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.carregarGrupos();
   }
 
-  ngOnDestroy() { this.persistirEstado(); }
+  ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
 
   sairDaTela() {
-    this.persistirEstado();
+    sessionStorage.removeItem(this.STATE_KEY);
     this.tabService.fecharTabAtiva();
   }
 

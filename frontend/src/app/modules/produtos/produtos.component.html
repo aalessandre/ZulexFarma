@@ -2,7 +2,7 @@
 
   <!-- SIDEBAR -->
   <aside class="tela-sidebar">
-    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="modo.set('lista'); isProdutoAba() ? pesquisarProdutos() : carregar()">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="salvarEstadoAbaAtiva(); modo.set('lista'); isProdutoAba() ? pesquisarProdutos() : carregar()">
       <span>Procurar</span>
       <span class="sidebar-sub">Consulta</span>
     </div>
@@ -18,6 +18,29 @@
       <span>Sair</span>
       <span class="sidebar-sub">Fechar tela</span>
     </div>
+
+    @if (abasEdicao().length > 0) {
+      <div class="sidebar-divider"></div>
+      @for (aba of abasEdicao(); track aba.key) {
+        <div class="sidebar-aba"
+             [class.ativo]="abaAtivaId() === aba.key && modo() === 'form'"
+             (click)="ativarAbaProduto(aba.key)">
+          <div class="sidebar-aba-topo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            @if (aba.key > 0) { <span class="sidebar-aba-id">#{{ aba.key }}</span> }
+            @else { <span class="sidebar-aba-id">Novo</span> }
+            @if (aba.isDirty) { <span class="sidebar-aba-dirty">●</span> }
+          </div>
+          <span class="sidebar-aba-nome">{{ aba.nome || 'Novo Produto' }}</span>
+          <button class="sidebar-aba-fechar"
+                  (click)="$event.stopPropagation(); fecharAbaProduto(aba.key)"
+                  title="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+      }
+    }
   </aside>
 
   <!-- MAIN -->
@@ -563,11 +586,11 @@
                 <div class="prod-field">
                   <label>FAMÍLIA</label>
                   <div class="lookup-wrap">
-                    <input type="text" [value]="''"
+                    <input type="text" [value]="dd.produtoFamiliaNome || ''"
                            (input)="onDadosLookupInput(dadosFilialIdx(), 'familia', $any($event.target).value)"
                            placeholder="Buscar família..." autocomplete="off" />
                     @if (dd.produtoFamiliaId) {
-                      <button class="lookup-clear" (click)="updateDados(dadosFilialIdx(), 'produtoFamiliaId', null)">&times;</button>
+                      <button class="lookup-clear" (click)="updateDados(dadosFilialIdx(), 'produtoFamiliaId', null); updateDados(dadosFilialIdx(), 'produtoFamiliaNome', '')">&times;</button>
                     }
                     @if (lookupAberto() === 'familia' && lookupFamilia().length) {
                       <ul class="lookup-list">
@@ -581,11 +604,11 @@
                 <div class="prod-field">
                   <label>SEÇÃO</label>
                   <div class="lookup-wrap">
-                    <input type="text" [value]="''"
+                    <input type="text" [value]="dd.secaoNome || ''"
                            (input)="onDadosLookupInput(dadosFilialIdx(), 'secao', $any($event.target).value)"
                            placeholder="Buscar seção..." autocomplete="off" />
                     @if (dd.secaoId) {
-                      <button class="lookup-clear" (click)="updateDados(dadosFilialIdx(), 'secaoId', null)">&times;</button>
+                      <button class="lookup-clear" (click)="updateDados(dadosFilialIdx(), 'secaoId', null); updateDados(dadosFilialIdx(), 'secaoNome', '')">&times;</button>
                     }
                     @if (lookupAberto() === 'secao' && lookupSecao().length) {
                       <ul class="lookup-list">

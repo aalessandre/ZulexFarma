@@ -125,10 +125,10 @@ export class SubstanciasComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit()    { this.carregar(); }
-  ngOnDestroy() { this.persistirEstado(); }
+  ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
 
   sairDaTela() {
-    this.persistirEstado();
+    sessionStorage.removeItem(this.STATE_KEY);
     this.tabService.fecharTabAtiva();
   }
 

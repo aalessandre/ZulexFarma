@@ -179,8 +179,11 @@ public class ProdutoDadosDto
     public decimal Comissao { get; set; }
     public decimal ValorIncentivo { get; set; }
     public long? ProdutoLocalId { get; set; }
+    public string? ProdutoLocalNome { get; set; }
     public long? SecaoId { get; set; }
+    public string? SecaoNome { get; set; }
     public long? ProdutoFamiliaId { get; set; }
+    public string? ProdutoFamiliaNome { get; set; }
     public string? NomeEtiqueta { get; set; }
     public string? Mensagem { get; set; }
 
