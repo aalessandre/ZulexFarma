@@ -272,6 +272,117 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     const restaurou = this.restaurarEstado();
     if (!restaurou && !this.isProdutoAba()) this.carregar();
     this.carregarFiliais();
+    this.verificarPreCadastroCompra();
+  }
+
+  /**
+   * Verifica se há dados de pré-cadastro vindo da tela de Compras (pré-entrada).
+   * Se sim, abre o formulário de novo produto com os dados do XML preenchidos.
+   */
+  private verificarPreCadastroCompra() {
+    const raw = sessionStorage.getItem('zulex_preCadastroProduto');
+    if (!raw) return;
+    sessionStorage.removeItem('zulex_preCadastroProduto');
+
+    try {
+      const pre = JSON.parse(raw);
+      // Garantir que está na aba de produtos
+      this.abaAtiva.set('produtos');
+
+      // Aguardar filiais carregarem, depois abrir o form
+      const interval = setInterval(async () => {
+        const filiais = this.filiaisDisponiveis();
+        if (filiais.length === 0) return;
+        clearInterval(interval);
+
+        if (!await this.verificarPermissao('i')) return;
+
+        const novo = this.novoProdutoForm();
+        novo.nome = (pre.nome || '').toUpperCase();
+        novo.codigoBarras = pre.codigoBarras || undefined;
+
+        // Barras
+        if (pre.codigoBarras) {
+          novo.barras = [{ barras: pre.codigoBarras }];
+        }
+
+        // Fornecedor
+        if (pre.fornecedorId && pre.filialId) {
+          novo.fornecedores = [{
+            filialId: pre.filialId,
+            fornecedorId: pre.fornecedorId,
+            fornecedorNome: pre.fornecedorNome || '',
+            codigoProdutoFornecedor: pre.codigoProdutoFornecedor || '',
+            nomeProduto: pre.descricaoXml || '',
+            fracao: 1
+          }];
+        }
+
+        // Dados por filial (preços do XML)
+        novo.dados = filiais.map((f: any) => {
+          const d = this.novoDadosFilial(f.id);
+          if (f.id === pre.filialId) {
+            d.ultimaCompraUnitario = pre.valorUnitario || 0;
+            d.ultimaCompraSt = pre.valorSt || 0;
+            d.custoMedio = pre.valorUnitario || 0;
+            d.pmc = pre.pmc || 0;
+          }
+          return d;
+        });
+
+        // Fiscal por filial (dados tributários do XML)
+        novo.fiscais = filiais.map((f: any) => {
+          const fiscal = this.novoFiscalFilial(f.id);
+          if (f.id === pre.filialId) {
+            fiscal.origemMercadoria = pre.origemMercadoria || undefined;
+            fiscal.cstIcms = pre.cstIcms || undefined;
+            fiscal.aliquotaIcms = pre.aliquotaIcms || 0;
+            fiscal.cest = pre.cestXml || undefined;
+            fiscal.cstPis = pre.cstPis || undefined;
+            fiscal.aliquotaPis = pre.aliquotaPis || 0;
+            fiscal.cstCofins = pre.cstCofins || undefined;
+            fiscal.aliquotaCofins = pre.aliquotaCofins || 0;
+          }
+          return fiscal;
+        });
+
+        // Buscar NCM pelo código XML
+        if (pre.ncmXml) {
+          this.http.get<any>(`${environment.apiUrl}/ncm?busca=${pre.ncmXml}`).subscribe({
+            next: resp => {
+              const ncms: any[] = resp?.data ?? [];
+              const match = ncms.find((n: any) => n.codigo === pre.ncmXml);
+              if (match) {
+                novo.ncmId = match.id;
+                novo.ncmCodigo = match.codigo;
+                // Atualizar fiscal com ncmId
+                novo.fiscais.forEach(f => { if (!f.ncmId) f.ncmId = match.id; f.ncmCodigo = match.codigo; });
+                this.produtoForm.set({ ...this.produtoForm(), ncmId: match.id, ncmCodigo: match.codigo });
+              }
+            }
+          });
+        }
+
+        this.salvarEstadoAbaAtiva();
+
+        const tempKey = -(Date.now());
+        const novaAba: AbaEdicaoProduto = {
+          key: tempKey, nome: novo.nome || 'Novo Produto',
+          form: JSON.parse(JSON.stringify(novo)), formOriginal: JSON.stringify(novo),
+          isDirty: false, modoEdicao: false
+        };
+        this.abasEdicao.update(tabs => [...tabs, novaAba]);
+        this.abaAtivaId.set(tempKey);
+
+        this.produtoForm.set(novo);
+        this.produtoFormOriginal = JSON.stringify(novo);
+        this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(false);
+        this.produtoEditandoId.set(null); this.modo.set('form');
+      }, 100);
+
+      // Safety: limpar interval após 10s
+      setTimeout(() => clearInterval(interval), 10000);
+    } catch { /* ignore parse errors */ }
   }
 
   private carregarFiliais() {

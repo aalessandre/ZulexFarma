@@ -70,6 +70,10 @@ public class ProdutoDados : BaseEntity
     public bool UsoContinuo { get; set; }
     public bool AvisoFracao { get; set; }
 
+    // ── Lote / Validade ───────────────────────────────────────────
+    public string? Lote { get; set; }
+    public DateTime? DataValidade { get; set; }
+
     // ── Estatísticas ────────────────────────────────────────────
     public DateTime? UltimaCompraEm { get; set; }
     public DateTime? UltimaVendaEm { get; set; }

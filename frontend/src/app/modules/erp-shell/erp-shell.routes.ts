@@ -98,6 +98,11 @@ export const ErpRoutes: Routes = [
         loadComponent: () =>
           import('../outros-cadastros/outros-cadastros.component').then(m => m.OutrosCadastrosComponent),
       },
+      {
+        path: 'compras',
+        loadComponent: () =>
+          import('../compras/compras.component').then(m => m.ComprasComponent),
+      },
       // Placeholders — módulos futuros
       {
         path: '**',

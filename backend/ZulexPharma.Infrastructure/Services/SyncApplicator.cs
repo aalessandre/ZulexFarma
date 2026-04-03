@@ -149,8 +149,15 @@ public static class SyncApplicator
         "ProdutosFiscal"           => 3,
         "ProdutosDados"            => 3,
 
+        // Nível 3 — Compras (depende de Fornecedores nível 2)
+        "Compras"                  => 3,
+
         // Nível 4 — depende de nível 3
+        "ComprasProdutos"          => 4,
         "UsuarioFilialGrupos"      => 4,
+
+        // Nível 5 — depende de nível 4 (CompraFiscal depende de ComprasProdutos)
+        "ComprasFiscal"            => 5,
 
         // Nível 0 — configurações (sem dependência)
         "Configuracoes"            => 0,
@@ -195,6 +202,9 @@ public static class SyncApplicator
         ["NcmIcmsUfs"] = typeof(NcmIcmsUf),
         ["NcmStUfs"] = typeof(NcmStUf),
         ["Configuracoes"] = typeof(Configuracao),
+        ["Compras"] = typeof(Compra),
+        ["ComprasProdutos"] = typeof(CompraProduto),
+        ["ComprasFiscal"] = typeof(CompraFiscal),
         ["LogsAcao"] = typeof(LogAcao),
         ["LogsErro"] = typeof(LogErro),
     };

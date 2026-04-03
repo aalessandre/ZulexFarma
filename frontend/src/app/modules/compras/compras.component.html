@@ -1,0 +1,471 @@
+<div class="tela-erp">
+
+  <!-- ── SIDEBAR ESQUERDA ─────────────────────────────────────────── -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="voltarLista()">
+      <span>Compras</span>
+      <span class="sidebar-sub">Lista de notas</span>
+    </div>
+
+    <label class="sidebar-item tile-importar" [class.disabled]="importando()">
+      <input type="file" accept=".xml" (change)="onFileSelected($event)" hidden [disabled]="importando()">
+      @if (importando()) {
+        <span>Importando...</span>
+      } @else {
+        <span>Importar XML</span>
+        <span class="sidebar-sub">Carregar NF-e</span>
+      }
+    </label>
+
+    @if (modo() === 'detalhe') {
+      <div class="sidebar-item tile-sair" (click)="excluir()">
+        <span>Excluir</span>
+        <span class="sidebar-sub">Remover nota</span>
+      </div>
+    }
+
+    <!-- Resumo vinculacao -->
+    @if (modo() === 'detalhe' && compraDetalhe()) {
+      <div class="sidebar-resumo">
+        <div class="resumo-titulo">VINCULACAO</div>
+        <div class="resumo-barra">
+          <div class="resumo-progresso" [style.width.%]="percentVinculados()"></div>
+        </div>
+        <div class="resumo-texto">
+          {{ totalVinculados() }} / {{ totalItens() }} ({{ percentVinculados() }}%)
+        </div>
+      </div>
+    }
+  </aside>
+
+  <!-- ── AREA PRINCIPAL ───────────────────────────────────────────── -->
+  <div class="tela-main">
+
+    @if (erro()) {
+      <div class="form-erro">
+        {{ erro() }}
+        <button class="form-erro-fechar" (click)="erro.set('')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    }
+
+    <!-- ══════════ LISTA DE COMPRAS ══════════ -->
+    @if (modo() === 'lista') {
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="NF, fornecedor ou CNPJ..."
+                   [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            @if (busca()) {
+              <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="lista-filtro">
+          <label>STATUS</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="todos">Todos</option>
+            <option value="preentrada">Pre-Entrada</option>
+            <option value="conferencia">Conferencia</option>
+            <option value="finalizada">Finalizada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              <th class="th-sort th-resize" [attr.data-col]="'id'" style="width:60px" (click)="ordenar('id')">
+                ID <span class="sort-icon">{{ sortIcon('id') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'id', 60)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'numeroNf'" style="width:100px" (click)="ordenar('numeroNf')">
+                NF <span class="sort-icon">{{ sortIcon('numeroNf') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'numeroNf', 100)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'serieNf'" style="width:60px" (click)="ordenar('serieNf')">
+                Serie <span class="sort-icon">{{ sortIcon('serieNf') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'serieNf', 60)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'fornecedorNome'" style="width:250px" (click)="ordenar('fornecedorNome')">
+                Fornecedor <span class="sort-icon">{{ sortIcon('fornecedorNome') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'fornecedorNome', 250)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'fornecedorCnpj'" style="width:150px" (click)="ordenar('fornecedorCnpj')">
+                CNPJ <span class="sort-icon">{{ sortIcon('fornecedorCnpj') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'fornecedorCnpj', 150)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'dataEmissao'" style="width:100px" (click)="ordenar('dataEmissao')">
+                Emissao <span class="sort-icon">{{ sortIcon('dataEmissao') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'dataEmissao', 100)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'valorNota'" style="width:120px" (click)="ordenar('valorNota')">
+                Valor NF <span class="sort-icon">{{ sortIcon('valorNota') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'valorNota', 120)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort" style="width:110px" (click)="ordenar('status')">
+                Status <span class="sort-icon">{{ sortIcon('status') }}</span>
+              </th>
+              <th style="width:100px">Vinculados</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td colspan="11" class="grid-loading">Carregando...</td></tr>
+            } @else if (comprasFiltradas().length === 0) {
+              <tr><td colspan="11" class="grid-vazio">Nenhuma compra encontrada. Importe um XML para comecar.</td></tr>
+            } @else {
+              @for (c of comprasFiltradas(); track c.id) {
+                <tr [class.selecionado]="compraSelecionada()?.id === c.id"
+                    (click)="selecionar(c)" (dblclick)="abrirDetalhe(c)">
+                  <td class="td-arrow">
+                    @if (compraSelecionada()?.id === c.id) { <span>&#9654;</span> }
+                  </td>
+                  <td>{{ c.id }}</td>
+                  <td>{{ c.numeroNf }}</td>
+                  <td>{{ c.serieNf }}</td>
+                  <td>{{ c.fornecedorNome }}</td>
+                  <td>{{ c.fornecedorCnpj }}</td>
+                  <td>{{ c.dataEmissao | date:'dd/MM/yyyy' }}</td>
+                  <td class="td-valor">{{ c.valorNota | number:'1.2-2':'pt-BR' }}</td>
+                  <td>
+                    <span class="badge-status" [class]="statusClass(c.status)">{{ statusLabel(c.status) }}</span>
+                  </td>
+                  <td class="td-center">{{ c.itensVinculados }}/{{ c.totalItens }}</td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ comprasFiltradas().length }}</strong></span>
+      </div>
+    }
+
+    <!-- ══════════ DETALHE DA COMPRA (PRE-ENTRADA) ══════════ -->
+    @if (modo() === 'detalhe' && compraDetalhe(); as d) {
+      <div class="detalhe-header">
+        <div class="detalhe-info">
+          <h2>NF {{ d.numeroNf }} - Serie {{ d.serieNf }}</h2>
+          <div class="detalhe-meta">
+            <span><strong>Fornecedor:</strong> {{ d.fornecedorNome }}</span>
+            <span><strong>CNPJ:</strong> {{ d.fornecedorCnpj }}</span>
+            <span><strong>Emissao:</strong> {{ d.dataEmissao | date:'dd/MM/yyyy' }}</span>
+            <span><strong>Valor:</strong> R$ {{ d.valorNota | number:'1.2-2':'pt-BR' }}</span>
+            <span class="badge-status" [class]="statusClass(d.status)">{{ statusLabel(d.status) }}</span>
+          </div>
+        </div>
+        <div class="detalhe-totais">
+          <div class="total-item"><span>Produtos</span><strong>R$ {{ d.valorProdutos | number:'1.2-2':'pt-BR' }}</strong></div>
+          <div class="total-item"><span>ST</span><strong>R$ {{ d.valorSt | number:'1.2-2':'pt-BR' }}</strong></div>
+          @if (d.valorFrete > 0) {
+            <div class="total-item"><span>Frete</span><strong>R$ {{ d.valorFrete | number:'1.2-2':'pt-BR' }}</strong></div>
+          }
+          @if (d.valorDesconto > 0) {
+            <div class="total-item"><span>Desconto</span><strong>R$ {{ d.valorDesconto | number:'1.2-2':'pt-BR' }}</strong></div>
+          }
+          <div class="total-item total-final"><span>Total NF</span><strong>R$ {{ d.valorNota | number:'1.2-2':'pt-BR' }}</strong></div>
+        </div>
+      </div>
+
+      <!-- ── Tabela de itens ──────────────────────────────── -->
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th class="th-sort" style="width:44px" (click)="ordenarItens('numeroItem')">
+                # <span class="sort-icon">{{ sortItemIcon('numeroItem') }}</span>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'codigoBarrasXml'" style="width:130px" (click)="ordenarItens('codigoBarrasXml')">
+                Barras <span class="sort-icon">{{ sortItemIcon('codigoBarrasXml') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'codigoBarrasXml', 130)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'descricaoXml'" style="width:320px" (click)="ordenarItens('descricaoXml')">
+                Descricao XML <span class="sort-icon">{{ sortItemIcon('descricaoXml') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'descricaoXml', 320)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'produtoNome'" style="width:260px" (click)="ordenarItens('produtoNome')">
+                Produto Vinculado <span class="sort-icon">{{ sortItemIcon('produtoNome') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'produtoNome', 260)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort" style="width:70px" (click)="ordenarItens('quantidade')">
+                Qtde <span class="sort-icon">{{ sortItemIcon('quantidade') }}</span>
+              </th>
+              <th class="th-sort" style="width:90px" (click)="ordenarItens('valorUnitario')">
+                Unitario <span class="sort-icon">{{ sortItemIcon('valorUnitario') }}</span>
+              </th>
+              <th class="th-sort" style="width:90px" (click)="ordenarItens('valorItemNota')">
+                Total <span class="sort-icon">{{ sortItemIcon('valorItemNota') }}</span>
+              </th>
+              <th style="width:44px">UN</th>
+              <th style="width:80px">Acoes</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of itensFiltrados(); track p.id) {
+              <tr [class.selecionado]="false" [class.nao-vinculado]="!p.vinculado">
+                <td class="td-arrow">
+                  @if (p.vinculado) {
+                    <span class="icon-vinc-ok">&#10004;</span>
+                  } @else {
+                    <span class="icon-vinc-nok">&#10006;</span>
+                  }
+                </td>
+                <td>{{ p.numeroItem }}</td>
+                <td>{{ p.codigoBarrasXml }}</td>
+                <td [title]="p.descricaoXml">{{ p.descricaoXml }}</td>
+                <td>
+                  @if (p.vinculado && p.produtoNome) {
+                    <span class="produto-vinculado" [title]="'ID: ' + p.produtoId">{{ p.produtoNome }}</span>
+                  } @else {
+                    <span class="produto-pendente">--</span>
+                  }
+                </td>
+                <td class="td-valor">{{ p.quantidade | number:'1.0-4':'pt-BR' }}</td>
+                <td class="td-valor">{{ p.valorUnitario | number:'1.2-6':'pt-BR' }}</td>
+                <td class="td-valor">{{ p.valorItemNota | number:'1.2-2':'pt-BR' }}</td>
+                <td class="td-center">{{ p.unidadeXml }}</td>
+                <td class="td-acoes">
+                  @if (vinculando() === p.id) {
+                    <span class="btn-acao disabled">...</span>
+                  } @else if (p.vinculado) {
+                    <button class="btn-acao btn-desvincular" (click)="desvincular(p)" title="Desvincular">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  } @else {
+                    <button class="btn-acao btn-vincular" (click)="abrirModalVincular(p)" title="Vincular produto">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                    </button>
+                  }
+                  <button class="btn-acao btn-fiscal" (click)="abrirFiscal(p)" title="Ver dados fiscais">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Itens: <strong>{{ totalItens() }}</strong></span>
+        <span class="rodape-sep">|</span>
+        <span>Vinculados: <strong>{{ totalVinculados() }}</strong></span>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- ══════════ MODAL VINCULAR PRODUTO ══════════ -->
+@if (modalVincular()) {
+  <div class="modal-overlay" (click)="fecharModalVincular()">
+    <div class="modal-log-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-log-header">
+        <div class="modal-log-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+          </svg>
+          Vincular Produto
+        </div>
+        <button class="modal-log-fechar" (click)="fecharModalVincular()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      @if (itemParaVincular(); as item) {
+        <div class="modal-item-info">
+          <div class="info-campo"><span>XML:</span><strong>{{ item.descricaoXml }}</strong></div>
+          <div class="info-campo"><span>Barras:</span><strong>{{ item.codigoBarrasXml || 'N/A' }}</strong></div>
+          <div class="info-campo"><span>Cod. Forn.:</span><strong>{{ item.codigoProdutoFornecedor }}</strong></div>
+        </div>
+      }
+
+      <div class="modal-log-filtros">
+        <div class="log-filtro-campo" style="flex:1">
+          <label>BUSCAR PRODUTO</label>
+          <input type="text" placeholder="Nome ou codigo de barras..."
+                 [value]="buscaProduto()" (input)="buscaProduto.set($any($event.target).value)"
+                 (keyup.enter)="buscarProdutos()"
+                 style="height:34px; padding:0 10px; border:1px solid var(--erp-border-input); border-radius:4px; font-size:var(--erp-fs-body); color:var(--erp-text); background:var(--erp-surface); outline:none;" />
+        </div>
+        <button class="log-btn-filtrar" (click)="buscarProdutos()" [disabled]="buscandoProduto()">
+          @if (buscandoProduto()) { Buscando... } @else { Buscar }
+        </button>
+        <button class="log-btn-filtrar btn-cadastrar" (click)="cadastrarProduto()">Cadastrar</button>
+      </div>
+
+      <div class="modal-log-body">
+        <div class="modal-log-scroll">
+          @if (produtosBusca().length === 0) {
+            <div class="grid-vazio">Nenhum produto encontrado. Use "Cadastrar" para criar um novo produto.</div>
+          } @else {
+            <table class="log-grid">
+              <thead>
+                <tr>
+                  <th style="width:60px">ID</th>
+                  <th>Nome</th>
+                  <th style="width:140px">Barras</th>
+                  <th style="width:90px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (prod of produtosBusca(); track prod.id) {
+                  <tr (dblclick)="selecionarProduto(prod)" style="cursor:pointer">
+                    <td>{{ prod.id }}</td>
+                    <td>{{ prod.nome }}</td>
+                    <td>{{ prod.codigoBarras }}</td>
+                    <td>
+                      <button class="log-btn-filtrar btn-vincular-modal" (click)="selecionarProduto(prod)">Vincular</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </div>
+
+      <div class="modal-log-footer">
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharModalVincular()">Fechar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══════════ MODAL DADOS FISCAIS ══════════ -->
+@if (modalFiscal() && itemFiscal(); as item) {
+  <div class="modal-overlay" (click)="fecharFiscal()">
+    <div class="modal-log-box modal-fiscal-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-log-header">
+        <div class="modal-log-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Dados Fiscais - Item {{ item.numeroItem }}
+        </div>
+        <button class="modal-log-fechar" (click)="fecharFiscal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-item-info">
+        <div class="info-campo"><strong>{{ item.descricaoXml }}</strong></div>
+      </div>
+
+      @if (item.fiscal; as f) {
+        <div class="modal-log-body">
+          <div class="modal-log-scroll">
+            <table class="log-grid fiscal-tabela">
+              <thead>
+                <tr>
+                  <th style="width:160px">Imposto</th>
+                  <th style="width:80px">CST</th>
+                  <th>Base</th>
+                  <th>Aliquota</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="campo-nome">ICMS (Orig: {{ f.origemMercadoria }})</td>
+                  <td>{{ f.cstIcms }}</td>
+                  <td class="td-valor">{{ f.baseIcms | number:'1.2-2':'pt-BR' }}</td>
+                  <td class="td-valor">{{ f.aliquotaIcms | number:'1.2-2':'pt-BR' }}%</td>
+                  <td class="td-valor">{{ f.valorIcms | number:'1.2-2':'pt-BR' }}</td>
+                </tr>
+                @if (f.baseSt > 0 || f.valorSt > 0) {
+                  <tr>
+                    <td class="campo-nome">ICMS ST (MVA: {{ f.mvaSt | number:'1.2-2':'pt-BR' }}%)</td>
+                    <td></td>
+                    <td class="td-valor">{{ f.baseSt | number:'1.2-2':'pt-BR' }}</td>
+                    <td class="td-valor">{{ f.aliquotaSt | number:'1.2-2':'pt-BR' }}%</td>
+                    <td class="td-valor">{{ f.valorSt | number:'1.2-2':'pt-BR' }}</td>
+                  </tr>
+                }
+                @if (f.baseFcpSt > 0 || f.valorFcpSt > 0) {
+                  <tr>
+                    <td class="campo-nome">FCP ST</td>
+                    <td></td>
+                    <td class="td-valor">{{ f.baseFcpSt | number:'1.2-2':'pt-BR' }}</td>
+                    <td class="td-valor">{{ f.aliquotaFcpSt | number:'1.2-2':'pt-BR' }}%</td>
+                    <td class="td-valor">{{ f.valorFcpSt | number:'1.2-2':'pt-BR' }}</td>
+                  </tr>
+                }
+                <tr>
+                  <td class="campo-nome">PIS</td>
+                  <td>{{ f.cstPis }}</td>
+                  <td class="td-valor">{{ f.basePis | number:'1.2-2':'pt-BR' }}</td>
+                  <td class="td-valor">{{ f.aliquotaPis | number:'1.4-4':'pt-BR' }}%</td>
+                  <td class="td-valor">{{ f.valorPis | number:'1.2-2':'pt-BR' }}</td>
+                </tr>
+                <tr>
+                  <td class="campo-nome">COFINS</td>
+                  <td>{{ f.cstCofins }}</td>
+                  <td class="td-valor">{{ f.baseCofins | number:'1.2-2':'pt-BR' }}</td>
+                  <td class="td-valor">{{ f.aliquotaCofins | number:'1.4-4':'pt-BR' }}%</td>
+                  <td class="td-valor">{{ f.valorCofins | number:'1.2-2':'pt-BR' }}</td>
+                </tr>
+                @if (f.cstIbsCbs) {
+                  <tr class="fiscal-separador">
+                    <td colspan="5"><strong>IBS/CBS (Reforma Tributaria)</strong> - Classe: {{ f.classeTributariaIbsCbs }}</td>
+                  </tr>
+                  <tr>
+                    <td class="campo-nome">IBS UF</td>
+                    <td>{{ f.cstIbsCbs }}</td>
+                    <td class="td-valor">{{ f.baseIbsCbs | number:'1.2-2':'pt-BR' }}</td>
+                    <td class="td-valor">{{ f.aliquotaIbsUf | number:'1.2-2':'pt-BR' }}%</td>
+                    <td class="td-valor">{{ f.valorIbsUf | number:'1.2-2':'pt-BR' }}</td>
+                  </tr>
+                  <tr>
+                    <td class="campo-nome">IBS Mun</td>
+                    <td></td>
+                    <td class="td-valor">{{ f.baseIbsCbs | number:'1.2-2':'pt-BR' }}</td>
+                    <td class="td-valor">{{ f.aliquotaIbsMun | number:'1.2-2':'pt-BR' }}%</td>
+                    <td class="td-valor">{{ f.valorIbsMun | number:'1.2-2':'pt-BR' }}</td>
+                  </tr>
+                  <tr>
+                    <td class="campo-nome">CBS</td>
+                    <td></td>
+                    <td class="td-valor">{{ f.baseIbsCbs | number:'1.2-2':'pt-BR' }}</td>
+                    <td class="td-valor">{{ f.aliquotaCbs | number:'1.2-2':'pt-BR' }}%</td>
+                    <td class="td-valor">{{ f.valorCbs | number:'1.2-2':'pt-BR' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      } @else {
+        <div class="modal-log-body">
+          <div class="grid-vazio">Sem dados fiscais para este item.</div>
+        </div>
+      }
+
+      <div class="modal-log-footer">
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharFiscal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+}

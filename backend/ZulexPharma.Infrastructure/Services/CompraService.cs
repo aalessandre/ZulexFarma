@@ -1,0 +1,718 @@
+using Microsoft.EntityFrameworkCore;
+using Serilog;
+using System.Globalization;
+using System.Xml.Linq;
+using ZulexPharma.Application.DTOs.Compras;
+using ZulexPharma.Application.Interfaces;
+using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Enums;
+using ZulexPharma.Infrastructure.Data;
+
+namespace ZulexPharma.Infrastructure.Services;
+
+public class CompraService : ICompraService
+{
+    private readonly AppDbContext _db;
+    private readonly ILogAcaoService _log;
+
+    private const string TELA = "Compras";
+    private const string ENTIDADE = "Compra";
+
+    private static readonly XNamespace _nfe = "http://www.portalfiscal.inf.br/nfe";
+
+    public CompraService(AppDbContext db, ILogAcaoService log)
+    {
+        _db = db;
+        _log = log;
+    }
+
+    // ── Listar ───────────────────────────────────────────────────────
+    public async Task<List<CompraListDto>> ListarAsync()
+    {
+        try
+        {
+            return await _db.Compras
+                .Include(c => c.Fornecedor).ThenInclude(f => f.Pessoa)
+                .Include(c => c.Produtos)
+                .OrderByDescending(c => c.CriadoEm)
+                .Select(c => new CompraListDto
+                {
+                    Id = c.Id,
+                    Codigo = c.Codigo,
+                    NumeroNf = c.NumeroNf,
+                    SerieNf = c.SerieNf,
+                    FornecedorNome = c.Fornecedor.Pessoa.Nome,
+                    FornecedorCnpj = c.Fornecedor.Pessoa.CpfCnpj,
+                    DataEmissao = c.DataEmissao,
+                    DataEntrada = c.DataEntrada,
+                    ValorNota = c.ValorNota,
+                    Status = c.Status,
+                    TotalItens = c.Produtos.Count,
+                    ItensVinculados = c.Produtos.Count(p => p.Vinculado),
+                    CriadoEm = c.CriadoEm
+                })
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em CompraService.ListarAsync");
+            throw;
+        }
+    }
+
+    // ── Obter detalhe ────────────────────────────────────────────────
+    public async Task<CompraDetalheDto> ObterAsync(long id)
+    {
+        var compra = await _db.Compras
+            .Include(c => c.Fornecedor).ThenInclude(f => f.Pessoa)
+            .Include(c => c.Produtos).ThenInclude(p => p.Fiscal)
+            .Include(c => c.Produtos).ThenInclude(p => p.Produto)
+            .FirstOrDefaultAsync(c => c.Id == id)
+            ?? throw new KeyNotFoundException($"Compra {id} não encontrada.");
+
+        return MapDetalhe(compra);
+    }
+
+    // ── Importar XML ─────────────────────────────────────────────────
+    public async Task<CompraDetalheDto> ImportarXmlAsync(string xmlConteudo, long filialId)
+    {
+        try
+        {
+            var doc = XDocument.Parse(xmlConteudo);
+            var infNFe = doc.Descendants(_nfe + "infNFe").FirstOrDefault()
+                ?? throw new ArgumentException("XML inválido: tag <infNFe> não encontrada.");
+
+            // ── Extrair chave da NF-e ──────────────────────────────
+            var chaveNfe = infNFe.Attribute("Id")?.Value?.Replace("NFe", "") ?? "";
+            if (chaveNfe.Length != 44)
+                throw new ArgumentException("Chave da NF-e inválida.");
+
+            // Verificar duplicata
+            if (await _db.Compras.AnyAsync(c => c.ChaveNfe == chaveNfe))
+                throw new ArgumentException($"Esta nota fiscal já foi importada (Chave: {chaveNfe}).");
+
+            // ── Emitente (fornecedor) ──────────────────────────────
+            var emit = infNFe.Element(_nfe + "emit")
+                ?? throw new ArgumentException("XML inválido: tag <emit> não encontrada.");
+            var cnpjFornecedor = Txt(emit, "CNPJ");
+            var nomeFornecedor = Txt(emit, "xNome");
+            var fantasiaFornecedor = Txt(emit, "xFant");
+            var ieFornecedor = Txt(emit, "IE");
+
+            var fornecedor = await ObterOuCriarFornecedorAsync(cnpjFornecedor, nomeFornecedor, fantasiaFornecedor, ieFornecedor, emit);
+
+            // ── Cabeçalho ──────────────────────────────────────────
+            var ide = infNFe.Element(_nfe + "ide")!;
+            var total = infNFe.Element(_nfe + "total")?.Element(_nfe + "ICMSTot");
+
+            var compra = new Compra
+            {
+                FilialId = filialId,
+                FornecedorId = fornecedor.Id,
+                ChaveNfe = chaveNfe,
+                NumeroNf = Txt(ide, "nNF"),
+                SerieNf = Txt(ide, "serie"),
+                NaturezaOperacao = Txt(ide, "natOp"),
+                DataEmissao = ParseDt(Txt(ide, "dhEmi")),
+                DataEntrada = DateTime.UtcNow,
+                ValorProdutos = Dec(total, "vProd"),
+                ValorSt = Dec(total, "vST"),
+                ValorFcpSt = Dec(total, "vFCPST"),
+                ValorFrete = Dec(total, "vFrete"),
+                ValorSeguro = Dec(total, "vSeg"),
+                ValorDesconto = Dec(total, "vDesc"),
+                ValorIpi = Dec(total, "vIPI"),
+                ValorPis = Dec(total, "vPIS"),
+                ValorCofins = Dec(total, "vCOFINS"),
+                ValorOutros = Dec(total, "vOutro"),
+                ValorNota = Dec(total, "vNF"),
+                Status = CompraStatus.PreEntrada,
+                XmlConteudo = xmlConteudo
+            };
+
+            _db.Compras.Add(compra);
+            await _db.SaveChangesAsync();
+
+            // ── Itens ──────────────────────────────────────────────
+            var dets = infNFe.Elements(_nfe + "det").ToList();
+            foreach (var det in dets)
+            {
+                var prod = det.Element(_nfe + "prod")!;
+                var imposto = det.Element(_nfe + "imposto");
+                var rastro = prod.Element(_nfe + "rastro");
+                var med = prod.Element(_nfe + "med");
+
+                var codigoBarras = Txt(prod, "cEAN");
+                if (codigoBarras == "SEM GTIN") codigoBarras = null;
+
+                var item = new CompraProduto
+                {
+                    CompraId = compra.Id,
+                    NumeroItem = int.Parse(det.Attribute("nItem")?.Value ?? "0"),
+                    CodigoProdutoFornecedor = Txt(prod, "cProd"),
+                    CodigoBarrasXml = codigoBarras,
+                    DescricaoXml = Txt(prod, "xProd"),
+                    NcmXml = Txt(prod, "NCM"),
+                    CestXml = Txt(prod, "CEST"),
+                    CfopXml = Txt(prod, "CFOP"),
+                    UnidadeXml = Txt(prod, "uCom"),
+                    Quantidade = Dec(prod, "qCom"),
+                    ValorUnitario = Dec(prod, "vUnCom"),
+                    ValorTotal = Dec(prod, "vProd"),
+                    ValorDesconto = Dec(prod, "vDesc"),
+                    ValorFrete = Dec(prod, "vFrete"),
+                    ValorOutros = Dec(prod, "vOutro"),
+                    ValorItemNota = Dec(det, "vItem"),
+                    Lote = Txt(rastro, "nLote"),
+                    DataFabricacao = ParseDt(Txt(rastro, "dFab")),
+                    DataValidade = ParseDt(Txt(rastro, "dVal")),
+                    CodigoAnvisa = Txt(med, "cProdANVISA"),
+                    PrecoMaximoConsumidor = med != null ? DecN(med, "vPMC") : null,
+                    InfoAdicional = Txt(det, "infAdProd"),
+                    Vinculado = false
+                };
+
+                _db.ComprasProdutos.Add(item);
+                await _db.SaveChangesAsync();
+
+                // ── Fiscal ─────────────────────────────────────────
+                var fiscal = ParseFiscal(imposto, item.Id);
+                _db.ComprasFiscal.Add(fiscal);
+            }
+
+            await _db.SaveChangesAsync();
+
+            // ── Auto-vincular por código de barras ──────────────────
+            await AutoVincularProdutosAsync(compra.Id, fornecedor.Id, filialId);
+
+            await _log.RegistrarAsync(TELA, "IMPORTAÇÃO XML", ENTIDADE, compra.Id,
+                novo: new Dictionary<string, string?>
+                {
+                    ["NF"] = compra.NumeroNf,
+                    ["Série"] = compra.SerieNf,
+                    ["Chave"] = compra.ChaveNfe,
+                    ["Fornecedor"] = nomeFornecedor,
+                    ["Valor"] = compra.ValorNota.ToString("N2"),
+                    ["Itens"] = dets.Count.ToString()
+                });
+
+            // Recarregar com navigations para retorno
+            return await ObterAsync(compra.Id);
+        }
+        catch (Exception ex) when (ex is not ArgumentException)
+        {
+            Log.Error(ex, "Erro em CompraService.ImportarXmlAsync");
+            throw;
+        }
+    }
+
+    // ── Vincular produto ─────────────────────────────────────────────
+    public async Task<CompraProdutoDto> VincularProdutoAsync(VincularProdutoDto dto)
+    {
+        try
+        {
+            var item = await _db.ComprasProdutos
+                .Include(p => p.Compra)
+                .FirstOrDefaultAsync(p => p.Id == dto.CompraProdutoId)
+                ?? throw new KeyNotFoundException("Item de compra não encontrado.");
+
+            var produto = await _db.Produtos
+                .Include(p => p.Barras)
+                .FirstOrDefaultAsync(p => p.Id == dto.ProdutoId)
+                ?? throw new KeyNotFoundException("Produto não encontrado.");
+
+            // Vincular
+            item.ProdutoId = produto.Id;
+            item.Vinculado = true;
+
+            // Adicionar código de barras se não existe
+            if (!string.IsNullOrEmpty(item.CodigoBarrasXml))
+            {
+                var barrasExiste = produto.Barras.Any(b => b.Barras == item.CodigoBarrasXml);
+                if (!barrasExiste)
+                {
+                    _db.ProdutosBarras.Add(new ProdutoBarras
+                    {
+                        ProdutoId = produto.Id,
+                        Barras = item.CodigoBarrasXml
+                    });
+                }
+            }
+
+            // Vincular fornecedor ao produto se não existe
+            var compra = item.Compra;
+            var fornecedorVinculado = await _db.ProdutosFornecedores
+                .AnyAsync(pf => pf.ProdutoId == produto.Id
+                    && pf.FornecedorId == compra.FornecedorId
+                    && pf.FilialId == compra.FilialId);
+
+            if (!fornecedorVinculado)
+            {
+                _db.ProdutosFornecedores.Add(new ProdutoFornecedor
+                {
+                    ProdutoId = produto.Id,
+                    FornecedorId = compra.FornecedorId,
+                    FilialId = compra.FilialId,
+                    CodigoProdutoFornecedor = item.CodigoProdutoFornecedor,
+                    NomeProduto = item.DescricaoXml
+                });
+            }
+
+            await _db.SaveChangesAsync();
+
+            await _log.RegistrarAsync(TELA, "VINCULAÇÃO", "CompraProduto", item.Id,
+                novo: new Dictionary<string, string?>
+                {
+                    ["Produto"] = produto.Nome,
+                    ["Barras XML"] = item.CodigoBarrasXml,
+                    ["Descrição XML"] = item.DescricaoXml
+                });
+
+            return await MapProdutoDto(item.Id);
+        }
+        catch (Exception ex) when (ex is not KeyNotFoundException)
+        {
+            Log.Error(ex, "Erro em CompraService.VincularProdutoAsync");
+            throw;
+        }
+    }
+
+    // ── Desvincular produto ──────────────────────────────────────────
+    public async Task<CompraProdutoDto> DesvincularProdutoAsync(long compraProdutoId)
+    {
+        try
+        {
+            var item = await _db.ComprasProdutos
+                .FirstOrDefaultAsync(p => p.Id == compraProdutoId)
+                ?? throw new KeyNotFoundException("Item de compra não encontrado.");
+
+            item.ProdutoId = null;
+            item.Vinculado = false;
+            await _db.SaveChangesAsync();
+
+            return await MapProdutoDto(item.Id);
+        }
+        catch (Exception ex) when (ex is not KeyNotFoundException)
+        {
+            Log.Error(ex, "Erro em CompraService.DesvincularProdutoAsync");
+            throw;
+        }
+    }
+
+    // ── Excluir ──────────────────────────────────────────────────────
+    public async Task<string> ExcluirAsync(long id)
+    {
+        try
+        {
+            var compra = await _db.Compras
+                .Include(c => c.Produtos).ThenInclude(p => p.Fiscal)
+                .FirstOrDefaultAsync(c => c.Id == id)
+                ?? throw new KeyNotFoundException($"Compra {id} não encontrada.");
+
+            if (compra.Status == CompraStatus.Finalizada)
+                throw new ArgumentException("Não é possível excluir uma compra finalizada.");
+
+            _db.Compras.Remove(compra);
+            await _db.SaveChangesAsync();
+
+            await _log.RegistrarAsync(TELA, "EXCLUSÃO", ENTIDADE, id,
+                anterior: new Dictionary<string, string?>
+                {
+                    ["NF"] = compra.NumeroNf,
+                    ["Chave"] = compra.ChaveNfe,
+                    ["Valor"] = compra.ValorNota.ToString("N2")
+                });
+
+            return "excluido";
+        }
+        catch (Exception ex) when (ex is not KeyNotFoundException and not ArgumentException)
+        {
+            Log.Error(ex, "Erro em CompraService.ExcluirAsync | Id: {Id}", id);
+            throw;
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════
+    // HELPERS PRIVADOS
+    // ═════════════════════════════════════════════════════════════════
+
+    private async Task<Fornecedor> ObterOuCriarFornecedorAsync(
+        string cnpj, string nome, string? fantasia, string? ie, XElement emit)
+    {
+        var pessoaExistente = await _db.Pessoas
+            .Include(p => p.Fornecedor)
+            .FirstOrDefaultAsync(p => p.CpfCnpj == cnpj);
+
+        if (pessoaExistente?.Fornecedor != null)
+            return pessoaExistente.Fornecedor;
+
+        Pessoa pessoa;
+        if (pessoaExistente != null)
+        {
+            pessoa = pessoaExistente;
+        }
+        else
+        {
+            pessoa = new Pessoa
+            {
+                Tipo = "J",
+                Nome = (fantasia ?? nome).Trim().ToUpper(),
+                RazaoSocial = nome.Trim().ToUpper(),
+                CpfCnpj = cnpj,
+                InscricaoEstadual = ie?.Trim().ToUpper()
+            };
+            _db.Pessoas.Add(pessoa);
+            await _db.SaveChangesAsync();
+
+            // Endereço do emitente
+            var enderEmit = emit.Element(_nfe + "enderEmit");
+            if (enderEmit != null)
+            {
+                _db.PessoasEndereco.Add(new PessoaEndereco
+                {
+                    PessoaId = pessoa.Id,
+                    Tipo = "PRINCIPAL",
+                    Rua = Txt(enderEmit, "xLgr").ToUpper(),
+                    Numero = Txt(enderEmit, "nro").ToUpper(),
+                    Bairro = Txt(enderEmit, "xBairro").ToUpper(),
+                    Cidade = Txt(enderEmit, "xMun").ToUpper(),
+                    Uf = Txt(enderEmit, "UF").ToUpper(),
+                    Cep = Txt(enderEmit, "CEP"),
+                    Principal = true
+                });
+            }
+
+            // Telefone do emitente
+            var fone = Txt(emit.Element(_nfe + "enderEmit"), "fone");
+            if (!string.IsNullOrEmpty(fone))
+            {
+                _db.PessoasContato.Add(new PessoaContato
+                {
+                    PessoaId = pessoa.Id,
+                    Tipo = "TELEFONE",
+                    Valor = fone,
+                    Principal = true
+                });
+            }
+
+            await _db.SaveChangesAsync();
+        }
+
+        var fornecedor = new Fornecedor
+        {
+            PessoaId = pessoa.Id,
+            Ativo = true
+        };
+        _db.Fornecedores.Add(fornecedor);
+        await _db.SaveChangesAsync();
+
+        return fornecedor;
+    }
+
+    private async Task AutoVincularProdutosAsync(long compraId, long fornecedorId, long filialId)
+    {
+        var itens = await _db.ComprasProdutos
+            .Where(p => p.CompraId == compraId && !p.Vinculado)
+            .ToListAsync();
+
+        foreach (var item in itens)
+        {
+            long? produtoId = null;
+
+            // 1. Buscar por código de barras
+            if (!string.IsNullOrEmpty(item.CodigoBarrasXml))
+            {
+                produtoId = await _db.ProdutosBarras
+                    .Where(b => b.Barras == item.CodigoBarrasXml)
+                    .Select(b => b.ProdutoId)
+                    .FirstOrDefaultAsync();
+            }
+
+            // 2. Buscar por código do produto no fornecedor
+            if (produtoId == null || produtoId == 0)
+            {
+                if (!string.IsNullOrEmpty(item.CodigoProdutoFornecedor))
+                {
+                    produtoId = await _db.ProdutosFornecedores
+                        .Where(pf => pf.FornecedorId == fornecedorId
+                            && pf.FilialId == filialId
+                            && pf.CodigoProdutoFornecedor == item.CodigoProdutoFornecedor)
+                        .Select(pf => pf.ProdutoId)
+                        .FirstOrDefaultAsync();
+                }
+            }
+
+            if (produtoId != null && produtoId > 0)
+            {
+                item.ProdutoId = produtoId;
+                item.Vinculado = true;
+
+                // Garantir vínculo fornecedor-produto
+                var existeVinculo = await _db.ProdutosFornecedores
+                    .AnyAsync(pf => pf.ProdutoId == produtoId
+                        && pf.FornecedorId == fornecedorId
+                        && pf.FilialId == filialId);
+
+                if (!existeVinculo)
+                {
+                    _db.ProdutosFornecedores.Add(new ProdutoFornecedor
+                    {
+                        ProdutoId = produtoId.Value,
+                        FornecedorId = fornecedorId,
+                        FilialId = filialId,
+                        CodigoProdutoFornecedor = item.CodigoProdutoFornecedor,
+                        NomeProduto = item.DescricaoXml
+                    });
+                }
+
+                // Garantir código de barras no cadastro
+                if (!string.IsNullOrEmpty(item.CodigoBarrasXml))
+                {
+                    var barrasExiste = await _db.ProdutosBarras
+                        .AnyAsync(b => b.ProdutoId == produtoId && b.Barras == item.CodigoBarrasXml);
+                    if (!barrasExiste)
+                    {
+                        _db.ProdutosBarras.Add(new ProdutoBarras
+                        {
+                            ProdutoId = produtoId.Value,
+                            Barras = item.CodigoBarrasXml
+                        });
+                    }
+                }
+            }
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    private CompraFiscal ParseFiscal(XElement? imposto, long compraProdutoId)
+    {
+        var fiscal = new CompraFiscal { CompraProdutoId = compraProdutoId };
+        if (imposto == null) return fiscal;
+
+        // ICMS — pode ser ICMS00, ICMS10, ICMS20, ICMS60, etc.
+        var icmsGroup = imposto.Element(_nfe + "ICMS");
+        var icms = icmsGroup?.Elements().FirstOrDefault();
+        if (icms != null)
+        {
+            fiscal.OrigemMercadoria = Txt(icms, "orig");
+            fiscal.CstIcms = Txt(icms, "CST");
+            fiscal.BaseIcms = Dec(icms, "vBC");
+            fiscal.AliquotaIcms = Dec(icms, "pICMS");
+            fiscal.ValorIcms = Dec(icms, "vICMS");
+            fiscal.ModalidadeBcSt = Txt(icms, "modBCST");
+            fiscal.MvaSt = Dec(icms, "pMVAST");
+            fiscal.BaseSt = Dec(icms, "vBCST");
+            fiscal.AliquotaSt = Dec(icms, "pICMSST");
+            fiscal.ValorSt = Dec(icms, "vICMSST");
+            fiscal.BaseFcpSt = Dec(icms, "vBCFCPST");
+            fiscal.AliquotaFcpSt = Dec(icms, "pFCPST");
+            fiscal.ValorFcpSt = Dec(icms, "vFCPST");
+        }
+
+        // PIS
+        var pisGroup = imposto.Element(_nfe + "PIS");
+        var pis = pisGroup?.Elements().FirstOrDefault();
+        if (pis != null)
+        {
+            fiscal.CstPis = Txt(pis, "CST");
+            fiscal.BasePis = Dec(pis, "vBC");
+            fiscal.AliquotaPis = Dec(pis, "pPIS");
+            fiscal.ValorPis = Dec(pis, "vPIS");
+        }
+
+        // COFINS
+        var cofinsGroup = imposto.Element(_nfe + "COFINS");
+        var cofins = cofinsGroup?.Elements().FirstOrDefault();
+        if (cofins != null)
+        {
+            fiscal.CstCofins = Txt(cofins, "CST");
+            fiscal.BaseCofins = Dec(cofins, "vBC");
+            fiscal.AliquotaCofins = Dec(cofins, "pCOFINS");
+            fiscal.ValorCofins = Dec(cofins, "vCOFINS");
+        }
+
+        // IBS/CBS (Reforma Tributária)
+        var ibscbs = imposto.Element(_nfe + "IBSCBS");
+        if (ibscbs != null)
+        {
+            fiscal.CstIbsCbs = Txt(ibscbs, "CST");
+            fiscal.ClasseTributariaIbsCbs = Txt(ibscbs, "cClassTrib");
+            var gIbsCbs = ibscbs.Element(_nfe + "gIBSCBS");
+            if (gIbsCbs != null)
+            {
+                fiscal.BaseIbsCbs = Dec(gIbsCbs, "vBC");
+                var gIbsUf = gIbsCbs.Element(_nfe + "gIBSUF");
+                fiscal.AliquotaIbsUf = Dec(gIbsUf, "pIBSUF");
+                fiscal.ValorIbsUf = Dec(gIbsUf, "vIBSUF");
+                var gIbsMun = gIbsCbs.Element(_nfe + "gIBSMun");
+                fiscal.AliquotaIbsMun = Dec(gIbsMun, "pIBSMun");
+                fiscal.ValorIbsMun = Dec(gIbsMun, "vIBSMun");
+                var gCbs = gIbsCbs.Element(_nfe + "gCBS");
+                fiscal.AliquotaCbs = Dec(gCbs, "pCBS");
+                fiscal.ValorCbs = Dec(gCbs, "vCBS");
+            }
+        }
+
+        return fiscal;
+    }
+
+    private CompraDetalheDto MapDetalhe(Compra c)
+    {
+        return new CompraDetalheDto
+        {
+            Id = c.Id,
+            Codigo = c.Codigo,
+            FilialId = c.FilialId,
+            FornecedorId = c.FornecedorId,
+            FornecedorNome = c.Fornecedor.Pessoa.Nome,
+            FornecedorCnpj = c.Fornecedor.Pessoa.CpfCnpj,
+            ChaveNfe = c.ChaveNfe,
+            NumeroNf = c.NumeroNf,
+            SerieNf = c.SerieNf,
+            NaturezaOperacao = c.NaturezaOperacao,
+            DataEmissao = c.DataEmissao,
+            DataEntrada = c.DataEntrada,
+            ValorProdutos = c.ValorProdutos,
+            ValorSt = c.ValorSt,
+            ValorFcpSt = c.ValorFcpSt,
+            ValorFrete = c.ValorFrete,
+            ValorSeguro = c.ValorSeguro,
+            ValorDesconto = c.ValorDesconto,
+            ValorIpi = c.ValorIpi,
+            ValorPis = c.ValorPis,
+            ValorCofins = c.ValorCofins,
+            ValorOutros = c.ValorOutros,
+            ValorNota = c.ValorNota,
+            Status = c.Status,
+            CriadoEm = c.CriadoEm,
+            Produtos = c.Produtos.OrderBy(p => p.NumeroItem).Select(p => new CompraProdutoDto
+            {
+                Id = p.Id,
+                NumeroItem = p.NumeroItem,
+                ProdutoId = p.ProdutoId,
+                ProdutoNome = p.Produto?.Nome,
+                ProdutoCodigoBarras = p.Produto?.CodigoBarras,
+                CodigoProdutoFornecedor = p.CodigoProdutoFornecedor,
+                CodigoBarrasXml = p.CodigoBarrasXml,
+                DescricaoXml = p.DescricaoXml,
+                NcmXml = p.NcmXml,
+                CestXml = p.CestXml,
+                CfopXml = p.CfopXml,
+                UnidadeXml = p.UnidadeXml,
+                Quantidade = p.Quantidade,
+                ValorUnitario = p.ValorUnitario,
+                ValorTotal = p.ValorTotal,
+                ValorDesconto = p.ValorDesconto,
+                ValorFrete = p.ValorFrete,
+                ValorOutros = p.ValorOutros,
+                ValorItemNota = p.ValorItemNota,
+                Lote = p.Lote,
+                DataFabricacao = p.DataFabricacao,
+                DataValidade = p.DataValidade,
+                CodigoAnvisa = p.CodigoAnvisa,
+                PrecoMaximoConsumidor = p.PrecoMaximoConsumidor,
+                Vinculado = p.Vinculado,
+                InfoAdicional = p.InfoAdicional,
+                Fiscal = p.Fiscal != null ? new CompraFiscalDto
+                {
+                    OrigemMercadoria = p.Fiscal.OrigemMercadoria,
+                    CstIcms = p.Fiscal.CstIcms,
+                    BaseIcms = p.Fiscal.BaseIcms,
+                    AliquotaIcms = p.Fiscal.AliquotaIcms,
+                    ValorIcms = p.Fiscal.ValorIcms,
+                    ModalidadeBcSt = p.Fiscal.ModalidadeBcSt,
+                    MvaSt = p.Fiscal.MvaSt,
+                    BaseSt = p.Fiscal.BaseSt,
+                    AliquotaSt = p.Fiscal.AliquotaSt,
+                    ValorSt = p.Fiscal.ValorSt,
+                    BaseFcpSt = p.Fiscal.BaseFcpSt,
+                    AliquotaFcpSt = p.Fiscal.AliquotaFcpSt,
+                    ValorFcpSt = p.Fiscal.ValorFcpSt,
+                    CstPis = p.Fiscal.CstPis,
+                    BasePis = p.Fiscal.BasePis,
+                    AliquotaPis = p.Fiscal.AliquotaPis,
+                    ValorPis = p.Fiscal.ValorPis,
+                    CstCofins = p.Fiscal.CstCofins,
+                    BaseCofins = p.Fiscal.BaseCofins,
+                    AliquotaCofins = p.Fiscal.AliquotaCofins,
+                    ValorCofins = p.Fiscal.ValorCofins,
+                    CstIbsCbs = p.Fiscal.CstIbsCbs,
+                    ClasseTributariaIbsCbs = p.Fiscal.ClasseTributariaIbsCbs,
+                    BaseIbsCbs = p.Fiscal.BaseIbsCbs,
+                    AliquotaIbsUf = p.Fiscal.AliquotaIbsUf,
+                    ValorIbsUf = p.Fiscal.ValorIbsUf,
+                    AliquotaIbsMun = p.Fiscal.AliquotaIbsMun,
+                    ValorIbsMun = p.Fiscal.ValorIbsMun,
+                    AliquotaCbs = p.Fiscal.AliquotaCbs,
+                    ValorCbs = p.Fiscal.ValorCbs
+                } : null
+            }).ToList()
+        };
+    }
+
+    private async Task<CompraProdutoDto> MapProdutoDto(long compraProdutoId)
+    {
+        var p = await _db.ComprasProdutos
+            .Include(x => x.Fiscal)
+            .Include(x => x.Produto)
+            .FirstAsync(x => x.Id == compraProdutoId);
+
+        return new CompraProdutoDto
+        {
+            Id = p.Id,
+            NumeroItem = p.NumeroItem,
+            ProdutoId = p.ProdutoId,
+            ProdutoNome = p.Produto?.Nome,
+            ProdutoCodigoBarras = p.Produto?.CodigoBarras,
+            CodigoProdutoFornecedor = p.CodigoProdutoFornecedor,
+            CodigoBarrasXml = p.CodigoBarrasXml,
+            DescricaoXml = p.DescricaoXml,
+            NcmXml = p.NcmXml,
+            CestXml = p.CestXml,
+            CfopXml = p.CfopXml,
+            UnidadeXml = p.UnidadeXml,
+            Quantidade = p.Quantidade,
+            ValorUnitario = p.ValorUnitario,
+            ValorTotal = p.ValorTotal,
+            ValorDesconto = p.ValorDesconto,
+            ValorFrete = p.ValorFrete,
+            ValorOutros = p.ValorOutros,
+            ValorItemNota = p.ValorItemNota,
+            Lote = p.Lote,
+            DataFabricacao = p.DataFabricacao,
+            DataValidade = p.DataValidade,
+            CodigoAnvisa = p.CodigoAnvisa,
+            PrecoMaximoConsumidor = p.PrecoMaximoConsumidor,
+            Vinculado = p.Vinculado,
+            InfoAdicional = p.InfoAdicional
+        };
+    }
+
+    // ── XML Helpers ──────────────────────────────────────────────────
+
+    private static string Txt(XElement? el, string tag)
+        => el?.Element(_nfe + tag)?.Value?.Trim() ?? "";
+
+    private static decimal Dec(XElement? el, string tag)
+    {
+        var val = Txt(el, tag);
+        return decimal.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0;
+    }
+
+    private static decimal? DecN(XElement? el, string tag)
+    {
+        var val = Txt(el, tag);
+        return decimal.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : null;
+    }
+
+    private static DateTime? ParseDt(string? val)
+    {
+        if (string.IsNullOrEmpty(val)) return null;
+        if (DateTimeOffset.TryParse(val, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto))
+            return dto.UtcDateTime;
+        if (DateTime.TryParse(val, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+            return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+        return null;
+    }
+}

@@ -118,6 +118,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoService,
                             ZulexPharma.Infrastructure.Services.ProdutoService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoLocalService,
                             ZulexPharma.Infrastructure.Services.ProdutoLocalService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ICompraService,
+                            ZulexPharma.Infrastructure.Services.CompraService>();
 
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();

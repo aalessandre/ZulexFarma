@@ -57,6 +57,9 @@ public class AppDbContext : DbContext
     public DbSet<NcmFederal> NcmFederais => Set<NcmFederal>();
     public DbSet<NcmIcmsUf> NcmIcmsUfs => Set<NcmIcmsUf>();
     public DbSet<NcmStUf> NcmStUfs => Set<NcmStUf>();
+    public DbSet<Compra> Compras => Set<Compra>();
+    public DbSet<CompraProduto> ComprasProdutos => Set<CompraProduto>();
+    public DbSet<CompraFiscal> ComprasFiscal => Set<CompraFiscal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -501,6 +504,99 @@ public class AppDbContext : DbContext
             e.Property(x => x.ValorIncentivo).HasColumnType("numeric(10,4)");
             e.Property(x => x.NomeEtiqueta).HasMaxLength(110);
             e.Property(x => x.Mensagem).HasMaxLength(200);
+            e.Property(x => x.Lote).HasMaxLength(30);
+        });
+
+        // ── Compras (cabeçalho NF entrada) ─────────────────────────
+        modelBuilder.Entity<Compra>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ChaveNfe).HasMaxLength(44).IsRequired();
+            e.Property(x => x.NumeroNf).HasMaxLength(20).IsRequired();
+            e.Property(x => x.SerieNf).HasMaxLength(5);
+            e.Property(x => x.NaturezaOperacao).HasMaxLength(100);
+            e.Property(x => x.ValorProdutos).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorSt).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorFcpSt).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorFrete).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorSeguro).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorDesconto).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorIpi).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorPis).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorCofins).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorOutros).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorNota).HasColumnType("numeric(12,2)");
+            e.Property(x => x.XmlConteudo).HasColumnType("text");
+            e.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.ChaveNfe).IsUnique();
+            e.HasIndex(x => x.FilialId);
+        });
+
+        // ── ComprasProdutos (itens da NF) ──────────────────────────
+        modelBuilder.Entity<CompraProduto>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CodigoProdutoFornecedor).HasMaxLength(60);
+            e.Property(x => x.CodigoBarrasXml).HasMaxLength(14);
+            e.Property(x => x.DescricaoXml).HasMaxLength(300);
+            e.Property(x => x.NcmXml).HasMaxLength(10);
+            e.Property(x => x.CestXml).HasMaxLength(9);
+            e.Property(x => x.CfopXml).HasMaxLength(4);
+            e.Property(x => x.UnidadeXml).HasMaxLength(6);
+            e.Property(x => x.Quantidade).HasColumnType("numeric(12,4)");
+            e.Property(x => x.ValorUnitario).HasColumnType("numeric(12,6)");
+            e.Property(x => x.ValorTotal).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorDesconto).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorFrete).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorOutros).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ValorItemNota).HasColumnType("numeric(12,2)");
+            e.Property(x => x.Lote).HasMaxLength(30);
+            e.Property(x => x.CodigoAnvisa).HasMaxLength(20);
+            e.Property(x => x.PrecoMaximoConsumidor).HasColumnType("numeric(10,2)");
+            e.Property(x => x.InfoAdicional).HasMaxLength(500);
+            e.HasOne(x => x.Compra).WithMany(c => c.Produtos).HasForeignKey(x => x.CompraId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.CompraId, x.NumeroItem }).IsUnique();
+        });
+
+        // ── ComprasFiscal (dados fiscais por item) ─────────────────
+        modelBuilder.Entity<CompraFiscal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.OrigemMercadoria).HasMaxLength(1);
+            e.Property(x => x.CstIcms).HasMaxLength(3);
+            e.Property(x => x.BaseIcms).HasColumnType("numeric(12,2)");
+            e.Property(x => x.AliquotaIcms).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ValorIcms).HasColumnType("numeric(12,2)");
+            e.Property(x => x.ModalidadeBcSt).HasMaxLength(1);
+            e.Property(x => x.MvaSt).HasColumnType("numeric(7,2)");
+            e.Property(x => x.BaseSt).HasColumnType("numeric(12,2)");
+            e.Property(x => x.AliquotaSt).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ValorSt).HasColumnType("numeric(12,2)");
+            e.Property(x => x.BaseFcpSt).HasColumnType("numeric(12,2)");
+            e.Property(x => x.AliquotaFcpSt).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ValorFcpSt).HasColumnType("numeric(12,2)");
+            e.Property(x => x.CstPis).HasMaxLength(2);
+            e.Property(x => x.BasePis).HasColumnType("numeric(12,2)");
+            e.Property(x => x.AliquotaPis).HasColumnType("numeric(7,4)");
+            e.Property(x => x.ValorPis).HasColumnType("numeric(12,2)");
+            e.Property(x => x.CstCofins).HasMaxLength(2);
+            e.Property(x => x.BaseCofins).HasColumnType("numeric(12,2)");
+            e.Property(x => x.AliquotaCofins).HasColumnType("numeric(7,4)");
+            e.Property(x => x.ValorCofins).HasColumnType("numeric(12,2)");
+            e.Property(x => x.CstIbsCbs).HasMaxLength(3);
+            e.Property(x => x.ClasseTributariaIbsCbs).HasMaxLength(10);
+            e.Property(x => x.BaseIbsCbs).HasColumnType("numeric(12,2)");
+            e.Property(x => x.AliquotaIbsUf).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ValorIbsUf).HasColumnType("numeric(12,2)");
+            e.Property(x => x.AliquotaIbsMun).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ValorIbsMun).HasColumnType("numeric(12,2)");
+            e.Property(x => x.AliquotaCbs).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ValorCbs).HasColumnType("numeric(12,2)");
+            e.HasOne(x => x.CompraProduto).WithOne(p => p.Fiscal).HasForeignKey<CompraFiscal>(x => x.CompraProdutoId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Configurações globais para todas as entidades BaseEntity
