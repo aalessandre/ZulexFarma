@@ -595,13 +595,6 @@
               <!-- ABCFarma -->
               <div class="prod-section-abc">
                 <span>ABCFarma</span>
-                @if (abcFarmaInfo(); as abc) {
-                  @if (abc.encontrado) {
-                    <span class="abc-badge abc-encontrado">Encontrado</span>
-                  } @else {
-                    <span class="abc-badge abc-nao-encontrado">Produto nao encontrado na base ABCFarma</span>
-                  }
-                }
               </div>
               @if (abcFarmaInfo()?.encontrado) {
                 <div class="prod-grid prod-grid-abc">

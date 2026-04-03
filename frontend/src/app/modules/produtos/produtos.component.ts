@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
+import { ToastrService } from 'ngx-toastr';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 import { CurrencyInputDirective } from '../../core/directives/currency-input.directive';
 
@@ -273,7 +274,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private tabService: TabService,
     private auth: AuthService,
-    private modal: ModalService
+    private modal: ModalService,
+    private toastr: ToastrService
   ) {}
 
   ngOnInit() {
@@ -1696,8 +1698,19 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           if (!f.fabricanteId && d.nomeFabricante) {
             this.autoPreencherFabricante(d.nomeFabricante);
           }
+
+          this.toastr.success(
+            `PMC: R$ ${d.pmc.toFixed(2).replace('.', ',')} | PF: R$ ${d.precoFabrica.toFixed(2).replace('.', ',')}`,
+            'ABCFarma - Produto encontrado',
+            { timeOut: 5000, positionClass: 'toast-top-center' }
+          );
         } else {
           this.abcFarmaInfo.set({ encontrado: false, pf: 0, pmc: 0, markupAbc: 0 });
+          this.toastr.warning(
+            'Produto nao encontrado na base ABCFarma.',
+            'ABCFarma',
+            { timeOut: 4000, positionClass: 'toast-top-center' }
+          );
         }
       },
       error: () => this.abcFarmaInfo.set(null)
