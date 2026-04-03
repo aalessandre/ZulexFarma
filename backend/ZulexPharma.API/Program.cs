@@ -14,6 +14,9 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
+    // Suprimir ERR logs do EF para SaveChanges/SQL — conflitos 23505 são tratados pelo SyncApplicator
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Fatal)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Update", Serilog.Events.LogEventLevel.Fatal)
     .WriteTo.Console()
     .WriteTo.File(
         path: "logs/zulexpharma-.log",

@@ -194,7 +194,8 @@ public static class DatabaseSeeder
 
     /// <summary>
     /// Insere na SyncFila os registros do seed que precisam replicar para o Railway e outras filiais.
-    /// Só enfileira se ainda não existir um registro de INSERT para essa entidade na SyncFila.
+    /// Apenas a Filial replica — Configuracoes e Usuarios são seeds idênticos em todos os PCs,
+    /// não precisam replicar (se o usuário alterar, o UPDATE normal do ERP fará o sync).
     /// </summary>
     private static async Task EnfileirarSeedParaSync(AppDbContext context, int filialCodigo)
     {
@@ -205,7 +206,7 @@ public static class DatabaseSeeder
             DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
         };
 
-        // Filial
+        // Filial — cada filial tem Id e CNPJ únicos, precisa replicar para as outras saberem
         var filial = await context.Filiais.FindAsync((long)filialCodigo);
         if (filial != null && !await context.SyncFila.AnyAsync(s => s.Tabela == "Filiais" && s.RegistroId == filial.Id && s.Operacao == "I"))
         {
@@ -216,38 +217,6 @@ public static class DatabaseSeeder
                 DadosJson = System.Text.Json.JsonSerializer.Serialize(filial, jsonOpts),
                 FilialOrigemId = filialCodigo, Enviado = false
             });
-        }
-
-        // Usuarios (todos os locais)
-        var usuarios = await context.Usuarios.Where(u => u.FilialOrigemId == filialCodigo || u.FilialOrigemId == null).ToListAsync();
-        foreach (var usuario in usuarios)
-        {
-            if (!await context.SyncFila.AnyAsync(s => s.Tabela == "Usuarios" && s.RegistroId == usuario.Id && s.Operacao == "I"))
-            {
-                context.SyncFila.Add(new SyncFila
-                {
-                    Tabela = "Usuarios", Operacao = "I", RegistroId = usuario.Id,
-                    RegistroCodigo = usuario.Codigo,
-                    DadosJson = System.Text.Json.JsonSerializer.Serialize(usuario, jsonOpts),
-                    FilialOrigemId = filialCodigo, Enviado = false
-                });
-            }
-        }
-
-        // Configurações
-        var configs = await context.Configuracoes.ToListAsync();
-        foreach (var cfg in configs)
-        {
-            if (!await context.SyncFila.AnyAsync(s => s.Tabela == "Configuracoes" && s.RegistroId == cfg.Id && s.Operacao == "I"))
-            {
-                context.SyncFila.Add(new SyncFila
-                {
-                    Tabela = "Configuracoes", Operacao = "I", RegistroId = cfg.Id,
-                    RegistroCodigo = cfg.Codigo,
-                    DadosJson = System.Text.Json.JsonSerializer.Serialize(cfg, jsonOpts),
-                    FilialOrigemId = filialCodigo, Enviado = false
-                });
-            }
         }
 
         await context.SaveChangesAsync();
