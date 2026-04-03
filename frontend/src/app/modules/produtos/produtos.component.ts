@@ -1332,6 +1332,15 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     return v;
   }
 
+  /** Valida projeção de lucro — máximo 100% */
+  onProjecaoLucroChange(dadosIdx: number, valor: number) {
+    if (valor > 100) {
+      this.modal.aviso('Valor excedido', 'A projeção de lucro não pode ultrapassar 100%. O valor foi ajustado automaticamente.');
+      valor = 100;
+    }
+    this.updateDados(dadosIdx, 'projecaoLucro', valor);
+  }
+
   // ── Abas de edição (sidebar cards) ─────────────────────────────────
 
   ativarAbaProduto(key: number) {

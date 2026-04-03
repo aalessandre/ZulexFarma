@@ -537,7 +537,7 @@
               <div class="prod-section">Valores</div>
               <div class="prod-grid">
                 <div class="prod-field"><label>CUSTO MÉDIO</label><input type="text" currencyInput [currencyValue]="dd.custoMedio" (currencyChange)="updateDados(dadosFilialIdx(), 'custoMedio', $event)" /></div>
-                <div class="prod-field"><label>% PROJ LUCRO</label><input type="text" currencyInput [currencyValue]="dd.projecaoLucro" (currencyChange)="updateDados(dadosFilialIdx(), 'projecaoLucro', $event)" /></div>
+                <div class="prod-field"><label>% PROJ LUCRO</label><input type="text" currencyInput [currencyValue]="dd.projecaoLucro" (currencyChange)="onProjecaoLucroChange(dadosFilialIdx(), $event)" /></div>
                 <div class="prod-field"><label>% MARKUP</label><input type="text" currencyInput [currencyValue]="dd.markup" (currencyChange)="updateDados(dadosFilialIdx(), 'markup', $event)" /></div>
                 <div class="prod-field"><label>VLR VENDA</label><input type="text" currencyInput [currencyValue]="dd.valorVenda" (currencyChange)="updateDados(dadosFilialIdx(), 'valorVenda', $event)" /></div>
                 <div class="prod-field"><label>PMC</label><input type="text" currencyInput [currencyValue]="dd.pmc" (currencyChange)="updateDados(dadosFilialIdx(), 'pmc', $event)" /></div>
