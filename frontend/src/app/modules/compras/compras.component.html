@@ -144,7 +144,7 @@
                   <td>{{ c.dataEmissao | date:'dd/MM/yyyy' }}</td>
                   <td class="td-valor">{{ c.valorNota | number:'1.2-2':'pt-BR' }}</td>
                   <td>
-                    <span class="badge-status" [class]="statusClass(c.status)">{{ statusLabel(c.status) }}</span>
+                    <span class="badge-status" [class]="statusClassLista(c)">{{ statusLabelLista(c) }}</span>
                   </td>
                   <td class="td-center">{{ c.itensVinculados }}/{{ c.totalItens }}</td>
                 </tr>
@@ -190,6 +190,9 @@
         <table class="erp-grid">
           <thead>
             <tr>
+              <th style="width:36px">
+                <input type="checkbox" class="grid-check" [checked]="todosSelecionados()" (change)="toggleTodosSelecionados()" title="Selecionar todos" />
+              </th>
               <th style="width:36px"></th>
               <th class="th-sort" style="width:44px" (click)="ordenarItens('numeroItem')">
                 # <span class="sort-icon">{{ sortItemIcon('numeroItem') }}</span>
@@ -221,7 +224,10 @@
           </thead>
           <tbody>
             @for (p of itensFiltrados(); track p.id) {
-              <tr [class.nao-vinculado]="!p.vinculado" (dblclick)="abrirModalVincular(p)">
+              <tr [class.nao-vinculado]="!p.vinculado" [class.item-selecionado]="isItemSelecionado(p.id)" (dblclick)="abrirModalVincular(p)">
+                <td class="td-check" (click)="$event.stopPropagation()">
+                  <input type="checkbox" class="grid-check" [checked]="isItemSelecionado(p.id)" (change)="toggleItemSelecionado(p.id)" />
+                </td>
                 <td class="td-arrow">
                   @if (p.vinculado) {
                     <span class="icon-vinc-ok">&#10004;</span>
@@ -269,6 +275,10 @@
         <span>Itens: <strong>{{ totalItens() }}</strong></span>
         <span class="rodape-sep">|</span>
         <span>Vinculados: <strong>{{ totalVinculados() }}</strong></span>
+        @if (qtdeSelecionados() > 0) {
+          <span class="rodape-sep">|</span>
+          <span>Selecionados: <strong>{{ qtdeSelecionados() }}</strong></span>
+        }
       </div>
     }
   </div>

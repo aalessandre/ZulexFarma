@@ -327,6 +327,25 @@
 
 .rodape-sep { color: var(--erp-border); }
 
+/* ── Checkboxes ────────────────────────────────────────────────── */
+.grid-check {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--erp-blue, #2c5fad);
+  cursor: pointer;
+  margin: 0;
+}
+
+.td-check {
+  width: 36px;
+  text-align: center;
+  padding: 7px 6px !important;
+}
+
+.item-selecionado {
+  background: rgba(44, 95, 173, 0.08) !important;
+}
+
 /* ── Badges status ─────────────────────────────────────────────────── */
 .badge-status {
   display: inline-block;
@@ -338,6 +357,7 @@
 }
 
 .status-preentrada { background: #fff3cd; color: #856404; }
+.status-vinculado-ok { background: #d4edda; color: #155724; }
 .status-conferencia { background: #cce5ff; color: #004085; }
 .status-finalizada { background: #d4edda; color: #155724; }
 .status-cancelada { background: #f8d7da; color: #721c24; }

@@ -135,6 +135,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
   buscandoProduto = signal(false);
   private buscaProduto$ = new Subject<string>();
 
+  // ── Seleção de itens (checkboxes) ──────────────────────────────
+  itensSelecionados = signal<Set<number>>(new Set());
+
   // ── Modal fiscal ──────────────────────────────────────────────
   modalFiscal = signal(false);
   itemFiscal = signal<CompraProduto | null>(null);
@@ -618,6 +621,41 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   // ── Helpers ───────────────────────────────────────────────────
 
+  // ── Checkboxes de seleção ───────────────────────────────────────
+
+  toggleItemSelecionado(id: number) {
+    this.itensSelecionados.update(s => {
+      const novo = new Set(s);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  }
+
+  toggleTodosSelecionados() {
+    const itens = this.itensFiltrados();
+    const selecionados = this.itensSelecionados();
+    if (selecionados.size === itens.length) {
+      this.itensSelecionados.set(new Set());
+    } else {
+      this.itensSelecionados.set(new Set(itens.map(i => i.id)));
+    }
+  }
+
+  isItemSelecionado(id: number): boolean {
+    return this.itensSelecionados().has(id);
+  }
+
+  todosSelecionados(): boolean {
+    const itens = this.itensFiltrados();
+    return itens.length > 0 && this.itensSelecionados().size === itens.length;
+  }
+
+  qtdeSelecionados(): number {
+    return this.itensSelecionados().size;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+
   statusLabel(status: number): string {
     const map: Record<number, string> = {
       1: 'Pre-Entrada', 2: 'Conferencia', 3: 'Finalizada', 4: 'Cancelada'
@@ -630,6 +668,21 @@ export class ComprasComponent implements OnInit, OnDestroy {
       1: 'status-preentrada', 2: 'status-conferencia', 3: 'status-finalizada', 4: 'status-cancelada'
     };
     return map[status] || '';
+  }
+
+  /** Na lista, se todos vinculados mostra badge verde mesmo sendo PreEntrada */
+  statusClassLista(c: CompraList): string {
+    if (c.status === 1 && c.totalItens > 0 && c.itensVinculados === c.totalItens) {
+      return 'status-vinculado-ok';
+    }
+    return this.statusClass(c.status);
+  }
+
+  statusLabelLista(c: CompraList): string {
+    if (c.status === 1 && c.totalItens > 0 && c.itensVinculados === c.totalItens) {
+      return 'Pre-Entrada OK';
+    }
+    return this.statusLabel(c.status);
   }
 
   totalVinculados(): number {
