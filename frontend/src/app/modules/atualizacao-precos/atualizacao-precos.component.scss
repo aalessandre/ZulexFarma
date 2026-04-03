@@ -110,6 +110,21 @@
   td { padding: 7px 10px; border-bottom: 1px solid var(--erp-border); color: var(--erp-text); white-space: nowrap; }
 }
 
+.th-sort {
+  cursor: pointer; user-select: none; white-space: nowrap;
+  &:hover { filter: brightness(0.94); }
+}
+.sort-icon { margin-left: 5px; font-size: var(--erp-fs-xs); color: var(--erp-text-muted); vertical-align: middle; }
+.th-resize { position: relative; overflow: visible; }
+.resize-handle {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 1;
+  &::after {
+    content: ''; position: absolute; top: 20%; bottom: 20%; right: 1px; width: 2px;
+    background: var(--erp-border-input); border-radius: 1px; opacity: 0.6; transition: opacity 0.15s;
+  }
+  &:hover::after { opacity: 1; background: var(--erp-blue); }
+}
+
 .td-valor { text-align: right; }
 .td-center { text-align: center; }
 .grid-vazio { text-align: center; padding: 40px; color: var(--erp-text-muted); font-style: italic; }

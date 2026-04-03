@@ -195,16 +195,33 @@
                   <input type="checkbox" class="grid-check" [checked]="todosSelecionados()" (change)="toggleTodosSelecionados()" />
                 </th>
               }
-              <th style="width:200px">Produto</th>
-              <th style="width:130px">EAN</th>
-              <th style="width:150px">Grupo</th>
-              <th style="width:100px">Vlr Venda Atual</th>
-              <th style="width:100px">PMC Novo</th>
-              <th style="width:80px">Variacao</th>
+              <th class="th-sort th-resize" [attr.data-col]="'produtoNome'" style="width:250px" (click)="ordenar('produtoNome')">
+                Produto <span class="sort-icon">{{ sortIcon('produtoNome') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'produtoNome', 250)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'ean'" style="width:130px" (click)="ordenar('ean')">
+                EAN <span class="sort-icon">{{ sortIcon('ean') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'ean', 130)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'grupoPrincipalNome'" style="width:150px" (click)="ordenar('grupoPrincipalNome')">
+                Grupo <span class="sort-icon">{{ sortIcon('grupoPrincipalNome') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'grupoPrincipalNome', 150)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'valorVendaAtual'" style="width:110px" (click)="ordenar('valorVendaAtual')">
+                Vlr Venda Atual <span class="sort-icon">{{ sortIcon('valorVendaAtual') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'valorVendaAtual', 110)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort th-resize" [attr.data-col]="'pmcNovo'" style="width:110px" (click)="ordenar('pmcNovo')">
+                PMC Novo <span class="sort-icon">{{ sortIcon('pmcNovo') }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, 'pmcNovo', 110)" (click)="$event.stopPropagation()"></div>
+              </th>
+              <th class="th-sort" style="width:90px" (click)="ordenar('variacaoPercent')">
+                Variacao <span class="sort-icon">{{ sortIcon('variacaoPercent') }}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            @for (item of resultado(); track item.produtoDadosId) {
+            @for (item of resultadoOrdenado(); track item.produtoDadosId) {
               <tr [class.item-selecionado]="isItemSelecionado(item.produtoDadosId)">
                 @if (!atualizacaoId()) {
                   <td class="td-check">

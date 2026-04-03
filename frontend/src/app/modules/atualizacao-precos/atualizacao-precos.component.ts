@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -41,6 +41,13 @@ export class AtualizacaoPrecosComponent implements OnInit {
   reajustarOfertas = signal(false);
   gruposPrincipais = signal<GrupoPrincipal[]>([]);
   gruposSelecionados = signal<number[]>([]);
+
+  // ── Ordenação preview ──────────────────────────────────────────
+  sortColuna = signal<string>('produtoNome');
+  sortDirecao = signal<'asc' | 'desc'>('asc');
+  private resizingCol: string | null = null;
+  private resizeStartX = 0;
+  private resizeStartW = 0;
 
   // ── Processamento ─────────────────────────────────────────────
   processando = signal(false);
@@ -302,6 +309,46 @@ export class AtualizacaoPrecosComponent implements OnInit {
     this.mostrarResultado.set(false);
     this.resultado.set([]);
   }
+
+  // ── Ordenação ─────────────────────────────────────────────────
+
+  resultadoOrdenado = computed(() => {
+    const lista = [...this.resultado()];
+    const col = this.sortColuna();
+    const dir = this.sortDirecao() === 'asc' ? 1 : -1;
+    lista.sort((a: any, b: any) => {
+      const va = a[col] ?? '';
+      const vb = b[col] ?? '';
+      if (typeof va === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+    return lista;
+  });
+
+  ordenar(campo: string) {
+    if (this.sortColuna() === campo) this.sortDirecao.update(d => d === 'asc' ? 'desc' : 'asc');
+    else { this.sortColuna.set(campo); this.sortDirecao.set('asc'); }
+  }
+
+  sortIcon(campo: string): string {
+    return this.sortColuna() === campo ? (this.sortDirecao() === 'asc' ? '▲' : '▼') : '⇅';
+  }
+
+  iniciarResize(event: MouseEvent, col: string, largura: number) {
+    event.preventDefault(); event.stopPropagation();
+    this.resizingCol = col; this.resizeStartX = event.clientX; this.resizeStartW = largura;
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onMouseMove(event: MouseEvent) {
+    if (!this.resizingCol) return;
+    const diff = event.clientX - this.resizeStartX;
+    const th = document.querySelector(`[data-col="${this.resizingCol}"]`) as HTMLElement;
+    if (th) th.style.width = `${Math.max(40, this.resizeStartW + diff)}px`;
+  }
+
+  @HostListener('document:mouseup')
+  onMouseUp() { this.resizingCol = null; }
 
   sairDaTela() { this.tabService.fecharTabAtiva(); }
 }
