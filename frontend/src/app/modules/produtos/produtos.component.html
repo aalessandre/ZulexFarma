@@ -525,14 +525,21 @@
             <div class="prod-acc-body">
               <div class="prod-section">Última Compra</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraUnitario" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraUnitario', $event)" /></div>
-                <div class="prod-field"><label>VLR ST</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraSt" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraSt', $event)" /></div>
-                <div class="prod-field"><label>VLR OUTROS</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraOutros" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraOutros', $event)" /></div>
-                <div class="prod-field"><label>IPI</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraIpi" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraIpi', $event)" /></div>
-                <div class="prod-field"><label>FPC</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraFpc" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraFpc', $event)" /></div>
-                <div class="prod-field"><label>BOLETO</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraBoleto" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraBoleto', $event)" /></div>
-                <div class="prod-field"><label>DIFAL</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraDifal" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraDifal', $event)" /></div>
-                <div class="prod-field"><label>FRETE</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraFrete" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraFrete', $event)" /></div>
+                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraUnitario" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'ultimaCompraUnitario', $event)" /></div>
+                <div class="prod-field"><label>VLR ST</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraSt" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'ultimaCompraSt', $event)" /></div>
+                <div class="prod-field"><label>VLR OUTROS</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraOutros" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'ultimaCompraOutros', $event)" /></div>
+                <div class="prod-field"><label>IPI</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraIpi" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'ultimaCompraIpi', $event)" /></div>
+                <div class="prod-field"><label>FPC</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraFpc" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'ultimaCompraFpc', $event)" /></div>
+                <div class="prod-field"><label>BOLETO</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraBoleto" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'ultimaCompraBoleto', $event)" /></div>
+                <div class="prod-field"><label>DIFAL</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraDifal" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'ultimaCompraDifal', $event)" /></div>
+                <div class="prod-field"><label>FRETE</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraFrete" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'ultimaCompraFrete', $event)" /></div>
+              </div>
+              <div class="custo-total-row">
+                <span class="custo-total-simbolo">=</span>
+                <div class="prod-field custo-total-field">
+                  <label>CUSTO TOTAL DA COMPRA</label>
+                  <input type="text" [value]="custoTotalCompra(dd) | number:'1.2-2':'pt-BR'" disabled class="custo-total-input" />
+                </div>
               </div>
               <div class="prod-section">Formacao de Preco</div>
               <div class="prod-grid">
@@ -542,13 +549,13 @@
                     <label class="radio-label">
                       <input type="radio" [name]="'formacaoPreco_' + dd.filialId" value="MARKUP"
                              [checked]="(dd.formacaoPreco || 'MARKUP') === 'MARKUP'"
-                             (change)="updateDados(dadosFilialIdx(), 'formacaoPreco', 'MARKUP')" />
+                             (change)="updateDadosRecalc(dadosFilialIdx(), 'formacaoPreco', 'MARKUP')" />
                       Markup
                     </label>
                     <label class="radio-label">
                       <input type="radio" [name]="'formacaoPreco_' + dd.filialId" value="PROJECAO"
                              [checked]="dd.formacaoPreco === 'PROJECAO'"
-                             (change)="updateDados(dadosFilialIdx(), 'formacaoPreco', 'PROJECAO')" />
+                             (change)="updateDadosRecalc(dadosFilialIdx(), 'formacaoPreco', 'PROJECAO')" />
                       Projecao
                     </label>
                   </div>
@@ -559,13 +566,13 @@
                     <label class="radio-label">
                       <input type="radio" [name]="'baseCalculo_' + dd.filialId" value="CUSTO_COMPRA"
                              [checked]="(dd.baseCalculo || 'CUSTO_COMPRA') === 'CUSTO_COMPRA'"
-                             (change)="updateDados(dadosFilialIdx(), 'baseCalculo', 'CUSTO_COMPRA')" />
+                             (change)="updateDadosRecalc(dadosFilialIdx(), 'baseCalculo', 'CUSTO_COMPRA')" />
                       Custo Compra
                     </label>
                     <label class="radio-label">
                       <input type="radio" [name]="'baseCalculo_' + dd.filialId" value="CUSTO_MEDIO"
                              [checked]="dd.baseCalculo === 'CUSTO_MEDIO'"
-                             (change)="updateDados(dadosFilialIdx(), 'baseCalculo', 'CUSTO_MEDIO')" />
+                             (change)="updateDadosRecalc(dadosFilialIdx(), 'baseCalculo', 'CUSTO_MEDIO')" />
                       Custo Medio
                     </label>
                   </div>
@@ -573,9 +580,9 @@
               </div>
               <div class="prod-section">Valores</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="text" currencyInput [currencyValue]="dd.custoMedio" (currencyChange)="updateDados(dadosFilialIdx(), 'custoMedio', $event)" /></div>
-                <div class="prod-field"><label>% PROJ LUCRO</label><input type="text" currencyInput [currencyValue]="dd.projecaoLucro" (currencyChange)="onProjecaoLucroChange(dadosFilialIdx(), $event)" /></div>
-                <div class="prod-field"><label>% MARKUP</label><input type="text" currencyInput [currencyValue]="dd.markup" (currencyChange)="updateDados(dadosFilialIdx(), 'markup', $event)" /></div>
+                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="text" currencyInput [currencyValue]="dd.custoMedio" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'custoMedio', $event)" /></div>
+                <div class="prod-field"><label>% PROJ LUCRO</label><input type="text" currencyInput [currencyValue]="dd.projecaoLucro" (currencyChange)="onProjecaoLucroChangeRecalc(dadosFilialIdx(), $event)" /></div>
+                <div class="prod-field"><label>% MARKUP</label><input type="text" currencyInput [currencyValue]="dd.markup" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'markup', $event)" /></div>
                 <div class="prod-field"><label>VLR VENDA</label><input type="text" currencyInput [currencyValue]="dd.valorVenda" (currencyChange)="updateDados(dadosFilialIdx(), 'valorVenda', $event)" /></div>
                 <div class="prod-field"><label>PMC</label><input type="text" currencyInput [currencyValue]="dd.pmc" (currencyChange)="updateDados(dadosFilialIdx(), 'pmc', $event)" /></div>
               </div>

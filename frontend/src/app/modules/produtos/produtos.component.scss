@@ -240,6 +240,31 @@
   &.prod-field-radio { grid-column: span 2; }
 }
 
+.custo-total-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 8px 0 4px;
+}
+
+.custo-total-simbolo {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--erp-text, #2c3e50);
+  padding-bottom: 6px;
+}
+
+.custo-total-field {
+  width: 200px;
+
+  .custo-total-input {
+    font-weight: 700;
+    color: var(--erp-blue, #2c5fad) !important;
+    background: var(--erp-bg, #f5f7fa) !important;
+    border-color: var(--erp-blue, #2c5fad) !important;
+  }
+}
+
 .radio-grupo {
   display: flex;
   gap: 16px;

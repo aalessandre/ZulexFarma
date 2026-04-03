@@ -1469,6 +1469,70 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.updateDados(dadosIdx, 'projecaoLucro', valor);
   }
 
+  onProjecaoLucroChangeRecalc(dadosIdx: number, valor: number) {
+    if (valor > 100) {
+      this.modal.aviso('Valor excedido', 'A projeção de lucro não pode ultrapassar 100%. O valor foi ajustado automaticamente.');
+      valor = 100;
+    }
+    this.updateDadosRecalc(dadosIdx, 'projecaoLucro', valor);
+  }
+
+  /** Custo total da compra = soma dos 8 campos de última compra */
+  custoTotalCompra(dd: ProdutoDadosItem): number {
+    return (dd.ultimaCompraUnitario || 0)
+      + (dd.ultimaCompraSt || 0)
+      + (dd.ultimaCompraOutros || 0)
+      + (dd.ultimaCompraIpi || 0)
+      + (dd.ultimaCompraFpc || 0)
+      + (dd.ultimaCompraBoleto || 0)
+      + (dd.ultimaCompraDifal || 0)
+      + (dd.ultimaCompraFrete || 0);
+  }
+
+  /** Atualiza campo e recalcula preço de venda */
+  updateDadosRecalc(i: number, campo: string, valor: any) {
+    this.updateDados(i, campo, valor);
+    // Recalcular após atualizar o campo
+    setTimeout(() => this.recalcularPrecoVenda(i), 0);
+  }
+
+  /** Recalcula valorVenda com base em formacaoPreco e baseCalculo */
+  private recalcularPrecoVenda(dadosIdx: number) {
+    const dd = this.produtoForm().dados[dadosIdx];
+    if (!dd) return;
+
+    const formacao = dd.formacaoPreco || 'MARKUP';
+    const base = dd.baseCalculo || 'CUSTO_COMPRA';
+
+    // Determinar o custo base
+    const custoBase = base === 'CUSTO_MEDIO'
+      ? (dd.custoMedio || 0)
+      : this.custoTotalCompra(dd);
+
+    if (custoBase <= 0) return;
+
+    let valorVenda = 0;
+
+    if (formacao === 'MARKUP') {
+      // Markup: valorVenda = custoBase * (1 + markup/100)
+      const markup = dd.markup || 0;
+      valorVenda = custoBase * (1 + markup / 100);
+    } else {
+      // Projeção de Lucro: valorVenda = custoBase / (1 - projecao/100)
+      const projecao = dd.projecaoLucro || 0;
+      if (projecao >= 100) {
+        valorVenda = dd.valorVenda || 0; // Não pode calcular com 100%
+      } else {
+        valorVenda = custoBase / (1 - projecao / 100);
+      }
+    }
+
+    // Arredondar para 2 casas
+    valorVenda = Math.round(valorVenda * 100) / 100;
+
+    this.updateDados(dadosIdx, 'valorVenda', valorVenda);
+  }
+
   // ── Abas de edição (sidebar cards) ─────────────────────────────────
 
   ativarAbaProduto(key: number) {
