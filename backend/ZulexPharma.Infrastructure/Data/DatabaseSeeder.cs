@@ -111,10 +111,10 @@ public static class DatabaseSeeder
         // Garante que o sync não conflita (mesmo Id = skip por idempotência).
         var configsSeed = new (long id, string chave, string valor, string descricao)[]
         {
-            (6, "sessao.maxima.minutos",     "480",       "Tempo maximo de sessao em minutos (0 = sem limite)"),
-            (7, "sessao.inatividade.minutos", "10",        "Tempo de inatividade para encerrar sessao (0 = sem limite)"),
-            (8, "sistema.nome",              "ZulexPharma", "Nome do sistema exibido no topo"),
-            (9, "produto.preco.regra",       "perguntar",  "Ao alterar preco: perguntar | todas | atual"),
+            (1, "sessao.maxima.minutos",     "480",       "Tempo maximo de sessao em minutos (0 = sem limite)"),
+            (2, "sessao.inatividade.minutos", "10",        "Tempo de inatividade para encerrar sessao (0 = sem limite)"),
+            (3, "sistema.nome",              "ZulexPharma", "Nome do sistema exibido no topo"),
+            (4, "produto.preco.regra",       "perguntar",  "Ao alterar preco: perguntar | todas | atual"),
         };
         foreach (var (id, chave, valor, descricao) in configsSeed)
         {
