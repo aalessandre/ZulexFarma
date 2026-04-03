@@ -1002,6 +1002,25 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     if (!f.nome?.trim()) { this.modal.erro('Validação', 'Nome é obrigatório.'); return; }
     if (!f.grupoPrincipalId) { this.modal.erro('Validação', 'Grupo Principal é obrigatório.'); return; }
 
+    // Validar preços da filial selecionada
+    const filialId = this.filialSelecionada();
+    const dadosFilial = f.dados?.find((d: any) => d.filialId === filialId);
+    if (dadosFilial) {
+      const formacao = dadosFilial.formacaoPreco || 'MARKUP';
+      if (formacao === 'MARKUP' && !(dadosFilial.markup > 0)) {
+        this.modal.erro('Validação', '% Markup não pode ser zero.'); return;
+      }
+      if (formacao === 'PROJECAO' && !(dadosFilial.projecaoLucro > 0)) {
+        this.modal.erro('Validação', '% Projeção de Lucro não pode ser zero.'); return;
+      }
+      if (!(dadosFilial.valorVenda > 0)) {
+        this.modal.erro('Validação', 'Valor de Venda não pode ser zero.'); return;
+      }
+      if (dadosFilial.custoMedio > 0 && dadosFilial.valorVenda <= dadosFilial.custoMedio) {
+        this.modal.erro('Validação', 'Valor de Venda deve ser maior que o Custo Médio (R$ ' + dadosFilial.custoMedio.toFixed(2).replace('.', ',') + ').'); return;
+      }
+    }
+
     // Verificar propagação de preço (só em edição)
     if (this.modoEdicao() && f.dados?.length > 0) {
       const original = JSON.parse(this.produtoFormOriginal);
