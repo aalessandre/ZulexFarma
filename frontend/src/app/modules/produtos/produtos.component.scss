@@ -237,6 +237,33 @@
   &.prod-field-2 { grid-column: span 2; }
   &.prod-field-full { grid-column: 1 / -1; }
   &.prod-field-check { justify-content: center; }
+  &.prod-field-radio { grid-column: span 2; }
+}
+
+.radio-grupo {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  height: 34px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--erp-text, #2c3e50);
+  cursor: pointer;
+  white-space: nowrap;
+
+  input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--erp-blue, #2c5fad);
+    cursor: pointer;
+    margin: 0;
+  }
 }
 
 // ── Seletor de filial ────────────────────────────────────────────

@@ -70,6 +70,13 @@ public class ProdutoDados : BaseEntity
     public bool UsoContinuo { get; set; }
     public bool AvisoFracao { get; set; }
 
+    // ── Formação de preço ─────────────────────────────────────────
+    /// <summary>Formação de preço: "MARKUP" ou "PROJECAO". Herda do GrupoPrincipal se vazio.</summary>
+    public string? FormacaoPreco { get; set; }
+
+    /// <summary>Base de cálculo: "CUSTO_COMPRA" ou "CUSTO_MEDIO". Herda do GrupoPrincipal se vazio.</summary>
+    public string? BaseCalculo { get; set; }
+
     // ── Lote / Validade ───────────────────────────────────────────
     public string? Lote { get; set; }
     public DateTime? DataValidade { get; set; }

@@ -534,6 +534,43 @@
                 <div class="prod-field"><label>DIFAL</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraDifal" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraDifal', $event)" /></div>
                 <div class="prod-field"><label>FRETE</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraFrete" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraFrete', $event)" /></div>
               </div>
+              <div class="prod-section">Formacao de Preco</div>
+              <div class="prod-grid">
+                <div class="prod-field prod-field-radio">
+                  <label>FORMACAO</label>
+                  <div class="radio-grupo">
+                    <label class="radio-label">
+                      <input type="radio" [name]="'formacaoPreco_' + dd.filialId" value="MARKUP"
+                             [checked]="(dd.formacaoPreco || 'MARKUP') === 'MARKUP'"
+                             (change)="updateDados(dadosFilialIdx(), 'formacaoPreco', 'MARKUP')" />
+                      Markup
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" [name]="'formacaoPreco_' + dd.filialId" value="PROJECAO"
+                             [checked]="dd.formacaoPreco === 'PROJECAO'"
+                             (change)="updateDados(dadosFilialIdx(), 'formacaoPreco', 'PROJECAO')" />
+                      Projecao
+                    </label>
+                  </div>
+                </div>
+                <div class="prod-field prod-field-radio">
+                  <label>USAR VALOR</label>
+                  <div class="radio-grupo">
+                    <label class="radio-label">
+                      <input type="radio" [name]="'baseCalculo_' + dd.filialId" value="CUSTO_COMPRA"
+                             [checked]="(dd.baseCalculo || 'CUSTO_COMPRA') === 'CUSTO_COMPRA'"
+                             (change)="updateDados(dadosFilialIdx(), 'baseCalculo', 'CUSTO_COMPRA')" />
+                      Custo Compra
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" [name]="'baseCalculo_' + dd.filialId" value="CUSTO_MEDIO"
+                             [checked]="dd.baseCalculo === 'CUSTO_MEDIO'"
+                             (change)="updateDados(dadosFilialIdx(), 'baseCalculo', 'CUSTO_MEDIO')" />
+                      Custo Medio
+                    </label>
+                  </div>
+                </div>
+              </div>
               <div class="prod-section">Valores</div>
               <div class="prod-grid">
                 <div class="prod-field"><label>CUSTO MÉDIO</label><input type="text" currencyInput [currencyValue]="dd.custoMedio" (currencyChange)="updateDados(dadosFilialIdx(), 'custoMedio', $event)" /></div>
@@ -779,12 +816,38 @@
             <input type="number" [value]="registroForm().markupPadrao" (input)="updateForm('markupPadrao', +$any($event.target).value)" step="0.01" />
           </div>
           <div class="field">
-            <label>PRIORIZAR</label>
-            <select [value]="registroForm().priorizar || ''" (change)="updateForm('priorizar', $any($event.target).value)">
-              <option value="">Nenhum</option>
-              <option value="MARKUP">Markup</option>
-              <option value="PROJECAO">Projeção de Lucro</option>
-            </select>
+            <label>FORMACAO DE PRECO</label>
+            <div class="radio-grupo">
+              <label class="radio-label">
+                <input type="radio" name="formacaoPreco" value="MARKUP"
+                       [checked]="registroForm().formacaoPreco === 'MARKUP'"
+                       (change)="updateForm('formacaoPreco', 'MARKUP')" />
+                Markup
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="formacaoPreco" value="PROJECAO"
+                       [checked]="registroForm().formacaoPreco === 'PROJECAO'"
+                       (change)="updateForm('formacaoPreco', 'PROJECAO')" />
+                Projecao de Lucro
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <label>USAR VALOR</label>
+            <div class="radio-grupo">
+              <label class="radio-label">
+                <input type="radio" name="baseCalculo" value="CUSTO_COMPRA"
+                       [checked]="registroForm().baseCalculo === 'CUSTO_COMPRA'"
+                       (change)="updateForm('baseCalculo', 'CUSTO_COMPRA')" />
+                Custo da Compra
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="baseCalculo" value="CUSTO_MEDIO"
+                       [checked]="registroForm().baseCalculo === 'CUSTO_MEDIO'"
+                       (change)="updateForm('baseCalculo', 'CUSTO_MEDIO')" />
+                Custo Medio
+              </label>
+            </div>
           </div>
         </div>
 

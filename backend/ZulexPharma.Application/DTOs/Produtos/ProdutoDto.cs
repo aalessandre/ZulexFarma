@@ -199,6 +199,10 @@ public class ProdutoDadosDto
     public bool UsoContinuo { get; set; }
     public bool AvisoFracao { get; set; }
 
+    // Formação de preço
+    public string? FormacaoPreco { get; set; }
+    public string? BaseCalculo { get; set; }
+
     // Estatísticas
     public DateTime? UltimaCompraEm { get; set; }
     public DateTime? UltimaVendaEm { get; set; }

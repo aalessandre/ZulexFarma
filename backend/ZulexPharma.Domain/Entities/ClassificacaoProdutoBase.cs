@@ -14,8 +14,11 @@ public abstract class ClassificacaoProdutoBase : BaseEntity
     public decimal ProjecaoLucro { get; set; } = 30;
     public decimal MarkupPadrao { get; set; } = 50;
 
-    /// <summary>Vazio, "MARKUP" ou "PROJECAO"</summary>
-    public string? Priorizar { get; set; }
+    /// <summary>Formação de preço: "MARKUP" ou "PROJECAO"</summary>
+    public string FormacaoPreco { get; set; } = "MARKUP";
+
+    /// <summary>Base de cálculo: "CUSTO_COMPRA" ou "CUSTO_MEDIO"</summary>
+    public string BaseCalculo { get; set; } = "CUSTO_COMPRA";
 
     public bool ControlarLotesVencimento { get; set; } = false;
     public bool InformarPrescritorVenda { get; set; } = false;

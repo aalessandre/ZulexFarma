@@ -388,6 +388,7 @@ public class ProdutoService : IProdutoService
         e.BloquearCompras = d.BloquearCompras; e.ProdutoFormula = d.ProdutoFormula;
         e.BloquearComissao = d.BloquearComissao; e.BloquearCoberturaOferta = d.BloquearCoberturaOferta;
         e.UsoContinuo = d.UsoContinuo; e.AvisoFracao = d.AvisoFracao;
+        e.FormacaoPreco = d.FormacaoPreco; e.BaseCalculo = d.BaseCalculo;
         e.UltimaCompraEm = d.UltimaCompraEm; e.UltimaVendaEm = d.UltimaVendaEm;
     }
 
@@ -537,6 +538,7 @@ public class ProdutoService : IProdutoService
         e.BloquearCompras = d.BloquearCompras; e.ProdutoFormula = d.ProdutoFormula;
         e.BloquearComissao = d.BloquearComissao; e.BloquearCoberturaOferta = d.BloquearCoberturaOferta;
         e.UsoContinuo = d.UsoContinuo; e.AvisoFracao = d.AvisoFracao;
+        e.FormacaoPreco = d.FormacaoPreco; e.BaseCalculo = d.BaseCalculo;
     }
 
     /// <summary>Copia valores de ProdutoFiscal do DTO para a entidade.</summary>
@@ -716,6 +718,7 @@ public class ProdutoService : IProdutoService
             BloquearCompras = d.BloquearCompras, ProdutoFormula = d.ProdutoFormula,
             BloquearComissao = d.BloquearComissao, BloquearCoberturaOferta = d.BloquearCoberturaOferta,
             UsoContinuo = d.UsoContinuo, AvisoFracao = d.AvisoFracao,
+            FormacaoPreco = d.FormacaoPreco, BaseCalculo = d.BaseCalculo,
             UltimaCompraEm = d.UltimaCompraEm, UltimaVendaEm = d.UltimaVendaEm
         }).ToList()
     };

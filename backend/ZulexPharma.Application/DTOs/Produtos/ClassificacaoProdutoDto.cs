@@ -20,7 +20,8 @@ public class ClassificacaoFormDto
     public decimal DescontoMaximoComSenha { get; set; } = 0;
     public decimal ProjecaoLucro { get; set; } = 30;
     public decimal MarkupPadrao { get; set; } = 50;
-    public string? Priorizar { get; set; }
+    public string FormacaoPreco { get; set; } = "MARKUP";
+    public string BaseCalculo { get; set; } = "CUSTO_COMPRA";
     public bool ControlarLotesVencimento { get; set; } = false;
     public bool InformarPrescritorVenda { get; set; } = false;
     public bool ImprimirEtiqueta { get; set; } = false;
