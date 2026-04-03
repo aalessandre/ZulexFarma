@@ -94,30 +94,37 @@ export class AtualizacaoPrecosComponent implements OnInit {
   }
 
   // ── Upload base ABCFarma ──────────────────────────────────────
+  uploadProgresso = signal('');
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     if (!input.files?.length) return;
     const file = input.files[0];
 
+    const tamanhoMB = (file.size / 1024 / 1024).toFixed(1);
     this.uploadando.set(true);
     this.erro.set('');
     this.mensagem.set('');
+    this.uploadProgresso.set(`Lendo arquivo (${tamanhoMB} MB)...`);
 
     const reader = new FileReader();
     reader.onload = () => {
+      this.uploadProgresso.set('Enviando para o servidor...');
       const conteudo = reader.result as string;
       this.http.post<any>(`${this.apiUrl}/upload-base`, { conteudoJson: conteudo }).subscribe({
         next: r => {
           const d = r.data;
-          this.mensagem.set(`Base atualizada: ${d.totalRegistros} registros (${d.inseridos} novos, ${d.atualizados} atualizados).`);
+          this.mensagem.set(`Base atualizada com sucesso! ${d.inseridos} produtos carregados.`);
           this.uploadando.set(false);
+          this.uploadProgresso.set('');
           this.carregarInfoBase();
           input.value = '';
         },
         error: e => {
-          this.erro.set(e?.error?.message || 'Erro ao carregar base.');
+          const msg = e?.error?.message || 'Erro ao carregar base. Verifique se o arquivo e um JSON valido do ABCFarma.';
+          this.erro.set(msg);
           this.uploadando.set(false);
+          this.uploadProgresso.set('');
           input.value = '';
         }
       });

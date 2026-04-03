@@ -39,29 +39,40 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
         var inseridos = 0;
         var atualizados = 0;
 
-        // Carregar EANs existentes para lookup rápido
-        var existentes = await _db.AbcFarmaBase.ToDictionaryAsync(x => x.Ean, x => x);
+        // Limpar base existente e reinserir (mais seguro que upsert com EANs duplicados)
+        var existentes = await _db.AbcFarmaBase.CountAsync();
+        if (existentes > 0)
+        {
+            await _db.Database.ExecuteSqlRawAsync(@"TRUNCATE TABLE ""AbcFarmaBase""");
+            atualizados = existentes;
+        }
 
+        // Inserir em lotes para performance
+        var lote = new List<AbcFarmaBase>(500);
         foreach (var r in registros)
         {
             var ean = r.EAN?.Trim() ?? "";
             if (string.IsNullOrEmpty(ean)) continue;
 
-            if (existentes.TryGetValue(ean, out var existente))
+            var novo = new AbcFarmaBase { Ean = ean };
+            MapAbcFarma(novo, r, agora);
+            lote.Add(novo);
+            inseridos++;
+
+            if (lote.Count >= 500)
             {
-                MapAbcFarma(existente, r, agora);
-                atualizados++;
-            }
-            else
-            {
-                var novo = new AbcFarmaBase { Ean = ean };
-                MapAbcFarma(novo, r, agora);
-                _db.AbcFarmaBase.Add(novo);
-                inseridos++;
+                _db.AbcFarmaBase.AddRange(lote);
+                await _db.SaveChangesAsync();
+                _db.ChangeTracker.Clear();
+                lote.Clear();
             }
         }
 
-        await _db.SaveChangesAsync();
+        if (lote.Count > 0)
+        {
+            _db.AbcFarmaBase.AddRange(lote);
+            await _db.SaveChangesAsync();
+        }
 
         return new UploadAbcFarmaResult
         {

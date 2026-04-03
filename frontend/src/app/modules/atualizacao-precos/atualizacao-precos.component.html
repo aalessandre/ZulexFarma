@@ -9,6 +9,7 @@
       <input type="file" accept=".json" (change)="onFileSelected($event)" hidden [disabled]="uploadando()">
       @if (uploadando()) {
         <span>Carregando...</span>
+        <span class="sidebar-sub">{{ uploadProgresso() }}</span>
       } @else {
         <span>Atualizar Base</span>
         <span class="sidebar-sub">Carregar arquivo</span>
