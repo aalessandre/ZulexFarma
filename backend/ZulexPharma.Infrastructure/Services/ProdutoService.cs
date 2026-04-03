@@ -109,49 +109,19 @@ public class ProdutoService : IProdutoService
 
         SincronizarSubTabelas(p, dto);
 
-        // Criar registros por filial para todas as filiais ativas que não vieram no DTO,
-        // copiando os valores da filial de origem (exceto estoque que fica zerado).
+        // Garantir registros por filial para todas as filiais ativas
         var todasFiliais = await _db.Filiais.Where(f => f.Ativo).Select(f => f.Id).ToListAsync();
-
-        // ProdutoDados — copiar valores da primeira filial do DTO (a que está criando)
-        var dadosOrigem = dto.Dados.FirstOrDefault();
         var filiaisDados = dto.Dados.Select(d => d.FilialId).ToHashSet();
         foreach (var filialId in todasFiliais.Where(fId => !filiaisDados.Contains(fId)))
-        {
-            var novoDados = new ProdutoDados { ProdutoId = p.Id, FilialId = filialId };
-            if (dadosOrigem != null) CopiarDadosSemEstoque(novoDados, dadosOrigem);
-            _db.ProdutosDados.Add(novoDados);
-        }
-
-        // ProdutoFiscal — copiar valores da primeira filial do DTO
-        var fiscalOrigem = dto.Fiscais.FirstOrDefault();
+            _db.ProdutosDados.Add(new ProdutoDados { ProdutoId = p.Id, FilialId = filialId });
         var filiaisFiscal = dto.Fiscais.Select(d => d.FilialId).ToHashSet();
         foreach (var filialId in todasFiliais.Where(fId => !filiaisFiscal.Contains(fId)))
-        {
-            var novoFiscal = new ProdutoFiscal { ProdutoId = p.Id, FilialId = filialId };
-            if (fiscalOrigem != null) CopiarFiscal(novoFiscal, fiscalOrigem);
-            _db.ProdutosFiscal.Add(novoFiscal);
-        }
-
-        // ProdutoFornecedores — copiar vínculos da filial de origem
-        var fornecedoresOrigem = dto.Fornecedores.ToList();
-        var filiaisFornecedor = dto.Fornecedores.Select(d => d.FilialId).ToHashSet();
-        foreach (var filialId in todasFiliais.Where(fId => !filiaisFornecedor.Contains(fId)))
-        {
-            foreach (var fo in fornecedoresOrigem)
-            {
-                _db.ProdutosFornecedores.Add(new ProdutoFornecedor
-                {
-                    ProdutoId = p.Id, FilialId = filialId,
-                    FornecedorId = fo.FornecedorId,
-                    CodigoProdutoFornecedor = fo.CodigoProdutoFornecedor?.Trim(),
-                    NomeProduto = fo.NomeProduto?.Trim(),
-                    Fracao = fo.Fracao
-                });
-            }
-        }
+            _db.ProdutosFiscal.Add(new ProdutoFiscal { ProdutoId = p.Id, FilialId = filialId });
 
         await _db.SaveChangesAsync();
+
+        // Após salvar, copiar valores da filial de origem para as demais
+        await CopiarDadosParaOutrasFiliais(p.Id, dto);
 
         await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, p.Id,
             novo: new Dictionary<string, string?> { ["Nome"] = p.Nome });
@@ -413,6 +383,62 @@ public class ProdutoService : IProdutoService
         e.BloquearComissao = d.BloquearComissao; e.BloquearCoberturaOferta = d.BloquearCoberturaOferta;
         e.UsoContinuo = d.UsoContinuo; e.AvisoFracao = d.AvisoFracao;
         e.UltimaCompraEm = d.UltimaCompraEm; e.UltimaVendaEm = d.UltimaVendaEm;
+    }
+
+    /// <summary>
+    /// Após criar produto, identifica a filial com valores preenchidos e copia para as demais.
+    /// O frontend envia todas as filiais, mas só a filial ativa tem valores — as demais vêm zeradas.
+    /// </summary>
+    private async Task CopiarDadosParaOutrasFiliais(long produtoId, ProdutoFormDto dto)
+    {
+        // Identificar a filial de origem (a que tem valores preenchidos — ex: ValorVenda > 0 ou Markup > 0)
+        var dadosOrigem = dto.Dados.FirstOrDefault(d =>
+            d.ValorVenda != 0 || d.Markup != 0 || d.ProjecaoLucro != 0 || d.CustoMedio != 0 ||
+            d.Comissao != 0 || d.ValorIncentivo != 0);
+        if (dadosOrigem != null)
+        {
+            var todosDados = await _db.ProdutosDados.Where(d => d.ProdutoId == produtoId && d.FilialId != dadosOrigem.FilialId).ToListAsync();
+            foreach (var d in todosDados)
+                CopiarDadosSemEstoque(d, dadosOrigem);
+        }
+
+        var fiscalOrigem = dto.Fiscais.FirstOrDefault(f =>
+            f.NcmId != null || f.AliquotaIcms != 0 || f.AliquotaPis != 0 || f.AliquotaCofins != 0);
+        if (fiscalOrigem != null)
+        {
+            var todosFiscal = await _db.ProdutosFiscal.Where(f => f.ProdutoId == produtoId && f.FilialId != fiscalOrigem.FilialId).ToListAsync();
+            foreach (var f in todosFiscal)
+                CopiarFiscal(f, fiscalOrigem);
+        }
+
+        // Fornecedores — copiar vínculos da filial de origem para filiais sem vínculos
+        var fornecedoresOrigem = dto.Fornecedores.Where(f => f.FornecedorId > 0).ToList();
+        if (fornecedoresOrigem.Count > 0)
+        {
+            var filialOrigemFornecedor = fornecedoresOrigem.Select(f => f.FilialId).ToHashSet();
+            var todasFiliais = await _db.Filiais.Where(f => f.Ativo).Select(f => f.Id).ToListAsync();
+            var filiaisSemFornecedor = todasFiliais.Where(fId => !filialOrigemFornecedor.Contains(fId)).ToList();
+            foreach (var filialId in filiaisSemFornecedor)
+            {
+                foreach (var fo in fornecedoresOrigem)
+                {
+                    // Verificar se já existe
+                    if (!await _db.ProdutosFornecedores.AnyAsync(x => x.ProdutoId == produtoId && x.FilialId == filialId && x.FornecedorId == fo.FornecedorId))
+                    {
+                        _db.ProdutosFornecedores.Add(new ProdutoFornecedor
+                        {
+                            ProdutoId = produtoId, FilialId = filialId,
+                            FornecedorId = fo.FornecedorId,
+                            CodigoProdutoFornecedor = fo.CodigoProdutoFornecedor?.Trim(),
+                            NomeProduto = fo.NomeProduto?.Trim(),
+                            Fracao = fo.Fracao
+                        });
+                    }
+                }
+            }
+        }
+
+        await _db.SaveChangesAsync();
     }
 
     /// <summary>Copia valores de ProdutoDados do DTO para a entidade, zerando campos de estoque.</summary>
