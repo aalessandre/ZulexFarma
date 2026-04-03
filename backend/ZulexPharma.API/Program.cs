@@ -14,9 +14,6 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
-    // Suprimir ERR logs do EF para SaveChanges/SQL — conflitos 23505 são tratados pelo SyncApplicator
-    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Fatal)
-    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Update", Serilog.Events.LogEventLevel.Fatal)
     .WriteTo.Console()
     .WriteTo.File(
         path: "logs/zulexpharma-.log",
@@ -29,10 +26,7 @@ builder.Host.UseSerilog();
 
 // ─── Database ──────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-           .ConfigureWarnings(w => w.Log(
-               (Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.CommandError, LogLevel.Debug)
-           )));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ─── JWT ───────────────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");

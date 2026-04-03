@@ -43,46 +43,19 @@ public static class SyncApplicator
         {
             var existente = await BuscarPorId(db, tipo, registroId);
             if (existente != null) return false; // Já existe por Id, skip (idempotência)
+
+            // Usar raw SQL com ON CONFLICT DO NOTHING para evitar erros de unique constraint.
+            // Seeds idênticos (Configuracoes, Usuarios, Filiais) criam registros com mesma Chave/Login/CNPJ
+            // mas IDs diferentes em cada filial — ON CONFLICT pula silenciosamente.
             var entidade = (BaseEntity?)JsonSerializer.Deserialize(dadosJson, tipo, _jsonOpts);
             if (entidade == null) return false;
-            LimparNavigations(db, entidade);
-            db.Add(entidade);
-            db.Entry(entidade).Property("Id").IsTemporary = false;
-            try
-            {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
-            {
-                // Unique constraint violation — registro local já tem o mesmo valor único.
-                // Desanexar a entidade falha e tentar localizar o conflitante para UPDATE.
-                db.Entry(entidade).State = EntityState.Detached;
 
-                var conflitante = await BuscarPorSyncGuid(db, tipo, entidade.SyncGuid);
-                if (conflitante != null)
-                {
-                    // Encontrou pelo SyncGuid — atualizar com dados remotos
-                    var incoming = (BaseEntity?)JsonSerializer.Deserialize(dadosJson, tipo, _jsonOpts);
-                    if (incoming != null)
-                    {
-                        LimparNavigations(db, incoming);
-                        db.Entry(conflitante).CurrentValues.SetValues(incoming);
-                        // Manter o Id local (não substituir pelo remoto)
-                        db.Entry(conflitante).Property("Id").CurrentValue = conflitante.Id;
-                        await db.SaveChangesAsync(ct);
-                        Log.Information("Sync UPSERT: {Tabela} Id={IdRemoto} → atualizado registro local Id={IdLocal} (conflito {Constraint}).",
-                            tabela, registroId, conflitante.Id, pgEx.ConstraintName);
-                        return true;
-                    }
-                }
-
-                // SyncGuid não encontrado — registro local é seed com dados equivalentes.
-                // Retornar true para que o ponteiro avance e não reprocesse.
-                Log.Debug("Sync INSERT ignorado: {Tabela} Id={Id} — conflito ({Constraint}), registro local prevalece.",
-                    tabela, registroId, pgEx.ConstraintName);
-                return true;
+            var inserted = await InsertOnConflictDoNothing(db, tipo, entidade, ct);
+            if (!inserted)
+            {
+                Log.Debug("Sync INSERT ignorado: {Tabela} Id={Id} — registro com mesma constraint já existe localmente.", tabela, registroId);
             }
-            return true;
+            return true; // Sempre avançar ponteiro
         }
 
         if (operacao == "U" && dadosJson != null)
@@ -125,6 +98,48 @@ public static class SyncApplicator
         var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipo);
         var dbSet = (IQueryable<BaseEntity>)method.Invoke(db, null)!;
         return await dbSet.FirstOrDefaultAsync(e => e.SyncGuid == syncGuid);
+    }
+
+    /// <summary>
+    /// Insere via raw SQL com ON CONFLICT DO NOTHING (PostgreSQL).
+    /// Retorna true se inseriu, false se conflitou e foi ignorado.
+    /// </summary>
+    private static async Task<bool> InsertOnConflictDoNothing(AppDbContext db, Type tipo, BaseEntity entidade, CancellationToken ct)
+    {
+        var entityType = db.Model.FindEntityType(tipo);
+        if (entityType == null) return false;
+
+        var tableName = entityType.GetTableName()!;
+        var properties = entityType.GetProperties()
+            .Where(p => !p.IsShadowProperty() && p.PropertyInfo != null)
+            .ToList();
+
+        var columns = new List<string>();
+        var paramPlaceholders = new List<string>();
+        var paramValues = new List<object?>();
+        var idx = 0;
+
+        foreach (var prop in properties)
+        {
+            var columnName = prop.GetColumnName();
+            var value = prop.PropertyInfo!.GetValue(entidade);
+
+            columns.Add($"\"{columnName}\"");
+            paramPlaceholders.Add($"@p{idx}");
+            paramValues.Add(value ?? DBNull.Value);
+            idx++;
+        }
+
+        var sql = $"INSERT INTO \"{tableName}\" ({string.Join(", ", columns)}) VALUES ({string.Join(", ", paramPlaceholders)}) ON CONFLICT DO NOTHING";
+
+        var parameters = paramValues.Select((v, i) =>
+        {
+            var param = new Npgsql.NpgsqlParameter($"@p{i}", v ?? DBNull.Value);
+            return (object)param;
+        }).ToArray();
+
+        var rows = await db.Database.ExecuteSqlRawAsync(sql, parameters, ct);
+        return rows > 0;
     }
 
     /// <summary>
