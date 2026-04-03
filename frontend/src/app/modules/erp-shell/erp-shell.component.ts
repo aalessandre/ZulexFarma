@@ -86,6 +86,7 @@ export class ErpShellComponent {
         { label: 'Caixa',            sigla: 'CX', iconKey: 'cash',      rota: '/erp/caixa' },
         { label: 'Compras',          sigla: 'CP', iconKey: 'cart2',     rota: '/erp/compras' },
         { label: 'Financeiro',       sigla: 'FN', iconKey: 'dollar',    rota: '/erp/financeiro' },
+        { label: 'Fiscal',           sigla: 'FS', iconKey: 'dollar',    rota: '/erp/fiscal' },
       ]
     },
     {

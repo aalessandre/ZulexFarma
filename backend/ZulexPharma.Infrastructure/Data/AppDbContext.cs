@@ -60,6 +60,7 @@ public class AppDbContext : DbContext
     public DbSet<Compra> Compras => Set<Compra>();
     public DbSet<CompraProduto> ComprasProdutos => Set<CompraProduto>();
     public DbSet<CompraFiscal> ComprasFiscal => Set<CompraFiscal>();
+    public DbSet<IcmsUf> IcmsUfs => Set<IcmsUf>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +85,18 @@ public class AppDbContext : DbContext
             e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
             e.Property(x => x.Telefone).HasMaxLength(20).IsRequired();
             e.Property(x => x.Email).HasMaxLength(150).IsRequired();
+            e.Property(x => x.AliquotaIcms).HasColumnType("numeric(5,2)");
+        });
+
+        // ── IcmsUf ────────────────────────────────────────────────────
+        modelBuilder.Entity<IcmsUf>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
+            e.Property(x => x.NomeEstado).HasMaxLength(50).IsRequired();
+            e.Property(x => x.AliquotaInterna).HasColumnType("numeric(5,2)");
+            e.HasIndex(x => x.Uf).IsUnique();
         });
 
         // ── GrupoUsuario (tabela: UsuariosGrupos) ─────────────────────

@@ -108,6 +108,16 @@ export const ErpRoutes: Routes = [
         loadComponent: () =>
           import('../compras/compras.component').then(m => m.ComprasComponent),
       },
+      {
+        path: 'fiscal',
+        loadComponent: () =>
+          import('../fiscal-menu/fiscal-menu.component').then(m => m.FiscalMenuComponent),
+      },
+      {
+        path: 'icms-uf',
+        loadComponent: () =>
+          import('../icms-uf/icms-uf.component').then(m => m.IcmsUfComponent),
+      },
       // Placeholders — módulos futuros
       {
         path: '**',

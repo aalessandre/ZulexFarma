@@ -1,0 +1,136 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()">
+      <span>Procurar</span><span class="sidebar-sub">Consulta</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()">
+      <span>Adicionar</span><span class="sidebar-sub">Nova UF</span>
+    </div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()">
+      <span>Editar</span><span class="sidebar-sub">Alterar registro</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span><span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    @if (erro()) {
+      <div class="form-erro">{{ erro() }}
+        <button class="form-erro-fechar" (click)="erro.set('')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    }
+
+    @if (modo() === 'lista') {
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="UF ou estado..."
+                   [value]="busca()" (input)="busca.set($any($event.target).value)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              <th class="th-sort" style="width:60px" (click)="ordenar('id')">
+                ID <span class="sort-icon">{{ sortIcon('id') }}</span>
+              </th>
+              <th class="th-sort" style="width:80px" (click)="ordenar('uf')">
+                UF <span class="sort-icon">{{ sortIcon('uf') }}</span>
+              </th>
+              <th class="th-sort" style="width:250px" (click)="ordenar('nomeEstado')">
+                Estado <span class="sort-icon">{{ sortIcon('nomeEstado') }}</span>
+              </th>
+              <th class="th-sort" style="width:120px" (click)="ordenar('aliquotaInterna')">
+                Aliquota % <span class="sort-icon">{{ sortIcon('aliquotaInterna') }}</span>
+              </th>
+              <th style="width:60px">Ativo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td colspan="6" class="grid-loading">Carregando...</td></tr>
+            } @else if (registrosFiltrados().length === 0) {
+              <tr><td colspan="6" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+            } @else {
+              @for (r of registrosFiltrados(); track r.id) {
+                <tr [class.selecionado]="selecionado()?.id === r.id"
+                    (click)="selecionar(r)" (dblclick)="editar()">
+                  <td class="td-arrow">
+                    @if (selecionado()?.id === r.id) { <span>&#9654;</span> }
+                  </td>
+                  <td>{{ r.id }}</td>
+                  <td><strong>{{ r.uf }}</strong></td>
+                  <td>{{ r.nomeEstado }}</td>
+                  <td class="td-valor">{{ r.aliquotaInterna | number:'1.1-2':'pt-BR' }}%</td>
+                  <td>{{ r.ativo ? 'Sim' : 'Nao' }}</td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span>
+      </div>
+    }
+
+    @if (modo() === 'form') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar ICMS UF' : 'Nova ICMS UF' }}</div>
+
+        @if (modoEdicao()) {
+          <div class="form-grid">
+            <div class="field">
+              <label>CODIGO</label>
+              <input type="text" [value]="form().id" disabled class="field-disabled" />
+            </div>
+            <div class="field">
+              <label>DATA CADASTRO</label>
+              <input type="text" [value]="form().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" />
+            </div>
+          </div>
+        }
+
+        <div class="form-grid">
+          <div class="field">
+            <label>UF *</label>
+            <input type="text" [value]="form().uf" (input)="updateForm('uf', $any($event.target).value)" maxlength="2" style="text-transform:uppercase" />
+          </div>
+          <div class="field field-2">
+            <label>NOME DO ESTADO *</label>
+            <input type="text" [value]="form().nomeEstado" (input)="updateForm('nomeEstado', $any($event.target).value)" maxlength="50" style="text-transform:uppercase" />
+          </div>
+          <div class="field">
+            <label>ALIQUOTA INTERNA %</label>
+            <input type="number" [value]="form().aliquotaInterna" (input)="updateForm('aliquotaInterna', +$any($event.target).value)" step="0.5" min="0" max="30" />
+          </div>
+          <div class="field">
+            <label class="check-label">
+              <input type="checkbox" [checked]="form().ativo" (change)="updateForm('ativo', $any($event.target).checked)" />
+              <span>Ativo</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <footer class="tela-toolbar">
+        <button class="tb-btn tb-salvar" (click)="salvar()" [disabled]="salvando()">
+          @if (salvando()) { Salvando... } @else { Salvar }
+        </button>
+        <button class="tb-btn tb-cancelar" (click)="fechar()">Cancelar</button>
+        @if (modoEdicao()) {
+          <button class="tb-btn tb-excluir" (click)="excluir()">Excluir</button>
+        }
+      </footer>
+    }
+  </div>
+</div>

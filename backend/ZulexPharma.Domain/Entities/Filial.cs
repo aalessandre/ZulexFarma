@@ -16,6 +16,9 @@ public class Filial : BaseEntity
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
 
+    /// <summary>Alíquota de ICMS interna do estado da filial (ex: 19.5 para PR).</summary>
+    public decimal AliquotaIcms { get; set; }
+
     public ICollection<Usuario> Usuarios { get; set; } = new List<Usuario>();
     public ICollection<UsuarioFilialGrupo> UsuarioFilialGrupos { get; set; } = new List<UsuarioFilialGrupo>();
 }

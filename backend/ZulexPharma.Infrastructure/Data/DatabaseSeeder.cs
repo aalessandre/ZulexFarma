@@ -241,6 +241,27 @@ public static class DatabaseSeeder
         }
 
         await context.SaveChangesAsync();
+
+        // ── Seed ICMS por UF (27 estados) ─────────────────────────────
+        if (!await context.IcmsUfs.AnyAsync())
+        {
+            var ufs = new (string uf, string nome, decimal aliq)[]
+            {
+                ("AC", "ACRE", 19), ("AL", "ALAGOAS", 19), ("AP", "AMAPA", 18),
+                ("AM", "AMAZONAS", 20), ("BA", "BAHIA", 20.5m), ("CE", "CEARA", 20),
+                ("DF", "DISTRITO FEDERAL", 20), ("ES", "ESPIRITO SANTO", 17),
+                ("GO", "GOIAS", 19), ("MA", "MARANHAO", 22), ("MT", "MATO GROSSO", 17),
+                ("MS", "MATO GROSSO DO SUL", 17), ("MG", "MINAS GERAIS", 18),
+                ("PA", "PARA", 19), ("PB", "PARAIBA", 20), ("PR", "PARANA", 19.5m),
+                ("PE", "PERNAMBUCO", 20.5m), ("PI", "PIAUI", 21), ("RJ", "RIO DE JANEIRO", 22),
+                ("RN", "RIO GRANDE DO NORTE", 20), ("RS", "RIO GRANDE DO SUL", 17),
+                ("RO", "RONDONIA", 19.5m), ("RR", "RORAIMA", 20), ("SC", "SANTA CATARINA", 17),
+                ("SP", "SAO PAULO", 18), ("SE", "SERGIPE", 19), ("TO", "TOCANTINS", 20),
+            };
+            foreach (var (uf, nome, aliq) in ufs)
+                context.IcmsUfs.Add(new IcmsUf { Uf = uf, NomeEstado = nome, AliquotaInterna = aliq });
+            await context.SaveChangesAsync();
+        }
     }
 
     /// <summary>
