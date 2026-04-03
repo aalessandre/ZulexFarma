@@ -65,6 +65,7 @@ export class DashboardComponent {
         { label: 'Caixa',            sigla: 'CX', iconKey: 'cash',      rota: '/erp/caixa' },
         { label: 'Compras',          sigla: 'CP', iconKey: 'cart2',     rota: '/erp/compras' },
         { label: 'Financeiro',       sigla: 'FN', iconKey: 'dollar',    rota: '/erp/financeiro' },
+        { label: 'Fiscal',           sigla: 'FS', iconKey: 'dollar',    rota: '/erp/fiscal' },
       ]
     },
     {
@@ -100,6 +101,7 @@ export class DashboardComponent {
         { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },
         { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
         { label: 'Configuracoes',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
+        { label: 'Atual. Precos',    sigla: 'AP', iconKey: 'dollar',   rota: '/erp/atualizacao-precos' },
       ]
     },
     {
