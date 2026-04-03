@@ -7,6 +7,7 @@ import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
+import { CurrencyInputDirective } from '../../core/directives/currency-input.directive';
 
 type AbaAtiva = 'produtos' | 'grupo-principal' | 'grupo' | 'sub-grupo' | 'secao' | 'familia' | 'kit';
 
@@ -135,7 +136,7 @@ const NOME_ABA_MAP: Record<string, string> = {
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, EnterTabDirective],
+  imports: [CommonModule, FormsModule, EnterTabDirective, CurrencyInputDirective],
   templateUrl: './produtos.component.html',
   styleUrl: './produtos.component.scss'
 })

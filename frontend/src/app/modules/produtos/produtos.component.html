@@ -277,7 +277,7 @@
           </div>
           <div class="prod-field">
             <label>PREÇO FP</label>
-            <input type="number" [value]="produtoForm().precoFp || 0" (input)="updateProdutoForm('precoFp', +$any($event.target).value)" step="0.01" />
+            <input type="text" currencyInput [currencyValue]="produtoForm().precoFp || 0" (currencyChange)="updateProdutoForm('precoFp', $event)" />
           </div>
           <div class="prod-field">
             <label>LISTA</label>
@@ -491,13 +491,13 @@
                 <div class="prod-field"><label>ORIGEM MERCADORIA</label><input type="text" [value]="fi.origemMercadoria || ''" (input)="updateFiscal(fiscalFilialIdx(), 'origemMercadoria', $any($event.target).value)" maxlength="1" /></div>
                 <div class="prod-field"><label>CST ICMS</label><input type="text" [value]="fi.cstIcms || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIcms', $any($event.target).value)" maxlength="3" /></div>
                 <div class="prod-field"><label>CSOSN</label><input type="text" [value]="fi.csosn || ''" (input)="updateFiscal(fiscalFilialIdx(), 'csosn', $any($event.target).value)" maxlength="4" /></div>
-                <div class="prod-field"><label>% ICMS</label><input type="number" [value]="fi.aliquotaIcms || 0" (input)="updateFiscal(fiscalFilialIdx(), 'aliquotaIcms', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% ICMS</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIcms || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIcms', $event)" /></div>
                 <div class="prod-field"><label>CST PIS</label><input type="text" [value]="fi.cstPis || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstPis', $any($event.target).value)" maxlength="2" /></div>
-                <div class="prod-field"><label>% PIS</label><input type="number" [value]="fi.aliquotaPis || 0" (input)="updateFiscal(fiscalFilialIdx(), 'aliquotaPis', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% PIS</label><input type="text" currencyInput [currencyValue]="fi.aliquotaPis || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaPis', $event)" /></div>
                 <div class="prod-field"><label>CST COFINS</label><input type="text" [value]="fi.cstCofins || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstCofins', $any($event.target).value)" maxlength="2" /></div>
-                <div class="prod-field"><label>% COFINS</label><input type="number" [value]="fi.aliquotaCofins || 0" (input)="updateFiscal(fiscalFilialIdx(), 'aliquotaCofins', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% COFINS</label><input type="text" currencyInput [currencyValue]="fi.aliquotaCofins || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaCofins', $event)" /></div>
                 <div class="prod-field"><label>CST IPI</label><input type="text" [value]="fi.cstIpi || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIpi', $any($event.target).value)" maxlength="3" /></div>
-                <div class="prod-field"><label>% IPI</label><input type="number" [value]="fi.aliquotaIpi || 0" (input)="updateFiscal(fiscalFilialIdx(), 'aliquotaIpi', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% IPI</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIpi || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIpi', $event)" /></div>
               </div>
             </div>
           </details>
@@ -525,35 +525,35 @@
             <div class="prod-acc-body">
               <div class="prod-section">Última Compra</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="number" [value]="dd.ultimaCompraUnitario" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraUnitario', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR ST</label><input type="number" [value]="dd.ultimaCompraSt" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraSt', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR OUTROS</label><input type="number" [value]="dd.ultimaCompraOutros" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraOutros', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>IPI</label><input type="number" [value]="dd.ultimaCompraIpi" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraIpi', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>FPC</label><input type="number" [value]="dd.ultimaCompraFpc" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraFpc', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>BOLETO</label><input type="number" [value]="dd.ultimaCompraBoleto" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraBoleto', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>DIFAL</label><input type="number" [value]="dd.ultimaCompraDifal" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraDifal', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>FRETE</label><input type="number" [value]="dd.ultimaCompraFrete" (input)="updateDados(dadosFilialIdx(), 'ultimaCompraFrete', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR UNITÁRIO</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraUnitario" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraUnitario', $event)" /></div>
+                <div class="prod-field"><label>VLR ST</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraSt" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraSt', $event)" /></div>
+                <div class="prod-field"><label>VLR OUTROS</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraOutros" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraOutros', $event)" /></div>
+                <div class="prod-field"><label>IPI</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraIpi" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraIpi', $event)" /></div>
+                <div class="prod-field"><label>FPC</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraFpc" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraFpc', $event)" /></div>
+                <div class="prod-field"><label>BOLETO</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraBoleto" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraBoleto', $event)" /></div>
+                <div class="prod-field"><label>DIFAL</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraDifal" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraDifal', $event)" /></div>
+                <div class="prod-field"><label>FRETE</label><input type="text" currencyInput [currencyValue]="dd.ultimaCompraFrete" (currencyChange)="updateDados(dadosFilialIdx(), 'ultimaCompraFrete', $event)" /></div>
               </div>
               <div class="prod-section">Valores</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="number" [value]="dd.custoMedio" (input)="updateDados(dadosFilialIdx(), 'custoMedio', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>% PROJ LUCRO</label><input type="number" [value]="dd.projecaoLucro" (input)="updateDados(dadosFilialIdx(), 'projecaoLucro', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>% MARKUP</label><input type="number" [value]="dd.markup" (input)="updateDados(dadosFilialIdx(), 'markup', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR VENDA</label><input type="number" [value]="dd.valorVenda" (input)="updateDados(dadosFilialIdx(), 'valorVenda', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>PMC</label><input type="number" [value]="dd.pmc" (input)="updateDados(dadosFilialIdx(), 'pmc', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>CUSTO MÉDIO</label><input type="text" currencyInput [currencyValue]="dd.custoMedio" (currencyChange)="updateDados(dadosFilialIdx(), 'custoMedio', $event)" /></div>
+                <div class="prod-field"><label>% PROJ LUCRO</label><input type="text" currencyInput [currencyValue]="dd.projecaoLucro" (currencyChange)="updateDados(dadosFilialIdx(), 'projecaoLucro', $event)" /></div>
+                <div class="prod-field"><label>% MARKUP</label><input type="text" currencyInput [currencyValue]="dd.markup" (currencyChange)="updateDados(dadosFilialIdx(), 'markup', $event)" /></div>
+                <div class="prod-field"><label>VLR VENDA</label><input type="text" currencyInput [currencyValue]="dd.valorVenda" (currencyChange)="updateDados(dadosFilialIdx(), 'valorVenda', $event)" /></div>
+                <div class="prod-field"><label>PMC</label><input type="text" currencyInput [currencyValue]="dd.pmc" (currencyChange)="updateDados(dadosFilialIdx(), 'pmc', $event)" /></div>
               </div>
               <div class="prod-section">Promoção</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>VLR PROMOÇÃO À VISTA</label><input type="number" [value]="dd.valorPromocao" (input)="updateDados(dadosFilialIdx(), 'valorPromocao', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR PROMOÇÃO A PRAZO</label><input type="number" [value]="dd.valorPromocaoPrazo" (input)="updateDados(dadosFilialIdx(), 'valorPromocaoPrazo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>VLR PROMOÇÃO À VISTA</label><input type="text" currencyInput [currencyValue]="dd.valorPromocao" (currencyChange)="updateDados(dadosFilialIdx(), 'valorPromocao', $event)" /></div>
+                <div class="prod-field"><label>VLR PROMOÇÃO A PRAZO</label><input type="text" currencyInput [currencyValue]="dd.valorPromocaoPrazo" (currencyChange)="updateDados(dadosFilialIdx(), 'valorPromocaoPrazo', $event)" /></div>
                 <div class="prod-field"><label>DATA INÍCIO</label><input type="date" [value]="dd.promocaoInicio || ''" (input)="updateDados(dadosFilialIdx(), 'promocaoInicio', $any($event.target).value || null)" /></div>
                 <div class="prod-field"><label>DATA TÉRMINO</label><input type="date" [value]="dd.promocaoFim || ''" [min]="dd.promocaoInicio || ''" (input)="updateDados(dadosFilialIdx(), 'promocaoFim', $any($event.target).value || null)" /></div>
               </div>
               <div class="prod-section">Descontos</div>
               <div class="prod-grid">
-                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="number" [value]="dd.descontoMinimo" (input)="updateDados(dadosFilialIdx(), 'descontoMinimo', clampPercent($any($event.target)))" step="0.01" min="0" max="100" /></div>
-                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="number" [value]="dd.descontoMaxSemSenha" (input)="updateDados(dadosFilialIdx(), 'descontoMaxSemSenha', clampPercent($any($event.target)))" step="0.01" min="0" max="100" /></div>
-                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="number" [value]="dd.descontoMaxComSenha" (input)="updateDados(dadosFilialIdx(), 'descontoMaxComSenha', clampPercent($any($event.target)))" step="0.01" min="0" max="100" /></div>
+                <div class="prod-field"><label>% DESC MÍNIMO</label><input type="text" currencyInput [currencyValue]="dd.descontoMinimo" (currencyChange)="updateDados(dadosFilialIdx(), 'descontoMinimo', $event > 100 ? 100 : $event)" /></div>
+                <div class="prod-field"><label>% DESC MÁX SEM SENHA</label><input type="text" currencyInput [currencyValue]="dd.descontoMaxSemSenha" (currencyChange)="updateDados(dadosFilialIdx(), 'descontoMaxSemSenha', $event > 100 ? 100 : $event)" /></div>
+                <div class="prod-field"><label>% DESC MÁX COM SENHA</label><input type="text" currencyInput [currencyValue]="dd.descontoMaxComSenha" (currencyChange)="updateDados(dadosFilialIdx(), 'descontoMaxComSenha', $event > 100 ? 100 : $event)" /></div>
               </div>
             </div>
           </details>
@@ -563,8 +563,8 @@
             <summary class="prod-acc-header acc-geral">Geral</summary>
             <div class="prod-acc-body">
               <div class="prod-grid">
-                <div class="prod-field"><label>% COMISSÃO</label><input type="number" [value]="dd.comissao" (input)="updateDados(dadosFilialIdx(), 'comissao', +$any($event.target).value)" step="0.01" /></div>
-                <div class="prod-field"><label>VLR INCENTIVO</label><input type="number" [value]="dd.valorIncentivo" (input)="updateDados(dadosFilialIdx(), 'valorIncentivo', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field"><label>% COMISSÃO</label><input type="text" currencyInput [currencyValue]="dd.comissao" (currencyChange)="updateDados(dadosFilialIdx(), 'comissao', $event)" /></div>
+                <div class="prod-field"><label>VLR INCENTIVO</label><input type="text" currencyInput [currencyValue]="dd.valorIncentivo" (currencyChange)="updateDados(dadosFilialIdx(), 'valorIncentivo', $event)" /></div>
                 <div class="prod-field">
                   <label>LOCAL</label>
                   <div class="lookup-wrap">
