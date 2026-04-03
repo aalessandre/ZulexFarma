@@ -629,8 +629,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   // ── Log ───────────────────────────────────────────────────────────
 
   abrirLog() {
-    const r = this.registroSelecionado();
-    if (!r?.id) return;
+    const id = this.isProdutoAba() ? this.produtoEditandoId() : this.registroSelecionado()?.id;
+    if (!id) return;
     this.logDataInicio.set(this.hoje(-30));
     this.logDataFim.set(this.hoje(0));
     this.modalLog.set(true);
@@ -638,13 +638,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   filtrarLog() {
-    const r = this.registroSelecionado();
-    if (!r?.id) return;
+    const id = this.isProdutoAba() ? this.produtoEditandoId() : this.registroSelecionado()?.id;
+    if (!id) return;
     this.carregandoLog.set(true);
     this.logSelecionado.set(null);
-    const url = this.apiUrlAtual();
+    const url = this.isProdutoAba() ? this.produtoApiUrl : this.apiUrlAtual();
     const params = `dataInicio=${this.logDataInicio()}&dataFim=${this.logDataFim()}`;
-    this.http.get<any>(`${url}/${r.id}/log?${params}`).subscribe({
+    this.http.get<any>(`${url}/${id}/log?${params}`).subscribe({
       next: resp => {
         const lista: LogEntry[] = resp.data ?? [];
         this.logRegistros.set(lista);
