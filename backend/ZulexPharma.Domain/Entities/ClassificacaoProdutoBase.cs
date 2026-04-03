@@ -26,4 +26,7 @@ public abstract class ClassificacaoProdutoBase : BaseEntity
     public bool PermitirDescontoPrazo { get; set; } = false;
     public bool PermitirPromocao { get; set; } = false;
     public bool PermitirDescontosProgressivos { get; set; } = false;
+
+    /// <summary>Se true, produtos deste grupo são atualizados pela tabela ABCFarma.</summary>
+    public bool AtualizarAbcFarma { get; set; } = true;
 }

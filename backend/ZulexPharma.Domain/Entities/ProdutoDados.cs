@@ -33,6 +33,9 @@ public class ProdutoDados : BaseEntity
     public decimal ValorVenda { get; set; }
     public decimal Pmc { get; set; }
 
+    /// <summary>Preço de Fábrica (ABCFarma).</summary>
+    public decimal PrecoFabrica { get; set; }
+
     // ── Promoção ────────────────────────────────────────────────
     public decimal ValorPromocao { get; set; }
     public decimal ValorPromocaoPrazo { get; set; }

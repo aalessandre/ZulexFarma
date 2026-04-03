@@ -28,6 +28,7 @@ public class ClassificacaoFormDto
     public bool PermitirDescontoPrazo { get; set; } = false;
     public bool PermitirPromocao { get; set; } = false;
     public bool PermitirDescontosProgressivos { get; set; } = false;
+    public bool AtualizarAbcFarma { get; set; } = true;
     public bool Ativo { get; set; } = true;
 }
 

@@ -265,7 +265,7 @@
           }
           <div class="prod-field prod-field-2">
             <label>CÓDIGO DE BARRAS</label>
-            <input type="text" [value]="produtoForm().codigoBarras || ''" (input)="updateProdutoForm('codigoBarras', $any($event.target).value)" placeholder="Código de barras principal" maxlength="13" (keypress)="somenteNumeros($event)" />
+            <input type="text" [value]="produtoForm().codigoBarras || ''" (input)="onCodigoBarrasChange($any($event.target).value)" placeholder="Código de barras principal" maxlength="13" (keypress)="somenteNumeros($event)" />
           </div>
           <div class="prod-field prod-field-full">
             <label>NOME *</label>
@@ -586,6 +586,26 @@
                 <div class="prod-field"><label>VLR VENDA</label><input type="text" currencyInput [currencyValue]="dd.valorVenda" (currencyChange)="updateDados(dadosFilialIdx(), 'valorVenda', $event)" /></div>
                 <div class="prod-field"><label>PMC</label><input type="text" currencyInput [currencyValue]="dd.pmc" (currencyChange)="updateDados(dadosFilialIdx(), 'pmc', $event)" /></div>
               </div>
+
+              <!-- ABCFarma -->
+              <div class="prod-section-abc">
+                <span>ABCFarma</span>
+                @if (abcFarmaInfo(); as abc) {
+                  @if (abc.encontrado) {
+                    <span class="abc-badge abc-encontrado">Encontrado</span>
+                  } @else {
+                    <span class="abc-badge abc-nao-encontrado">Produto nao encontrado na base ABCFarma</span>
+                  }
+                }
+              </div>
+              @if (abcFarmaInfo()?.encontrado) {
+                <div class="prod-grid prod-grid-abc">
+                  <div class="prod-field"><label>P. FABRICA</label><input type="text" [value]="abcFarmaInfo()!.pf | number:'1.2-2':'pt-BR'" disabled class="abc-field" /></div>
+                  <div class="prod-field"><label>MARKUP ABCFARMA %</label><input type="text" [value]="abcFarmaInfo()!.markupAbc | number:'1.2-2':'pt-BR'" disabled class="abc-field" /></div>
+                  <div class="prod-field"><label>PMC ABCFARMA</label><input type="text" [value]="abcFarmaInfo()!.pmc | number:'1.2-2':'pt-BR'" disabled class="abc-field" /></div>
+                </div>
+              }
+
               <div class="prod-section">Promoção</div>
               <div class="prod-grid">
                 <div class="prod-field"><label>VLR PROMOÇÃO À VISTA</label><input type="text" currencyInput [currencyValue]="dd.valorPromocao" (currencyChange)="updateDados(dadosFilialIdx(), 'valorPromocao', $event)" /></div>
@@ -866,6 +886,7 @@
           <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="registroForm().permitirDescontoPrazo" (change)="updateForm('permitirDescontoPrazo', $any($event.target).checked)" /><span>Permitir Desconto a Prazo</span></label></div>
           <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="registroForm().permitirPromocao" (change)="updateForm('permitirPromocao', $any($event.target).checked)" /><span>Permitir Promoção</span></label></div>
           <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="registroForm().permitirDescontosProgressivos" (change)="updateForm('permitirDescontosProgressivos', $any($event.target).checked)" /><span>Permitir Descontos Progressivos</span></label></div>
+          <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="registroForm().atualizarAbcFarma" (change)="updateForm('atualizarAbcFarma', $any($event.target).checked)" /><span>Atualizar precos pelo ABCFarma</span></label></div>
           <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="registroForm().ativo" (change)="updateForm('ativo', $any($event.target).checked)" /><span>Ativo</span></label></div>
         </div>
         }

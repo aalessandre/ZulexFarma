@@ -369,7 +369,7 @@ public class ProdutoService : IProdutoService
         e.UltimaCompraFpc = d.UltimaCompraFpc; e.UltimaCompraBoleto = d.UltimaCompraBoleto;
         e.UltimaCompraDifal = d.UltimaCompraDifal; e.UltimaCompraFrete = d.UltimaCompraFrete;
         e.CustoMedio = d.CustoMedio; e.ProjecaoLucro = d.ProjecaoLucro;
-        e.Markup = d.Markup; e.ValorVenda = d.ValorVenda; e.Pmc = d.Pmc;
+        e.Markup = d.Markup; e.ValorVenda = d.ValorVenda; e.Pmc = d.Pmc; e.PrecoFabrica = d.PrecoFabrica;
         e.ValorPromocao = d.ValorPromocao; e.ValorPromocaoPrazo = d.ValorPromocaoPrazo;
         e.PromocaoInicio = d.PromocaoInicio;
         // Data fim = 23:59:59 do dia selecionado (promoção vale o dia inteiro)
@@ -523,7 +523,7 @@ public class ProdutoService : IProdutoService
         e.UltimaCompraFpc = d.UltimaCompraFpc; e.UltimaCompraBoleto = d.UltimaCompraBoleto;
         e.UltimaCompraDifal = d.UltimaCompraDifal; e.UltimaCompraFrete = d.UltimaCompraFrete;
         e.CustoMedio = d.CustoMedio; e.ProjecaoLucro = d.ProjecaoLucro;
-        e.Markup = d.Markup; e.ValorVenda = d.ValorVenda; e.Pmc = d.Pmc;
+        e.Markup = d.Markup; e.ValorVenda = d.ValorVenda; e.Pmc = d.Pmc; e.PrecoFabrica = d.PrecoFabrica;
         e.ValorPromocao = d.ValorPromocao; e.ValorPromocaoPrazo = d.ValorPromocaoPrazo;
         e.PromocaoInicio = d.PromocaoInicio;
         e.PromocaoFim = d.PromocaoFim.HasValue ? d.PromocaoFim.Value.Date.AddDays(1).AddSeconds(-1) : null;
@@ -702,7 +702,7 @@ public class ProdutoService : IProdutoService
             UltimaCompraFpc = d.UltimaCompraFpc, UltimaCompraBoleto = d.UltimaCompraBoleto,
             UltimaCompraDifal = d.UltimaCompraDifal, UltimaCompraFrete = d.UltimaCompraFrete,
             CustoMedio = d.CustoMedio, ProjecaoLucro = d.ProjecaoLucro,
-            Markup = d.Markup, ValorVenda = d.ValorVenda, Pmc = d.Pmc,
+            Markup = d.Markup, ValorVenda = d.ValorVenda, Pmc = d.Pmc, PrecoFabrica = d.PrecoFabrica,
             ValorPromocao = d.ValorPromocao, ValorPromocaoPrazo = d.ValorPromocaoPrazo,
             PromocaoInicio = d.PromocaoInicio, PromocaoFim = d.PromocaoFim,
             DescontoMinimo = d.DescontoMinimo, DescontoMaxSemSenha = d.DescontoMaxSemSenha,

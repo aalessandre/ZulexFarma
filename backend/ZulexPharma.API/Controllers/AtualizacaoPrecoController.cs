@@ -18,6 +18,13 @@ public class AtualizacaoPrecoController : ControllerBase
         _service = service;
     }
 
+    [HttpGet("buscar-ean/{ean}")]
+    public async Task<IActionResult> BuscarEan(string ean, [FromQuery] decimal aliquota = 18)
+    {
+        try { return Ok(new { success = true, data = await _service.BuscarPorEanAsync(ean, aliquota) }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em BuscarEan"); return StatusCode(500, new { success = false, message = "Erro ao buscar." }); }
+    }
+
     [HttpGet("info-base")]
     public async Task<IActionResult> InfoBase()
     {

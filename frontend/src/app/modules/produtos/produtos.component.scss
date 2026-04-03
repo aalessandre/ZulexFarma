@@ -240,6 +240,35 @@
   &.prod-field-radio { grid-column: span 2; }
 }
 
+/* ── ABCFarma block ──────────────────────────────────────────────── */
+.prod-section-abc {
+  display: flex; align-items: center; gap: 10px;
+  margin: 12px 0 6px; padding: 6px 10px;
+  background: linear-gradient(135deg, #1a5276, #2471a3);
+  color: #fff; border-radius: 4px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+}
+
+.abc-badge {
+  padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;
+}
+.abc-encontrado { background: #d4edda; color: #155724; }
+.abc-nao-encontrado { background: #fff3cd; color: #856404; }
+
+.prod-grid-abc {
+  background: rgba(26, 82, 118, 0.04);
+  border: 1px dashed rgba(26, 82, 118, 0.2);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.abc-field {
+  background: var(--erp-bg, #f5f7fa) !important;
+  color: var(--erp-blue, #2c5fad) !important;
+  font-weight: 600 !important;
+  border-color: rgba(26, 82, 118, 0.3) !important;
+}
+
 .custo-total-row {
   display: flex;
   align-items: flex-end;

@@ -36,6 +36,7 @@ interface Classificacao {
   permitirDescontoPrazo: boolean;
   permitirPromocao: boolean;
   permitirDescontosProgressivos: boolean;
+  atualizarAbcFarma: boolean;
   ativo: boolean;
   criadoEm?: string;
 }
@@ -78,7 +79,7 @@ interface ProdutoDadosItem {
   id?: number; filialId: number; filialNome?: string;
   estoqueAtual: number; estoqueMinimo: number; estoqueMaximo: number; demanda: number; curvaAbc?: string; estoqueDeposito: number;
   ultimaCompraUnitario: number; ultimaCompraSt: number; ultimaCompraOutros: number; ultimaCompraIpi: number; ultimaCompraFpc: number; ultimaCompraBoleto: number; ultimaCompraDifal: number; ultimaCompraFrete: number;
-  custoMedio: number; projecaoLucro: number; markup: number; valorVenda: number; pmc: number;
+  custoMedio: number; projecaoLucro: number; markup: number; valorVenda: number; pmc: number; precoFabrica: number;
   valorPromocao: number; valorPromocaoPrazo: number; promocaoInicio?: string; promocaoFim?: string;
   descontoMinimo: number; descontoMaxSemSenha: number; descontoMaxComSenha: number;
   comissao: number; valorIncentivo: number;
@@ -207,6 +208,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   produtoBusca = signal('');
   /** Quantidade da compra atual (usado para cálculo de custo médio ponderado) */
   qtdeCompraAtual = signal<number>(1);
+
+  // ── ABCFarma lookup ──────────────────────────────────────────────
+  abcFarmaInfo = signal<{ encontrado: boolean; nome?: string; pf: number; pmc: number; markupAbc: number; fabricante?: string } | null>(null);
   filialSelecionada = signal<number>(0);
   filialLocal = signal<number>(0);
   filiaisDisponiveis = signal<{ id: number; nome: string }[]>([]);
@@ -648,6 +652,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           permitirDescontoPrazo: d.permitirDescontoPrazo ?? false,
           permitirPromocao: d.permitirPromocao ?? false,
           permitirDescontosProgressivos: d.permitirDescontosProgressivos ?? false,
+          atualizarAbcFarma: d.atualizarAbcFarma ?? true,
           ativo: d.ativo, criadoEm: d.criadoEm
         };
         this.registroForm.set(form);
@@ -810,7 +815,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       descontoMaximoComSenha: 0, projecaoLucro: 30, markupPadrao: 50,
       formacaoPreco: 'MARKUP', baseCalculo: 'CUSTO_COMPRA', controlarLotesVencimento: false, informarPrescritorVenda: false,
       imprimirEtiqueta: false, permitirDescontoPrazo: false, permitirPromocao: false,
-      permitirDescontosProgressivos: false, ativo: true
+      permitirDescontosProgressivos: false, atualizarAbcFarma: true, ativo: true
     };
   }
 
@@ -926,7 +931,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       filialId, estoqueAtual: 0, estoqueMinimo: 0, estoqueMaximo: 0, demanda: 0, estoqueDeposito: 0,
       ultimaCompraUnitario: 0, ultimaCompraSt: 0, ultimaCompraOutros: 0, ultimaCompraIpi: 0,
       ultimaCompraFpc: 0, ultimaCompraBoleto: 0, ultimaCompraDifal: 0, ultimaCompraFrete: 0,
-      custoMedio: 0, projecaoLucro: 0, markup: 0, valorVenda: 0, pmc: 0,
+      custoMedio: 0, projecaoLucro: 0, markup: 0, valorVenda: 0, pmc: 0, precoFabrica: 0,
       valorPromocao: 0, valorPromocaoPrazo: 0, descontoMinimo: 0, descontoMaxSemSenha: 0, descontoMaxComSenha: 0,
       comissao: 0, valorIncentivo: 0,
       bloquearDesconto: false, bloquearPromocao: false, naoAtualizarAbcfarma: false,
@@ -988,6 +993,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         this.produtoFormOriginal = JSON.stringify(f);
         this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(true);
         this.produtoEditandoId.set(s.id); this.modo.set('form');
+        // Buscar ABCFarma ao abrir produto existente
+        if (f.codigoBarras) this.buscarAbcFarma(f.codigoBarras);
+        else this.abcFarmaInfo.set(null);
       },
       error: () => this.carregando.set(false)
     });
@@ -1634,6 +1642,83 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   isProdutoAba(): boolean { return this.abaAtiva() === 'produtos'; }
+
+  // ── Código de barras → busca ABCFarma ──────────────────────────
+
+  onCodigoBarrasChange(valor: string) {
+    this.updateProdutoForm('codigoBarras', valor);
+    if (valor && valor.length >= 7) {
+      this.buscarAbcFarma(valor);
+    } else {
+      this.abcFarmaInfo.set(null);
+    }
+  }
+
+  buscarAbcFarma(ean: string) {
+    // Buscar alíquota da filial
+    const filialId = this.filialSelecionada();
+    const filial = this.filiaisDisponiveis().find(f => f.id === filialId);
+
+    this.http.get<any>(`${environment.apiUrl}/atualizacao-precos/buscar-ean/${ean}?aliquota=${filial ? (filial as any).aliquotaIcms || 18 : 18}`).subscribe({
+      next: r => {
+        const d = r.data;
+        if (d?.encontrado) {
+          this.abcFarmaInfo.set({
+            encontrado: true,
+            nome: d.nome,
+            pf: d.precoFabrica,
+            pmc: d.pmc,
+            markupAbc: d.markupAbcFarma,
+            fabricante: d.nomeFabricante
+          });
+
+          // Se grupo principal permite e produto permite, preencher preços
+          const f = this.produtoForm();
+          const dadosIdx = this.dadosFilialIdx();
+          const dd = f.dados[dadosIdx];
+          if (dd && !dd.naoAtualizarAbcfarma) {
+            // Preencher PMC, Valor Venda e Preço Fábrica
+            this.updateDados(dadosIdx, 'pmc', d.pmc);
+            this.updateDados(dadosIdx, 'valorVenda', d.pmc);
+            this.updateDados(dadosIdx, 'precoFabrica', d.precoFabrica);
+
+            // Recalcular markup/projeção
+            setTimeout(() => this.recalcularPrecoVenda(dadosIdx), 0);
+          }
+
+          // Preencher fabricante se não preenchido
+          if (!f.fabricanteId && d.nomeFabricante) {
+            this.autoPreencherFabricante(d.nomeFabricante);
+          }
+        } else {
+          this.abcFarmaInfo.set({ encontrado: false, pf: 0, pmc: 0, markupAbc: 0 });
+        }
+      },
+      error: () => this.abcFarmaInfo.set(null)
+    });
+  }
+
+  private autoPreencherFabricante(nomeFabricante: string) {
+    // Buscar fabricante pelo nome
+    this.http.get<any>(`${environment.apiUrl}/fabricantes`).subscribe({
+      next: r => {
+        const lista: any[] = r.data ?? [];
+        const match = lista.find((f: any) => f.nome?.toUpperCase() === nomeFabricante.toUpperCase());
+        if (match) {
+          this.produtoForm.update(f => ({ ...f, fabricanteId: match.id, fabricanteNome: match.nome }));
+        } else {
+          // Criar fabricante automaticamente
+          this.http.post<any>(`${environment.apiUrl}/fabricantes`, { nome: nomeFabricante.toUpperCase(), ativo: true }).subscribe({
+            next: resp => {
+              if (resp.data) {
+                this.produtoForm.update(f => ({ ...f, fabricanteId: resp.data.id, fabricanteNome: resp.data.nome }));
+              }
+            }
+          });
+        }
+      }
+    });
+  }
 
   // ── Herança de classificação (Seção > SubGrupo > Grupo > GrupoPrincipal) ──
 

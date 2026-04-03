@@ -163,6 +163,7 @@ public class ProdutoDadosDto
     public decimal Markup { get; set; }
     public decimal ValorVenda { get; set; }
     public decimal Pmc { get; set; }
+    public decimal PrecoFabrica { get; set; }
 
     // Promoção
     public decimal ValorPromocao { get; set; }

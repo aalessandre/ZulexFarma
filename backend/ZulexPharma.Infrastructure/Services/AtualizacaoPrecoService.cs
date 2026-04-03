@@ -20,6 +20,30 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
         _log = log;
     }
 
+    // ── Buscar por EAN ─────────────────────────────────────────────
+    public async Task<AbcFarmaEanResult> BuscarPorEanAsync(string ean, decimal aliquota)
+    {
+        var abc = await _db.AbcFarmaBase.FirstOrDefaultAsync(x => x.Ean == ean.Trim());
+        if (abc == null)
+            return new AbcFarmaEanResult { Encontrado = false };
+
+        var pf = ObterPfPorAliquota(abc, aliquota);
+        var pmc = ObterPmcPorAliquota(abc, aliquota);
+        var markupAbc = pf > 0 ? Math.Round(((pmc - pf) / pf) * 100, 2) : 0;
+
+        return new AbcFarmaEanResult
+        {
+            Encontrado = true,
+            Nome = abc.Nome,
+            Descricao = abc.Descricao,
+            NomeFabricante = abc.NomeFabricante,
+            ClasseTerapeutica = abc.ClasseTerapeutica,
+            PrecoFabrica = pf,
+            Pmc = pmc,
+            MarkupAbcFarma = markupAbc
+        };
+    }
+
     // ── Info da base ─────────────────────────────────────────────────
     public async Task<AbcFarmaBaseInfo> ObterInfoBaseAsync()
     {
@@ -339,6 +363,17 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
             });
 
         return atualizacao.Id;
+    }
+
+    private static decimal ObterPfPorAliquota(AbcFarmaBase abc, decimal aliquota)
+    {
+        return aliquota switch
+        {
+            0 => abc.Pf0, 12 => abc.Pf12, 17 => abc.Pf17, 18 => abc.Pf18,
+            19 => abc.Pf19, 19.5m => abc.Pf195, 20 => abc.Pf20, 20.5m => abc.Pf205,
+            21 => abc.Pf21, 22 => abc.Pf22, 22.5m => abc.Pf225, 23 => abc.Pf23,
+            _ => abc.Pf18
+        };
     }
 
     private static decimal ObterPmcPorAliquota(AbcFarmaBase abc, decimal aliquota)

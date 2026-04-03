@@ -71,6 +71,20 @@ public class AtualizacaoPrecoListDto
     public string Status { get; set; } = "";
 }
 
+// ── Busca por EAN ───────────────────────────────────────────────────
+public class AbcFarmaEanResult
+{
+    public bool Encontrado { get; set; }
+    public string? Nome { get; set; }
+    public string? Descricao { get; set; }
+    public string? NomeFabricante { get; set; }
+    public string? ClasseTerapeutica { get; set; }
+    public string? DescricaoLista { get; set; }
+    public decimal PrecoFabrica { get; set; }
+    public decimal Pmc { get; set; }
+    public decimal MarkupAbcFarma { get; set; }
+}
+
 // ── Info da base ────────────────────────────────────────────────────
 public class AbcFarmaBaseInfo
 {
