@@ -48,7 +48,18 @@ public static class SyncApplicator
             LimparNavigations(db, entidade);
             db.Add(entidade);
             db.Entry(entidade).Property("Id").IsTemporary = false;
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+            {
+                // Unique constraint violation — registro local já tem o mesmo valor único (ex: Configuracoes.Chave).
+                // Desanexar a entidade e ignorar (o registro local prevalece).
+                db.Entry(entidade).State = EntityState.Detached;
+                Log.Warning("Sync INSERT ignorado: {Tabela} Id={Id} — conflito de unique constraint, registro local prevalece.", tabela, registroId);
+                return false;
+            }
             return true;
         }
 
