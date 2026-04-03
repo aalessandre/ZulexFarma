@@ -992,6 +992,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
     const f = { ...this.produtoForm() } as any;
     if (!f.nome?.trim()) { this.modal.erro('Validação', 'Nome é obrigatório.'); return; }
+    if (!f.grupoPrincipalId) { this.modal.erro('Validação', 'Grupo Principal é obrigatório.'); return; }
 
     // Verificar propagação de preço (só em edição)
     if (this.modoEdicao() && f.dados?.length > 0) {
@@ -1489,11 +1490,41 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       + (dd.ultimaCompraFrete || 0);
   }
 
-  /** Atualiza campo e recalcula preço de venda */
+  /** Atualiza campo e recalcula custo médio + preço de venda */
   updateDadosRecalc(i: number, campo: string, valor: any) {
     this.updateDados(i, campo, valor);
-    // Recalcular após atualizar o campo
-    setTimeout(() => this.recalcularPrecoVenda(i), 0);
+    const camposCusto = ['ultimaCompraUnitario', 'ultimaCompraSt', 'ultimaCompraOutros',
+      'ultimaCompraIpi', 'ultimaCompraFpc', 'ultimaCompraBoleto', 'ultimaCompraDifal', 'ultimaCompraFrete'];
+    setTimeout(() => {
+      // Se alterou campo de custo, recalcular custo médio
+      if (camposCusto.includes(campo)) {
+        this.recalcularCustoMedio(i);
+      }
+      this.recalcularPrecoVenda(i);
+    }, 0);
+  }
+
+  /** Recalcula custoMedio com base no custo total da compra (média ponderada com estoque atual) */
+  private recalcularCustoMedio(dadosIdx: number) {
+    const dd = this.produtoForm().dados[dadosIdx];
+    if (!dd) return;
+
+    const custoCompra = this.custoTotalCompra(dd);
+    const estoqueAtual = dd.estoqueAtual || 0;
+    const custoMedioAtual = dd.custoMedio || 0;
+
+    let novoCustoMedio: number;
+    if (estoqueAtual <= 0) {
+      // Sem estoque: custo médio = custo da compra
+      novoCustoMedio = custoCompra;
+    } else {
+      // Média ponderada: ((estoque * custoMedioAtual) + (1 * custoCompra)) / (estoque + 1)
+      // Usa qtde=1 como referência unitária (a qtde real será aplicada na finalização da compra)
+      novoCustoMedio = ((estoqueAtual * custoMedioAtual) + custoCompra) / (estoqueAtual + 1);
+    }
+
+    novoCustoMedio = Math.round(novoCustoMedio * 100) / 100;
+    this.updateDados(dadosIdx, 'custoMedio', novoCustoMedio);
   }
 
   /** Recalcula valorVenda com base em formacaoPreco e baseCalculo */
@@ -1628,6 +1659,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
             } : dados)
           }));
           this.isDirty.set(true);
+          // Recalcular preço de venda com os novos valores herdados
+          setTimeout(() => this.recalcularPrecoVenda(dadosIdx), 0);
         } else {
           this.buscarHerancaRecursivo(consultas, idx + 1, dadosIdx);
         }
