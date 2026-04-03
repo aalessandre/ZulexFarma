@@ -205,6 +205,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   private produtoFormOriginal = '';
   produtoEditandoId = signal<number | null>(null);
   produtoBusca = signal('');
+  /** Quantidade da compra atual (usado para cálculo de custo médio ponderado) */
+  qtdeCompraAtual = signal<number>(1);
   filialSelecionada = signal<number>(0);
   filialLocal = signal<number>(0);
   filiaisDisponiveis = signal<{ id: number; nome: string }[]>([]);
@@ -321,12 +323,18 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         }
 
         // Dados por filial (preços do XML)
+        const qtdeCompra = pre.quantidade || 1;
+        this.qtdeCompraAtual.set(qtdeCompra);
+        const stUnitario = qtdeCompra > 0 ? (pre.valorStTotal || 0) / qtdeCompra : 0;
+        const custoUnitarioTotal = (pre.valorUnitario || 0) + stUnitario;
+
         novo.dados = filiais.map((f: any) => {
           const d = this.novoDadosFilial(f.id);
           if (f.id === pre.filialId) {
             d.ultimaCompraUnitario = pre.valorUnitario || 0;
-            d.ultimaCompraSt = pre.valorSt || 0;
-            d.custoMedio = pre.valorUnitario || 0;
+            d.ultimaCompraSt = Math.round(stUnitario * 100) / 100;
+            // Custo médio = custo total unitário (produto novo, estoque zero)
+            d.custoMedio = Math.round(custoUnitarioTotal * 100) / 100;
             d.pmc = pre.pmc || 0;
           }
           return d;
@@ -1504,26 +1512,30 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
-  /** Recalcula custoMedio com base no custo total da compra (média ponderada com estoque atual) */
+  /**
+   * Recalcula custoMedio com média ponderada:
+   * custoMedio = ((estoqueAtual * custoMedioAtual) + (qtdeCompra * custoUnitarioCompra)) / (estoqueAtual + qtdeCompra)
+   */
   private recalcularCustoMedio(dadosIdx: number) {
     const dd = this.produtoForm().dados[dadosIdx];
     if (!dd) return;
 
-    const custoCompra = this.custoTotalCompra(dd);
+    const custoUnitarioCompra = this.custoTotalCompra(dd); // custo unitário total (unit + ST + outros...)
+    const qtdeCompra = this.qtdeCompraAtual();
     const estoqueAtual = dd.estoqueAtual || 0;
     const custoMedioAtual = dd.custoMedio || 0;
 
     let novoCustoMedio: number;
     if (estoqueAtual <= 0) {
-      // Sem estoque: custo médio = custo da compra
-      novoCustoMedio = custoCompra;
+      // Sem estoque: custo médio = custo unitário da compra
+      novoCustoMedio = custoUnitarioCompra;
     } else {
-      // Média ponderada: ((estoque * custoMedioAtual) + (1 * custoCompra)) / (estoque + 1)
-      // Usa qtde=1 como referência unitária (a qtde real será aplicada na finalização da compra)
-      novoCustoMedio = ((estoqueAtual * custoMedioAtual) + custoCompra) / (estoqueAtual + 1);
+      // Média ponderada
+      novoCustoMedio = ((estoqueAtual * custoMedioAtual) + (qtdeCompra * custoUnitarioCompra))
+                       / (estoqueAtual + qtdeCompra);
     }
 
-    novoCustoMedio = Math.round(novoCustoMedio * 100) / 100;
+    novoCustoMedio = Math.round(novoCustoMedio * 10000) / 10000;
     this.updateDados(dadosIdx, 'custoMedio', novoCustoMedio);
   }
 
