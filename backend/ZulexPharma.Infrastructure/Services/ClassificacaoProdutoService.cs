@@ -94,7 +94,6 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
         e.DescontoMaximoComSenha = dto.DescontoMaximoComSenha;
         e.ProjecaoLucro = dto.ProjecaoLucro;
         e.MarkupPadrao = dto.MarkupPadrao;
-        e.FormacaoPreco = dto.FormacaoPreco;
         e.BaseCalculo = dto.BaseCalculo;
         e.AtualizarAbcFarma = dto.AtualizarAbcFarma;
         e.ControlarLotesVencimento = dto.ControlarLotesVencimento;
@@ -111,7 +110,7 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
         Id = e.Id, Nome = e.Nome, ComissaoPercentual = e.ComissaoPercentual,
         DescontoMinimo = e.DescontoMinimo, DescontoMaximo = e.DescontoMaximo,
         DescontoMaximoComSenha = e.DescontoMaximoComSenha, ProjecaoLucro = e.ProjecaoLucro,
-        MarkupPadrao = e.MarkupPadrao, FormacaoPreco = e.FormacaoPreco, BaseCalculo = e.BaseCalculo, AtualizarAbcFarma = e.AtualizarAbcFarma,
+        MarkupPadrao = e.MarkupPadrao, BaseCalculo = e.BaseCalculo, AtualizarAbcFarma = e.AtualizarAbcFarma,
         ControlarLotesVencimento = e.ControlarLotesVencimento, InformarPrescritorVenda = e.InformarPrescritorVenda,
         ImprimirEtiqueta = e.ImprimirEtiqueta, PermitirDescontoPrazo = e.PermitirDescontoPrazo,
         PermitirPromocao = e.PermitirPromocao, PermitirDescontosProgressivos = e.PermitirDescontosProgressivos,
@@ -124,7 +123,7 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
         ["% Desc Mínimo"] = e.DescontoMinimo.ToString("N2"), ["% Desc Máximo"] = e.DescontoMaximo.ToString("N2"),
         ["% Desc Máx c/ Senha"] = e.DescontoMaximoComSenha.ToString("N2"),
         ["% Projeção Lucro"] = e.ProjecaoLucro.ToString("N2"), ["% Markup"] = e.MarkupPadrao.ToString("N2"),
-        ["Formação Preço"] = e.FormacaoPreco, ["Base Cálculo"] = e.BaseCalculo, ["ABCFarma"] = e.AtualizarAbcFarma ? "Sim" : "Não",
+        ["Base Cálculo"] = e.BaseCalculo, ["ABCFarma"] = e.AtualizarAbcFarma ? "Sim" : "Não",
         ["Controlar Lotes"] = e.ControlarLotesVencimento ? "Sim" : "Não",
         ["Prescritor"] = e.InformarPrescritorVenda ? "Sim" : "Não", ["Etiqueta"] = e.ImprimirEtiqueta ? "Sim" : "Não",
         ["Desc Prazo"] = e.PermitirDescontoPrazo ? "Sim" : "Não", ["Promoção"] = e.PermitirPromocao ? "Sim" : "Não",

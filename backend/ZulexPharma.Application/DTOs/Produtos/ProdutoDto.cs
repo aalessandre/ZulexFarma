@@ -201,7 +201,6 @@ public class ProdutoDadosDto
     public bool AvisoFracao { get; set; }
 
     // Formação de preço
-    public string? FormacaoPreco { get; set; }
     public string? BaseCalculo { get; set; }
 
     // Estatísticas

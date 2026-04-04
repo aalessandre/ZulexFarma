@@ -29,7 +29,6 @@ interface Classificacao {
   descontoMaximoComSenha: number;
   projecaoLucro: number;
   markupPadrao: number;
-  formacaoPreco: string;
   baseCalculo: string;
   controlarLotesVencimento: boolean;
   informarPrescritorVenda: boolean;
@@ -87,7 +86,7 @@ interface ProdutoDadosItem {
   produtoLocalId?: number; produtoLocalNome?: string; secaoId?: number; secaoNome?: string; produtoFamiliaId?: number; produtoFamiliaNome?: string;
   nomeEtiqueta?: string; mensagem?: string;
   bloquearDesconto: boolean; bloquearPromocao: boolean; naoAtualizarAbcfarma: boolean; naoAtualizarGestorTributario: boolean; bloquearCompras: boolean; produtoFormula: boolean; bloquearComissao: boolean; bloquearCoberturaOferta: boolean; usoContinuo: boolean; avisoFracao: boolean;
-  formacaoPreco?: string; baseCalculo?: string;
+  baseCalculo?: string;
   ultimaCompraEm?: string; ultimaVendaEm?: string;
 }
 
@@ -646,7 +645,6 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           descontoMinimo: d.descontoMinimo, descontoMaximo: d.descontoMaximo,
           descontoMaximoComSenha: d.descontoMaximoComSenha,
           projecaoLucro: d.projecaoLucro, markupPadrao: d.markupPadrao,
-          formacaoPreco: d.formacaoPreco || 'MARKUP',
           baseCalculo: d.baseCalculo || 'CUSTO_COMPRA',
           controlarLotesVencimento: d.controlarLotesVencimento ?? false,
           informarPrescritorVenda: d.informarPrescritorVenda ?? false,
@@ -815,7 +813,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     return {
       nome: '', comissaoPercentual: 0, descontoMinimo: 0, descontoMaximo: 0,
       descontoMaximoComSenha: 0, projecaoLucro: 30, markupPadrao: 50,
-      formacaoPreco: 'MARKUP', baseCalculo: 'CUSTO_COMPRA', controlarLotesVencimento: false, informarPrescritorVenda: false,
+      baseCalculo: 'CUSTO_COMPRA', controlarLotesVencimento: false, informarPrescritorVenda: false,
       imprimirEtiqueta: false, permitirDescontoPrazo: false, permitirPromocao: false,
       permitirDescontosProgressivos: false, atualizarAbcFarma: true, ativo: true
     };
@@ -1016,12 +1014,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     const filialId = this.filialSelecionada();
     const dadosFilial = f.dados?.find((d: any) => d.filialId === filialId);
     if (dadosFilial) {
-      const formacao = dadosFilial.formacaoPreco || 'MARKUP';
-      if (formacao === 'MARKUP' && !(dadosFilial.markup > 0)) {
-        this.modal.erro('Validação', '% Markup não pode ser zero.'); return;
-      }
-      if (formacao === 'PROJECAO' && !(dadosFilial.projecaoLucro > 0)) {
-        this.modal.erro('Validação', '% Projeção de Lucro não pode ser zero.'); return;
+      if (!(dadosFilial.markup > 0) && !(dadosFilial.projecaoLucro > 0)) {
+        this.modal.erro('Validacao', '% Markup ou % Projecao de Lucro deve ser preenchido.'); return;
       }
       if (!(dadosFilial.valorVenda > 0)) {
         this.modal.erro('Validação', 'Valor de Venda não pode ser zero.'); return;
@@ -1791,17 +1785,15 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
         const projecao = d.projecaoLucro ?? 0;
         const markup = d.markupPadrao ?? 0;
-        const formacaoPreco = d.formacaoPreco || '';
         const baseCalculo = d.baseCalculo || '';
 
-        if (projecao > 0 || markup > 0 || formacaoPreco || baseCalculo) {
+        if (projecao > 0 || markup > 0 || baseCalculo) {
           this.produtoForm.update(f => ({
             ...f,
             dados: f.dados.map((dados, i) => i === dadosIdx ? {
               ...dados,
               projecaoLucro: projecao > 0 ? projecao : dados.projecaoLucro,
               markup: markup > 0 ? markup : dados.markup,
-              formacaoPreco: formacaoPreco || dados.formacaoPreco,
               baseCalculo: baseCalculo || dados.baseCalculo,
             } : dados)
           }));

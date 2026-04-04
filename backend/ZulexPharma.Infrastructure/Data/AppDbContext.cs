@@ -522,7 +522,6 @@ public class AppDbContext : DbContext
             e.Property(x => x.NomeEtiqueta).HasMaxLength(110);
             e.Property(x => x.Mensagem).HasMaxLength(200);
             e.Property(x => x.Lote).HasMaxLength(30);
-            e.Property(x => x.FormacaoPreco).HasMaxLength(20);
             e.Property(x => x.BaseCalculo).HasMaxLength(20);
         });
 
@@ -708,7 +707,6 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
-            e.Property(x => x.FormacaoPreco).HasMaxLength(20).HasDefaultValue("MARKUP");
             e.Property(x => x.BaseCalculo).HasMaxLength(20).HasDefaultValue("CUSTO_COMPRA");
             e.Property(x => x.ComissaoPercentual).HasColumnType("numeric(5,2)");
             e.Property(x => x.DescontoMinimo).HasColumnType("numeric(5,2)");

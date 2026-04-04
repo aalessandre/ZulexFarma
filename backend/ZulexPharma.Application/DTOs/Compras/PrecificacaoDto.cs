@@ -36,7 +36,6 @@ public class PrecificacaoItem
     public decimal PmcAbcFarma { get; set; }
 
     // Config
-    public string FormacaoPreco { get; set; } = "MARKUP";
     public decimal Markup { get; set; }
     public decimal ProjecaoLucro { get; set; }
     public decimal Quantidade { get; set; }

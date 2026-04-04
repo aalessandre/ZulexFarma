@@ -755,10 +755,17 @@ export class ComprasComponent implements OnInit, OnDestroy {
     const base = this.precBaseCalculo();
     this.precificacaoItens.update(itens => itens.map(i => {
       const custoBase = base === 'CUSTO_MEDIO' ? i.custoMedioAtual : i.custoCompraAtual;
-      if (custoBase <= 0 || i.projecaoLucro >= 100) return i;
-      const venda = Math.round(custoBase / (1 - i.projecaoLucro / 100) * 100) / 100;
-      const mk = custoBase > 0 ? Math.round(((venda - custoBase) / custoBase) * 100 * 100) / 100 : 0;
-      return { ...i, novoPrecoVenda: venda, markup: mk };
+      if (custoBase <= 0) return i;
+
+      let venda = i.novoPrecoVenda;
+      if (i.projecaoLucro > 0 && i.projecaoLucro < 100) {
+        venda = Math.round(custoBase / (1 - i.projecaoLucro / 100) * 100) / 100;
+      } else if (i.markup > 0) {
+        venda = Math.round(custoBase * (1 + i.markup / 100) * 100) / 100;
+      }
+      const mk = custoBase > 0 && venda > 0 ? Math.round(((venda - custoBase) / custoBase) * 100 * 100) / 100 : i.markup;
+      const proj = venda > 0 && custoBase > 0 ? Math.min(Math.round(((venda - custoBase) / venda) * 100 * 100) / 100, 99) : i.projecaoLucro;
+      return { ...i, novoPrecoVenda: venda, markup: mk, projecaoLucro: proj };
     }));
   }
 

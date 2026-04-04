@@ -390,22 +390,15 @@ public class CompraService : ICompraService
                 ? Math.Round(((custoMedioAtual - custoMedioAnterior) / custoMedioAnterior) * 100, 2) : 0;
 
             // Configuração de formação de preço
-            var formacao = dados?.FormacaoPreco ?? "MARKUP";
             var markup = dados?.Markup ?? 0;
             var projecao = dados?.ProjecaoLucro ?? 0;
 
-            // Sugestões de preço
-            decimal sugCustoCompra = 0, sugCustoMedio = 0;
-            if (formacao == "MARKUP")
-            {
-                sugCustoCompra = Math.Round(custoCompraAtual * (1 + markup / 100), 2);
-                sugCustoMedio = Math.Round(custoMedioAtual * (1 + markup / 100), 2);
-            }
-            else if (projecao < 99)
-            {
-                sugCustoCompra = Math.Round(custoCompraAtual / (1 - projecao / 100), 2);
-                sugCustoMedio = Math.Round(custoMedioAtual / (1 - projecao / 100), 2);
-            }
+            // Sugestão: usa projecaoLucro com custo compra como base padrão
+            decimal sugVenda = dados?.ValorVenda ?? 0;
+            if (projecao > 0 && projecao < 99 && custoCompraAtual > 0)
+                sugVenda = Math.Round(custoCompraAtual / (1 - projecao / 100), 2);
+            else if (markup > 0 && custoCompraAtual > 0)
+                sugVenda = Math.Round(custoCompraAtual * (1 + markup / 100), 2);
 
             // PMC
             var pmcNota = item.PrecoMaximoConsumidor ?? 0;
@@ -437,12 +430,11 @@ public class CompraService : ICompraService
                 CustoMedioAtual = custoMedioAtual,
                 VarCustoMedioPercent = varCustoMedio,
                 PrecoVendaAtual = dados?.ValorVenda ?? 0,
-                SugestaoVendaCustoCompra = sugCustoCompra,
-                SugestaoVendaCustoMedio = sugCustoMedio,
-                NovoPrecoVenda = sugCustoMedio > 0 ? sugCustoMedio : sugCustoCompra,
+                SugestaoVendaCustoCompra = sugVenda,
+                SugestaoVendaCustoMedio = sugVenda,
+                NovoPrecoVenda = sugVenda,
                 PmcNota = pmcNota,
                 PmcAbcFarma = pmcAbcFarma,
-                FormacaoPreco = formacao,
                 Markup = markup,
                 ProjecaoLucro = projecao,
                 Quantidade = item.Quantidade
