@@ -21,6 +21,7 @@ interface CompraList {
   status: number;
   totalItens: number;
   itensVinculados: number;
+  itensPrecificados: number;
   criadoEm: string;
 }
 
@@ -830,6 +831,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
           itens: itens.map(i => ({
             produtoDadosId: i.produtoDadosId,
             produtoId: i.produtoId,
+            compraProdutoId: i.compraProdutoId,
             novoPrecoVenda: i.novoPrecoVenda,
             novoMarkup: i.markup,
             novaProjecaoLucro: i.projecaoLucro,

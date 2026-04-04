@@ -142,7 +142,8 @@
               <th class="th-sort" style="width:110px" (click)="ordenar('status')">
                 Status <span class="sort-icon">{{ sortIcon('status') }}</span>
               </th>
-              <th style="width:100px">Vinculados</th>
+              <th style="width:90px">Vinculados</th>
+              <th style="width:90px">Precificacao</th>
             </tr>
           </thead>
           <tbody>
@@ -175,6 +176,15 @@
                     <span class="badge-status" [class]="statusClassLista(c)">{{ statusLabelLista(c) }}</span>
                   </td>
                   <td class="td-center">{{ c.itensVinculados }}/{{ c.totalItens }}</td>
+                  <td class="td-center">
+                    @if (c.totalItens > 0 && c.itensPrecificados === c.totalItens) {
+                      <span class="badge-status status-finalizada">OK</span>
+                    } @else if (c.itensPrecificados > 0) {
+                      <span class="badge-status status-preentrada">{{ c.itensPrecificados }}/{{ c.totalItens }}</span>
+                    } @else {
+                      <span class="badge-status status-pendente">Pendente</span>
+                    }
+                  </td>
                 </tr>
               }
             }

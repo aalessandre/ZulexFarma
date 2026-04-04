@@ -17,6 +17,7 @@ public class CompraListDto
     public CompraStatus Status { get; set; }
     public int TotalItens { get; set; }
     public int ItensVinculados { get; set; }
+    public int ItensPrecificados { get; set; }
     public DateTime CriadoEm { get; set; }
 }
 

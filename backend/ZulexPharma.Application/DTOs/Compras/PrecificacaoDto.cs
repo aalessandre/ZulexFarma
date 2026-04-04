@@ -59,6 +59,7 @@ public class AplicarPrecificacaoItem
 {
     public long ProdutoDadosId { get; set; }
     public long ProdutoId { get; set; }
+    public long CompraProdutoId { get; set; }
     public decimal NovoPrecoVenda { get; set; }
     public decimal NovoMarkup { get; set; }
     public decimal NovaProjecaoLucro { get; set; }

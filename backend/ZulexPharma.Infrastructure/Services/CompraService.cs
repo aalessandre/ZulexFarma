@@ -49,6 +49,7 @@ public class CompraService : ICompraService
                     Status = c.Status,
                     TotalItens = c.Produtos.Count,
                     ItensVinculados = c.Produtos.Count(p => p.Vinculado),
+                    ItensPrecificados = c.Produtos.Count(p => p.SugestaoVenda.HasValue || p.PrecificacaoAplicada),
                     CriadoEm = c.CriadoEm
                 })
                 .ToListAsync();
@@ -470,6 +471,19 @@ public class CompraService : ICompraService
             dados.ProjecaoLucro = item.NovaProjecaoLucro;
             dados.Pmc = item.NovoPmc > 0 ? item.NovoPmc : dados.Pmc;
             // CustoMedio e custos da compra serão atualizados na finalização da nota
+
+            // Marcar item da compra como precificado
+            if (item.CompraProdutoId > 0)
+            {
+                var cp = await _db.ComprasProdutos.FindAsync(item.CompraProdutoId);
+                if (cp != null)
+                {
+                    cp.PrecificacaoAplicada = true;
+                    cp.SugestaoVenda = item.NovoPrecoVenda;
+                    cp.SugestaoMarkup = item.NovoMarkup;
+                    cp.SugestaoProjecao = item.NovaProjecaoLucro;
+                }
+            }
 
             await _log.RegistrarAsync("Produtos", "AJUSTE PREÇO (COMPRA)", "Produto", item.ProdutoId,
                 anterior: anterior,
