@@ -4,7 +4,7 @@ namespace ZulexPharma.Application.Interfaces;
 
 public interface ICompraService
 {
-    Task<List<CompraListDto>> ListarAsync();
+    Task<List<CompraListDto>> ListarAsync(long? filialId = null, string? status = null, DateTime? dataInicio = null, DateTime? dataFim = null, string? filtroData = null);
     Task<CompraDetalheDto> ObterAsync(long id);
     Task<CompraDetalheDto> ImportarXmlAsync(string xmlConteudo, long filialId);
     Task<CompraProdutoDto> VincularProdutoAsync(VincularProdutoDto dto);

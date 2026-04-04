@@ -189,6 +189,12 @@
   &:focus { border-color: var(--erp-blue); }
 }
 
+.input-data {
+  height: 34px; padding: 0 8px; border: 1px solid var(--erp-border-input); border-radius: 4px;
+  font-size: var(--erp-fs-body); color: var(--erp-text); background: var(--erp-surface); cursor: pointer;
+  &:focus { outline: none; border-color: var(--erp-blue); }
+}
+
 .input-busca-limpar {
   position: absolute;
   right: 6px;

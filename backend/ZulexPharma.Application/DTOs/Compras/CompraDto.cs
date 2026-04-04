@@ -20,6 +20,7 @@ public class CompraListDto
     public int ItensPrecificados { get; set; }
     public int ItensConferidos { get; set; }
     public int ItensConferidosExcedidos { get; set; }
+    public DateTime? DataFinalizacao { get; set; }
     public DateTime CriadoEm { get; set; }
 }
 

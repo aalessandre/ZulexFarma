@@ -27,13 +27,44 @@ public class CompraService : ICompraService
     }
 
     // ── Listar ───────────────────────────────────────────────────────
-    public async Task<List<CompraListDto>> ListarAsync()
+    public async Task<List<CompraListDto>> ListarAsync(long? filialId = null, string? status = null, DateTime? dataInicio = null, DateTime? dataFim = null, string? filtroData = null)
     {
         try
         {
-            return await _db.Compras
+            var query = _db.Compras
                 .Include(c => c.Fornecedor).ThenInclude(f => f.Pessoa)
                 .Include(c => c.Produtos)
+                .AsQueryable();
+
+            if (filialId.HasValue && filialId > 0)
+                query = query.Where(c => c.FilialId == filialId.Value);
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                if (status == "pendentes")
+                    query = query.Where(c => c.Status != CompraStatus.Finalizada && c.Status != CompraStatus.Cancelada);
+                else if (status == "finalizadas")
+                    query = query.Where(c => c.Status == CompraStatus.Finalizada);
+            }
+
+            if (dataInicio.HasValue)
+            {
+                var di = DateTime.SpecifyKind(dataInicio.Value.Date, DateTimeKind.Utc);
+                if (filtroData == "finalizacao")
+                    query = query.Where(c => c.DataFinalizacao >= di);
+                else
+                    query = query.Where(c => c.DataEmissao >= di);
+            }
+            if (dataFim.HasValue)
+            {
+                var df = DateTime.SpecifyKind(dataFim.Value.Date.AddDays(1), DateTimeKind.Utc);
+                if (filtroData == "finalizacao")
+                    query = query.Where(c => c.DataFinalizacao < df);
+                else
+                    query = query.Where(c => c.DataEmissao < df);
+            }
+
+            return await query
                 .OrderByDescending(c => c.CriadoEm)
                 .Select(c => new CompraListDto
                 {
@@ -52,6 +83,7 @@ public class CompraService : ICompraService
                     ItensPrecificados = c.Produtos.Count(p => p.SugestaoVenda.HasValue || p.PrecificacaoAplicada),
                     ItensConferidos = c.Produtos.Count(p => p.Vinculado && p.QtdeConferida >= p.Quantidade * (p.Fracao > 0 ? p.Fracao : 1)),
                     ItensConferidosExcedidos = c.Produtos.Count(p => p.Vinculado && p.QtdeConferida > p.Quantidade * (p.Fracao > 0 ? p.Fracao : 1)),
+                    DataFinalizacao = c.DataFinalizacao,
                     CriadoEm = c.CriadoEm
                 })
                 .ToListAsync();
@@ -828,19 +860,44 @@ public class CompraService : ICompraService
                 .FirstOrDefaultAsync(c => c.Id == id)
                 ?? throw new KeyNotFoundException($"Compra {id} não encontrada.");
 
+            // Se finalizada, reverter estoque e preços
             if (compra.Status == CompraStatus.Finalizada)
-                throw new ArgumentException("Não é possível excluir uma compra finalizada.");
+            {
+                foreach (var item in compra.Produtos.Where(p => p.Vinculado && p.ProdutoId.HasValue))
+                {
+                    var dados = await _db.ProdutosDados
+                        .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == compra.FilialId);
+                    if (dados == null) continue;
 
-            _db.Compras.Remove(compra);
-            await _db.SaveChangesAsync();
+                    var fracao = item.Fracao > 0 ? item.Fracao : (short)1;
+                    var qtdeTotal = item.Quantidade * fracao;
 
+                    // Reverter estoque
+                    dados.EstoqueAtual = Math.Max(0, dados.EstoqueAtual - qtdeTotal);
+
+                    // Log de reversão por produto
+                    await _log.RegistrarAsync("Produtos", "EXCLUSÃO COMPRA (REVERSÃO)", "Produto", item.ProdutoId!.Value,
+                        novo: new Dictionary<string, string?> {
+                            ["Estoque revertido"] = $"-{qtdeTotal:N3}",
+                            ["Estoque atual"] = dados.EstoqueAtual.ToString("N3"),
+                            ["NF excluída"] = compra.NumeroNf
+                        });
+                }
+            }
+
+            // Log geral antes de excluir
             await _log.RegistrarAsync(TELA, "EXCLUSÃO", ENTIDADE, id,
                 anterior: new Dictionary<string, string?>
                 {
                     ["NF"] = compra.NumeroNf,
                     ["Chave"] = compra.ChaveNfe,
-                    ["Valor"] = compra.ValorNota.ToString("N2")
+                    ["Valor"] = compra.ValorNota.ToString("N2"),
+                    ["Status"] = compra.Status.ToString(),
+                    ["Era finalizada"] = compra.Status == CompraStatus.Finalizada ? "Sim (estoque revertido)" : "Não"
                 });
+
+            _db.Compras.Remove(compra);
+            await _db.SaveChangesAsync();
 
             return "excluido";
         }

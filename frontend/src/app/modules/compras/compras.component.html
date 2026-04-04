@@ -18,10 +18,10 @@
     </label>
 
     @if (modo() === 'lista' && qtdeNotasSelecionadas() > 0) {
-      <div class="sidebar-item tile-finalizar" [class.disabled]="finCarregando()" (click)="abrirFinalizacao()">
-        @if (finCarregando()) { <span>Carregando...</span> } @else {
-          <span>Finalizar</span>
-          <span class="sidebar-sub">Fechar nota</span>
+      <div class="sidebar-item tile-precificacao" [class.disabled]="precificacaoCarregando()" (click)="abrirPrecificacao()">
+        @if (precificacaoCarregando()) { <span>Carregando...</span> } @else {
+          <span>Ajuste de Precos</span>
+          <span class="sidebar-sub">{{ qtdeNotasSelecionadas() }} nota(s)</span>
         }
       </div>
       <div class="sidebar-item tile-conferencia" [class.disabled]="confCarregando()" (click)="abrirConferencia()">
@@ -30,13 +30,18 @@
           <span class="sidebar-sub">{{ qtdeNotasSelecionadas() }} nota(s)</span>
         }
       </div>
-      <div class="sidebar-item tile-precificacao" [class.disabled]="precificacaoCarregando()" (click)="abrirPrecificacao()">
-        @if (precificacaoCarregando()) {
-          <span>Carregando...</span>
-        } @else {
-          <span>Ajuste de Precos</span>
-          <span class="sidebar-sub">{{ qtdeNotasSelecionadas() }} nota(s)</span>
+      <div class="sidebar-item tile-finalizar" [class.disabled]="finCarregando()" (click)="abrirFinalizacao()">
+        @if (finCarregando()) { <span>Carregando...</span> } @else {
+          <span>Finalizar</span>
+          <span class="sidebar-sub">Fechar nota</span>
         }
+      </div>
+    }
+
+    @if (modo() === 'lista') {
+      <div class="sidebar-item tile-sair" (click)="excluir()">
+        <span>Excluir</span>
+        <span class="sidebar-sub">Remover nota</span>
       </div>
     }
 
@@ -108,24 +113,38 @@
           <div class="input-busca-wrap">
             <input class="input-busca" type="text" placeholder="NF, fornecedor ou CNPJ..."
                    [value]="busca()" (input)="busca.set($any($event.target).value)" />
-            @if (busca()) {
-              <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            }
           </div>
         </div>
         <div class="lista-filtro">
-          <label>STATUS</label>
-          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
-            <option value="todos">Todos</option>
-            <option value="preentrada">Pre-Entrada</option>
-            <option value="conferencia">Conferencia</option>
-            <option value="finalizada">Finalizada</option>
-            <option value="cancelada">Cancelada</option>
+          <label>FILIAL</label>
+          <select class="select-status" [value]="filtroFilialId()" (change)="filtroFilialId.set(+$any($event.target).value); carregar()">
+            <option value="0">Todas</option>
+            @for (f of filiaisDisponiveis(); track f.id) {
+              <option [value]="f.id">{{ f.nome }}</option>
+            }
           </select>
+        </div>
+        <div class="lista-filtro">
+          <label>STATUS</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value); carregar()">
+            <option value="pendentes">Pendentes</option>
+            <option value="finalizadas">Finalizadas</option>
+          </select>
+        </div>
+        <div class="lista-filtro">
+          <label>PERIODO</label>
+          <select class="select-status" style="min-width:100px" [value]="filtroDataTipo()" (change)="filtroDataTipo.set($any($event.target).value); carregar()">
+            <option value="emissao">Emissao</option>
+            <option value="finalizacao">Finalizacao</option>
+          </select>
+        </div>
+        <div class="lista-filtro">
+          <label>DE</label>
+          <input type="date" class="input-data" [value]="filtroDataInicio()" (change)="filtroDataInicio.set($any($event.target).value); carregar()" />
+        </div>
+        <div class="lista-filtro">
+          <label>ATE</label>
+          <input type="date" class="input-data" [value]="filtroDataFim()" (change)="filtroDataFim.set($any($event.target).value); carregar()" />
         </div>
       </div>
 

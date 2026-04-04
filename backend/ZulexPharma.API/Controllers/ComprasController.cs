@@ -23,11 +23,14 @@ public class ComprasController : ControllerBase
 
     [HttpGet]
     [Permissao("compras", "c")]
-    public async Task<IActionResult> Listar()
+    public async Task<IActionResult> Listar(
+        [FromQuery] long? filialId = null, [FromQuery] string? status = null,
+        [FromQuery] DateTime? dataInicio = null, [FromQuery] DateTime? dataFim = null,
+        [FromQuery] string? filtroData = null)
     {
         try
         {
-            var data = await _service.ListarAsync();
+            var data = await _service.ListarAsync(filialId, status, dataInicio, dataFim, filtroData);
             return Ok(new { success = true, data });
         }
         catch (Exception ex)

@@ -129,7 +129,12 @@ export class ComprasComponent implements OnInit, OnDestroy {
   vinculando = signal<number | null>(null);
   erro = signal('');
   busca = signal('');
-  filtroStatus = signal<'todos' | 'preentrada' | 'conferencia' | 'finalizada' | 'cancelada'>('todos');
+  filtroStatus = signal<'pendentes' | 'finalizadas'>('pendentes');
+  filtroFilialId = signal<number>(0);
+  filtroDataInicio = signal<string>(this.dataDefault(-30));
+  filtroDataFim = signal<string>(this.dataDefault(0));
+  filtroDataTipo = signal<'emissao' | 'finalizacao'>('emissao');
+  filiaisDisponiveis = signal<{ id: number; nome: string }[]>([]);
 
   // ── Ordenacao lista ───────────────────────────────────────────
   sortColuna = signal<string>('id');
@@ -235,15 +240,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
   comprasFiltradas = computed(() => {
     let lista = [...this.compras()];
     const termo = this.busca().toLowerCase().trim();
-    const filtro = this.filtroStatus();
 
-    if (filtro !== 'todos') {
-      const statusMap: Record<string, number> = {
-        preentrada: 1, conferencia: 2, finalizada: 3, cancelada: 4
-      };
-      lista = lista.filter(c => c.status === statusMap[filtro]);
-    }
-
+    // Filtro local por busca de texto (status/data filtrados no server)
     if (termo) {
       lista = lista.filter(c =>
         c.numeroNf.toLowerCase().includes(termo) ||
@@ -291,6 +289,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.carregar();
     this.restaurarEstado();
+    this.http.get<any>(`${environment.apiUrl}/filiais`).subscribe({
+      next: r => this.filiaisDisponiveis.set((r.data ?? []).map((f: any) => ({ id: f.id, nome: f.nomeFilial || `Filial ${f.id}` })))
+    });
     this.buscaProduto$.pipe(
       debounceTime(400),
       distinctUntilChanged()
@@ -405,7 +406,13 @@ export class ComprasComponent implements OnInit, OnDestroy {
   carregar() {
     this.carregando.set(true);
     this.erro.set('');
-    this.http.get<any>(this.apiUrl).subscribe({
+    const params: any = {};
+    if (this.filtroFilialId() > 0) params.filialId = this.filtroFilialId();
+    if (this.filtroStatus()) params.status = this.filtroStatus();
+    if (this.filtroDataInicio()) params.dataInicio = this.filtroDataInicio();
+    if (this.filtroDataFim()) params.dataFim = this.filtroDataFim();
+    params.filtroData = this.filtroDataTipo();
+    this.http.get<any>(this.apiUrl, { params }).subscribe({
       next: r => {
         this.compras.set(r.data ?? []);
         this.carregando.set(false);
@@ -862,19 +869,27 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   async excluir() {
     const detalhe = this.compraDetalhe();
-    if (!detalhe) return;
+    const selecionada = this.compraSelecionada();
+    const compra = detalhe || selecionada;
+    if (!compra) {
+      this.toastr.warning('Selecione uma nota para excluir.', 'Atenção', { timeOut: 3000, positionClass: 'toast-top-center' });
+      return;
+    }
     if (!await this.verificarPermissao('e')) return;
 
-    if (!confirm(`Excluir a NF ${detalhe.numeroNf}? Esta acao nao pode ser desfeita.`)) return;
+    const msg = (compra as any).status === 3
+      ? `Excluir NF ${compra.numeroNf}? A nota esta FINALIZADA — estoque sera revertido!`
+      : `Excluir NF ${compra.numeroNf}? Esta acao nao pode ser desfeita.`;
 
-    const headers = this.headerLiberacao();
-    this.http.delete<any>(`${this.apiUrl}/${detalhe.id}`, { headers }).subscribe({
-      next: () => {
-        this.voltarLista();
-      },
-      error: e => {
-        this.erro.set(e?.error?.message || 'Erro ao excluir.');
-      }
+    this.abrirPrecModal('Excluir Nota', msg, () => {
+      const headers = this.headerLiberacao();
+      this.http.delete<any>(`${this.apiUrl}/${compra.id}`, { headers }).subscribe({
+        next: () => {
+          this.toastr.success('Nota excluida com sucesso.', 'OK', { timeOut: 3000, positionClass: 'toast-top-center' });
+          if (detalhe) this.voltarLista(); else this.carregar();
+        },
+        error: e => this.erro.set(e?.error?.message || 'Erro ao excluir.')
+      });
     });
   }
 
@@ -1285,6 +1300,11 @@ export class ComprasComponent implements OnInit, OnDestroy {
     const resultado = await this.modal.permissao('compras', acao);
     if (resultado.tokenLiberacao) this.tokenLiberacao = resultado.tokenLiberacao;
     return resultado.confirmado;
+  }
+
+  private dataDefault(offset: number): string {
+    const d = new Date(); d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
   }
 
   private headerLiberacao(): { [h: string]: string } {
