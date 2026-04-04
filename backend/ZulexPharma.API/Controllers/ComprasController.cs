@@ -137,6 +137,26 @@ public class ComprasController : ControllerBase
         }
     }
 
+    [HttpPost("precificacao")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> GerarPrecificacao([FromBody] PrecificacaoRequest request)
+    {
+        try { return Ok(new { success = true, data = await _service.GerarPrecificacaoAsync(request) }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em Precificacao"); return StatusCode(500, new { success = false, message = "Erro ao gerar precificação." }); }
+    }
+
+    [HttpPost("aplicar-precificacao")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> AplicarPrecificacao([FromBody] AplicarPrecificacaoRequest request)
+    {
+        try
+        {
+            var alterados = await _service.AplicarPrecificacaoAsync(request);
+            return Ok(new { success = true, data = new { alterados } });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em AplicarPrecificacao"); return StatusCode(500, new { success = false, message = "Erro ao aplicar precificação." }); }
+    }
+
     [HttpDelete("{id:long}")]
     [Permissao("compras", "e")]
     public async Task<IActionResult> Excluir(long id)

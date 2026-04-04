@@ -49,10 +49,11 @@
   &.ativo  { filter: brightness(0.92); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
   &.disabled { opacity: 0.35; pointer-events: none; }
 
-  &.tile-procurar  { background: linear-gradient(135deg, #2471a3, #2e86c1); }
-  &.tile-importar  { background: linear-gradient(135deg, #1abc9c, #16a085); }
-  &.tile-atualizar { background: linear-gradient(135deg, #2980b9, #3498db); }
-  &.tile-sair      { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+  &.tile-procurar     { background: linear-gradient(135deg, #2471a3, #2e86c1); }
+  &.tile-importar     { background: linear-gradient(135deg, #1abc9c, #16a085); }
+  &.tile-atualizar    { background: linear-gradient(135deg, #2980b9, #3498db); }
+  &.tile-precificacao { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
+  &.tile-sair         { background: linear-gradient(135deg, #c0392b, #e74c3c); }
 }
 
 .sidebar-resumo {
@@ -678,3 +679,19 @@
     letter-spacing: 0.5px;
   }
 }
+
+/* ── Precificação ──────────────────────────────────────────────── */
+.prec-header {
+  display: flex; align-items: center; gap: 12px; padding: 8px 16px 0;
+  h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--erp-text); }
+  .prec-info { font-size: var(--erp-fs-body); color: var(--erp-text-muted); }
+}
+
+.erp-grid-compact {
+  font-size: 12px;
+  th { font-size: 11px; padding: 6px 6px; }
+  td { padding: 5px 6px; }
+}
+
+.var-subiu { color: #c0392b; font-weight: 700; }
+.var-desceu { color: #1e8449; font-weight: 700; }

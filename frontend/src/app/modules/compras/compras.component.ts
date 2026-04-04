@@ -89,6 +89,16 @@ interface ProdutoBusca {
   codigoBarras: string;
 }
 
+interface PrecificacaoItem {
+  produtoId: number; produtoDadosId: number; compraProdutoId: number;
+  produtoNome: string; ean: string; fabricanteNome: string;
+  custoCompraAnterior: number; custoCompraAtual: number; varCustoCompraPercent: number;
+  custoMedioAnterior: number; custoMedioAtual: number; varCustoMedioPercent: number;
+  precoVendaAtual: number; sugestaoVendaCustoCompra: number; sugestaoVendaCustoMedio: number;
+  novoPrecoVenda: number; pmcNota: number; pmcAbcFarma: number;
+  formacaoPreco: string; markup: number; projecaoLucro: number; quantidade: number;
+}
+
 @Component({
   selector: 'app-compras',
   standalone: true,
@@ -103,7 +113,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   private readonly STATE_KEY = 'zulex_compras_state';
 
   // ── Estado ────────────────────────────────────────────────────
-  modo = signal<'lista' | 'detalhe'>('lista');
+  modo = signal<'lista' | 'detalhe' | 'precificacao'>('lista');
   compras = signal<CompraList[]>([]);
   compraSelecionada = signal<CompraList | null>(null);
   compraDetalhe = signal<CompraDetalhe | null>(null);
@@ -137,6 +147,25 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   // ── Seleção de notas (checkboxes na lista) ─────────────────────
   notasSelecionadas = signal<Set<number>>(new Set());
+
+  // ── Precificação ──────────────────────────────────────────────
+  precificacaoItens = signal<PrecificacaoItem[]>([]);
+  precificacaoCarregando = signal(false);
+  sortPrecCol = signal<string>('produtoNome');
+  sortPrecDir = signal<'asc' | 'desc'>('asc');
+
+  precificacaoOrdenada = computed(() => {
+    const lista = [...this.precificacaoItens()];
+    const col = this.sortPrecCol();
+    const dir = this.sortPrecDir() === 'asc' ? 1 : -1;
+    lista.sort((a: any, b: any) => {
+      const va = a[col] ?? '';
+      const vb = b[col] ?? '';
+      if (typeof va === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+    return lista;
+  });
 
   // ── Modal fiscal ──────────────────────────────────────────────
   modalFiscal = signal(false);
@@ -620,6 +649,48 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   // ── Helpers ───────────────────────────────────────────────────
+
+  // ── Precificação ações ─────────────────────────────────────────
+
+  abrirPrecificacao() {
+    const selecionadas = this.notasSelecionadas();
+    if (selecionadas.size === 0) return;
+
+    const usuario = this.auth.usuarioLogado();
+    const filialId = parseInt(usuario?.filialId || '1', 10);
+
+    this.precificacaoCarregando.set(true);
+    this.erro.set('');
+
+    this.http.post<any>(`${this.apiUrl}/precificacao`, {
+      filialId,
+      compraIds: Array.from(selecionadas)
+    }).subscribe({
+      next: r => {
+        this.precificacaoItens.set(r.data?.itens ?? []);
+        this.modo.set('precificacao');
+        this.precificacaoCarregando.set(false);
+      },
+      error: e => {
+        this.erro.set(e?.error?.message || 'Erro ao gerar precificação.');
+        this.precificacaoCarregando.set(false);
+      }
+    });
+  }
+
+  voltarDaPrecificacao() {
+    this.modo.set('lista');
+    this.precificacaoItens.set([]);
+  }
+
+  ordenarPrec(campo: string) {
+    if (this.sortPrecCol() === campo) this.sortPrecDir.update(d => d === 'asc' ? 'desc' : 'asc');
+    else { this.sortPrecCol.set(campo); this.sortPrecDir.set('asc'); }
+  }
+
+  sortPrecIcon(campo: string): string {
+    return this.sortPrecCol() === campo ? (this.sortPrecDir() === 'asc' ? '▲' : '▼') : '⇅';
+  }
 
   // ── Checkboxes de seleção (notas na lista) ─────────────────────
 

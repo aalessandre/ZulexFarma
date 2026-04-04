@@ -311,6 +311,204 @@ public class CompraService : ICompraService
         return await ObterAsync(compra.Id);
     }
 
+    // ── Precificação ─────────────────────────────────────────────────
+    public async Task<PrecificacaoResult> GerarPrecificacaoAsync(PrecificacaoRequest request)
+    {
+        // Buscar itens vinculados das compras selecionadas
+        var itensCompra = await _db.ComprasProdutos
+            .Include(p => p.Fiscal)
+            .Include(p => p.Compra)
+            .Where(p => request.CompraIds.Contains(p.CompraId) && p.Vinculado && p.ProdutoId.HasValue)
+            .ToListAsync();
+
+        // Buscar dados dos produtos
+        var produtoIds = itensCompra.Select(i => i.ProdutoId!.Value).Distinct().ToList();
+        var produtos = await _db.Produtos
+            .Include(p => p.Fabricante)
+            .Where(p => produtoIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p);
+
+        var dadosProdutos = await _db.ProdutosDados
+            .Where(d => produtoIds.Contains(d.ProdutoId) && d.FilialId == request.FilialId)
+            .ToDictionaryAsync(d => d.ProdutoId, d => d);
+
+        // Buscar PMC ABCFarma
+        var eans = produtos.Values
+            .Where(p => !string.IsNullOrEmpty(p.CodigoBarras))
+            .Select(p => p.CodigoBarras!).ToList();
+        var barrasExtras = await _db.ProdutosBarras
+            .Where(b => produtoIds.Contains(b.ProdutoId))
+            .ToListAsync();
+        var todosEans = eans.Concat(barrasExtras.Select(b => b.Barras)).Distinct().ToList();
+
+        var abcFarma = await _db.AbcFarmaBase
+            .Where(a => todosEans.Contains(a.Ean))
+            .ToListAsync();
+        var abcByEan = abcFarma.GroupBy(a => a.Ean)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.DataVigencia ?? DateTime.MinValue).First());
+
+        // Buscar alíquota da filial
+        var filial = await _db.Filiais.FindAsync(request.FilialId);
+        var aliquota = filial?.AliquotaIcms ?? 18;
+
+        var resultado = new List<PrecificacaoItem>();
+
+        foreach (var item in itensCompra)
+        {
+            var produtoId = item.ProdutoId!.Value;
+            if (!produtos.TryGetValue(produtoId, out var produto)) continue;
+            dadosProdutos.TryGetValue(produtoId, out var dados);
+
+            // Custo compra anterior (soma dos 8 campos no cadastro)
+            decimal custoCompraAnterior = 0;
+            if (dados != null)
+            {
+                custoCompraAnterior = dados.UltimaCompraUnitario + dados.UltimaCompraSt
+                    + dados.UltimaCompraOutros + dados.UltimaCompraIpi + dados.UltimaCompraFpc
+                    + dados.UltimaCompraBoleto + dados.UltimaCompraDifal + dados.UltimaCompraFrete;
+            }
+
+            // Custo compra atual (da nota)
+            var stUnitario = item.Quantidade > 0 ? (item.Fiscal?.ValorSt ?? 0) / item.Quantidade : 0;
+            var custoCompraAtual = item.ValorUnitario + stUnitario;
+
+            // Custo médio
+            var custoMedioAnterior = dados?.CustoMedio ?? 0;
+            var estoqueAtual = dados?.EstoqueAtual ?? 0;
+            decimal custoMedioAtual;
+            if (estoqueAtual <= 0)
+                custoMedioAtual = custoCompraAtual;
+            else
+                custoMedioAtual = ((estoqueAtual * custoMedioAnterior) + (item.Quantidade * custoCompraAtual))
+                    / (estoqueAtual + item.Quantidade);
+            custoMedioAtual = Math.Round(custoMedioAtual, 4);
+
+            // Variações
+            var varCustoCompra = custoCompraAnterior > 0
+                ? Math.Round(((custoCompraAtual - custoCompraAnterior) / custoCompraAnterior) * 100, 2) : 0;
+            var varCustoMedio = custoMedioAnterior > 0
+                ? Math.Round(((custoMedioAtual - custoMedioAnterior) / custoMedioAnterior) * 100, 2) : 0;
+
+            // Configuração de formação de preço
+            var formacao = dados?.FormacaoPreco ?? "MARKUP";
+            var markup = dados?.Markup ?? 0;
+            var projecao = dados?.ProjecaoLucro ?? 0;
+
+            // Sugestões de preço
+            decimal sugCustoCompra = 0, sugCustoMedio = 0;
+            if (formacao == "MARKUP")
+            {
+                sugCustoCompra = Math.Round(custoCompraAtual * (1 + markup / 100), 2);
+                sugCustoMedio = Math.Round(custoMedioAtual * (1 + markup / 100), 2);
+            }
+            else if (projecao < 99)
+            {
+                sugCustoCompra = Math.Round(custoCompraAtual / (1 - projecao / 100), 2);
+                sugCustoMedio = Math.Round(custoMedioAtual / (1 - projecao / 100), 2);
+            }
+
+            // PMC
+            var pmcNota = item.PrecoMaximoConsumidor ?? 0;
+            decimal pmcAbcFarma = 0;
+            AbcFarmaBase? abc = null;
+            if (!string.IsNullOrEmpty(produto.CodigoBarras))
+                abcByEan.TryGetValue(produto.CodigoBarras, out abc);
+            if (abc == null)
+            {
+                var barrasProd = barrasExtras.Where(b => b.ProdutoId == produtoId).Select(b => b.Barras);
+                foreach (var b in barrasProd)
+                    if (abcByEan.TryGetValue(b, out abc)) break;
+            }
+            if (abc != null)
+                pmcAbcFarma = ObterPmcPorAliquota(abc, aliquota);
+
+            resultado.Add(new PrecificacaoItem
+            {
+                ProdutoId = produtoId,
+                ProdutoDadosId = dados?.Id ?? 0,
+                CompraProdutoId = item.Id,
+                ProdutoNome = produto.Nome,
+                Ean = produto.CodigoBarras,
+                FabricanteNome = produto.Fabricante?.Nome,
+                CustoCompraAnterior = Math.Round(custoCompraAnterior, 4),
+                CustoCompraAtual = Math.Round(custoCompraAtual, 4),
+                VarCustoCompraPercent = varCustoCompra,
+                CustoMedioAnterior = custoMedioAnterior,
+                CustoMedioAtual = custoMedioAtual,
+                VarCustoMedioPercent = varCustoMedio,
+                PrecoVendaAtual = dados?.ValorVenda ?? 0,
+                SugestaoVendaCustoCompra = sugCustoCompra,
+                SugestaoVendaCustoMedio = sugCustoMedio,
+                NovoPrecoVenda = sugCustoMedio > 0 ? sugCustoMedio : sugCustoCompra,
+                PmcNota = pmcNota,
+                PmcAbcFarma = pmcAbcFarma,
+                FormacaoPreco = formacao,
+                Markup = markup,
+                ProjecaoLucro = projecao,
+                Quantidade = item.Quantidade
+            });
+        }
+
+        return new PrecificacaoResult { TotalProdutos = resultado.Count, Itens = resultado };
+    }
+
+    public async Task<int> AplicarPrecificacaoAsync(AplicarPrecificacaoRequest request)
+    {
+        var alterados = 0;
+        foreach (var item in request.Itens)
+        {
+            var dados = await _db.ProdutosDados.FindAsync(item.ProdutoDadosId);
+            if (dados == null) continue;
+
+            var anterior = new Dictionary<string, string?> {
+                ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
+                ["Custo Médio"] = dados.CustoMedio.ToString("N2"),
+                ["PMC"] = dados.Pmc.ToString("N2")
+            };
+
+            dados.ValorVenda = item.NovoPrecoVenda;
+            dados.CustoMedio = item.NovoCustoMedio;
+            dados.Pmc = item.NovoPmc > 0 ? item.NovoPmc : dados.Pmc;
+
+            // Atualizar custos da compra
+            dados.UltimaCompraUnitario = item.NovoCustoCompra;
+            dados.UltimaCompraEm = DateTime.UtcNow;
+
+            // Recalcular markup e projeção
+            if (dados.CustoMedio > 0 && dados.ValorVenda > 0)
+            {
+                dados.Markup = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.CustoMedio) * 100, 2);
+                dados.ProjecaoLucro = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.ValorVenda) * 100, 2);
+            }
+
+            await _log.RegistrarAsync("Produtos", "AJUSTE PREÇO (COMPRA)", "Produto", item.ProdutoId,
+                anterior: anterior,
+                novo: new Dictionary<string, string?> {
+                    ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
+                    ["Custo Médio"] = dados.CustoMedio.ToString("N2"),
+                    ["PMC"] = dados.Pmc.ToString("N2"),
+                    ["Markup %"] = dados.Markup.ToString("N2"),
+                    ["Proj. Lucro %"] = dados.ProjecaoLucro.ToString("N2")
+                });
+
+            alterados++;
+        }
+
+        await _db.SaveChangesAsync();
+        return alterados;
+    }
+
+    private static decimal ObterPmcPorAliquota(Domain.Entities.AbcFarmaBase abc, decimal aliquota)
+    {
+        return aliquota switch
+        {
+            0 => abc.Pmc0, 12 => abc.Pmc12, 17 => abc.Pmc17, 18 => abc.Pmc18,
+            19 => abc.Pmc19, 19.5m => abc.Pmc195, 20 => abc.Pmc20, 20.5m => abc.Pmc205,
+            21 => abc.Pmc21, 22 => abc.Pmc22, 22.5m => abc.Pmc225, 23 => abc.Pmc23,
+            _ => abc.Pmc18
+        };
+    }
+
     // ── Excluir ──────────────────────────────────────────────────────
     public async Task<string> ExcluirAsync(long id)
     {
