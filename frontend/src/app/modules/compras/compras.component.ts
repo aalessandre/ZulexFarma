@@ -154,6 +154,14 @@ export class ComprasComponent implements OnInit, OnDestroy {
   sortPrecCol = signal<string>('produtoNome');
   sortPrecDir = signal<'asc' | 'desc'>('asc');
   painelColunasPrecAberto = signal(false);
+  precSelecionados = signal<Set<number>>(new Set());
+  precAplicando = signal(false);
+
+  // Modal precificação
+  precModalAberto = signal(false);
+  precModalTitulo = signal('');
+  precModalMsg = signal('');
+  precModalCallback: (() => void) | null = null;
 
   private readonly PREC_COLUNAS_KEY = 'zulex_prec_colunas';
   precColunas = signal<{ campo: string; label: string; largura: number; visivel: boolean }[]>(this.carregarPrecColunas());
@@ -709,7 +717,73 @@ export class ComprasComponent implements OnInit, OnDestroy {
   voltarDaPrecificacao() {
     this.modo.set('lista');
     this.precificacaoItens.set([]);
+    this.precSelecionados.set(new Set());
   }
+
+  // Seleção precificação
+  togglePrecItem(id: number) {
+    this.precSelecionados.update(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  togglePrecTodos() {
+    const itens = this.precificacaoItens();
+    if (this.precSelecionados().size === itens.length) this.precSelecionados.set(new Set());
+    else this.precSelecionados.set(new Set(itens.map(i => i.produtoDadosId)));
+  }
+  isPrecSelecionado(id: number): boolean { return this.precSelecionados().has(id); }
+  todosPrecSelecionados(): boolean { return this.precificacaoItens().length > 0 && this.precSelecionados().size === this.precificacaoItens().length; }
+
+  // Aplicar precificação
+  aplicarPrecificacao() {
+    const selecionados = this.precSelecionados();
+    if (selecionados.size === 0) {
+      this.abrirPrecModal('Nenhum produto selecionado', 'Selecione os produtos que deseja atualizar usando os checkboxes.', null);
+      return;
+    }
+
+    this.abrirPrecModal('Aplicar Ajuste de Precos',
+      `Deseja aplicar o ajuste de precos para ${selecionados.size} produto(s)? Os custos e precos de venda serao atualizados.`, () => {
+      const usuario = this.auth.usuarioLogado();
+      const filialId = parseInt(usuario?.filialId || '1', 10);
+      const itens = this.precificacaoItens().filter(i => selecionados.has(i.produtoDadosId));
+
+      this.precAplicando.set(true);
+      this.http.post<any>(`${this.apiUrl}/aplicar-precificacao`, {
+        filialId,
+        nomeUsuario: usuario?.nome || '',
+        itens: itens.map(i => ({
+          produtoDadosId: i.produtoDadosId,
+          produtoId: i.produtoId,
+          novoPrecoVenda: i.novoPrecoVenda,
+          novoCustoCompra: i.custoCompraAtual,
+          novoCustoMedio: i.custoMedioAtual,
+          novoPmc: i.pmcNota > 0 ? i.pmcNota : i.pmcAbcFarma
+        }))
+      }).subscribe({
+        next: r => {
+          this.precAplicando.set(false);
+          this.erro.set('');
+          this.abrirPrecModal('Ajuste Aplicado',
+            `${r.data?.alterados || 0} produto(s) atualizado(s) com sucesso.`, null);
+          // Recarregar a precificação
+          this.abrirPrecificacao();
+        },
+        error: e => {
+          this.erro.set(e?.error?.message || 'Erro ao aplicar.');
+          this.precAplicando.set(false);
+        }
+      });
+    });
+  }
+
+  // Modal precificação
+  abrirPrecModal(titulo: string, msg: string, cb: (() => void) | null) {
+    this.precModalTitulo.set(titulo);
+    this.precModalMsg.set(msg);
+    this.precModalCallback = cb;
+    this.precModalAberto.set(true);
+  }
+  confirmarPrecModal() { this.precModalAberto.set(false); if (this.precModalCallback) this.precModalCallback(); }
+  fecharPrecModal() { this.precModalAberto.set(false); }
 
   ordenarPrec(campo: string) {
     if (this.sortPrecCol() === campo) this.sortPrecDir.update(d => d === 'asc' ? 'desc' : 'asc');

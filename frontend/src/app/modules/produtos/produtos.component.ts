@@ -1546,15 +1546,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   /** Atualiza campo e recalcula custo médio + preço de venda */
   updateDadosRecalc(i: number, campo: string, valor: any) {
     this.updateDados(i, campo, valor);
-    const camposCusto = ['ultimaCompraUnitario', 'ultimaCompraSt', 'ultimaCompraOutros',
-      'ultimaCompraIpi', 'ultimaCompraFpc', 'ultimaCompraBoleto', 'ultimaCompraDifal', 'ultimaCompraFrete'];
-    setTimeout(() => {
-      // Se alterou campo de custo, recalcular custo médio
-      if (camposCusto.includes(campo)) {
-        this.recalcularCustoMedio(i);
-      }
-      this.recalcularPrecoVenda(i);
-    }, 0);
+    // Custo médio NÃO é recalculado ao alterar campos de custo da compra.
+    // O custo médio só é recalculado na finalização do lançamento de compra.
+    setTimeout(() => this.recalcularPrecoVenda(i), 0);
   }
 
   /**

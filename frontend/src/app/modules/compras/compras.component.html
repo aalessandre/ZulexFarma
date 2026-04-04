@@ -309,6 +309,12 @@
       <div class="prec-header">
         <h2>Ajuste de Precos</h2>
         <span class="prec-info">{{ precificacaoItens().length }} produto(s)</span>
+        @if (precSelecionados().size > 0) {
+          <span class="prec-info">| Selecionados: <strong>{{ precSelecionados().size }}</strong></span>
+        }
+        <button class="btn-aplicar-prec" [disabled]="precAplicando()" (click)="aplicarPrecificacao()">
+          @if (precAplicando()) { Aplicando... } @else { Aplicar Selecionados }
+        </button>
 
         <div class="col-picker-wrap">
           <button class="btn-colunas" (click)="painelColunasPrecAberto.update(v => !v)">
@@ -343,6 +349,9 @@
         <table class="erp-grid erp-grid-compact">
           <thead>
             <tr>
+              <th style="width:36px">
+                <input type="checkbox" class="grid-check" [checked]="todosPrecSelecionados()" (change)="togglePrecTodos()" />
+              </th>
               @for (col of precColunasVisiveis(); track col.campo; let i = $index) {
                 <th class="th-sort th-resize"
                     [attr.data-col]="col.campo"
@@ -360,7 +369,10 @@
           </thead>
           <tbody>
             @for (p of precificacaoOrdenada(); track p.produtoId) {
-              <tr>
+              <tr [class.item-selecionado]="isPrecSelecionado(p.produtoDadosId)">
+                <td class="td-check" (click)="$event.stopPropagation()">
+                  <input type="checkbox" class="grid-check" [checked]="isPrecSelecionado(p.produtoDadosId)" (change)="togglePrecItem(p.produtoDadosId)" />
+                </td>
                 @for (col of precColunasVisiveis(); track col.campo) {
                   <td [class.td-valor]="isValorColumn(col.campo)"
                       [class]="getVarClass(p, col.campo)"
@@ -375,7 +387,7 @@
               </tr>
             }
             @if (precificacaoItens().length === 0) {
-              <tr><td [attr.colspan]="precColunasVisiveis().length" class="grid-vazio">Nenhum produto vinculado nas notas selecionadas.</td></tr>
+              <tr><td [attr.colspan]="precColunasVisiveis().length + 1" class="grid-vazio">Nenhum produto vinculado nas notas selecionadas.</td></tr>
             }
           </tbody>
         </table>
@@ -387,6 +399,27 @@
     }
   </div>
 </div>
+
+<!-- ══════════ MODAL PRECIFICAÇÃO ══════════ -->
+@if (precModalAberto()) {
+  <div class="modal-overlay" (click)="fecharPrecModal()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#8e44ad" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      </div>
+      <div class="modal-titulo">{{ precModalTitulo() }}</div>
+      <div class="modal-mensagem">{{ precModalMsg() }}</div>
+      <div class="modal-acoes">
+        @if (precModalCallback) {
+          <button class="modal-btn modal-btn-cancelar" (click)="fecharPrecModal()">Cancelar</button>
+          <button class="modal-btn modal-btn-confirmar" (click)="confirmarPrecModal()">Confirmar</button>
+        } @else {
+          <button class="modal-btn modal-btn-cancelar" (click)="fecharPrecModal()">OK</button>
+        }
+      </div>
+    </div>
+  </div>
+}
 
 <!-- ══════════ MODAL VINCULAR PRODUTO ══════════ -->
 @if (modalVincular()) {

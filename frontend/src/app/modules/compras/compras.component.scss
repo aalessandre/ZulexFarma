@@ -690,6 +690,36 @@
 .var-subiu { color: #c0392b !important; font-weight: 700 !important; }
 .var-desceu { color: #1e8449 !important; font-weight: 700 !important; }
 
+.btn-aplicar-prec {
+  margin-left: auto; padding: 6px 20px; background: #8e44ad; color: #fff; border: none;
+  border-radius: 4px; font-size: var(--erp-fs-body); font-weight: 600; cursor: pointer;
+  &:hover:not(:disabled) { filter: brightness(1.1); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+/* ── Modal ──────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px);
+}
+.modal-box {
+  background: var(--erp-surface, #fff); border-radius: 12px; padding: 36px 40px 32px;
+  width: 420px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  animation: modal-in 0.18s ease-out;
+}
+@keyframes modal-in { from { opacity: 0; transform: scale(0.92) translateY(-10px); } to { opacity: 1; } }
+.modal-icon { margin-bottom: 20px; }
+.modal-titulo { font-size: 18px; font-weight: 700; color: var(--erp-text); margin-bottom: 12px; }
+.modal-mensagem { font-size: 14px; color: var(--erp-text-muted); line-height: 1.6; margin-bottom: 28px; }
+.modal-acoes { display: flex; gap: 12px; width: 100%; }
+.modal-btn {
+  flex: 1; height: 44px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  &:hover:not(:disabled) { filter: brightness(1.08); }
+}
+.modal-btn-cancelar { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
+.modal-btn-confirmar { background: #8e44ad; color: #fff; }
+
 .prec-header {
   display: flex; align-items: center; gap: 12px; padding: 8px 16px 0;
   h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--erp-text); }
