@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using ZulexPharma.Application.DTOs.Produtos;
 using ZulexPharma.Application.Interfaces;
@@ -22,6 +23,45 @@ public class ProdutosController : ControllerBase
         _service = service;
         _log = log;
         _db = db;
+    }
+
+    [HttpGet("verificar-barras/{barras}")]
+    public async Task<IActionResult> VerificarBarras(string barras, [FromQuery] long? excluirProdutoId = null)
+    {
+        try
+        {
+            var query = _db.ProdutosBarras
+                .Include(b => b.Produto)
+                .Where(b => b.Barras == barras.Trim());
+
+            if (excluirProdutoId.HasValue)
+                query = query.Where(b => b.ProdutoId != excluirProdutoId.Value);
+
+            var existente = await query.FirstOrDefaultAsync();
+
+            // Também verificar no campo CodigoBarras principal
+            if (existente == null)
+            {
+                var queryPrincipal = _db.Produtos
+                    .Where(p => p.CodigoBarras == barras.Trim() && !p.Eliminado);
+                if (excluirProdutoId.HasValue)
+                    queryPrincipal = queryPrincipal.Where(p => p.Id != excluirProdutoId.Value);
+                var prodPrincipal = await queryPrincipal.FirstOrDefaultAsync();
+                if (prodPrincipal != null)
+                    return Ok(new { success = true, data = new { existe = true, produtoId = prodPrincipal.Id, produtoNome = prodPrincipal.Nome, codigoBarras = prodPrincipal.CodigoBarras } });
+            }
+
+            if (existente == null)
+                return Ok(new { success = true, data = new { existe = false } });
+
+            return Ok(new { success = true, data = new {
+                existe = true,
+                produtoId = existente.ProdutoId,
+                produtoNome = existente.Produto.Nome,
+                codigoBarras = existente.Produto.CodigoBarras
+            }});
+        }
+        catch (Exception ex) { return await ErroInterno(ex, "VerificarBarras"); }
     }
 
     [HttpGet]

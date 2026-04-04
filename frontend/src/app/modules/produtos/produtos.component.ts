@@ -1149,11 +1149,27 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   adicionarBarras(input: HTMLInputElement) {
     const v = input.value.trim();
     if (!v) return;
-    if (this.produtoForm().barras.some(b => b.barras === v)) return;
-    this.produtoForm.update(f => ({ ...f, barras: [...f.barras, { barras: v }] }));
-    this.isDirty.set(true);
-    input.value = '';
-    input.focus();
+    if (this.produtoForm().barras.some(b => b.barras === v)) {
+      this.modal.erro('Duplicado', 'Este codigo de barras ja esta na lista.');
+      return;
+    }
+
+    // Verificar no banco antes de adicionar
+    const produtoIdAtual = this.produtoEditandoId() ?? undefined;
+    const url = `${this.produtoApiUrl}/verificar-barras/${v}` + (produtoIdAtual ? `?excluirProdutoId=${produtoIdAtual}` : '');
+    this.http.get<any>(url).subscribe({
+      next: r => {
+        if (r.data?.existe) {
+          this.modal.erro('Codigo de barras duplicado',
+            `Este codigo de barras ja esta cadastrado no produto:\n\nID: ${r.data.produtoId}\nNome: ${r.data.produtoNome}\nBarras: ${r.data.codigoBarras || v}`);
+        } else {
+          this.produtoForm.update(f => ({ ...f, barras: [...f.barras, { barras: v }] }));
+          this.isDirty.set(true);
+          input.value = '';
+          input.focus();
+        }
+      }
+    });
   }
 
   // MS
@@ -1650,16 +1666,31 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   onCodigoBarrasChange(valor: string) {
     this.updateProdutoForm('codigoBarras', valor);
     if (valor && valor.length >= 7) {
-      this.buscarAbcFarma(valor);
+      this.verificarBarrasDuplicado(valor, true);
     } else {
       this.abcFarmaInfo.set(null);
     }
   }
 
+  private verificarBarrasDuplicado(barras: string, buscarAbc: boolean) {
+    const produtoIdAtual = this.produtoEditandoId() ?? undefined;
+    const url = `${this.produtoApiUrl}/verificar-barras/${barras}` + (produtoIdAtual ? `?excluirProdutoId=${produtoIdAtual}` : '');
+    this.http.get<any>(url).subscribe({
+      next: r => {
+        if (r.data?.existe) {
+          this.modal.erro('Codigo de barras duplicado',
+            `Este codigo de barras ja esta cadastrado no produto:\n\nID: ${r.data.produtoId}\nNome: ${r.data.produtoNome}\nBarras: ${r.data.codigoBarras || barras}`);
+        } else if (buscarAbc) {
+          this.buscarAbcFarma(barras);
+        }
+      }
+    });
+  }
+
   buscarAbcFarmaManual() {
     const ean = this.produtoForm().codigoBarras;
     if (!ean || ean.length < 7) return;
-    this.buscarAbcFarma(ean);
+    this.verificarBarrasDuplicado(ean, true);
   }
 
   buscarAbcFarma(ean: string) {
