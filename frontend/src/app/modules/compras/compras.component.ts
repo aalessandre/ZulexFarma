@@ -734,21 +734,30 @@ export class ComprasComponent implements OnInit, OnDestroy {
     const custoBase = this.precBaseCalculo() === 'CUSTO_MEDIO' ? item.custoMedioAtual : item.custoCompraAtual;
     if (custoBase <= 0) return;
 
+    let venda = item.novoPrecoVenda;
+    let mk = item.markup;
+    let proj = item.projecaoLucro;
+
     if (campo === 'novoPrecoVenda') {
-      item.novoPrecoVenda = valor;
-      item.markup = custoBase > 0 ? Math.round(((valor - custoBase) / custoBase) * 100 * 100) / 100 : 0;
-      item.projecaoLucro = valor > 0 ? Math.min(Math.round(((valor - custoBase) / valor) * 100 * 100) / 100, 99) : 0;
+      venda = valor;
+      mk = custoBase > 0 ? Math.round(((valor - custoBase) / custoBase) * 100 * 100) / 100 : 0;
+      proj = valor > 0 ? Math.min(Math.round(((valor - custoBase) / valor) * 100 * 100) / 100, 99) : 0;
     } else if (campo === 'markup') {
-      item.markup = valor;
-      item.novoPrecoVenda = Math.round(custoBase * (1 + valor / 100) * 100) / 100;
-      item.projecaoLucro = item.novoPrecoVenda > 0 ? Math.min(Math.round(((item.novoPrecoVenda - custoBase) / item.novoPrecoVenda) * 100 * 100) / 100, 99) : 0;
+      mk = valor;
+      venda = Math.round(custoBase * (1 + valor / 100) * 100) / 100;
+      proj = venda > 0 ? Math.min(Math.round(((venda - custoBase) / venda) * 100 * 100) / 100, 99) : 0;
     } else if (campo === 'projecaoLucro') {
-      item.projecaoLucro = Math.min(valor, 99);
-      item.novoPrecoVenda = valor < 100 ? Math.round(custoBase / (1 - valor / 100) * 100) / 100 : item.novoPrecoVenda;
-      item.markup = custoBase > 0 ? Math.round(((item.novoPrecoVenda - custoBase) / custoBase) * 100 * 100) / 100 : 0;
+      proj = Math.min(valor, 99);
+      venda = valor < 100 ? Math.round(custoBase / (1 - valor / 100) * 100) / 100 : venda;
+      mk = custoBase > 0 ? Math.round(((venda - custoBase) / custoBase) * 100 * 100) / 100 : 0;
     }
-    // Forçar reatividade
-    this.precificacaoItens.update(itens => [...itens]);
+
+    // Criar objeto novo para forçar reatividade do Angular
+    this.precificacaoItens.update(itens => itens.map(i =>
+      i.produtoDadosId === item.produtoDadosId
+        ? { ...i, novoPrecoVenda: venda, markup: mk, projecaoLucro: proj }
+        : i
+    ));
   }
 
   recalcularTodosSugestao() {
