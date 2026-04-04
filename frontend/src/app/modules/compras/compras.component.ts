@@ -1216,7 +1216,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   // ── Checkboxes de seleção (notas na lista) ─────────────────────
 
   isNotaCompleta(c: CompraList): boolean {
-    return c.totalItens > 0 && c.itensVinculados === c.totalItens;
+    return c.totalItens > 0 && c.itensVinculados === c.totalItens && c.status !== 3; // 3 = Finalizada
   }
 
   toggleNotaSelecionada(id: number) {
