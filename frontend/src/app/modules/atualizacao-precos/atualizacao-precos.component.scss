@@ -159,8 +159,10 @@
   &:hover { background: var(--erp-bg); }
 }
 
-.var-positiva { color: #e74c3c; font-weight: 600; }
-.var-negativa { color: #27ae60; font-weight: 600; }
+.var-positiva { color: #c0392b; font-weight: 700; }
+.var-negativa { color: #1e8449; font-weight: 700; }
+.linha-subiu td { color: #922b21; }
+.linha-desceu td { color: #1a7a40; }
 
 .resultado-acoes { display: flex; gap: 8px; margin-left: auto; }
 

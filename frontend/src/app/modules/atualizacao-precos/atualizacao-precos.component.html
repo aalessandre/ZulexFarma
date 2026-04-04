@@ -222,7 +222,7 @@
           </thead>
           <tbody>
             @for (item of resultadoOrdenado(); track item.produtoDadosId) {
-              <tr [class.item-selecionado]="isItemSelecionado(item.produtoDadosId)">
+              <tr [class.item-selecionado]="isItemSelecionado(item.produtoDadosId)" [class.linha-subiu]="item.variacaoPercent > 0" [class.linha-desceu]="item.variacaoPercent < 0">
                 @if (!atualizacaoId()) {
                   <td class="td-check">
                     <input type="checkbox" class="grid-check" [checked]="isItemSelecionado(item.produtoDadosId)" (change)="toggleItemSelecionado(item.produtoDadosId)" />
