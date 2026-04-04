@@ -578,6 +578,10 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Compra).WithMany(c => c.Produtos).HasForeignKey(x => x.CompraId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.CompraId, x.NumeroItem }).IsUnique();
+            e.Property(x => x.SugestaoVenda).HasColumnType("numeric(12,2)");
+            e.Property(x => x.SugestaoMarkup).HasColumnType("numeric(7,2)");
+            e.Property(x => x.SugestaoProjecao).HasColumnType("numeric(7,2)");
+            e.Property(x => x.SugestaoCustoMedio).HasColumnType("numeric(12,4)");
         });
 
         // ── ComprasFiscal (dados fiscais por item) ─────────────────

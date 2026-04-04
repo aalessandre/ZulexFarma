@@ -42,6 +42,13 @@ public class CompraProduto : BaseEntity
     public bool Vinculado { get; set; }
     public string? InfoAdicional { get; set; }
 
+    // ── Sugestão de preço (preenchido na precificação, aplicado na finalização) ──
+    public decimal? SugestaoVenda { get; set; }
+    public decimal? SugestaoMarkup { get; set; }
+    public decimal? SugestaoProjecao { get; set; }
+    public decimal? SugestaoCustoMedio { get; set; }
+    public bool PrecificacaoAplicada { get; set; }
+
     // ── Navigation ──────────────────────────────────────────────
     public CompraFiscal? Fiscal { get; set; }
 }

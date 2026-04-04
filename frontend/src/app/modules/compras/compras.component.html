@@ -336,6 +336,14 @@
         <button class="btn-acatar-pmc" (click)="acatarPmc('NOTA')">Acatar PMC Nota</button>
         <button class="btn-acatar-pmc" (click)="acatarPmc('ABC')">Acatar PMC ABC</button>
 
+        <div class="prec-selecionar">
+          <label>APLICAR</label>
+          <select [value]="precMomentoAplicacao()" (change)="precMomentoAplicacao.set($any($event.target).value)">
+            <option value="AGORA">Agora</option>
+            <option value="FINALIZACAO">Na Finalizacao</option>
+          </select>
+        </div>
+
         <button class="btn-aplicar-prec" [disabled]="precAplicando()" (click)="aplicarPrecificacao()">
           @if (precAplicando()) { Aplicando... } @else { Aplicar Selecionados }
         </button>

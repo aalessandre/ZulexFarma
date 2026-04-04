@@ -157,6 +157,18 @@ public class ComprasController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro em AplicarPrecificacao"); return StatusCode(500, new { success = false, message = "Erro ao aplicar precificação." }); }
     }
 
+    [HttpPost("salvar-sugestoes")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> SalvarSugestoes([FromBody] SalvarSugestaoRequest request)
+    {
+        try
+        {
+            var salvos = await _service.SalvarSugestoesAsync(request);
+            return Ok(new { success = true, data = new { salvos } });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em SalvarSugestoes"); return StatusCode(500, new { success = false, message = "Erro ao salvar sugestões." }); }
+    }
+
     [HttpDelete("{id:long}")]
     [Permissao("compras", "e")]
     public async Task<IActionResult> Excluir(long id)

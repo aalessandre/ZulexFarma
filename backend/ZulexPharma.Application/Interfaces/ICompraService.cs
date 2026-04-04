@@ -12,5 +12,6 @@ public interface ICompraService
     Task<CompraDetalheDto> ReVincularAsync(long compraId);
     Task<PrecificacaoResult> GerarPrecificacaoAsync(PrecificacaoRequest request);
     Task<int> AplicarPrecificacaoAsync(AplicarPrecificacaoRequest request);
+    Task<int> SalvarSugestoesAsync(SalvarSugestaoRequest request);
     Task<string> ExcluirAsync(long id);
 }

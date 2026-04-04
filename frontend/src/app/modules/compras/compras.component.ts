@@ -157,6 +157,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   precSelecionados = signal<Set<number>>(new Set());
   precAplicando = signal(false);
   precBaseCalculo = signal<'CUSTO_COMPRA' | 'CUSTO_MEDIO'>('CUSTO_COMPRA');
+  precMomentoAplicacao = signal<'AGORA' | 'FINALIZACAO'>('AGORA');
 
   // Modal precificação
   precModalAberto = signal(false);
@@ -809,40 +810,60 @@ export class ComprasComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const momento = this.precMomentoAplicacao();
+    const msgMomento = momento === 'AGORA'
+      ? 'Os precos serao atualizados AGORA nos produtos.'
+      : 'Os precos serao salvos e aplicados na FINALIZACAO da nota.';
+
     this.abrirPrecModal('Aplicar Ajuste de Precos',
-      `Deseja aplicar o ajuste de precos para ${selecionados.size} produto(s)? Os custos e precos de venda serao atualizados.`, () => {
+      `${selecionados.size} produto(s) selecionado(s). ${msgMomento}`, () => {
       const usuario = this.auth.usuarioLogado();
       const filialId = parseInt(usuario?.filialId || '1', 10);
       const itens = this.precificacaoItens().filter(i => selecionados.has(i.produtoDadosId));
-
       this.precAplicando.set(true);
-      this.http.post<any>(`${this.apiUrl}/aplicar-precificacao`, {
-        filialId,
-        nomeUsuario: usuario?.nome || '',
-        itens: itens.map(i => ({
-          produtoDadosId: i.produtoDadosId,
-          produtoId: i.produtoId,
-          novoPrecoVenda: i.novoPrecoVenda,
-          novoMarkup: i.markup,
-          novaProjecaoLucro: i.projecaoLucro,
-          novoCustoCompra: i.custoCompraAtual,
-          novoCustoMedio: i.custoMedioAtual,
-          novoPmc: i.pmcNota > 0 ? i.pmcNota : i.pmcAbcFarma
-        }))
-      }).subscribe({
-        next: r => {
-          this.precAplicando.set(false);
-          this.erro.set('');
-          this.abrirPrecModal('Ajuste Aplicado',
-            `${r.data?.alterados || 0} produto(s) atualizado(s) com sucesso.`, null);
-          // Recarregar a precificação
-          this.abrirPrecificacao();
-        },
-        error: e => {
-          this.erro.set(e?.error?.message || 'Erro ao aplicar.');
-          this.precAplicando.set(false);
-        }
-      });
+
+      if (momento === 'AGORA') {
+        this.http.post<any>(`${this.apiUrl}/aplicar-precificacao`, {
+          filialId,
+          nomeUsuario: usuario?.nome || '',
+          itens: itens.map(i => ({
+            produtoDadosId: i.produtoDadosId,
+            produtoId: i.produtoId,
+            novoPrecoVenda: i.novoPrecoVenda,
+            novoMarkup: i.markup,
+            novaProjecaoLucro: i.projecaoLucro,
+            novoCustoCompra: i.custoCompraAtual,
+            novoCustoMedio: i.custoMedioAtual,
+            novoPmc: i.pmcNota > 0 ? i.pmcNota : i.pmcAbcFarma
+          }))
+        }).subscribe({
+          next: r => {
+            this.precAplicando.set(false);
+            this.abrirPrecModal('Ajuste Aplicado',
+              `${r.data?.alterados || 0} produto(s) atualizado(s) com sucesso.`, null);
+            this.abrirPrecificacao();
+          },
+          error: e => { this.erro.set(e?.error?.message || 'Erro ao aplicar.'); this.precAplicando.set(false); }
+        });
+      } else {
+        // Salvar sugestões para aplicar na finalização
+        this.http.post<any>(`${this.apiUrl}/salvar-sugestoes`, {
+          itens: itens.map(i => ({
+            compraProdutoId: i.compraProdutoId,
+            sugestaoVenda: i.novoPrecoVenda,
+            sugestaoMarkup: i.markup,
+            sugestaoProjecao: i.projecaoLucro,
+            sugestaoCustoMedio: i.custoMedioAtual
+          }))
+        }).subscribe({
+          next: r => {
+            this.precAplicando.set(false);
+            this.abrirPrecModal('Sugestoes Salvas',
+              `${r.data?.salvos || 0} sugestao(oes) salva(s). Serao aplicadas na finalizacao da nota.`, null);
+          },
+          error: e => { this.erro.set(e?.error?.message || 'Erro ao salvar.'); this.precAplicando.set(false); }
+        });
+      }
     });
   }
 

@@ -493,6 +493,25 @@ public class CompraService : ICompraService
         return alterados;
     }
 
+    public async Task<int> SalvarSugestoesAsync(SalvarSugestaoRequest request)
+    {
+        var salvos = 0;
+        foreach (var item in request.Itens)
+        {
+            var cp = await _db.ComprasProdutos.FindAsync(item.CompraProdutoId);
+            if (cp == null) continue;
+
+            cp.SugestaoVenda = item.SugestaoVenda;
+            cp.SugestaoMarkup = item.SugestaoMarkup;
+            cp.SugestaoProjecao = item.SugestaoProjecao;
+            cp.SugestaoCustoMedio = item.SugestaoCustoMedio;
+            cp.PrecificacaoAplicada = false;
+            salvos++;
+        }
+        await _db.SaveChangesAsync();
+        return salvos;
+    }
+
     private static decimal ObterPmcPorAliquota(Domain.Entities.AbcFarmaBase abc, decimal aliquota)
     {
         return aliquota switch
