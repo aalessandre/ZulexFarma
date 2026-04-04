@@ -312,6 +312,15 @@
         @if (precSelecionados().size > 0) {
           <span class="prec-info">| Selecionados: <strong>{{ precSelecionados().size }}</strong></span>
         }
+
+        <div class="prec-selecionar">
+          <label>BASE DE CALCULO</label>
+          <select [value]="precBaseCalculo()" (change)="precBaseCalculo.set($any($event.target).value); recalcularTodosSugestao()">
+            <option value="CUSTO_COMPRA">Custo Compra</option>
+            <option value="CUSTO_MEDIO">Custo Medio</option>
+          </select>
+        </div>
+
         <div class="prec-selecionar">
           <label>SELECIONAR</label>
           <select (change)="selecionarPrecPor($any($event.target).value); $any($event.target).value = ''">
@@ -323,6 +332,9 @@
             <option value="PMC_ABC">Somente com PMC AbcFarma</option>
           </select>
         </div>
+
+        <button class="btn-acatar-pmc" (click)="acatarPmc('NOTA')">Acatar PMC Nota</button>
+        <button class="btn-acatar-pmc" (click)="acatarPmc('ABC')">Acatar PMC ABC</button>
 
         <button class="btn-aplicar-prec" [disabled]="precAplicando()" (click)="aplicarPrecificacao()">
           @if (precAplicando()) { Aplicando... } @else { Aplicar Selecionados }
@@ -386,10 +398,15 @@
                   <input type="checkbox" class="grid-check" [checked]="isPrecSelecionado(p.produtoDadosId)" (change)="togglePrecItem(p.produtoDadosId)" />
                 </td>
                 @for (col of precColunasVisiveis(); track col.campo) {
-                  <td [class.td-valor]="isValorColumn(col.campo)"
+                  <td [class.td-valor]="isValorColumn(col.campo) || isEditableCol(col.campo)"
                       [class]="getVarClass(p, col.campo)"
                       [title]="col.campo === 'produtoNome' ? p.produtoNome : ''">
-                    @if (col.campo === 'precoVendaAtual') {
+                    @if (isEditableCol(col.campo)) {
+                      <input type="number" class="prec-edit-input"
+                             [value]="$any(p)[col.campo]"
+                             (change)="onPrecCellChange(p, col.campo, +$any($event.target).value)"
+                             step="0.01" />
+                    } @else if (col.campo === 'precoVendaAtual') {
                       <strong>{{ getPrecCellValue(p, col.campo) }}</strong>
                     } @else {
                       {{ getPrecCellValue(p, col.campo) }}

@@ -156,6 +156,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   painelColunasPrecAberto = signal(false);
   precSelecionados = signal<Set<number>>(new Set());
   precAplicando = signal(false);
+  precBaseCalculo = signal<'CUSTO_COMPRA' | 'CUSTO_MEDIO'>('CUSTO_COMPRA');
 
   // Modal precificação
   precModalAberto = signal(false);
@@ -170,18 +171,19 @@ export class ComprasComponent implements OnInit, OnDestroy {
     return [
       { campo: 'produtoId', label: 'Cod', largura: 55, visivel: true },
       { campo: 'produtoNome', label: 'Produto', largura: 200, visivel: true },
-      { campo: 'fabricanteNome', label: 'Fabricante', largura: 110, visivel: true },
-      { campo: 'custoCompraAnterior', label: 'CC Anterior', largura: 85, visivel: true },
-      { campo: 'custoCompraAtual', label: 'CC Atual', largura: 85, visivel: true },
-      { campo: 'varCustoCompraPercent', label: '% Var CC', largura: 75, visivel: true },
-      { campo: 'custoMedioAnterior', label: 'CM Anterior', largura: 85, visivel: true },
-      { campo: 'custoMedioAtual', label: 'CM Atual', largura: 85, visivel: true },
-      { campo: 'varCustoMedioPercent', label: '% Var CM', largura: 75, visivel: true },
-      { campo: 'precoVendaAtual', label: 'Venda Atual', largura: 90, visivel: true },
-      { campo: 'sugestaoVendaCustoCompra', label: 'Sug. CC', largura: 85, visivel: true },
-      { campo: 'sugestaoVendaCustoMedio', label: 'Sug. CM', largura: 85, visivel: true },
-      { campo: 'pmcNota', label: 'PMC Nota', largura: 80, visivel: true },
-      { campo: 'pmcAbcFarma', label: 'PMC ABC', largura: 80, visivel: true },
+      { campo: 'fabricanteNome', label: 'Fabricante', largura: 100, visivel: true },
+      { campo: 'custoCompraAnterior', label: 'CC Anterior', largura: 82, visivel: true },
+      { campo: 'custoCompraAtual', label: 'CC Atual', largura: 82, visivel: true },
+      { campo: 'varCustoCompraPercent', label: '% Var CC', largura: 70, visivel: true },
+      { campo: 'custoMedioAnterior', label: 'CM Anterior', largura: 82, visivel: true },
+      { campo: 'custoMedioAtual', label: 'CM Atual', largura: 82, visivel: true },
+      { campo: 'varCustoMedioPercent', label: '% Var CM', largura: 70, visivel: true },
+      { campo: 'precoVendaAtual', label: 'Venda Atual', largura: 85, visivel: true },
+      { campo: 'novoPrecoVenda', label: 'Sug. Vlr Venda', largura: 95, visivel: true },
+      { campo: 'projecaoLucro', label: '% Proj. Lucro', largura: 85, visivel: true },
+      { campo: 'markup', label: '% Markup', largura: 80, visivel: true },
+      { campo: 'pmcNota', label: 'PMC Nota', largura: 75, visivel: true },
+      { campo: 'pmcAbcFarma', label: 'PMC ABC', largura: 75, visivel: true },
     ];
   }
 
@@ -720,6 +722,58 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.precSelecionados.set(new Set());
   }
 
+  // Edição inline na precificação
+  isEditableCol(campo: string): boolean {
+    return ['novoPrecoVenda', 'projecaoLucro', 'markup'].includes(campo);
+  }
+
+  onPrecCellChange(item: PrecificacaoItem, campo: string, valor: number) {
+    const custoBase = this.precBaseCalculo() === 'CUSTO_MEDIO' ? item.custoMedioAtual : item.custoCompraAtual;
+    if (custoBase <= 0) return;
+
+    if (campo === 'novoPrecoVenda') {
+      item.novoPrecoVenda = valor;
+      item.markup = custoBase > 0 ? Math.round(((valor - custoBase) / custoBase) * 100 * 100) / 100 : 0;
+      item.projecaoLucro = valor > 0 ? Math.min(Math.round(((valor - custoBase) / valor) * 100 * 100) / 100, 99) : 0;
+    } else if (campo === 'markup') {
+      item.markup = valor;
+      item.novoPrecoVenda = Math.round(custoBase * (1 + valor / 100) * 100) / 100;
+      item.projecaoLucro = item.novoPrecoVenda > 0 ? Math.min(Math.round(((item.novoPrecoVenda - custoBase) / item.novoPrecoVenda) * 100 * 100) / 100, 99) : 0;
+    } else if (campo === 'projecaoLucro') {
+      item.projecaoLucro = Math.min(valor, 99);
+      item.novoPrecoVenda = valor < 100 ? Math.round(custoBase / (1 - valor / 100) * 100) / 100 : item.novoPrecoVenda;
+      item.markup = custoBase > 0 ? Math.round(((item.novoPrecoVenda - custoBase) / custoBase) * 100 * 100) / 100 : 0;
+    }
+    // Forçar reatividade
+    this.precificacaoItens.update(itens => [...itens]);
+  }
+
+  recalcularTodosSugestao() {
+    const base = this.precBaseCalculo();
+    this.precificacaoItens.update(itens => itens.map(i => {
+      const custoBase = base === 'CUSTO_MEDIO' ? i.custoMedioAtual : i.custoCompraAtual;
+      if (custoBase <= 0 || i.projecaoLucro >= 100) return i;
+      const venda = Math.round(custoBase / (1 - i.projecaoLucro / 100) * 100) / 100;
+      const mk = custoBase > 0 ? Math.round(((venda - custoBase) / custoBase) * 100 * 100) / 100 : 0;
+      return { ...i, novoPrecoVenda: venda, markup: mk };
+    }));
+  }
+
+  acatarPmc(tipo: 'NOTA' | 'ABC') {
+    const base = this.precBaseCalculo();
+    const sel = new Set<number>();
+    this.precificacaoItens.update(itens => itens.map(i => {
+      const pmc = tipo === 'NOTA' ? i.pmcNota : i.pmcAbcFarma;
+      if (pmc <= 0) return i;
+      sel.add(i.produtoDadosId);
+      const custoBase = base === 'CUSTO_MEDIO' ? i.custoMedioAtual : i.custoCompraAtual;
+      const mk = custoBase > 0 ? Math.round(((pmc - custoBase) / custoBase) * 100 * 100) / 100 : 0;
+      const proj = pmc > 0 ? Math.min(Math.round(((pmc - custoBase) / pmc) * 100 * 100) / 100, 99) : 0;
+      return { ...i, novoPrecoVenda: pmc, markup: mk, projecaoLucro: proj };
+    }));
+    this.precSelecionados.set(sel);
+  }
+
   // Seleção precificação
   togglePrecItem(id: number) {
     this.precSelecionados.update(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -769,6 +823,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
           produtoDadosId: i.produtoDadosId,
           produtoId: i.produtoId,
           novoPrecoVenda: i.novoPrecoVenda,
+          novoMarkup: i.markup,
+          novaProjecaoLucro: i.projecaoLucro,
           novoCustoCompra: i.custoCompraAtual,
           novoCustoMedio: i.custoMedioAtual,
           novoPmc: i.pmcNota > 0 ? i.pmcNota : i.pmcAbcFarma

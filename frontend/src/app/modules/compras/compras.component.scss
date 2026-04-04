@@ -701,6 +701,19 @@
   }
 }
 
+.btn-acatar-pmc {
+  padding: 4px 12px; background: #2471a3; color: #fff; border: none; border-radius: 4px;
+  font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; align-self: flex-end;
+  &:hover { filter: brightness(1.1); }
+}
+
+.prec-edit-input {
+  width: 100%; height: 24px; padding: 0 4px; border: 1px solid var(--erp-border-input);
+  border-radius: 3px; font-size: 12px; text-align: right; color: var(--erp-blue, #2c5fad);
+  font-weight: 600; background: #fafbfc;
+  &:focus { outline: none; border-color: var(--erp-blue); background: #fff; }
+}
+
 .btn-aplicar-prec {
   margin-left: auto; padding: 6px 20px; background: #8e44ad; color: #fff; border: none;
   border-radius: 4px; font-size: var(--erp-fs-body); font-weight: 600; cursor: pointer;

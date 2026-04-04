@@ -467,19 +467,14 @@ public class CompraService : ICompraService
             };
 
             dados.ValorVenda = item.NovoPrecoVenda;
+            dados.Markup = item.NovoMarkup;
+            dados.ProjecaoLucro = item.NovaProjecaoLucro;
             dados.CustoMedio = item.NovoCustoMedio;
             dados.Pmc = item.NovoPmc > 0 ? item.NovoPmc : dados.Pmc;
 
             // Atualizar custos da compra
             dados.UltimaCompraUnitario = item.NovoCustoCompra;
             dados.UltimaCompraEm = DateTime.UtcNow;
-
-            // Recalcular markup e projeção
-            if (dados.CustoMedio > 0 && dados.ValorVenda > 0)
-            {
-                dados.Markup = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.CustoMedio) * 100, 2);
-                dados.ProjecaoLucro = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.ValorVenda) * 100, 2);
-            }
 
             await _log.RegistrarAsync("Produtos", "AJUSTE PREÇO (COMPRA)", "Produto", item.ProdutoId,
                 anterior: anterior,
