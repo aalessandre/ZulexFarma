@@ -739,7 +739,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   onPrecCellChange(item: PrecificacaoItem, campo: string, valor: number) {
-    const custoBase = this.precBaseCalculo() === 'CUSTO_MEDIO' ? item.custoMedioAtual : item.custoCompraAtual;
+    // Custo base: preferência conforme seleção, fallback para o outro se 0
+    let custoBase = this.precBaseCalculo() === 'CUSTO_MEDIO' ? item.custoMedioAtual : item.custoCompraAtual;
+    if (custoBase <= 0) custoBase = item.custoCompraAtual || item.custoMedioAtual || item.custoCompraAnterior || item.custoMedioAnterior;
     if (custoBase <= 0) return;
 
     let venda = item.novoPrecoVenda;
@@ -771,7 +773,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
   recalcularTodosSugestao() {
     const base = this.precBaseCalculo();
     this.precificacaoItens.update(itens => itens.map(i => {
-      const custoBase = base === 'CUSTO_MEDIO' ? i.custoMedioAtual : i.custoCompraAtual;
+      let custoBase = base === 'CUSTO_MEDIO' ? i.custoMedioAtual : i.custoCompraAtual;
+      if (custoBase <= 0) custoBase = i.custoCompraAtual || i.custoMedioAtual || i.custoCompraAnterior || i.custoMedioAnterior;
       if (custoBase <= 0) return i;
 
       let venda = i.novoPrecoVenda;
@@ -793,7 +796,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
       const pmc = tipo === 'NOTA' ? i.pmcNota : i.pmcAbcFarma;
       if (pmc <= 0) return i;
       sel.add(i.produtoDadosId);
-      const custoBase = base === 'CUSTO_MEDIO' ? i.custoMedioAtual : i.custoCompraAtual;
+      let custoBase = base === 'CUSTO_MEDIO' ? i.custoMedioAtual : i.custoCompraAtual;
+      if (custoBase <= 0) custoBase = i.custoCompraAtual || i.custoMedioAtual || i.custoCompraAnterior || i.custoMedioAnterior;
       const mk = custoBase > 0 ? Math.round(((pmc - custoBase) / custoBase) * 100 * 100) / 100 : 0;
       const proj = pmc > 0 ? Math.min(Math.round(((pmc - custoBase) / pmc) * 100 * 100) / 100, 99) : 0;
       return { ...i, novoPrecoVenda: pmc, markup: mk, projecaoLucro: proj };
