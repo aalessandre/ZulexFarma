@@ -130,6 +130,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IIcmsUfService,
                             ZulexPharma.Infrastructure.Services.IcmsUfService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAtualizacaoPrecoService,
                             ZulexPharma.Infrastructure.Services.AtualizacaoPrecoService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISefazService,
+                            ZulexPharma.Infrastructure.Services.SefazService>();
 
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();

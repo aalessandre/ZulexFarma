@@ -61,6 +61,7 @@ public class AppDbContext : DbContext
     public DbSet<CompraProduto> ComprasProdutos => Set<CompraProduto>();
     public DbSet<CompraFiscal> ComprasFiscal => Set<CompraFiscal>();
     public DbSet<IcmsUf> IcmsUfs => Set<IcmsUf>();
+    public DbSet<CertificadoDigital> CertificadosDigitais => Set<CertificadoDigital>();
     public DbSet<AbcFarmaBase> AbcFarmaBase => Set<AbcFarmaBase>();
     public DbSet<AtualizacaoPreco> AtualizacoesPreco => Set<AtualizacaoPreco>();
     public DbSet<AtualizacaoPrecoItem> AtualizacoesPrecoItens => Set<AtualizacaoPrecoItem>();
@@ -100,6 +101,17 @@ public class AppDbContext : DbContext
             e.Property(x => x.NomeEstado).HasMaxLength(50).IsRequired();
             e.Property(x => x.AliquotaInterna).HasColumnType("numeric(5,2)");
             e.HasIndex(x => x.Uf).IsUnique();
+        });
+
+        // ── CertificadoDigital ────────────────────────────────────────
+        modelBuilder.Entity<CertificadoDigital>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Cnpj).HasMaxLength(18);
+            e.Property(x => x.RazaoSocial).HasMaxLength(200);
+            e.Property(x => x.Emissor).HasMaxLength(300);
+            e.HasIndex(x => x.FilialId).IsUnique();
         });
 
         // ── GrupoUsuario (tabela: UsuariosGrupos) ─────────────────────
@@ -724,7 +736,7 @@ public class AppDbContext : DbContext
     // então não passam pelo interceptor — não precisam estar aqui.
     private static readonly HashSet<string> _tabelasSemSync = new()
     {
-        "SyncFila", "SequenciasLocais", "AbcFarmaBase"
+        "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais"
     };
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
