@@ -309,56 +309,73 @@
       <div class="prec-header">
         <h2>Ajuste de Precos</h2>
         <span class="prec-info">{{ precificacaoItens().length }} produto(s)</span>
+
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunasPrecAberto.update(v => !v)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Colunas
+          </button>
+          @if (painelColunasPrecAberto()) {
+            <div class="col-picker-overlay" (click)="painelColunasPrecAberto.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header">
+                <span>Personalizar Colunas</span>
+                <button class="col-picker-btn-restaurar" (click)="restaurarPrecColunasPadrao()">Restaurar padrao</button>
+              </div>
+              <div class="col-picker-lista">
+                @for (col of precColunas(); track col.campo) {
+                  <label class="col-picker-item">
+                    <input type="checkbox" [checked]="col.visivel" (change)="togglePrecColuna(col.campo)" />
+                    <span>{{ col.label }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
       </div>
 
       <div class="grid-wrapper">
         <table class="erp-grid erp-grid-compact">
           <thead>
             <tr>
-              <th class="th-sort" style="width:50px" (click)="ordenarPrec('produtoId')">Cod <span class="sort-icon">{{ sortPrecIcon('produtoId') }}</span></th>
-              <th class="th-sort th-resize" [attr.data-col]="'produtoNome'" style="width:200px" (click)="ordenarPrec('produtoNome')">
-                Produto <span class="sort-icon">{{ sortPrecIcon('produtoNome') }}</span>
-                <div class="resize-handle" (mousedown)="iniciarResize($event, 'produtoNome', 200)" (click)="$event.stopPropagation()"></div>
-              </th>
-              <th class="th-sort" style="width:100px" (click)="ordenarPrec('fabricanteNome')">Fabricante <span class="sort-icon">{{ sortPrecIcon('fabricanteNome') }}</span></th>
-              <th class="th-sort" style="width:85px" (click)="ordenarPrec('custoCompraAnterior')">CC Anterior <span class="sort-icon">{{ sortPrecIcon('custoCompraAnterior') }}</span></th>
-              <th class="th-sort" style="width:85px" (click)="ordenarPrec('custoCompraAtual')">CC Atual <span class="sort-icon">{{ sortPrecIcon('custoCompraAtual') }}</span></th>
-              <th class="th-sort" style="width:70px" (click)="ordenarPrec('varCustoCompraPercent')">% Var CC <span class="sort-icon">{{ sortPrecIcon('varCustoCompraPercent') }}</span></th>
-              <th class="th-sort" style="width:85px" (click)="ordenarPrec('custoMedioAnterior')">CM Anterior <span class="sort-icon">{{ sortPrecIcon('custoMedioAnterior') }}</span></th>
-              <th class="th-sort" style="width:85px" (click)="ordenarPrec('custoMedioAtual')">CM Atual <span class="sort-icon">{{ sortPrecIcon('custoMedioAtual') }}</span></th>
-              <th class="th-sort" style="width:70px" (click)="ordenarPrec('varCustoMedioPercent')">% Var CM <span class="sort-icon">{{ sortPrecIcon('varCustoMedioPercent') }}</span></th>
-              <th class="th-sort" style="width:85px" (click)="ordenarPrec('precoVendaAtual')">Venda Atual <span class="sort-icon">{{ sortPrecIcon('precoVendaAtual') }}</span></th>
-              <th class="th-sort" style="width:85px" (click)="ordenarPrec('sugestaoVendaCustoCompra')">Sug. CC <span class="sort-icon">{{ sortPrecIcon('sugestaoVendaCustoCompra') }}</span></th>
-              <th class="th-sort" style="width:85px" (click)="ordenarPrec('sugestaoVendaCustoMedio')">Sug. CM <span class="sort-icon">{{ sortPrecIcon('sugestaoVendaCustoMedio') }}</span></th>
-              <th class="th-sort" style="width:75px" (click)="ordenarPrec('pmcNota')">PMC Nota <span class="sort-icon">{{ sortPrecIcon('pmcNota') }}</span></th>
-              <th class="th-sort" style="width:75px" (click)="ordenarPrec('pmcAbcFarma')">PMC ABC <span class="sort-icon">{{ sortPrecIcon('pmcAbcFarma') }}</span></th>
+              @for (col of precColunasVisiveis(); track col.campo; let i = $index) {
+                <th class="th-sort th-resize"
+                    [attr.data-col]="col.campo"
+                    [style.width.px]="col.largura"
+                    (click)="ordenarPrec(col.campo)"
+                    draggable="true"
+                    (dragstart)="onDragStartCol(i)"
+                    (dragover)="onDragOverCol($event, i)"
+                    (drop)="onDropCol()">
+                  {{ col.label }} <span class="sort-icon">{{ sortPrecIcon(col.campo) }}</span>
+                  <div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+                </th>
+              }
             </tr>
           </thead>
           <tbody>
             @for (p of precificacaoOrdenada(); track p.produtoId) {
               <tr>
-                <td>{{ p.produtoId }}</td>
-                <td [title]="p.produtoNome">{{ p.produtoNome }}</td>
-                <td>{{ p.fabricanteNome }}</td>
-                <td class="td-valor">{{ p.custoCompraAnterior | number:'1.2-2':'pt-BR' }}</td>
-                <td class="td-valor">{{ p.custoCompraAtual | number:'1.2-2':'pt-BR' }}</td>
-                <td class="td-center" [class.var-subiu]="p.varCustoCompraPercent > 0" [class.var-desceu]="p.varCustoCompraPercent < 0">
-                  {{ p.varCustoCompraPercent > 0 ? '+' : '' }}{{ p.varCustoCompraPercent | number:'1.2-2':'pt-BR' }}%
-                </td>
-                <td class="td-valor">{{ p.custoMedioAnterior | number:'1.2-2':'pt-BR' }}</td>
-                <td class="td-valor">{{ p.custoMedioAtual | number:'1.2-2':'pt-BR' }}</td>
-                <td class="td-center" [class.var-subiu]="p.varCustoMedioPercent > 0" [class.var-desceu]="p.varCustoMedioPercent < 0">
-                  {{ p.varCustoMedioPercent > 0 ? '+' : '' }}{{ p.varCustoMedioPercent | number:'1.2-2':'pt-BR' }}%
-                </td>
-                <td class="td-valor"><strong>{{ p.precoVendaAtual | number:'1.2-2':'pt-BR' }}</strong></td>
-                <td class="td-valor">{{ p.sugestaoVendaCustoCompra | number:'1.2-2':'pt-BR' }}</td>
-                <td class="td-valor">{{ p.sugestaoVendaCustoMedio | number:'1.2-2':'pt-BR' }}</td>
-                <td class="td-valor">{{ p.pmcNota > 0 ? (p.pmcNota | number:'1.2-2':'pt-BR') : '--' }}</td>
-                <td class="td-valor">{{ p.pmcAbcFarma > 0 ? (p.pmcAbcFarma | number:'1.2-2':'pt-BR') : '--' }}</td>
+                @for (col of precColunasVisiveis(); track col.campo) {
+                  <td [class.td-valor]="isValorColumn(col.campo)"
+                      [class]="getVarClass(p, col.campo)"
+                      [title]="col.campo === 'produtoNome' ? p.produtoNome : ''">
+                    @if (col.campo === 'precoVendaAtual') {
+                      <strong>{{ getPrecCellValue(p, col.campo) }}</strong>
+                    } @else {
+                      {{ getPrecCellValue(p, col.campo) }}
+                    }
+                  </td>
+                }
               </tr>
             }
             @if (precificacaoItens().length === 0) {
-              <tr><td colspan="14" class="grid-vazio">Nenhum produto vinculado nas notas selecionadas.</td></tr>
+              <tr><td [attr.colspan]="precColunasVisiveis().length" class="grid-vazio">Nenhum produto vinculado nas notas selecionadas.</td></tr>
             }
           </tbody>
         </table>

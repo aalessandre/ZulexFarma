@@ -681,17 +681,67 @@
 }
 
 /* ── Precificação ──────────────────────────────────────────────── */
+.erp-grid-compact {
+  font-size: 12px;
+  th { font-size: 11px; padding: 6px 6px; }
+  td { padding: 5px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+.var-subiu { color: #c0392b !important; font-weight: 700 !important; }
+.var-desceu { color: #1e8449 !important; font-weight: 700 !important; }
+
 .prec-header {
   display: flex; align-items: center; gap: 12px; padding: 8px 16px 0;
   h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--erp-text); }
   .prec-info { font-size: var(--erp-fs-body); color: var(--erp-text-muted); }
 }
 
-.erp-grid-compact {
-  font-size: 12px;
-  th { font-size: 11px; padding: 6px 6px; }
-  td { padding: 5px 6px; }
+/* ── Seletor de colunas ──────────────────────────────────────────── */
+.col-picker-wrap { position: relative; margin-left: auto; }
+
+.btn-colunas {
+  display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px;
+  border: 1px solid var(--erp-border-input); border-radius: 4px;
+  background: var(--erp-surface); color: var(--erp-text-muted);
+  font-size: var(--erp-fs-body); cursor: pointer;
+  &:hover { background: var(--erp-bg); }
 }
 
-.var-subiu { color: #c0392b; font-weight: 700; }
-.var-desceu { color: #1e8449; font-weight: 700; }
+.col-picker-overlay {
+  position: fixed; inset: 0; z-index: 99;
+}
+
+.col-picker-painel {
+  position: absolute; right: 0; top: 40px; z-index: 100;
+  background: var(--erp-surface); border: 1px solid var(--erp-border);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  min-width: 220px; max-height: 400px; display: flex; flex-direction: column;
+}
+
+.col-picker-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--erp-border);
+  font-size: 13px; font-weight: 600; color: var(--erp-text);
+}
+
+.col-picker-btn-restaurar {
+  background: none; border: none; color: var(--erp-blue); cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  &:hover { text-decoration: underline; }
+}
+
+.col-picker-lista {
+  padding: 8px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+}
+
+.col-picker-item {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 13px; color: var(--erp-text); padding: 3px 0;
+  input { width: 15px; height: 15px; accent-color: var(--erp-blue); cursor: pointer; }
+}
+
+/* ── Drag colunas ────────────────────────────────────────────────── */
+.erp-grid-compact th[draggable="true"] {
+  cursor: grab;
+  &:active { cursor: grabbing; }
+}

@@ -153,6 +153,31 @@ export class ComprasComponent implements OnInit, OnDestroy {
   precificacaoCarregando = signal(false);
   sortPrecCol = signal<string>('produtoNome');
   sortPrecDir = signal<'asc' | 'desc'>('asc');
+  painelColunasPrecAberto = signal(false);
+
+  private readonly PREC_COLUNAS_KEY = 'zulex_prec_colunas';
+  precColunas = signal<{ campo: string; label: string; largura: number; visivel: boolean }[]>(this.carregarPrecColunas());
+
+  private precColunasDefault(): { campo: string; label: string; largura: number; visivel: boolean }[] {
+    return [
+      { campo: 'produtoId', label: 'Cod', largura: 55, visivel: true },
+      { campo: 'produtoNome', label: 'Produto', largura: 200, visivel: true },
+      { campo: 'fabricanteNome', label: 'Fabricante', largura: 110, visivel: true },
+      { campo: 'custoCompraAnterior', label: 'CC Anterior', largura: 85, visivel: true },
+      { campo: 'custoCompraAtual', label: 'CC Atual', largura: 85, visivel: true },
+      { campo: 'varCustoCompraPercent', label: '% Var CC', largura: 75, visivel: true },
+      { campo: 'custoMedioAnterior', label: 'CM Anterior', largura: 85, visivel: true },
+      { campo: 'custoMedioAtual', label: 'CM Atual', largura: 85, visivel: true },
+      { campo: 'varCustoMedioPercent', label: '% Var CM', largura: 75, visivel: true },
+      { campo: 'precoVendaAtual', label: 'Venda Atual', largura: 90, visivel: true },
+      { campo: 'sugestaoVendaCustoCompra', label: 'Sug. CC', largura: 85, visivel: true },
+      { campo: 'sugestaoVendaCustoMedio', label: 'Sug. CM', largura: 85, visivel: true },
+      { campo: 'pmcNota', label: 'PMC Nota', largura: 80, visivel: true },
+      { campo: 'pmcAbcFarma', label: 'PMC ABC', largura: 80, visivel: true },
+    ];
+  }
+
+  precColunasVisiveis = computed(() => this.precColunas().filter(c => c.visivel));
 
   precificacaoOrdenada = computed(() => {
     const lista = [...this.precificacaoItens()];
@@ -166,6 +191,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
     });
     return lista;
   });
+
+  // Drag-and-drop colunas
+  private dragColIdx: number | null = null;
 
   // ── Modal fiscal ──────────────────────────────────────────────
   modalFiscal = signal(false);
@@ -691,6 +719,74 @@ export class ComprasComponent implements OnInit, OnDestroy {
   sortPrecIcon(campo: string): string {
     return this.sortPrecCol() === campo ? (this.sortPrecDir() === 'asc' ? '▲' : '▼') : '⇅';
   }
+
+  // ── Precificação colunas ───────────────────────────────────────
+
+  togglePrecColuna(campo: string) {
+    this.precColunas.update(cols => cols.map(c => c.campo === campo ? { ...c, visivel: !c.visivel } : c));
+    this.salvarPrecColunas();
+  }
+
+  restaurarPrecColunasPadrao() {
+    this.precColunas.set(this.precColunasDefault());
+    localStorage.removeItem(this.PREC_COLUNAS_KEY);
+  }
+
+  private carregarPrecColunas() {
+    try {
+      const json = localStorage.getItem('zulex_prec_colunas');
+      if (json) {
+        const salvo = JSON.parse(json);
+        const defaults = this.precColunasDefault();
+        return defaults.map(d => {
+          const s = salvo.find((x: any) => x.campo === d.campo);
+          return s ? { ...d, visivel: s.visivel, largura: s.largura ?? d.largura } : d;
+        });
+      }
+    } catch {}
+    return this.precColunasDefault();
+  }
+
+  private salvarPrecColunas() {
+    localStorage.setItem(this.PREC_COLUNAS_KEY, JSON.stringify(
+      this.precColunas().map(c => ({ campo: c.campo, visivel: c.visivel, largura: c.largura }))
+    ));
+  }
+
+  getPrecCellValue(item: any, campo: string): string {
+    const v = item[campo];
+    if (v === null || v === undefined) return '--';
+    if (campo.startsWith('var')) return (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+    if (typeof v === 'number') return v === 0 && (campo.startsWith('pmc')) ? '--' : v.toFixed(2).replace('.', ',');
+    return String(v);
+  }
+
+  isVarColumn(campo: string): boolean { return campo.startsWith('var'); }
+  getVarClass(item: any, campo: string): string {
+    if (!this.isVarColumn(campo)) return '';
+    const v = item[campo] ?? 0;
+    return v > 0 ? 'var-subiu' : v < 0 ? 'var-desceu' : '';
+  }
+
+  isValorColumn(campo: string): boolean {
+    return ['custoCompraAnterior','custoCompraAtual','custoMedioAnterior','custoMedioAtual',
+      'precoVendaAtual','sugestaoVendaCustoCompra','sugestaoVendaCustoMedio','pmcNota','pmcAbcFarma'].includes(campo);
+  }
+
+  // Drag-and-drop
+  onDragStartCol(idx: number) { this.dragColIdx = idx; }
+  onDragOverCol(event: DragEvent, idx: number) {
+    event.preventDefault();
+    if (this.dragColIdx === null || this.dragColIdx === idx) return;
+    this.precColunas.update(cols => {
+      const arr = [...cols];
+      const [moved] = arr.splice(this.dragColIdx!, 1);
+      arr.splice(idx, 0, moved);
+      this.dragColIdx = idx;
+      return arr;
+    });
+  }
+  onDropCol() { this.dragColIdx = null; this.salvarPrecColunas(); }
 
   // ── Checkboxes de seleção (notas na lista) ─────────────────────
 
