@@ -184,8 +184,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
       { campo: 'projecaoLucro', label: '% Proj. Lucro', largura: 85, visivel: true },
       { campo: 'markup', label: '% Markup', largura: 80, visivel: true },
       { campo: 'pmcNota', label: 'PMC Nota', largura: 75, visivel: true },
-      { campo: 'pmcAbcFarma', label: 'PMC ABC', largura: 75, visivel: true },
       { campo: 'ajustado', label: 'Status', largura: 55, visivel: true },
+      { campo: 'pmcAbcFarma', label: 'PMC ABC', largura: 75, visivel: true },
     ];
   }
 

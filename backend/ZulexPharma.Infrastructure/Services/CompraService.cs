@@ -469,12 +469,8 @@ public class CompraService : ICompraService
             dados.ValorVenda = item.NovoPrecoVenda;
             dados.Markup = item.NovoMarkup;
             dados.ProjecaoLucro = item.NovaProjecaoLucro;
-            dados.CustoMedio = item.NovoCustoMedio;
             dados.Pmc = item.NovoPmc > 0 ? item.NovoPmc : dados.Pmc;
-
-            // Atualizar custos da compra
-            dados.UltimaCompraUnitario = item.NovoCustoCompra;
-            dados.UltimaCompraEm = DateTime.UtcNow;
+            // CustoMedio e custos da compra serão atualizados na finalização da nota
 
             await _log.RegistrarAsync("Produtos", "AJUSTE PREÇO (COMPRA)", "Produto", item.ProdutoId,
                 anterior: anterior,
