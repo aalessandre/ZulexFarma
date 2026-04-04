@@ -408,6 +408,7 @@
                 @for (col of precColunasVisiveis(); track col.campo) {
                   <td [class.td-valor]="isValorColumn(col.campo) || isEditableCol(col.campo)"
                       [class]="getVarClass(p, col.campo)"
+                      [class.ajustado-ok]="col.campo === 'ajustado' && getAjustadoClass(p) === 'ajustado-ok'"
                       [title]="col.campo === 'produtoNome' ? p.produtoNome : ''">
                     @if (isEditableCol(col.campo)) {
                       <input type="number" class="prec-edit-input"

@@ -185,6 +185,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
       { campo: 'markup', label: '% Markup', largura: 80, visivel: true },
       { campo: 'pmcNota', label: 'PMC Nota', largura: 75, visivel: true },
       { campo: 'pmcAbcFarma', label: 'PMC ABC', largura: 75, visivel: true },
+      { campo: 'ajustado', label: 'Status', largura: 55, visivel: true },
     ];
   }
 
@@ -839,9 +840,14 @@ export class ComprasComponent implements OnInit, OnDestroy {
         }).subscribe({
           next: r => {
             this.precAplicando.set(false);
+            // Marcar itens aplicados
+            const idsAplicados = new Set(itens.map(i => i.produtoDadosId));
+            this.precificacaoItens.update(all => all.map(i =>
+              idsAplicados.has(i.produtoDadosId) ? { ...i, precoVendaAtual: i.novoPrecoVenda } : i
+            ));
+            this.precSelecionados.set(new Set());
             this.abrirPrecModal('Ajuste Aplicado',
               `${r.data?.alterados || 0} produto(s) atualizado(s) com sucesso.`, null);
-            this.abrirPrecificacao();
           },
           error: e => { this.erro.set(e?.error?.message || 'Erro ao aplicar.'); this.precAplicando.set(false); }
         });
@@ -920,11 +926,18 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   getPrecCellValue(item: any, campo: string): string {
+    if (campo === 'ajustado') {
+      return item.precoVendaAtual === item.novoPrecoVenda && item.novoPrecoVenda > 0 ? '✓' : '';
+    }
     const v = item[campo];
     if (v === null || v === undefined) return '--';
     if (campo.startsWith('var')) return (v > 0 ? '+' : '') + v.toFixed(2) + '%';
     if (typeof v === 'number') return v === 0 && (campo.startsWith('pmc')) ? '--' : v.toFixed(2).replace('.', ',');
     return String(v);
+  }
+
+  getAjustadoClass(item: any): string {
+    return item.precoVendaAtual === item.novoPrecoVenda && item.novoPrecoVenda > 0 ? 'ajustado-ok' : '';
   }
 
   isVarColumn(campo: string): boolean { return campo.startsWith('var'); }
