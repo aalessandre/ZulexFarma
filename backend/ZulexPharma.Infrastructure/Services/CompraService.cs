@@ -368,9 +368,8 @@ public class CompraService : ICompraService
                     + dados.UltimaCompraBoleto + dados.UltimaCompraDifal + dados.UltimaCompraFrete;
             }
 
-            // Custo compra atual (da nota)
-            var stUnitario = item.Quantidade > 0 ? (item.Fiscal?.ValorSt ?? 0) / item.Quantidade : 0;
-            var custoCompraAtual = item.ValorUnitario + stUnitario;
+            // Custo compra atual (da nota) = valor total do item / quantidade
+            var custoCompraAtual = item.Quantidade > 0 ? item.ValorItemNota / item.Quantidade : item.ValorUnitario;
 
             // Custo médio
             var custoMedioAnterior = dados?.CustoMedio ?? 0;
