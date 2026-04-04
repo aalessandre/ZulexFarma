@@ -638,6 +638,115 @@
         }
       </section>
 
+      <!-- PADRÃO DE TABELA ERP -->
+      <section class="help-secao">
+        <div class="secao-header checklist" [class.aberto]="isAberta('tabela-padrao')" (click)="toggleSecao('tabela-padrao')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          <span>Padrao de Tabela ERP</span>
+        </div>
+        @if (isAberta('tabela-padrao')) {
+          <div class="secao-corpo">
+            <div class="cmd-grupo">
+              <div class="cmd-label">Visao Geral</div>
+              <span class="cmd-obs">Todas as tabelas/grids do ERP devem seguir esse padrao. Referencia de implementacao: tela de Precificacao em compras.component (precColunasVisiveis, drag-and-drop, seletor).</span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Features obrigatorias</div>
+              <span class="cmd-obs">
+                1. <strong>Colunas ordenáveis</strong> — click no header ordena asc/desc, indicadores: ▲ (asc), ▼ (desc), ⇅ (neutro)<br>
+                2. <strong>Colunas redimensionaveis</strong> — resize-handle na borda direita de cada header (divisor visual entre colunas)<br>
+                3. <strong>Seletor de colunas</strong> — botao "Colunas" abre painel com checkboxes para mostrar/ocultar colunas<br>
+                4. <strong>Drag-and-drop</strong> — arrastar header para reordenar colunas<br>
+                5. <strong>Persistencia</strong> — ordem, visibilidade e largura salvas no localStorage<br>
+                6. <strong>Restaurar padrao</strong> — botao para resetar configuracao de colunas<br>
+                7. <strong>Texto truncado</strong> — ellipsis quando conteudo nao cabe na coluna
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Estrutura TypeScript</div>
+              <span class="cmd-obs">
+                <strong>1. Definicao de colunas (array de objetos):</strong><br>
+                <code>precColunasDefault(): {{ '{' }} campo: string; label: string; largura: number; visivel: boolean {{ '}' }}[]</code><br><br>
+
+                <strong>2. Signals necessarios:</strong><br>
+                — <code>colunas = signal(this.carregarColunas())</code> — estado atual das colunas<br>
+                — <code>colunasVisiveis = computed(() => colunas().filter(c => c.visivel))</code><br>
+                — <code>painelColunasAberto = signal(false)</code><br>
+                — <code>sortColuna = signal('campo_padrao')</code><br>
+                — <code>sortDirecao = signal&lt;'asc'|'desc'&gt;('asc')</code><br>
+                — <code>private dragColIdx: number | null = null</code><br><br>
+
+                <strong>3. Metodos obrigatorios:</strong><br>
+                — <code>ordenar(campo)</code> — toggle asc/desc<br>
+                — <code>sortIcon(campo)</code> — retorna ▲ ▼ ou ⇅<br>
+                — <code>toggleColuna(campo)</code> — mostra/oculta coluna<br>
+                — <code>restaurarPadrao()</code> — reseta colunas<br>
+                — <code>carregarColunas()</code> — le do localStorage<br>
+                — <code>salvarColunas()</code> — grava no localStorage<br>
+                — <code>iniciarResize(event, col, largura)</code> — inicia resize de coluna<br>
+                — <code>onDragStartCol(idx)</code>, <code>onDragOverCol(event, idx)</code>, <code>onDropCol()</code> — drag-and-drop<br>
+                — <code>@HostListener('document:mousemove')</code> e <code>@HostListener('document:mouseup')</code> — para resize
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Estrutura HTML</div>
+              <span class="cmd-obs">
+                <strong>Header com seletor:</strong><br>
+                <code>&lt;div class="col-picker-wrap"&gt;</code><br>
+                <code>&nbsp;&nbsp;&lt;button class="btn-colunas"&gt;Colunas&lt;/button&gt;</code><br>
+                <code>&nbsp;&nbsp;&lt;div class="col-picker-overlay"&gt;&lt;/div&gt;</code><br>
+                <code>&nbsp;&nbsp;&lt;div class="col-picker-painel"&gt;...checkboxes...&lt;/div&gt;</code><br>
+                <code>&lt;/div&gt;</code><br><br>
+
+                <strong>Tabela:</strong><br>
+                <code>&lt;table class="erp-grid"&gt;</code> (ou <code>erp-grid-compact</code> para tabelas densas)<br><br>
+
+                <strong>Header da coluna (cada th):</strong><br>
+                <code>&lt;th class="th-sort th-resize"</code><br>
+                <code>&nbsp;&nbsp;[attr.data-col]="col.campo"</code><br>
+                <code>&nbsp;&nbsp;[style.width.px]="col.largura"</code><br>
+                <code>&nbsp;&nbsp;(click)="ordenar(col.campo)"</code><br>
+                <code>&nbsp;&nbsp;draggable="true"</code><br>
+                <code>&nbsp;&nbsp;(dragstart)="onDragStartCol(i)"</code><br>
+                <code>&nbsp;&nbsp;(dragover)="onDragOverCol($event, i)"</code><br>
+                <code>&nbsp;&nbsp;(drop)="onDropCol()"&gt;</code><br>
+                <code>&nbsp;&nbsp;{{ '{' }}{{ '{' }} col.label {{ '}' }}{{ '}' }} &lt;span class="sort-icon"&gt;...&lt;/span&gt;</code><br>
+                <code>&nbsp;&nbsp;&lt;div class="resize-handle" (mousedown)="iniciarResize(...)"&gt;&lt;/div&gt;</code><br>
+                <code>&lt;/th&gt;</code><br><br>
+
+                <strong>Corpo (loop pelas colunas visiveis):</strong><br>
+                <code>&#64;for (col of colunasVisiveis(); track col.campo)</code><br>
+                <code>&nbsp;&nbsp;&lt;td [class.td-valor]="isValorColumn(col.campo)"&gt;{{ '{' }}{{ '{' }} getCellValue(item, col.campo) {{ '}' }}{{ '}' }}&lt;/td&gt;</code>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">CSS obrigatorio</div>
+              <span class="cmd-obs">
+                Classes reutilizaveis (ja definidas nos componentes):<br>
+                — <code>.erp-grid</code> — tabela base (border-collapse, cores, hover)<br>
+                — <code>.erp-grid-compact</code> — fonte menor, padding reduzido<br>
+                — <code>.th-sort</code> — cursor pointer, hover brightness<br>
+                — <code>.th-resize</code> — position relative, overflow visible<br>
+                — <code>.resize-handle</code> — barra vertical na borda direita (6px, col-resize)<br>
+                — <code>.sort-icon</code> — icone de ordenacao ao lado do label<br>
+                — <code>.th-arrow</code> / <code>.td-arrow</code> — coluna seta de selecao (30px)<br>
+                — <code>.td-valor</code> — text-align right (valores monetarios)<br>
+                — <code>.td-center</code> — text-align center<br>
+                — <code>.grid-wrapper</code> — container com overflow, border-radius 16px, sombra<br>
+                — <code>.grid-rodape</code> — barra inferior com contagem<br>
+                — <code>.grid-vazio</code> / <code>.grid-loading</code> — mensagens centralizadas<br>
+                — <code>.col-picker-wrap</code>, <code>.col-picker-painel</code>, <code>.col-picker-item</code> — seletor de colunas<br>
+                — <code>.btn-colunas</code> — botao que abre o seletor
+              </span>
+            </div>
+          </div>
+        }
+      </section>
+
     </div>
   </main>
 </div>
