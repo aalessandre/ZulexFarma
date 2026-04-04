@@ -24,6 +24,7 @@ interface CompraList {
   itensVinculados: number;
   itensPrecificados: number;
   itensConferidos: number;
+  itensConferidosExcedidos: number;
   criadoEm: string;
 }
 

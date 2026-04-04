@@ -200,10 +200,12 @@
                     }
                   </td>
                   <td class="td-center">
-                    @if (c.totalItens > 0 && c.itensConferidos === c.totalItens) {
+                    @if (c.totalItens > 0 && c.itensConferidos === c.totalItens && c.itensConferidosExcedidos === 0) {
                       <span class="badge-status status-finalizada">OK</span>
+                    } @else if (c.totalItens > 0 && c.itensConferidos === c.totalItens && c.itensConferidosExcedidos > 0) {
+                      <span class="badge-status status-preentrada">Excesso</span>
                     } @else if (c.itensConferidos > 0) {
-                      <span class="badge-status status-preentrada">{{ c.itensConferidos }}/{{ c.totalItens }}</span>
+                      <span class="badge-status status-pendente">{{ c.itensConferidos }}/{{ c.totalItens }}</span>
                     } @else {
                       <span class="badge-status status-pendente">Pendente</span>
                     }

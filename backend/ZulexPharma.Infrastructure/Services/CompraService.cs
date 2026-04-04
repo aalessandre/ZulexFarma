@@ -51,6 +51,7 @@ public class CompraService : ICompraService
                     ItensVinculados = c.Produtos.Count(p => p.Vinculado),
                     ItensPrecificados = c.Produtos.Count(p => p.SugestaoVenda.HasValue || p.PrecificacaoAplicada),
                     ItensConferidos = c.Produtos.Count(p => p.Vinculado && p.QtdeConferida >= p.Quantidade * (p.Fracao > 0 ? p.Fracao : 1)),
+                    ItensConferidosExcedidos = c.Produtos.Count(p => p.Vinculado && p.QtdeConferida > p.Quantidade * (p.Fracao > 0 ? p.Fracao : 1)),
                     CriadoEm = c.CriadoEm
                 })
                 .ToListAsync();

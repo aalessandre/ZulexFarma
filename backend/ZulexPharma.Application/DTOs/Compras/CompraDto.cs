@@ -19,6 +19,7 @@ public class CompraListDto
     public int ItensVinculados { get; set; }
     public int ItensPrecificados { get; set; }
     public int ItensConferidos { get; set; }
+    public int ItensConferidosExcedidos { get; set; }
     public DateTime CriadoEm { get; set; }
 }
 
