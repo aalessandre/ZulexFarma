@@ -331,8 +331,8 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
             // Recalcular markup e projeção de lucro com base no custo médio
             if (dados.CustoMedio > 0 && dados.ValorVenda > 0)
             {
-                dados.Markup = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.CustoMedio) * 100, 2);
-                dados.ProjecaoLucro = Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.ValorVenda) * 100, 2);
+                dados.Markup = Math.Clamp(Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.CustoMedio) * 100, 2), -999.99m, 999.99m);
+                dados.ProjecaoLucro = Math.Clamp(Math.Round(((dados.ValorVenda - dados.CustoMedio) / dados.ValorVenda) * 100, 2), -99m, 99m);
             }
 
             // Log de auditoria por produto

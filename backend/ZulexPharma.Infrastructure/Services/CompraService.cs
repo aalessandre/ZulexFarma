@@ -553,8 +553,8 @@ public class CompraService : ICompraService
             };
 
             dados.ValorVenda = item.NovoPrecoVenda;
-            dados.Markup = item.NovoMarkup;
-            dados.ProjecaoLucro = item.NovaProjecaoLucro;
+            dados.Markup = Math.Clamp(item.NovoMarkup, -999.99m, 999.99m);
+            dados.ProjecaoLucro = Math.Clamp(item.NovaProjecaoLucro, -99m, 99m);
             dados.Pmc = item.NovoPmc > 0 ? item.NovoPmc : dados.Pmc;
             // CustoMedio e custos da compra serão atualizados na finalização da nota
 
@@ -768,11 +768,15 @@ public class CompraService : ICompraService
             if (item.SugestaoVenda.HasValue && !item.PrecificacaoAplicada)
             {
                 dados.ValorVenda = item.SugestaoVenda.Value;
-                dados.Markup = item.SugestaoMarkup ?? dados.Markup;
-                dados.ProjecaoLucro = item.SugestaoProjecao ?? dados.ProjecaoLucro;
+                dados.Markup = Math.Clamp(item.SugestaoMarkup ?? dados.Markup, -999.99m, 999.99m);
+                dados.ProjecaoLucro = Math.Clamp(item.SugestaoProjecao ?? dados.ProjecaoLucro, -99m, 99m);
                 item.PrecificacaoAplicada = true;
                 precosAplicados++;
             }
+
+            // Garantir que markup e projeção não estourem o campo numeric(5,2)
+            dados.Markup = Math.Clamp(dados.Markup, -999.99m, 999.99m);
+            dados.ProjecaoLucro = Math.Clamp(dados.ProjecaoLucro, -99m, 99m);
 
             // 5. Log individual
             await _log.RegistrarAsync("Produtos", "FINALIZAÇÃO COMPRA", "Produto", item.ProdutoId!.Value,
