@@ -40,6 +40,7 @@ public class CompraProduto : BaseEntity
 
     // ── Vinculação ──────────────────────────────────────────────
     public bool Vinculado { get; set; }
+    public short Fracao { get; set; } = 1;
     public string? InfoAdicional { get; set; }
 
     // ── Sugestão de preço (preenchido na precificação, aplicado na finalização) ──

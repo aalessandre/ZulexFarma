@@ -251,6 +251,9 @@
               <th class="th-sort" style="width:70px" (click)="ordenarItens('quantidade')">
                 Qtde <span class="sort-icon">{{ sortItemIcon('quantidade') }}</span>
               </th>
+              <th class="th-sort" style="width:55px" (click)="ordenarItens('fracao')">
+                Frac <span class="sort-icon">{{ sortItemIcon('fracao') }}</span>
+              </th>
               <th class="th-sort" style="width:90px" (click)="ordenarItens('valorUnitario')">
                 Unitario <span class="sort-icon">{{ sortItemIcon('valorUnitario') }}</span>
               </th>
@@ -282,6 +285,10 @@
                   }
                 </td>
                 <td class="td-valor">{{ p.quantidade | number:'1.0-4':'pt-BR' }}</td>
+                <td class="td-center">
+                  <input type="number" class="fracao-input" [value]="p.fracao || 1" min="1"
+                         (blur)="atualizarFracao(p, +$any($event.target).value)" />
+                </td>
                 <td class="td-valor">{{ p.valorUnitario | number:'1.2-6':'pt-BR' }}</td>
                 <td class="td-valor">{{ p.valorItemNota | number:'1.2-2':'pt-BR' }}</td>
                 <td class="td-center">{{ p.unidadeXml }}</td>

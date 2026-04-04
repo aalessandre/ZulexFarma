@@ -226,6 +226,11 @@ public class CompraService : ICompraService
             item.ProdutoId = produto.Id;
             item.Vinculado = true;
 
+            // Fração: buscar do vínculo fornecedor → fallback produto
+            var pf = await _db.ProdutosFornecedores
+                .FirstOrDefaultAsync(f => f.ProdutoId == produto.Id && f.FornecedorId == item.Compra.FornecedorId && f.FilialId == item.Compra.FilialId);
+            item.Fracao = pf?.Fracao ?? produto.Fracao;
+
             // Adicionar código de barras se não existe
             if (!string.IsNullOrEmpty(item.CodigoBarrasXml))
             {
@@ -298,6 +303,28 @@ public class CompraService : ICompraService
             Log.Error(ex, "Erro em CompraService.DesvincularProdutoAsync");
             throw;
         }
+    }
+
+    // ── Atualizar fração ──────────────────────────────────────────────
+    public async Task<CompraProdutoDto> AtualizarFracaoAsync(long compraProdutoId, short fracao)
+    {
+        var item = await _db.ComprasProdutos
+            .Include(p => p.Compra)
+            .FirstOrDefaultAsync(p => p.Id == compraProdutoId)
+            ?? throw new KeyNotFoundException("Item não encontrado.");
+
+        item.Fracao = fracao > 0 ? fracao : (short)1;
+
+        // Atualizar também no vínculo fornecedor se existir
+        if (item.ProdutoId.HasValue)
+        {
+            var pf = await _db.ProdutosFornecedores
+                .FirstOrDefaultAsync(f => f.ProdutoId == item.ProdutoId && f.FornecedorId == item.Compra.FornecedorId && f.FilialId == item.Compra.FilialId);
+            if (pf != null) pf.Fracao = item.Fracao;
+        }
+
+        await _db.SaveChangesAsync();
+        return await MapProdutoDto(item.Id);
     }
 
     // ── Re-vincular ──────────────────────────────────────────────────
@@ -679,6 +706,12 @@ public class CompraService : ICompraService
                 item.ProdutoId = produtoId;
                 item.Vinculado = true;
 
+                // Fração do vínculo fornecedor ou produto
+                var pfVinc = await _db.ProdutosFornecedores
+                    .FirstOrDefaultAsync(f => f.ProdutoId == produtoId && f.FornecedorId == fornecedorId && f.FilialId == filialId);
+                if (pfVinc != null) item.Fracao = pfVinc.Fracao;
+                else { var prod = await _db.Produtos.FindAsync(produtoId); if (prod != null) item.Fracao = prod.Fracao; }
+
                 // Garantir vínculo fornecedor-produto
                 var existeVinculo = await _db.ProdutosFornecedores
                     .AnyAsync(pf => pf.ProdutoId == produtoId
@@ -845,6 +878,7 @@ public class CompraService : ICompraService
                 CodigoAnvisa = p.CodigoAnvisa,
                 PrecoMaximoConsumidor = p.PrecoMaximoConsumidor,
                 Vinculado = p.Vinculado,
+                Fracao = p.Fracao,
                 InfoAdicional = p.InfoAdicional,
                 Fiscal = p.Fiscal != null ? new CompraFiscalDto
                 {
@@ -917,6 +951,7 @@ public class CompraService : ICompraService
             CodigoAnvisa = p.CodigoAnvisa,
             PrecoMaximoConsumidor = p.PrecoMaximoConsumidor,
             Vinculado = p.Vinculado,
+            Fracao = p.Fracao,
             InfoAdicional = p.InfoAdicional
         };
     }

@@ -51,6 +51,7 @@ interface CompraProduto {
   codigoAnvisa: string | null;
   precoMaximoConsumidor: number | null;
   vinculado: boolean;
+  fracao: number;
   infoAdicional: string | null;
   fiscal: any;
 }
@@ -655,6 +656,17 @@ export class ComprasComponent implements OnInit, OnDestroy {
       p.id === itemAtualizado.id ? { ...p, ...itemAtualizado } : p
     );
     this.compraDetalhe.set({ ...detalhe, produtos });
+  }
+
+  // ── Atualizar fração ───────────────────────────────────────────
+
+  atualizarFracao(item: CompraProduto, fracao: number) {
+    if (fracao < 1 || fracao === (item.fracao || 1)) return;
+    this.http.post<any>(`${this.apiUrl}/atualizar-fracao/${item.id}`, { fracao }).subscribe({
+      next: r => {
+        this.atualizarItemNoDetalhe(r.data);
+      }
+    });
   }
 
   // ── Excluir compra ────────────────────────────────────────────

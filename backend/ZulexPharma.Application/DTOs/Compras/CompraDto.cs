@@ -81,6 +81,7 @@ public class CompraProdutoDto
     public string? CodigoAnvisa { get; set; }
     public decimal? PrecoMaximoConsumidor { get; set; }
     public bool Vinculado { get; set; }
+    public short Fracao { get; set; } = 1;
     public string? InfoAdicional { get; set; }
 
     public CompraFiscalDto? Fiscal { get; set; }
@@ -119,6 +120,12 @@ public class CompraFiscalDto
     public decimal ValorIbsMun { get; set; }
     public decimal AliquotaCbs { get; set; }
     public decimal ValorCbs { get; set; }
+}
+
+// ── DTO para atualizar fração ────────────────────────────────────────
+public class AtualizarFracaoRequest
+{
+    public short Fracao { get; set; } = 1;
 }
 
 // ── DTO para vincular produto ────────────────────────────────────────

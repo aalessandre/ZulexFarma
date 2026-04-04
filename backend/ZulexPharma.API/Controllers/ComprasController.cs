@@ -157,6 +157,19 @@ public class ComprasController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro em AplicarPrecificacao"); return StatusCode(500, new { success = false, message = "Erro ao aplicar precificação." }); }
     }
 
+    [HttpPost("atualizar-fracao/{compraProdutoId:long}")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> AtualizarFracao(long compraProdutoId, [FromBody] AtualizarFracaoRequest request)
+    {
+        try
+        {
+            var cp = await _service.AtualizarFracaoAsync(compraProdutoId, request.Fracao);
+            return Ok(new { success = true, data = cp });
+        }
+        catch (KeyNotFoundException) { return NotFound(new { success = false, message = "Item não encontrado." }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em AtualizarFracao"); return StatusCode(500, new { success = false, message = "Erro ao atualizar fração." }); }
+    }
+
     [HttpPost("salvar-sugestoes")]
     [Permissao("compras", "a")]
     public async Task<IActionResult> SalvarSugestoes([FromBody] SalvarSugestaoRequest request)

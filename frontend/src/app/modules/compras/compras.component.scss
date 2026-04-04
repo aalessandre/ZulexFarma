@@ -374,6 +374,12 @@
 .icon-vinc-ok { color: #27ae60; font-weight: 700; font-size: 14px; }
 .icon-vinc-nok { color: #e74c3c; font-weight: 700; font-size: 14px; }
 
+.fracao-input {
+  width: 40px; height: 24px; text-align: center; border: 1px solid var(--erp-border-input);
+  border-radius: 3px; font-size: 12px; padding: 0 2px;
+  &:focus { outline: none; border-color: var(--erp-blue); }
+}
+
 .produto-vinculado { color: #27ae60; font-weight: 500; }
 .produto-pendente { color: var(--erp-text-muted); font-style: italic; }
 
