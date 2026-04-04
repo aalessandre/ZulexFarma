@@ -1662,10 +1662,11 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   buscarAbcFarmaManual() {
     const ean = this.produtoForm().codigoBarras;
     if (!ean || ean.length < 7) return;
-    this.verificarBarrasDuplicado(ean, true);
+    // Clique manual: sempre atualizar preços
+    this.buscarAbcFarma(ean, true);
   }
 
-  buscarAbcFarma(ean: string) {
+  buscarAbcFarma(ean: string, forcarAtualizar = false) {
     // Buscar alíquota da filial
     const filialId = this.filialSelecionada();
     const filial = this.filiaisDisponiveis().find(f => f.id === filialId);
@@ -1683,8 +1684,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
             fabricante: d.nomeFabricante
           });
 
-          // Só preencher preços em produto NOVO (não em edição)
-          if (!this.modoEdicao()) {
+          // Preencher preços: produto novo OU clique manual no botão ABCFarma
+          if (!this.modoEdicao() || forcarAtualizar) {
             const f = this.produtoForm();
             const dadosIdx = this.dadosFilialIdx();
             const dd = f.dados[dadosIdx];
@@ -1692,15 +1693,15 @@ export class ProdutosComponent implements OnInit, OnDestroy {
               this.updateDados(dadosIdx, 'pmc', d.pmc);
               this.updateDados(dadosIdx, 'valorVenda', d.pmc);
               this.updateDados(dadosIdx, 'precoFabrica', d.precoFabrica);
-              setTimeout(() => { const dd2 = this.produtoForm().dados[dadosIdx]; if (dd2?.markup > 0) this.onMarkupChange(dadosIdx, dd2.markup); }, 0);
+              // Recalcular markup e projeção com base no custo
+              setTimeout(() => this.onValorVendaChange(dadosIdx, d.pmc), 0);
             }
 
-            // Preencher fabricante se não preenchido
             if (!f.fabricanteId && d.nomeFabricante) {
               this.autoPreencherFabricante(d.nomeFabricante);
             }
           } else {
-            // Em edição: só atualizar PrecoFabrica (campo informativo)
+            // Em edição sem clique manual: só atualizar PrecoFabrica
             const dadosIdx = this.dadosFilialIdx();
             this.updateDados(dadosIdx, 'precoFabrica', d.precoFabrica);
           }
