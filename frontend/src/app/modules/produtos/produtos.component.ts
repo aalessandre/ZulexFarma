@@ -995,9 +995,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         this.produtoFormOriginal = JSON.stringify(f);
         this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(true);
         this.produtoEditandoId.set(s.id); this.modo.set('form');
-        // Buscar ABCFarma ao abrir produto existente
-        if (f.codigoBarras) this.buscarAbcFarma(f.codigoBarras);
-        else this.abcFarmaInfo.set(null);
+        // ABCFarma NÃO busca automaticamente ao abrir produto existente
+        // Só busca ao digitar barras ou clicar no botão ABCFarma
+        this.abcFarmaInfo.set(null);
       },
       error: () => this.carregando.set(false)
     });
@@ -1689,23 +1689,26 @@ export class ProdutosComponent implements OnInit, OnDestroy {
             fabricante: d.nomeFabricante
           });
 
-          // Se grupo principal permite e produto permite, preencher preços
-          const f = this.produtoForm();
-          const dadosIdx = this.dadosFilialIdx();
-          const dd = f.dados[dadosIdx];
-          if (dd && !dd.naoAtualizarAbcfarma) {
-            // Preencher PMC, Valor Venda e Preço Fábrica
-            this.updateDados(dadosIdx, 'pmc', d.pmc);
-            this.updateDados(dadosIdx, 'valorVenda', d.pmc);
+          // Só preencher preços em produto NOVO (não em edição)
+          if (!this.modoEdicao()) {
+            const f = this.produtoForm();
+            const dadosIdx = this.dadosFilialIdx();
+            const dd = f.dados[dadosIdx];
+            if (dd && !dd.naoAtualizarAbcfarma) {
+              this.updateDados(dadosIdx, 'pmc', d.pmc);
+              this.updateDados(dadosIdx, 'valorVenda', d.pmc);
+              this.updateDados(dadosIdx, 'precoFabrica', d.precoFabrica);
+              setTimeout(() => { const dd2 = this.produtoForm().dados[dadosIdx]; if (dd2?.markup > 0) this.onMarkupChange(dadosIdx, dd2.markup); }, 0);
+            }
+
+            // Preencher fabricante se não preenchido
+            if (!f.fabricanteId && d.nomeFabricante) {
+              this.autoPreencherFabricante(d.nomeFabricante);
+            }
+          } else {
+            // Em edição: só atualizar PrecoFabrica (campo informativo)
+            const dadosIdx = this.dadosFilialIdx();
             this.updateDados(dadosIdx, 'precoFabrica', d.precoFabrica);
-
-            // Recalcular markup/projeção
-            setTimeout(() => { const d = this.produtoForm().dados[dadosIdx]; if (d?.markup > 0) this.onMarkupChange(dadosIdx, d.markup); }, 0);
-          }
-
-          // Preencher fabricante se não preenchido
-          if (!f.fabricanteId && d.nomeFabricante) {
-            this.autoPreencherFabricante(d.nomeFabricante);
           }
 
           this.toastr.success(
