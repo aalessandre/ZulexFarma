@@ -732,6 +732,21 @@ export class ComprasComponent implements OnInit, OnDestroy {
   isPrecSelecionado(id: number): boolean { return this.precSelecionados().has(id); }
   todosPrecSelecionados(): boolean { return this.precificacaoItens().length > 0 && this.precSelecionados().size === this.precificacaoItens().length; }
 
+  selecionarPrecPor(tipo: string) {
+    if (!tipo) return;
+    const itens = this.precificacaoItens();
+    let filtrados: PrecificacaoItem[];
+    switch (tipo) {
+      case 'TODAS': filtrados = itens; break;
+      case 'AUMENTO': filtrados = itens.filter(i => i.varCustoCompraPercent > 0 || i.varCustoMedioPercent > 0); break;
+      case 'REDUCAO': filtrados = itens.filter(i => i.varCustoCompraPercent < 0 || i.varCustoMedioPercent < 0); break;
+      case 'PMC_NOTA': filtrados = itens.filter(i => i.pmcNota > 0); break;
+      case 'PMC_ABC': filtrados = itens.filter(i => i.pmcAbcFarma > 0); break;
+      default: return;
+    }
+    this.precSelecionados.set(new Set(filtrados.map(i => i.produtoDadosId)));
+  }
+
   // Aplicar precificação
   aplicarPrecificacao() {
     const selecionados = this.precSelecionados();

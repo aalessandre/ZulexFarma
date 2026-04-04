@@ -690,6 +690,17 @@
 .var-subiu { color: #c0392b !important; font-weight: 700 !important; }
 .var-desceu { color: #1e8449 !important; font-weight: 700 !important; }
 
+.prec-selecionar {
+  display: flex; flex-direction: column; gap: 2px;
+  label { font-size: 10px; font-weight: 700; color: var(--erp-text-muted); letter-spacing: 0.5px; }
+  select {
+    height: 32px; padding: 0 28px 0 8px; border: 1px solid var(--erp-border-input); border-radius: 4px;
+    font-size: 12px; color: var(--erp-text); background: var(--erp-surface); appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236a7888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center; min-width: 180px;
+  }
+}
+
 .btn-aplicar-prec {
   margin-left: auto; padding: 6px 20px; background: #8e44ad; color: #fff; border: none;
   border-radius: 4px; font-size: var(--erp-fs-body); font-weight: 600; cursor: pointer;

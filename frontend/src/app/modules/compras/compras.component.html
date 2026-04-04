@@ -312,6 +312,18 @@
         @if (precSelecionados().size > 0) {
           <span class="prec-info">| Selecionados: <strong>{{ precSelecionados().size }}</strong></span>
         }
+        <div class="prec-selecionar">
+          <label>SELECIONAR</label>
+          <select (change)="selecionarPrecPor($any($event.target).value); $any($event.target).value = ''">
+            <option value="">Escolha...</option>
+            <option value="TODAS">Todas</option>
+            <option value="AUMENTO">Somente com Aumento</option>
+            <option value="REDUCAO">Somente com Reducao</option>
+            <option value="PMC_NOTA">Somente com PMC Nota</option>
+            <option value="PMC_ABC">Somente com PMC AbcFarma</option>
+          </select>
+        </div>
+
         <button class="btn-aplicar-prec" [disabled]="precAplicando()" (click)="aplicarPrecificacao()">
           @if (precAplicando()) { Aplicando... } @else { Aplicar Selecionados }
         </button>
