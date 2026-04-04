@@ -275,7 +275,7 @@
                 Qtde <span class="sort-icon">{{ sortItemIcon('quantidade') }}</span>
               </th>
               <th class="th-sort" style="width:55px" (click)="ordenarItens('fracao')">
-                Frac <span class="sort-icon">{{ sortItemIcon('fracao') }}</span>
+                Fracao <span class="sort-icon">{{ sortItemIcon('fracao') }}</span>
               </th>
               <th class="th-sort" style="width:90px" (click)="ordenarItens('valorUnitario')">
                 Unitario <span class="sort-icon">{{ sortItemIcon('valorUnitario') }}</span>
@@ -497,7 +497,7 @@
               <th style="width:130px">Barras</th>
               <th style="width:250px">Produto</th>
               <th style="width:110px">Fabricante</th>
-              <th style="width:50px">Frac</th>
+              <th style="width:60px">Fracao</th>
               <th style="width:70px">Qtde Conf</th>
             </tr>
           </thead>
@@ -514,7 +514,7 @@
                 <td>{{ p.codigoBarrasXml }}</td>
                 <td>{{ p.produtoNome || p.descricaoXml }}</td>
                 <td>--</td>
-                <td class="td-center">{{ p.fracao }}</td>
+                <td class="td-center">{{ p.fracao > 0 ? p.fracao : 1 }}</td>
                 <td class="td-center">
                   <input type="number" class="conf-qtde-input" [value]="p.qtdeConferida"
                          (blur)="atualizarQtdeConf(p, +$any($event.target).value)" min="0" />

@@ -753,7 +753,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   confStatusClass(item: CompraProduto): string {
     if (!item.vinculado) return '';
-    const total = item.qtdeTotal || item.quantidade * (item.fracao || 1);
+    const fracao = item.fracao > 0 ? item.fracao : 1;
+    const total = item.qtdeTotal > 0 ? item.qtdeTotal : item.quantidade * fracao;
     if (item.qtdeConferida >= total && item.qtdeConferida > 0) return item.qtdeConferida > total ? 'conf-excedeu' : 'conf-ok';
     if (item.qtdeConferida > 0) return 'conf-parcial';
     return 'conf-pendente';

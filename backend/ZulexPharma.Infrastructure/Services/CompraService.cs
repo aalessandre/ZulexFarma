@@ -50,7 +50,7 @@ public class CompraService : ICompraService
                     TotalItens = c.Produtos.Count,
                     ItensVinculados = c.Produtos.Count(p => p.Vinculado),
                     ItensPrecificados = c.Produtos.Count(p => p.SugestaoVenda.HasValue || p.PrecificacaoAplicada),
-                    ItensConferidos = c.Produtos.Count(p => p.Vinculado && p.QtdeConferida >= p.Quantidade * p.Fracao),
+                    ItensConferidos = c.Produtos.Count(p => p.Vinculado && p.QtdeConferida >= p.Quantidade * (p.Fracao > 0 ? p.Fracao : 1)),
                     CriadoEm = c.CriadoEm
                 })
                 .ToListAsync();
@@ -361,7 +361,7 @@ public class CompraService : ICompraService
         itemNota.QtdeConferida += request.Quantidade;
         await _db.SaveChangesAsync();
 
-        var qtdeTotal = itemNota.Quantidade * itemNota.Fracao;
+        var qtdeTotal = itemNota.Quantidade * (itemNota.Fracao > 0 ? itemNota.Fracao : 1);
 
         return new BiparResult
         {
@@ -939,7 +939,7 @@ public class CompraService : ICompraService
                 Vinculado = p.Vinculado,
                 Fracao = p.Fracao,
                 QtdeConferida = p.QtdeConferida,
-                QtdeTotal = p.Quantidade * p.Fracao,
+                QtdeTotal = p.Quantidade * (p.Fracao > 0 ? p.Fracao : 1),
                 InfoAdicional = p.InfoAdicional,
                 Fiscal = p.Fiscal != null ? new CompraFiscalDto
                 {
