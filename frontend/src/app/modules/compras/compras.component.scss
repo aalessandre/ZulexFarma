@@ -49,6 +49,7 @@
   &.ativo  { filter: brightness(0.92); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
   &.disabled { opacity: 0.35; pointer-events: none; }
 
+  &.tile-finalizar    { background: linear-gradient(135deg, #1e8449, #27ae60); }
   &.tile-conferencia  { background: linear-gradient(135deg, #d35400, #e67e22); }
   &.tile-procurar     { background: linear-gradient(135deg, #2471a3, #2e86c1); }
   &.tile-importar     { background: linear-gradient(135deg, #1abc9c, #16a085); }
@@ -740,6 +741,54 @@
 
 .conf-ok-text { color: #27ae60; }
 .conf-pend-text { color: #e74c3c; }
+
+/* ── Finalização ───────────────────────────────────────────────── */
+.fin-container {
+  padding: 16px; display: flex; flex-direction: column; gap: 16px;
+  h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--erp-text); }
+}
+
+.fin-info-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;
+}
+
+.fin-info {
+  background: var(--erp-surface); border: 1px solid var(--erp-border); border-radius: 8px; padding: 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  span { font-size: 11px; font-weight: 700; color: var(--erp-text-muted); letter-spacing: 0.5px; text-transform: uppercase; }
+  strong { font-size: 15px; color: var(--erp-text); }
+}
+
+.fin-aviso {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;
+  font-size: 14px; color: #856404; font-weight: 500;
+}
+
+.fin-section {
+  font-size: 14px; font-weight: 700; color: var(--erp-text); padding: 4px 0;
+  border-bottom: 2px solid var(--erp-border);
+}
+
+.fin-grid-wrapper { max-width: 600px; }
+
+.fin-checks {
+  display: flex; flex-direction: column; gap: 10px; padding: 8px 0;
+  .check-label {
+    display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--erp-text); cursor: pointer;
+    input { width: 18px; height: 18px; accent-color: var(--erp-blue); cursor: pointer; }
+  }
+}
+
+.fin-acoes { padding: 8px 0; }
+
+.btn-finalizar {
+  padding: 10px 32px; background: linear-gradient(135deg, #1e8449, #27ae60); color: #fff;
+  border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: filter 0.15s;
+  &:hover:not(:disabled) { filter: brightness(1.1); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
 
 .prec-selecionar {
   display: flex; flex-direction: column; gap: 2px;

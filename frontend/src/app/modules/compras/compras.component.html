@@ -18,6 +18,12 @@
     </label>
 
     @if (modo() === 'lista' && qtdeNotasSelecionadas() > 0) {
+      <div class="sidebar-item tile-finalizar" [class.disabled]="finCarregando()" (click)="abrirFinalizacao()">
+        @if (finCarregando()) { <span>Carregando...</span> } @else {
+          <span>Finalizar</span>
+          <span class="sidebar-sub">Fechar nota</span>
+        }
+      </div>
       <div class="sidebar-item tile-conferencia" [class.disabled]="confCarregando()" (click)="abrirConferencia()">
         @if (confCarregando()) { <span>Carregando...</span> } @else {
           <span>Conferencia</span>
@@ -43,6 +49,13 @@
 
     @if (modo() === 'conferencia') {
       <div class="sidebar-item tile-procurar" (click)="voltarDaConferencia()">
+        <span>Voltar</span>
+        <span class="sidebar-sub">Lista de notas</span>
+      </div>
+    }
+
+    @if (modo() === 'finalizacao') {
+      <div class="sidebar-item tile-procurar" (click)="voltarDaFinalizacao()">
         <span>Voltar</span>
         <span class="sidebar-sub">Lista de notas</span>
       </div>
@@ -534,6 +547,74 @@
         <span>Conferidos: <strong class="conf-ok-text">{{ confTotalConferidos() }}</strong></span>
         <span class="rodape-sep">|</span>
         <span>Pendentes: <strong class="conf-pend-text">{{ confTotalPendentes() }}</strong></span>
+      </div>
+    }
+
+    <!-- ══════════ FINALIZAÇÃO ══════════ -->
+    @if (modo() === 'finalizacao' && finDados(); as d) {
+      <div class="fin-container">
+        <h2>Finalizar Nota</h2>
+
+        <div class="fin-info-grid">
+          <div class="fin-info"><span>NF</span><strong>{{ d.numeroNf }} - Serie {{ d.serieNf }}</strong></div>
+          <div class="fin-info"><span>Fornecedor</span><strong>{{ d.fornecedorNome }}</strong></div>
+          <div class="fin-info"><span>Valor Nota</span><strong>R$ {{ d.valorNota | number:'1.2-2':'pt-BR' }}</strong></div>
+          <div class="fin-info"><span>Itens</span><strong>{{ d.itensVinculados }}/{{ d.totalItens }}</strong></div>
+          <div class="fin-info"><span>Precificados</span><strong>{{ d.itensPrecificados }}/{{ d.totalItens }}</strong></div>
+          <div class="fin-info"><span>Conferidos</span><strong>{{ d.itensConferidos }}/{{ d.totalItens }}</strong></div>
+        </div>
+
+        @if (d.temPrecosPendentes) {
+          <div class="fin-aviso">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#856404" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Existem precos pendentes de aplicacao. Serao aplicados ao finalizar.
+          </div>
+        }
+
+        @if (d.duplicatas.length > 0) {
+          <div class="fin-section">Duplicatas</div>
+          <div class="grid-wrapper fin-grid-wrapper">
+            <table class="erp-grid">
+              <thead>
+                <tr>
+                  <th style="width:100px">N Duplicata</th>
+                  <th style="width:120px">Vencimento</th>
+                  <th style="width:100px">Descontos</th>
+                  <th style="width:100px">Encargos</th>
+                  <th style="width:120px">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (dup of d.duplicatas; track dup.numero) {
+                  <tr>
+                    <td>{{ dup.numero }}</td>
+                    <td>{{ dup.vencimento }}</td>
+                    <td class="td-valor">0,00</td>
+                    <td class="td-valor">0,00</td>
+                    <td class="td-valor"><strong>{{ dup.valor | number:'1.2-2':'pt-BR' }}</strong></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        <div class="fin-checks">
+          <label class="check-label">
+            <input type="checkbox" [checked]="finDuplicatasEntregues()" (change)="finDuplicatasEntregues.set($any($event.target).checked)" />
+            <span>DUPLICATAS FORAM ENTREGUES</span>
+          </label>
+          <label class="check-label">
+            <input type="checkbox" [checked]="finNotaPaga()" (change)="finNotaPaga.set($any($event.target).checked)" />
+            <span>NOTA FISCAL JA FOI PAGA</span>
+          </label>
+        </div>
+
+        <div class="fin-acoes">
+          <button class="btn-finalizar" [disabled]="finAplicando()" (click)="finalizar()">
+            @if (finAplicando()) { Finalizando... } @else { Finalizar Nota }
+          </button>
+        </div>
       </div>
     }
   </div>

@@ -618,6 +618,160 @@ public class CompraService : ICompraService
         };
     }
 
+    // ── Dados para tela de finalização ─────────────────────────────
+    public async Task<DadosFinalizacaoDto> ObterDadosFinalizacaoAsync(long compraId)
+    {
+        var compra = await _db.Compras
+            .Include(c => c.Fornecedor).ThenInclude(f => f.Pessoa)
+            .Include(c => c.Produtos)
+            .FirstOrDefaultAsync(c => c.Id == compraId)
+            ?? throw new KeyNotFoundException($"Compra {compraId} não encontrada.");
+
+        // Extrair duplicatas do XML
+        var duplicatas = new List<DuplicataDto>();
+        if (!string.IsNullOrEmpty(compra.XmlConteudo))
+        {
+            try
+            {
+                var doc = System.Xml.Linq.XDocument.Parse(compra.XmlConteudo);
+                var ns = _nfe;
+                foreach (var dup in doc.Descendants(ns + "dup"))
+                {
+                    duplicatas.Add(new DuplicataDto
+                    {
+                        Numero = dup.Element(ns + "nDup")?.Value,
+                        Vencimento = dup.Element(ns + "dVenc")?.Value,
+                        Valor = decimal.TryParse(dup.Element(ns + "vDup")?.Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0
+                    });
+                }
+            }
+            catch { /* XML inválido — sem duplicatas */ }
+        }
+
+        var vinculados = compra.Produtos.Where(p => p.Vinculado).ToList();
+        return new DadosFinalizacaoDto
+        {
+            CompraId = compra.Id,
+            NumeroNf = compra.NumeroNf,
+            SerieNf = compra.SerieNf,
+            FornecedorNome = compra.Fornecedor.Pessoa.Nome,
+            ValorNota = compra.ValorNota,
+            TotalItens = compra.Produtos.Count,
+            ItensVinculados = vinculados.Count,
+            ItensPrecificados = vinculados.Count(p => p.SugestaoVenda.HasValue || p.PrecificacaoAplicada),
+            ItensConferidos = vinculados.Count(p => p.QtdeConferida >= p.Quantidade * (p.Fracao > 0 ? p.Fracao : 1)),
+            TemPrecosPendentes = vinculados.Any(p => p.SugestaoVenda.HasValue && !p.PrecificacaoAplicada),
+            Duplicatas = duplicatas
+        };
+    }
+
+    // ── Finalizar compra ─────────────────────────────────────────────
+    public async Task<FinalizarCompraResult> FinalizarAsync(FinalizarCompraRequest request)
+    {
+        var compra = await _db.Compras
+            .Include(c => c.Produtos).ThenInclude(p => p.Fiscal)
+            .FirstOrDefaultAsync(c => c.Id == request.CompraId)
+            ?? throw new KeyNotFoundException("Compra não encontrada.");
+
+        if (compra.Status == CompraStatus.Finalizada)
+            throw new ArgumentException("Esta compra já foi finalizada.");
+
+        var produtosAtualizados = 0;
+        var precosAplicados = 0;
+        decimal estoqueAdicionado = 0;
+
+        foreach (var item in compra.Produtos.Where(p => p.Vinculado && p.ProdutoId.HasValue))
+        {
+            var dados = await _db.ProdutosDados
+                .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == compra.FilialId);
+            if (dados == null) continue;
+
+            var anterior = new Dictionary<string, string?> {
+                ["Estoque"] = dados.EstoqueAtual.ToString("N3"),
+                ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
+                ["Custo Médio"] = dados.CustoMedio.ToString("N2"),
+                ["Ult. Compra Unit."] = dados.UltimaCompraUnitario.ToString("N4")
+            };
+
+            var fracao = item.Fracao > 0 ? item.Fracao : (short)1;
+            var qtdeTotal = item.Quantidade * fracao;
+
+            // 1. Atualizar estoque
+            dados.EstoqueAtual += qtdeTotal;
+            estoqueAdicionado += qtdeTotal;
+
+            // 2. Atualizar última compra
+            var custoCompraUnit = item.Quantidade > 0
+                ? (item.ValorItemNota > 0 ? item.ValorItemNota / item.Quantidade
+                   : item.ValorTotal > 0 ? (item.ValorTotal + (item.Fiscal?.ValorSt ?? 0)) / item.Quantidade
+                   : item.ValorUnitario)
+                : item.ValorUnitario;
+
+            var stUnit = item.Quantidade > 0 ? (item.Fiscal?.ValorSt ?? 0) / item.Quantidade : 0;
+
+            dados.UltimaCompraUnitario = item.ValorUnitario;
+            dados.UltimaCompraSt = Math.Round(stUnit, 4);
+            dados.UltimaCompraEm = DateTime.UtcNow;
+
+            // 3. Custo médio ponderado
+            var estoqueAnterior = dados.EstoqueAtual - qtdeTotal;
+            if (estoqueAnterior <= 0)
+                dados.CustoMedio = Math.Round(custoCompraUnit, 4);
+            else
+                dados.CustoMedio = Math.Round(
+                    ((estoqueAnterior * dados.CustoMedio) + (qtdeTotal * custoCompraUnit))
+                    / dados.EstoqueAtual, 4);
+
+            // 4. Preços pendentes (sugestão salva mas não aplicada)
+            if (item.SugestaoVenda.HasValue && !item.PrecificacaoAplicada)
+            {
+                dados.ValorVenda = item.SugestaoVenda.Value;
+                dados.Markup = item.SugestaoMarkup ?? dados.Markup;
+                dados.ProjecaoLucro = item.SugestaoProjecao ?? dados.ProjecaoLucro;
+                item.PrecificacaoAplicada = true;
+                precosAplicados++;
+            }
+
+            // 5. Log individual
+            await _log.RegistrarAsync("Produtos", "FINALIZAÇÃO COMPRA", "Produto", item.ProdutoId!.Value,
+                anterior: anterior,
+                novo: new Dictionary<string, string?> {
+                    ["Estoque"] = dados.EstoqueAtual.ToString("N3"),
+                    ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
+                    ["Custo Médio"] = dados.CustoMedio.ToString("N4"),
+                    ["Ult. Compra Unit."] = dados.UltimaCompraUnitario.ToString("N4"),
+                    ["NF"] = compra.NumeroNf
+                });
+
+            produtosAtualizados++;
+        }
+
+        // Atualizar compra
+        compra.Status = CompraStatus.Finalizada;
+        compra.DuplicatasEntregues = request.DuplicatasEntregues;
+        compra.NotaPaga = request.NotaPaga;
+        compra.DataFinalizacao = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        // Log geral
+        await _log.RegistrarAsync("Compras", "FINALIZAÇÃO", "Compra", compra.Id,
+            novo: new Dictionary<string, string?> {
+                ["NF"] = compra.NumeroNf,
+                ["Produtos"] = produtosAtualizados.ToString(),
+                ["Preços aplicados"] = precosAplicados.ToString(),
+                ["Estoque adicionado"] = estoqueAdicionado.ToString("N3"),
+                ["Usuário"] = request.NomeUsuario
+            });
+
+        return new FinalizarCompraResult
+        {
+            ProdutosAtualizados = produtosAtualizados,
+            PrecosAplicados = precosAplicados,
+            EstoqueAdicionado = estoqueAdicionado
+        };
+    }
+
     // ── Excluir ──────────────────────────────────────────────────────
     public async Task<string> ExcluirAsync(long id)
     {

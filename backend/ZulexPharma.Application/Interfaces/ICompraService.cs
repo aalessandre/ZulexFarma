@@ -16,5 +16,7 @@ public interface ICompraService
     Task<PrecificacaoResult> GerarPrecificacaoAsync(PrecificacaoRequest request);
     Task<int> AplicarPrecificacaoAsync(AplicarPrecificacaoRequest request);
     Task<int> SalvarSugestoesAsync(SalvarSugestaoRequest request);
+    Task<DadosFinalizacaoDto> ObterDadosFinalizacaoAsync(long compraId);
+    Task<FinalizarCompraResult> FinalizarAsync(FinalizarCompraRequest request);
     Task<string> ExcluirAsync(long id);
 }

@@ -35,6 +35,11 @@ public class Compra : BaseEntity
     // ── Status ──────────────────────────────────────────────────
     public CompraStatus Status { get; set; } = CompraStatus.PreEntrada;
 
+    // ── Finalização ─────────────────────────────────────────────
+    public bool DuplicatasEntregues { get; set; }
+    public bool NotaPaga { get; set; }
+    public DateTime? DataFinalizacao { get; set; }
+
     // ── XML ─────────────────────────────────────────────────────
     /// <summary>XML completo da NF-e. Excluído do sync para economizar tráfego.</summary>
     [JsonIgnore]

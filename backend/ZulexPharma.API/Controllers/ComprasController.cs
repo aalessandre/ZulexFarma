@@ -199,6 +199,25 @@ public class ComprasController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro em SalvarSugestoes"); return StatusCode(500, new { success = false, message = "Erro ao salvar sugestões." }); }
     }
 
+    [HttpGet("{id:long}/dados-finalizacao")]
+    [Permissao("compras", "c")]
+    public async Task<IActionResult> DadosFinalizacao(long id)
+    {
+        try { return Ok(new { success = true, data = await _service.ObterDadosFinalizacaoAsync(id) }); }
+        catch (KeyNotFoundException) { return NotFound(new { success = false, message = "Compra não encontrada." }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em DadosFinalizacao"); return StatusCode(500, new { success = false, message = "Erro." }); }
+    }
+
+    [HttpPost("finalizar")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> Finalizar([FromBody] FinalizarCompraRequest request)
+    {
+        try { return Ok(new { success = true, data = await _service.FinalizarAsync(request) }); }
+        catch (KeyNotFoundException) { return NotFound(new { success = false, message = "Compra não encontrada." }); }
+        catch (ArgumentException ex) { return BadRequest(new { success = false, message = ex.Message }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em Finalizar"); return StatusCode(500, new { success = false, message = "Erro ao finalizar." }); }
+    }
+
     [HttpDelete("{id:long}")]
     [Permissao("compras", "e")]
     public async Task<IActionResult> Excluir(long id)

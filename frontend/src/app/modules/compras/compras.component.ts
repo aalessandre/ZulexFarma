@@ -120,7 +120,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   private readonly STATE_KEY = 'zulex_compras_state';
 
   // ── Estado ────────────────────────────────────────────────────
-  modo = signal<'lista' | 'detalhe' | 'precificacao' | 'conferencia'>('lista');
+  modo = signal<'lista' | 'detalhe' | 'precificacao' | 'conferencia' | 'finalizacao'>('lista');
   compras = signal<CompraList[]>([]);
   compraSelecionada = signal<CompraList | null>(null);
   compraDetalhe = signal<CompraDetalhe | null>(null);
@@ -213,6 +213,13 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   // Drag-and-drop colunas
   private dragColIdx: number | null = null;
+
+  // ── Finalização ───────────────────────────────────────────────
+  finDados = signal<any>(null);
+  finCarregando = signal(false);
+  finAplicando = signal(false);
+  finDuplicatasEntregues = signal(false);
+  finNotaPaga = signal(false);
 
   // ── Conferência ───────────────────────────────────────────────
   confItens = signal<CompraProduto[]>([]);
@@ -667,6 +674,66 @@ export class ComprasComponent implements OnInit, OnDestroy {
       p.id === itemAtualizado.id ? { ...p, ...itemAtualizado } : p
     );
     this.compraDetalhe.set({ ...detalhe, produtos });
+  }
+
+  // ── Finalização ────────────────────────────────────────────────
+
+  abrirFinalizacao() {
+    const selecionadas = this.notasSelecionadas();
+    if (selecionadas.size !== 1) {
+      this.toastr.warning('Selecione apenas uma nota para finalizar.', 'Atenção', { timeOut: 3000, positionClass: 'toast-top-center' });
+      return;
+    }
+    const compraId = Array.from(selecionadas)[0];
+    this.finCarregando.set(true);
+    this.http.get<any>(`${this.apiUrl}/${compraId}/dados-finalizacao`).subscribe({
+      next: r => {
+        this.finDados.set(r.data);
+        this.finDuplicatasEntregues.set(false);
+        this.finNotaPaga.set(false);
+        this.modo.set('finalizacao');
+        this.finCarregando.set(false);
+      },
+      error: e => {
+        this.erro.set(e?.error?.message || 'Erro ao carregar dados.');
+        this.finCarregando.set(false);
+      }
+    });
+  }
+
+  voltarDaFinalizacao() {
+    this.modo.set('lista');
+    this.finDados.set(null);
+    this.carregar();
+  }
+
+  finalizar() {
+    const dados = this.finDados();
+    if (!dados) return;
+    const usuario = this.auth.usuarioLogado();
+
+    this.abrirPrecModal('Finalizar Nota',
+      `Confirma a finalizacao da NF ${dados.numeroNf}? O estoque sera atualizado e os precos aplicados.`, () => {
+      this.finAplicando.set(true);
+      this.http.post<any>(`${this.apiUrl}/finalizar`, {
+        compraId: dados.compraId,
+        duplicatasEntregues: this.finDuplicatasEntregues(),
+        notaPaga: this.finNotaPaga(),
+        nomeUsuario: usuario?.nome || ''
+      }).subscribe({
+        next: r => {
+          this.finAplicando.set(false);
+          const d = r.data;
+          this.abrirPrecModal('Nota Finalizada',
+            `${d.produtosAtualizados} produto(s) atualizado(s).\n${d.precosAplicados} preco(s) aplicado(s).\nEstoque adicionado: ${d.estoqueAdicionado}`, null);
+          this.voltarDaFinalizacao();
+        },
+        error: e => {
+          this.erro.set(e?.error?.message || 'Erro ao finalizar.');
+          this.finAplicando.set(false);
+        }
+      });
+    });
   }
 
   // ── Conferência ────────────────────────────────────────────────
