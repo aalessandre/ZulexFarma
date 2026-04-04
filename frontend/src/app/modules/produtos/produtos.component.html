@@ -549,24 +549,7 @@
               <div class="prod-section">Formacao de Preco</div>
               <div class="prod-grid">
                 <div class="prod-field prod-field-radio">
-                  <label>FORMACAO</label>
-                  <div class="radio-grupo">
-                    <label class="radio-label">
-                      <input type="radio" [name]="'formacaoPreco_' + dd.filialId" value="MARKUP"
-                             [checked]="(dd.formacaoPreco || 'MARKUP') === 'MARKUP'"
-                             (change)="updateDadosRecalc(dadosFilialIdx(), 'formacaoPreco', 'MARKUP')" />
-                      Markup
-                    </label>
-                    <label class="radio-label">
-                      <input type="radio" [name]="'formacaoPreco_' + dd.filialId" value="PROJECAO"
-                             [checked]="dd.formacaoPreco === 'PROJECAO'"
-                             (change)="updateDadosRecalc(dadosFilialIdx(), 'formacaoPreco', 'PROJECAO')" />
-                      Projecao
-                    </label>
-                  </div>
-                </div>
-                <div class="prod-field prod-field-radio">
-                  <label>USAR VALOR</label>
+                  <label>BASE DE CALCULO</label>
                   <div class="radio-grupo">
                     <label class="radio-label">
                       <input type="radio" [name]="'baseCalculo_' + dd.filialId" value="CUSTO_COMPRA"
@@ -586,9 +569,9 @@
               <div class="prod-section">Valores</div>
               <div class="prod-grid">
                 <div class="prod-field"><label>CUSTO MÉDIO</label><input type="text" currencyInput [currencyValue]="dd.custoMedio" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'custoMedio', $event)" /></div>
-                <div class="prod-field"><label>% PROJ LUCRO</label><input type="text" currencyInput [currencyValue]="dd.projecaoLucro" (currencyChange)="onProjecaoLucroChangeRecalc(dadosFilialIdx(), $event)" /></div>
-                <div class="prod-field"><label>% MARKUP</label><input type="text" currencyInput [currencyValue]="dd.markup" (currencyChange)="updateDadosRecalc(dadosFilialIdx(), 'markup', $event)" /></div>
-                <div class="prod-field"><label>VLR VENDA</label><input type="text" currencyInput [currencyValue]="dd.valorVenda" (currencyChange)="updateDados(dadosFilialIdx(), 'valorVenda', $event)" /></div>
+                <div class="prod-field"><label>% PROJ LUCRO</label><input type="text" currencyInput [currencyValue]="dd.projecaoLucro" (currencyChange)="onProjecaoChange(dadosFilialIdx(), $event)" /></div>
+                <div class="prod-field"><label>% MARKUP</label><input type="text" currencyInput [currencyValue]="dd.markup" (currencyChange)="onMarkupChange(dadosFilialIdx(), $event)" /></div>
+                <div class="prod-field"><label>VLR VENDA</label><input type="text" currencyInput [currencyValue]="dd.valorVenda" (currencyChange)="onValorVendaChange(dadosFilialIdx(), $event)" /></div>
                 <div class="prod-field"><label>PMC</label><input type="text" currencyInput [currencyValue]="dd.pmc" (currencyChange)="updateDados(dadosFilialIdx(), 'pmc', $event)" /></div>
               </div>
 
@@ -841,24 +824,7 @@
             <input type="number" [value]="registroForm().markupPadrao" (input)="updateForm('markupPadrao', +$any($event.target).value)" step="0.01" />
           </div>
           <div class="field">
-            <label>FORMACAO DE PRECO</label>
-            <div class="radio-grupo">
-              <label class="radio-label">
-                <input type="radio" name="formacaoPreco" value="MARKUP"
-                       [checked]="registroForm().formacaoPreco === 'MARKUP'"
-                       (change)="updateForm('formacaoPreco', 'MARKUP')" />
-                Markup
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="formacaoPreco" value="PROJECAO"
-                       [checked]="registroForm().formacaoPreco === 'PROJECAO'"
-                       (change)="updateForm('formacaoPreco', 'PROJECAO')" />
-                Projecao de Lucro
-              </label>
-            </div>
-          </div>
-          <div class="field">
-            <label>USAR VALOR</label>
+            <label>BASE DE CALCULO</label>
             <div class="radio-grupo">
               <label class="radio-label">
                 <input type="radio" name="baseCalculo" value="CUSTO_COMPRA"

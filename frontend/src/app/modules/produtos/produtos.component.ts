@@ -1523,14 +1523,6 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.updateDados(dadosIdx, 'projecaoLucro', valor);
   }
 
-  onProjecaoLucroChangeRecalc(dadosIdx: number, valor: number) {
-    if (valor >= 100) {
-      this.modal.aviso('Valor excedido', 'A projeção de lucro só é possível até 99%. O valor foi ajustado automaticamente.');
-      valor = 99;
-    }
-    this.updateDadosRecalc(dadosIdx, 'projecaoLucro', valor);
-  }
-
   /** Custo total da compra = soma dos 8 campos de última compra */
   custoTotalCompra(dd: ProdutoDadosItem): number {
     return (dd.ultimaCompraUnitario || 0)
@@ -1543,76 +1535,68 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       + (dd.ultimaCompraFrete || 0);
   }
 
-  /** Atualiza campo e recalcula custo médio + preço de venda */
+  /** Atualiza campo e recalcula preços proporcionalmente */
   updateDadosRecalc(i: number, campo: string, valor: any) {
     this.updateDados(i, campo, valor);
-    // Custo médio NÃO é recalculado ao alterar campos de custo da compra.
-    // O custo médio só é recalculado na finalização do lançamento de compra.
-    setTimeout(() => this.recalcularPrecoVenda(i), 0);
+    // Ao mudar base de cálculo ou custo médio, recalcular a partir do markup atual
+    setTimeout(() => {
+      const dd = this.produtoForm().dados[i];
+      if (dd && dd.markup > 0) this.onMarkupChange(i, dd.markup);
+    }, 0);
   }
 
-  /**
-   * Recalcula custoMedio com média ponderada:
-   * custoMedio = ((estoqueAtual * custoMedioAtual) + (qtdeCompra * custoUnitarioCompra)) / (estoqueAtual + qtdeCompra)
-   */
-  private recalcularCustoMedio(dadosIdx: number) {
-    const dd = this.produtoForm().dados[dadosIdx];
-    if (!dd) return;
+  /** Obtém o custo base conforme radio selecionado */
+  private getCustoBase(dd: ProdutoDadosItem): number {
+    return (dd.baseCalculo === 'CUSTO_MEDIO') ? (dd.custoMedio || 0) : this.custoTotalCompra(dd);
+  }
 
-    const custoUnitarioCompra = this.custoTotalCompra(dd); // custo unitário total (unit + ST + outros...)
-    const qtdeCompra = this.qtdeCompraAtual();
-    const estoqueAtual = dd.estoqueAtual || 0;
-    const custoMedioAtual = dd.custoMedio || 0;
-
-    let novoCustoMedio: number;
-    if (estoqueAtual <= 0) {
-      // Sem estoque: custo médio = custo unitário da compra
-      novoCustoMedio = custoUnitarioCompra;
-    } else {
-      // Média ponderada
-      novoCustoMedio = ((estoqueAtual * custoMedioAtual) + (qtdeCompra * custoUnitarioCompra))
-                       / (estoqueAtual + qtdeCompra);
+  /** Alterar % Projeção → recalcula Markup e Vlr Venda */
+  onProjecaoChange(dadosIdx: number, valor: number) {
+    if (valor >= 100) {
+      this.modal.aviso('Valor excedido', 'A projecao de lucro so e possivel ate 99%.');
+      valor = 99;
     }
-
-    novoCustoMedio = Math.round(novoCustoMedio * 10000) / 10000;
-    this.updateDados(dadosIdx, 'custoMedio', novoCustoMedio);
-  }
-
-  /** Recalcula valorVenda com base em formacaoPreco e baseCalculo */
-  private recalcularPrecoVenda(dadosIdx: number) {
+    this.updateDados(dadosIdx, 'projecaoLucro', valor);
     const dd = this.produtoForm().dados[dadosIdx];
     if (!dd) return;
+    const custoBase = this.getCustoBase(dd);
+    if (custoBase <= 0 || valor >= 100) return;
 
-    const formacao = dd.formacaoPreco || 'MARKUP';
-    const base = dd.baseCalculo || 'CUSTO_COMPRA';
+    const venda = Math.round(custoBase / (1 - valor / 100) * 100) / 100;
+    const markup = Math.round(((venda - custoBase) / custoBase) * 100 * 100) / 100;
+    this.updateDados(dadosIdx, 'valorVenda', venda);
+    this.updateDados(dadosIdx, 'markup', markup);
+    this.isDirty.set(true);
+  }
 
-    // Determinar o custo base
-    const custoBase = base === 'CUSTO_MEDIO'
-      ? (dd.custoMedio || 0)
-      : this.custoTotalCompra(dd);
-
+  /** Alterar % Markup → recalcula Projeção e Vlr Venda */
+  onMarkupChange(dadosIdx: number, valor: number) {
+    this.updateDados(dadosIdx, 'markup', valor);
+    const dd = this.produtoForm().dados[dadosIdx];
+    if (!dd) return;
+    const custoBase = this.getCustoBase(dd);
     if (custoBase <= 0) return;
 
-    let valorVenda = 0;
+    const venda = Math.round(custoBase * (1 + valor / 100) * 100) / 100;
+    const projecao = venda > 0 ? Math.round(((venda - custoBase) / venda) * 100 * 100) / 100 : 0;
+    this.updateDados(dadosIdx, 'valorVenda', venda);
+    this.updateDados(dadosIdx, 'projecaoLucro', Math.min(projecao, 99));
+    this.isDirty.set(true);
+  }
 
-    if (formacao === 'MARKUP') {
-      // Markup: valorVenda = custoBase * (1 + markup/100)
-      const markup = dd.markup || 0;
-      valorVenda = custoBase * (1 + markup / 100);
-    } else {
-      // Projeção de Lucro: valorVenda = custoBase / (1 - projecao/100)
-      const projecao = dd.projecaoLucro || 0;
-      if (projecao >= 99) {
-        valorVenda = dd.valorVenda || 0; // Não pode calcular com 100%
-      } else {
-        valorVenda = custoBase / (1 - projecao / 100);
-      }
-    }
+  /** Alterar Vlr Venda → recalcula Projeção e Markup */
+  onValorVendaChange(dadosIdx: number, valor: number) {
+    this.updateDados(dadosIdx, 'valorVenda', valor);
+    const dd = this.produtoForm().dados[dadosIdx];
+    if (!dd) return;
+    const custoBase = this.getCustoBase(dd);
+    if (custoBase <= 0 || valor <= 0) return;
 
-    // Arredondar para 2 casas
-    valorVenda = Math.round(valorVenda * 100) / 100;
-
-    this.updateDados(dadosIdx, 'valorVenda', valorVenda);
+    const markup = Math.round(((valor - custoBase) / custoBase) * 100 * 100) / 100;
+    const projecao = Math.round(((valor - custoBase) / valor) * 100 * 100) / 100;
+    this.updateDados(dadosIdx, 'markup', markup);
+    this.updateDados(dadosIdx, 'projecaoLucro', Math.min(projecao, 99));
+    this.isDirty.set(true);
   }
 
   // ── Abas de edição (sidebar cards) ─────────────────────────────────
@@ -1716,7 +1700,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
             this.updateDados(dadosIdx, 'precoFabrica', d.precoFabrica);
 
             // Recalcular markup/projeção
-            setTimeout(() => this.recalcularPrecoVenda(dadosIdx), 0);
+            setTimeout(() => { const d = this.produtoForm().dados[dadosIdx]; if (d?.markup > 0) this.onMarkupChange(dadosIdx, d.markup); }, 0);
           }
 
           // Preencher fabricante se não preenchido
@@ -1820,7 +1804,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           }));
           this.isDirty.set(true);
           // Recalcular preço de venda com os novos valores herdados
-          setTimeout(() => this.recalcularPrecoVenda(dadosIdx), 0);
+          setTimeout(() => { const d = this.produtoForm().dados[dadosIdx]; if (d?.markup > 0) this.onMarkupChange(dadosIdx, d.markup); }, 0);
         } else {
           this.buscarHerancaRecursivo(consultas, idx + 1, dadosIdx);
         }
