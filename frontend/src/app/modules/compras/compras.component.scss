@@ -49,6 +49,7 @@
   &.ativo  { filter: brightness(0.92); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
   &.disabled { opacity: 0.35; pointer-events: none; }
 
+  &.tile-conferencia  { background: linear-gradient(135deg, #d35400, #e67e22); }
   &.tile-procurar     { background: linear-gradient(135deg, #2471a3, #2e86c1); }
   &.tile-importar     { background: linear-gradient(135deg, #1abc9c, #16a085); }
   &.tile-atualizar    { background: linear-gradient(135deg, #2980b9, #3498db); }
@@ -697,6 +698,48 @@
 .var-subiu { color: #c0392b !important; font-weight: 700 !important; }
 .var-desceu { color: #1e8449 !important; font-weight: 700 !important; }
 .ajustado-ok { color: #27ae60 !important; font-weight: 700 !important; text-align: center !important; font-size: 16px !important; }
+
+/* ── Conferência ───────────────────────────────────────────────── */
+.conf-header {
+  display: flex; align-items: center; gap: 16px; padding: 8px 16px; flex-wrap: wrap;
+  h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--erp-text); }
+  .conf-info { font-size: var(--erp-fs-body); color: var(--erp-text-muted); }
+}
+
+.conf-bipe-wrap {
+  display: flex; gap: 6px; flex: 1; max-width: 500px;
+}
+
+.conf-bipe-input {
+  flex: 1; height: 38px; padding: 0 12px; border: 2px solid #d35400; border-radius: 6px;
+  font-size: 15px; font-weight: 600; color: var(--erp-text); background: #fff;
+  &:focus { outline: none; border-color: #e67e22; box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.15); }
+}
+
+.conf-bipe-btn {
+  padding: 0 16px; background: #d35400; color: #fff; border: none; border-radius: 6px;
+  font-weight: 700; cursor: pointer;
+  &:hover { filter: brightness(1.1); }
+}
+
+.conf-ok { background: rgba(39, 174, 96, 0.08) !important; }
+.conf-excedeu { background: rgba(241, 196, 15, 0.12) !important; }
+.conf-parcial { }
+.conf-pendente { }
+
+.conf-icon { color: #27ae60; font-size: 16px; font-weight: 700; }
+.conf-icon-warn { color: #f39c12; font-size: 16px; }
+.conf-icon-partial { color: #3498db; font-size: 12px; }
+.conf-icon-pend { color: #e74c3c; font-size: 14px; }
+
+.conf-qtde-input {
+  width: 55px; height: 26px; text-align: center; border: 1px solid var(--erp-border-input);
+  border-radius: 3px; font-size: 13px; font-weight: 600;
+  &:focus { outline: none; border-color: var(--erp-blue); }
+}
+
+.conf-ok-text { color: #27ae60; }
+.conf-pend-text { color: #e74c3c; }
 
 .prec-selecionar {
   display: flex; flex-direction: column; gap: 2px;

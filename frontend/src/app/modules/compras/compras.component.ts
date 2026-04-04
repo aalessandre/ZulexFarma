@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
 import { TabService } from '../../core/services/tab.service';
+import { ToastrService } from 'ngx-toastr';
 
 interface CompraList {
   id: number;
@@ -22,6 +23,7 @@ interface CompraList {
   totalItens: number;
   itensVinculados: number;
   itensPrecificados: number;
+  itensConferidos: number;
   criadoEm: string;
 }
 
@@ -52,6 +54,8 @@ interface CompraProduto {
   precoMaximoConsumidor: number | null;
   vinculado: boolean;
   fracao: number;
+  qtdeConferida: number;
+  qtdeTotal: number;
   infoAdicional: string | null;
   fiscal: any;
 }
@@ -115,7 +119,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   private readonly STATE_KEY = 'zulex_compras_state';
 
   // ── Estado ────────────────────────────────────────────────────
-  modo = signal<'lista' | 'detalhe' | 'precificacao'>('lista');
+  modo = signal<'lista' | 'detalhe' | 'precificacao' | 'conferencia'>('lista');
   compras = signal<CompraList[]>([]);
   compraSelecionada = signal<CompraList | null>(null);
   compraDetalhe = signal<CompraDetalhe | null>(null);
@@ -209,6 +213,11 @@ export class ComprasComponent implements OnInit, OnDestroy {
   // Drag-and-drop colunas
   private dragColIdx: number | null = null;
 
+  // ── Conferência ───────────────────────────────────────────────
+  confItens = signal<CompraProduto[]>([]);
+  confCarregando = signal(false);
+  confCompraIds = signal<number[]>([]);
+
   // ── Modal fiscal ──────────────────────────────────────────────
   modalFiscal = signal(false);
   itemFiscal = signal<CompraProduto | null>(null);
@@ -266,7 +275,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private auth: AuthService,
     private modal: ModalService,
-    private tabService: TabService
+    private tabService: TabService,
+    private toastr: ToastrService
   ) {}
 
   ngOnInit() {
@@ -657,6 +667,100 @@ export class ComprasComponent implements OnInit, OnDestroy {
     );
     this.compraDetalhe.set({ ...detalhe, produtos });
   }
+
+  // ── Conferência ────────────────────────────────────────────────
+
+  abrirConferencia() {
+    const selecionadas = this.notasSelecionadas();
+    if (selecionadas.size === 0) return;
+    const compraIds = Array.from(selecionadas);
+    this.confCompraIds.set(compraIds);
+    this.confCarregando.set(true);
+
+    // Carregar todos os itens vinculados das notas selecionadas
+    const requests = compraIds.map(id => this.http.get<any>(`${this.apiUrl}/${id}`));
+    Promise.all(requests.map(r => r.toPromise())).then(responses => {
+      const todosItens: CompraProduto[] = [];
+      for (const resp of responses) {
+        const produtos = resp?.data?.produtos ?? [];
+        todosItens.push(...produtos.filter((p: any) => p.vinculado));
+      }
+      this.confItens.set(todosItens);
+      this.modo.set('conferencia');
+      this.confCarregando.set(false);
+    }).catch(() => {
+      this.erro.set('Erro ao carregar itens para conferência.');
+      this.confCarregando.set(false);
+    });
+  }
+
+  voltarDaConferencia() {
+    this.modo.set('lista');
+    this.confItens.set([]);
+    this.carregar();
+  }
+
+  onBipar(input: HTMLInputElement) {
+    let raw = input.value.trim();
+    if (!raw) return;
+
+    // Parse multiplicador: "5*7896509970349" ou "7896509970349"
+    let qtde = 1;
+    if (raw.includes('*')) {
+      const parts = raw.split('*');
+      qtde = parseInt(parts[0], 10) || 1;
+      raw = parts[1]?.trim() || '';
+    }
+    if (!raw) return;
+
+    input.value = '';
+    input.focus();
+
+    this.http.post<any>(`${this.apiUrl}/bipar`, {
+      barras: raw,
+      quantidade: qtde,
+      compraIds: this.confCompraIds()
+    }).subscribe({
+      next: r => {
+        const d = r.data;
+        if (!d.encontrado) {
+          this.toastr.error(d.mensagem || 'Produto não encontrado.', 'Erro', { timeOut: 3000, positionClass: 'toast-top-center' });
+        } else if (!d.pertenceNota) {
+          this.toastr.warning(d.mensagem, 'Atenção', { timeOut: 4000, positionClass: 'toast-top-center' });
+        } else {
+          // Atualizar o item na lista local
+          this.confItens.update(itens => itens.map(i =>
+            i.id === d.compraProdutoId ? { ...i, qtdeConferida: d.qtdeConferida, qtdeTotal: d.qtdeTotal } : i
+          ));
+          if (d.qtdeConferida === d.qtdeTotal) {
+            this.toastr.success(`${d.produtoNome} - Conferido!`, 'OK', { timeOut: 2000, positionClass: 'toast-top-center' });
+          } else if (d.qtdeConferida > d.qtdeTotal) {
+            this.toastr.warning(`${d.produtoNome} - Quantidade excedida!`, 'Atenção', { timeOut: 3000, positionClass: 'toast-top-center' });
+          }
+        }
+      },
+      error: e => this.toastr.error(e?.error?.message || 'Erro ao bipar.', 'Erro', { timeOut: 3000, positionClass: 'toast-top-center' })
+    });
+  }
+
+  atualizarQtdeConf(item: CompraProduto, qtde: number) {
+    this.http.post<any>(`${this.apiUrl}/atualizar-qtde-conf/${item.id}`, { qtdeConferida: qtde }).subscribe({
+      next: r => this.confItens.update(itens => itens.map(i =>
+        i.id === r.data.id ? { ...i, qtdeConferida: r.data.qtdeConferida, qtdeTotal: r.data.qtdeTotal } : i
+      ))
+    });
+  }
+
+  confStatusClass(item: CompraProduto): string {
+    if (!item.vinculado) return '';
+    const total = item.qtdeTotal || item.quantidade * (item.fracao || 1);
+    if (item.qtdeConferida >= total && item.qtdeConferida > 0) return item.qtdeConferida > total ? 'conf-excedeu' : 'conf-ok';
+    if (item.qtdeConferida > 0) return 'conf-parcial';
+    return 'conf-pendente';
+  }
+
+  confTotalConferidos(): number { return this.confItens().filter(i => this.confStatusClass(i) === 'conf-ok').length; }
+  confTotalPendentes(): number { return this.confItens().filter(i => this.confStatusClass(i) === 'conf-pendente' || this.confStatusClass(i) === 'conf-parcial').length; }
 
   // ── Atualizar fração ───────────────────────────────────────────
 

@@ -18,6 +18,12 @@
     </label>
 
     @if (modo() === 'lista' && qtdeNotasSelecionadas() > 0) {
+      <div class="sidebar-item tile-conferencia" [class.disabled]="confCarregando()" (click)="abrirConferencia()">
+        @if (confCarregando()) { <span>Carregando...</span> } @else {
+          <span>Conferencia</span>
+          <span class="sidebar-sub">{{ qtdeNotasSelecionadas() }} nota(s)</span>
+        }
+      </div>
       <div class="sidebar-item tile-precificacao" [class.disabled]="precificacaoCarregando()" (click)="abrirPrecificacao()">
         @if (precificacaoCarregando()) {
           <span>Carregando...</span>
@@ -30,6 +36,13 @@
 
     @if (modo() === 'precificacao') {
       <div class="sidebar-item tile-procurar" (click)="voltarDaPrecificacao()">
+        <span>Voltar</span>
+        <span class="sidebar-sub">Lista de notas</span>
+      </div>
+    }
+
+    @if (modo() === 'conferencia') {
+      <div class="sidebar-item tile-procurar" (click)="voltarDaConferencia()">
         <span>Voltar</span>
         <span class="sidebar-sub">Lista de notas</span>
       </div>
@@ -144,6 +157,7 @@
               </th>
               <th style="width:90px">Vinculados</th>
               <th style="width:90px">Precificacao</th>
+              <th style="width:90px">Conferencia</th>
             </tr>
           </thead>
           <tbody>
@@ -181,6 +195,15 @@
                       <span class="badge-status status-finalizada">OK</span>
                     } @else if (c.itensPrecificados > 0) {
                       <span class="badge-status status-preentrada">{{ c.itensPrecificados }}/{{ c.totalItens }}</span>
+                    } @else {
+                      <span class="badge-status status-pendente">Pendente</span>
+                    }
+                  </td>
+                  <td class="td-center">
+                    @if (c.totalItens > 0 && c.itensConferidos === c.totalItens) {
+                      <span class="badge-status status-finalizada">OK</span>
+                    } @else if (c.itensConferidos > 0) {
+                      <span class="badge-status status-preentrada">{{ c.itensConferidos }}/{{ c.totalItens }}</span>
                     } @else {
                       <span class="badge-status status-pendente">Pendente</span>
                     }
@@ -450,6 +473,64 @@
 
       <div class="grid-rodape">
         <span>Produtos: <strong>{{ precificacaoItens().length }}</strong></span>
+      </div>
+    }
+
+    <!-- ══════════ CONFERÊNCIA ══════════ -->
+    @if (modo() === 'conferencia') {
+      <div class="conf-header">
+        <h2>Conferencia</h2>
+        <div class="conf-bipe-wrap">
+          <input #bipeInput type="text" class="conf-bipe-input" placeholder="Bipe o codigo de barras aqui... (ex: 5*7896509970349)"
+                 (keyup.enter)="onBipar(bipeInput)" autofocus />
+          <button class="conf-bipe-btn" (click)="onBipar(bipeInput)">Bipar</button>
+        </div>
+        <span class="conf-info">Conferidos: <strong>{{ confTotalConferidos() }}</strong> / {{ confItens().length }} | Pendentes: <strong>{{ confTotalPendentes() }}</strong></span>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid erp-grid-compact">
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th style="width:55px">Cod</th>
+              <th style="width:130px">Barras</th>
+              <th style="width:250px">Produto</th>
+              <th style="width:110px">Fabricante</th>
+              <th style="width:50px">Frac</th>
+              <th style="width:70px">Qtde Conf</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of confItens(); track p.id) {
+              <tr [class]="confStatusClass(p)">
+                <td class="td-center">
+                  @if (confStatusClass(p) === 'conf-ok') { <span class="conf-icon">&#10004;</span> }
+                  @else if (confStatusClass(p) === 'conf-excedeu') { <span class="conf-icon-warn">&#9888;</span> }
+                  @else if (confStatusClass(p) === 'conf-parcial') { <span class="conf-icon-partial">&#9679;</span> }
+                  @else { <span class="conf-icon-pend">&#10006;</span> }
+                </td>
+                <td>{{ p.produtoId }}</td>
+                <td>{{ p.codigoBarrasXml }}</td>
+                <td>{{ p.produtoNome || p.descricaoXml }}</td>
+                <td>--</td>
+                <td class="td-center">{{ p.fracao }}</td>
+                <td class="td-center">
+                  <input type="number" class="conf-qtde-input" [value]="p.qtdeConferida"
+                         (blur)="atualizarQtdeConf(p, +$any($event.target).value)" min="0" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Itens: <strong>{{ confItens().length }}</strong></span>
+        <span class="rodape-sep">|</span>
+        <span>Conferidos: <strong class="conf-ok-text">{{ confTotalConferidos() }}</strong></span>
+        <span class="rodape-sep">|</span>
+        <span>Pendentes: <strong class="conf-pend-text">{{ confTotalPendentes() }}</strong></span>
       </div>
     }
   </div>

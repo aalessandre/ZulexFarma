@@ -18,6 +18,7 @@ public class CompraListDto
     public int TotalItens { get; set; }
     public int ItensVinculados { get; set; }
     public int ItensPrecificados { get; set; }
+    public int ItensConferidos { get; set; }
     public DateTime CriadoEm { get; set; }
 }
 
@@ -82,6 +83,8 @@ public class CompraProdutoDto
     public decimal? PrecoMaximoConsumidor { get; set; }
     public bool Vinculado { get; set; }
     public short Fracao { get; set; } = 1;
+    public decimal QtdeConferida { get; set; }
+    public decimal QtdeTotal { get; set; }
     public string? InfoAdicional { get; set; }
 
     public CompraFiscalDto? Fiscal { get; set; }

@@ -50,6 +50,7 @@ public class CompraService : ICompraService
                     TotalItens = c.Produtos.Count,
                     ItensVinculados = c.Produtos.Count(p => p.Vinculado),
                     ItensPrecificados = c.Produtos.Count(p => p.SugestaoVenda.HasValue || p.PrecificacaoAplicada),
+                    ItensConferidos = c.Produtos.Count(p => p.Vinculado && p.QtdeConferida >= p.Quantidade * p.Fracao),
                     CriadoEm = c.CriadoEm
                 })
                 .ToListAsync();
@@ -325,6 +326,64 @@ public class CompraService : ICompraService
 
         await _db.SaveChangesAsync();
         return await MapProdutoDto(item.Id);
+    }
+
+    // ── Conferência — Bipar ────────────────────────────────────────────
+    public async Task<BiparResult> BiparAsync(BiparRequest request)
+    {
+        var barras = request.Barras.Trim();
+        if (string.IsNullOrEmpty(barras))
+            return new BiparResult { Encontrado = false, Mensagem = "Código de barras vazio." };
+
+        // 1. Buscar produto no banco pelo barras principal
+        var produto = await _db.Produtos.FirstOrDefaultAsync(p => p.CodigoBarras == barras && !p.Eliminado);
+
+        // 2. Buscar nos barras adicionais
+        if (produto == null)
+        {
+            var barrasAdicional = await _db.ProdutosBarras.Include(b => b.Produto)
+                .FirstOrDefaultAsync(b => b.Barras == barras && !b.Produto.Eliminado);
+            produto = barrasAdicional?.Produto;
+        }
+
+        if (produto == null)
+            return new BiparResult { Encontrado = false, PertenceNota = false, Mensagem = "Produto não encontrado no cadastro." };
+
+        // 3. Buscar nos itens das notas selecionadas
+        var itemNota = await _db.ComprasProdutos
+            .FirstOrDefaultAsync(cp => request.CompraIds.Contains(cp.CompraId) && cp.ProdutoId == produto.Id);
+
+        if (itemNota == null)
+            return new BiparResult { Encontrado = true, PertenceNota = false, ProdutoId = produto.Id, ProdutoNome = produto.Nome,
+                Mensagem = $"Produto '{produto.Nome}' encontrado mas não pertence às notas selecionadas." };
+
+        // 4. Incrementar quantidade conferida
+        itemNota.QtdeConferida += request.Quantidade;
+        await _db.SaveChangesAsync();
+
+        var qtdeTotal = itemNota.Quantidade * itemNota.Fracao;
+
+        return new BiparResult
+        {
+            Encontrado = true,
+            PertenceNota = true,
+            CompraProdutoId = itemNota.Id,
+            ProdutoId = produto.Id,
+            ProdutoNome = produto.Nome,
+            QtdeConferida = itemNota.QtdeConferida,
+            QtdeTotal = qtdeTotal,
+            Mensagem = itemNota.QtdeConferida == qtdeTotal ? "Conferido!" :
+                       itemNota.QtdeConferida > qtdeTotal ? "Quantidade excedida!" : null
+        };
+    }
+
+    public async Task<CompraProdutoDto> AtualizarQtdeConfAsync(long compraProdutoId, decimal qtdeConferida)
+    {
+        var cp = await _db.ComprasProdutos.FindAsync(compraProdutoId)
+            ?? throw new KeyNotFoundException("Item não encontrado.");
+        cp.QtdeConferida = qtdeConferida >= 0 ? qtdeConferida : 0;
+        await _db.SaveChangesAsync();
+        return await MapProdutoDto(cp.Id);
     }
 
     // ── Re-vincular ──────────────────────────────────────────────────
@@ -879,6 +938,8 @@ public class CompraService : ICompraService
                 PrecoMaximoConsumidor = p.PrecoMaximoConsumidor,
                 Vinculado = p.Vinculado,
                 Fracao = p.Fracao,
+                QtdeConferida = p.QtdeConferida,
+                QtdeTotal = p.Quantidade * p.Fracao,
                 InfoAdicional = p.InfoAdicional,
                 Fiscal = p.Fiscal != null ? new CompraFiscalDto
                 {
@@ -952,6 +1013,8 @@ public class CompraService : ICompraService
             PrecoMaximoConsumidor = p.PrecoMaximoConsumidor,
             Vinculado = p.Vinculado,
             Fracao = p.Fracao,
+            QtdeConferida = p.QtdeConferida,
+            QtdeTotal = p.Quantidade * p.Fracao,
             InfoAdicional = p.InfoAdicional
         };
     }

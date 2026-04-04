@@ -157,6 +157,23 @@ public class ComprasController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro em AplicarPrecificacao"); return StatusCode(500, new { success = false, message = "Erro ao aplicar precificação." }); }
     }
 
+    [HttpPost("bipar")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> Bipar([FromBody] BiparRequest request)
+    {
+        try { return Ok(new { success = true, data = await _service.BiparAsync(request) }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em Bipar"); return StatusCode(500, new { success = false, message = "Erro ao bipar." }); }
+    }
+
+    [HttpPost("atualizar-qtde-conf/{compraProdutoId:long}")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> AtualizarQtdeConf(long compraProdutoId, [FromBody] AtualizarQtdeConfRequest request)
+    {
+        try { return Ok(new { success = true, data = await _service.AtualizarQtdeConfAsync(compraProdutoId, request.QtdeConferida) }); }
+        catch (KeyNotFoundException) { return NotFound(new { success = false, message = "Item não encontrado." }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em AtualizarQtdeConf"); return StatusCode(500, new { success = false, message = "Erro." }); }
+    }
+
     [HttpPost("atualizar-fracao/{compraProdutoId:long}")]
     [Permissao("compras", "a")]
     public async Task<IActionResult> AtualizarFracao(long compraProdutoId, [FromBody] AtualizarFracaoRequest request)
