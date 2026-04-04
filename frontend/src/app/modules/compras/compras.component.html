@@ -517,6 +517,7 @@
                 <td class="td-center">{{ p.fracao > 0 ? p.fracao : 1 }}</td>
                 <td class="td-center">
                   <input type="number" class="conf-qtde-input" [value]="p.qtdeConferida"
+                         (input)="onQtdeConfInput(p, +$any($event.target).value)"
                          (blur)="atualizarQtdeConf(p, +$any($event.target).value)" min="0" />
                 </td>
               </tr>

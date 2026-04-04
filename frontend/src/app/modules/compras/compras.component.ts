@@ -743,6 +743,13 @@ export class ComprasComponent implements OnInit, OnDestroy {
     });
   }
 
+  onQtdeConfInput(item: CompraProduto, qtde: number) {
+    // Atualizar localmente para feedback visual imediato (sem salvar no banco)
+    this.confItens.update(itens => itens.map(i =>
+      i.id === item.id ? { ...i, qtdeConferida: qtde } : i
+    ));
+  }
+
   atualizarQtdeConf(item: CompraProduto, qtde: number) {
     this.http.post<any>(`${this.apiUrl}/atualizar-qtde-conf/${item.id}`, { qtdeConferida: qtde }).subscribe({
       next: r => this.confItens.update(itens => itens.map(i =>

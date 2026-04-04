@@ -722,15 +722,15 @@
   &:hover { filter: brightness(1.1); }
 }
 
-.conf-ok { background: rgba(39, 174, 96, 0.08) !important; }
-.conf-excedeu { background: rgba(241, 196, 15, 0.12) !important; }
-.conf-parcial { }
-.conf-pendente { }
+.conf-ok { background: rgba(39, 174, 96, 0.1) !important; }
+.conf-excedeu { background: rgba(241, 196, 15, 0.15) !important; }
+.conf-parcial { background: rgba(231, 76, 60, 0.06) !important; }
+.conf-pendente { background: rgba(231, 76, 60, 0.06) !important; }
 
-.conf-icon { color: #27ae60; font-size: 16px; font-weight: 700; }
-.conf-icon-warn { color: #f39c12; font-size: 16px; }
-.conf-icon-partial { color: #3498db; font-size: 12px; }
-.conf-icon-pend { color: #e74c3c; font-size: 14px; }
+.conf-icon { color: #27ae60; font-size: 22px; font-weight: 700; }
+.conf-icon-warn { color: #f39c12; font-size: 22px; }
+.conf-icon-partial { color: #e74c3c; font-size: 20px; font-weight: 700; }
+.conf-icon-pend { color: #e74c3c; font-size: 20px; font-weight: 700; }
 
 .conf-qtde-input {
   width: 55px; height: 26px; text-align: center; border: 1px solid var(--erp-border-input);
