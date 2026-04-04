@@ -649,6 +649,31 @@ public class CompraService : ICompraService
         }
 
         var vinculados = compra.Produtos.Where(p => p.Vinculado).ToList();
+
+        // Buscar nomes de produtos e fabricantes
+        var produtoIds = vinculados.Where(p => p.ProdutoId.HasValue).Select(p => p.ProdutoId!.Value).Distinct().ToList();
+        var produtos = await _db.Produtos.Include(p => p.Fabricante)
+            .Where(p => produtoIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p);
+
+        // Lotes: itens vinculados com dados de lote do XML
+        var lotes = vinculados.Select(p => {
+            produtos.TryGetValue(p.ProdutoId ?? 0, out var prod);
+            return new LoteItemDto
+            {
+                CompraProdutoId = p.Id,
+                ProdutoId = p.ProdutoId,
+                ProdutoNome = prod?.Nome ?? p.DescricaoXml,
+                CodigoBarras = prod?.CodigoBarras ?? p.CodigoBarrasXml,
+                Fabricante = prod?.Fabricante?.Nome,
+                Quantidade = p.Quantidade,
+                ValorTotal = p.ValorTotal,
+                Lote = p.Lote,
+                DataFabricacao = p.DataFabricacao?.ToString("yyyy-MM-dd"),
+                DataValidade = p.DataValidade?.ToString("yyyy-MM-dd"),
+                CodigoAnvisa = p.CodigoAnvisa
+            };
+        }).ToList();
+
         return new DadosFinalizacaoDto
         {
             CompraId = compra.Id,
@@ -661,7 +686,8 @@ public class CompraService : ICompraService
             ItensPrecificados = vinculados.Count(p => p.SugestaoVenda.HasValue || p.PrecificacaoAplicada),
             ItensConferidos = vinculados.Count(p => p.QtdeConferida >= p.Quantidade * (p.Fracao > 0 ? p.Fracao : 1)),
             TemPrecosPendentes = vinculados.Any(p => p.SugestaoVenda.HasValue && !p.PrecificacaoAplicada),
-            Duplicatas = duplicatas
+            Duplicatas = duplicatas,
+            Lotes = lotes
         };
     }
 
@@ -692,6 +718,22 @@ public class CompraService : ICompraService
                 ["Custo Médio"] = dados.CustoMedio.ToString("N2"),
                 ["Ult. Compra Unit."] = dados.UltimaCompraUnitario.ToString("N4")
             };
+
+            // 0. Atualizar lote/validade editados pelo usuário
+            var loteEdit = request.Lotes.FirstOrDefault(l => l.CompraProdutoId == item.Id);
+            if (loteEdit != null)
+            {
+                item.Lote = loteEdit.Lote;
+                if (DateTime.TryParse(loteEdit.DataFabricacao, out var dfab)) item.DataFabricacao = DateTime.SpecifyKind(dfab, DateTimeKind.Utc);
+                if (DateTime.TryParse(loteEdit.DataValidade, out var dval)) item.DataValidade = DateTime.SpecifyKind(dval, DateTimeKind.Utc);
+            }
+
+            // Atualizar lote/validade no ProdutoDados
+            if (!string.IsNullOrEmpty(item.Lote))
+            {
+                dados.Lote = item.Lote;
+                dados.DataValidade = item.DataValidade;
+            }
 
             var fracao = item.Fracao > 0 ? item.Fracao : (short)1;
             var qtdeTotal = item.Quantidade * fracao;

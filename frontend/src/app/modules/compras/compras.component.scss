@@ -780,7 +780,46 @@
   }
 }
 
-.fin-acoes { padding: 8px 0; }
+.fin-header-row {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+
+.fin-etapas {
+  display: flex; align-items: center; gap: 8px; margin-left: auto;
+}
+
+.fin-etapa-badge {
+  padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 600;
+  background: var(--erp-bg); color: var(--erp-text-muted); border: 1px solid var(--erp-border);
+  &.ativo { background: #1e8449; color: #fff; border-color: #1e8449; }
+}
+
+.fin-etapa-seta { color: var(--erp-text-muted); font-size: 12px; }
+
+.fin-edit {
+  height: 28px; padding: 0 6px; border: 1px solid var(--erp-border-input); border-radius: 3px;
+  font-size: 12px; width: 100%; color: var(--erp-text); background: #fafbfc;
+  &:focus { outline: none; border-color: var(--erp-blue); background: #fff; }
+}
+
+.fin-edit-valor { text-align: right; width: 80px; }
+
+.fin-vazio { padding: 20px; text-align: center; color: var(--erp-text-muted); font-style: italic; }
+
+.fin-acoes { padding: 12px 0; }
+.fin-acoes-dual { display: flex; gap: 12px; }
+
+.btn-avancar {
+  padding: 8px 24px; background: #2471a3; color: #fff; border: none; border-radius: 6px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  &:hover { filter: brightness(1.1); }
+}
+
+.btn-voltar-etapa {
+  padding: 8px 24px; background: var(--erp-surface); color: var(--erp-text);
+  border: 1px solid var(--erp-border); border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+  &:hover { background: var(--erp-bg); }
+}
 
 .btn-finalizar {
   padding: 10px 32px; background: linear-gradient(135deg, #1e8449, #27ae60); color: #fff;

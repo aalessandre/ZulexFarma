@@ -553,13 +553,19 @@
     <!-- ══════════ FINALIZAÇÃO ══════════ -->
     @if (modo() === 'finalizacao' && finDados(); as d) {
       <div class="fin-container">
-        <h2>Finalizar Nota</h2>
+        <div class="fin-header-row">
+          <h2>Finalizar Nota — NF {{ d.numeroNf }}</h2>
+          <div class="fin-etapas">
+            <span class="fin-etapa-badge" [class.ativo]="finEtapa() === 'duplicatas'">1. Duplicatas</span>
+            <span class="fin-etapa-seta">&#9654;</span>
+            <span class="fin-etapa-badge" [class.ativo]="finEtapa() === 'lotes'">2. Lotes e Finalizar</span>
+          </div>
+        </div>
 
         <div class="fin-info-grid">
-          <div class="fin-info"><span>NF</span><strong>{{ d.numeroNf }} - Serie {{ d.serieNf }}</strong></div>
           <div class="fin-info"><span>Fornecedor</span><strong>{{ d.fornecedorNome }}</strong></div>
           <div class="fin-info"><span>Valor Nota</span><strong>R$ {{ d.valorNota | number:'1.2-2':'pt-BR' }}</strong></div>
-          <div class="fin-info"><span>Itens</span><strong>{{ d.itensVinculados }}/{{ d.totalItens }}</strong></div>
+          <div class="fin-info"><span>Vinculados</span><strong>{{ d.itensVinculados }}/{{ d.totalItens }}</strong></div>
           <div class="fin-info"><span>Precificados</span><strong>{{ d.itensPrecificados }}/{{ d.totalItens }}</strong></div>
           <div class="fin-info"><span>Conferidos</span><strong>{{ d.itensConferidos }}/{{ d.totalItens }}</strong></div>
         </div>
@@ -567,54 +573,101 @@
         @if (d.temPrecosPendentes) {
           <div class="fin-aviso">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#856404" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Existem precos pendentes de aplicacao. Serao aplicados ao finalizar.
+            Existem precos pendentes. Serao aplicados ao finalizar.
           </div>
         }
 
-        @if (d.duplicatas.length > 0) {
-          <div class="fin-section">Duplicatas</div>
-          <div class="grid-wrapper fin-grid-wrapper">
-            <table class="erp-grid">
+        <!-- ETAPA 1: DUPLICATAS -->
+        @if (finEtapa() === 'duplicatas') {
+          @if (d.duplicatas.length > 0) {
+            <div class="fin-section">Duplicatas</div>
+            <div class="grid-wrapper fin-grid-wrapper">
+              <table class="erp-grid">
+                <thead>
+                  <tr>
+                    <th style="width:100px">N Duplicata</th>
+                    <th style="width:130px">Vencimento</th>
+                    <th style="width:100px">Descontos</th>
+                    <th style="width:100px">Encargos</th>
+                    <th style="width:120px">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (dup of d.duplicatas; track dup.numero; let i = $index) {
+                    <tr>
+                      <td>{{ dup.numero }}</td>
+                      <td><input type="date" class="fin-edit" [value]="dup.vencimento" (change)="d.duplicatas[i].vencimento = $any($event.target).value" /></td>
+                      <td><input type="number" class="fin-edit fin-edit-valor" [value]="dup.descontos" (change)="d.duplicatas[i].descontos = +$any($event.target).value" step="0.01" /></td>
+                      <td><input type="number" class="fin-edit fin-edit-valor" [value]="dup.encargos" (change)="d.duplicatas[i].encargos = +$any($event.target).value" step="0.01" /></td>
+                      <td class="td-valor"><strong>{{ dup.valor | number:'1.2-2':'pt-BR' }}</strong></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <div class="fin-vazio">Nenhuma duplicata encontrada no XML.</div>
+          }
+
+          <div class="fin-checks">
+            <label class="check-label">
+              <input type="checkbox" [checked]="finDuplicatasEntregues()" (change)="finDuplicatasEntregues.set($any($event.target).checked)" />
+              <span>DUPLICATAS FORAM ENTREGUES</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" [checked]="finNotaPaga()" (change)="finNotaPaga.set($any($event.target).checked)" />
+              <span>NOTA FISCAL JA FOI PAGA</span>
+            </label>
+          </div>
+
+          <div class="fin-acoes">
+            <button class="btn-avancar" (click)="finEtapa.set('lotes')">Avancar &#9654;</button>
+          </div>
+        }
+
+        <!-- ETAPA 2: LOTES E FINALIZAR -->
+        @if (finEtapa() === 'lotes') {
+          <div class="fin-section">Conferencia de Lotes e Vencimentos</div>
+          <div class="grid-wrapper">
+            <table class="erp-grid erp-grid-compact">
               <thead>
                 <tr>
-                  <th style="width:100px">N Duplicata</th>
-                  <th style="width:120px">Vencimento</th>
-                  <th style="width:100px">Descontos</th>
-                  <th style="width:100px">Encargos</th>
-                  <th style="width:120px">Valor</th>
+                  <th style="width:55px">Cod</th>
+                  <th style="width:220px">Produto</th>
+                  <th style="width:100px">Fabricante</th>
+                  <th style="width:60px">Qtde</th>
+                  <th style="width:80px">Total</th>
+                  <th style="width:110px">Lote</th>
+                  <th style="width:120px">Data Fabricacao</th>
+                  <th style="width:120px">Data Validade</th>
+                  <th style="width:130px">Registro MS</th>
                 </tr>
               </thead>
               <tbody>
-                @for (dup of d.duplicatas; track dup.numero) {
+                @for (l of d.lotes; track l.compraProdutoId; let i = $index) {
                   <tr>
-                    <td>{{ dup.numero }}</td>
-                    <td>{{ dup.vencimento }}</td>
-                    <td class="td-valor">0,00</td>
-                    <td class="td-valor">0,00</td>
-                    <td class="td-valor"><strong>{{ dup.valor | number:'1.2-2':'pt-BR' }}</strong></td>
+                    <td>{{ l.produtoId }}</td>
+                    <td>{{ l.produtoNome }}</td>
+                    <td>{{ l.fabricante || '--' }}</td>
+                    <td class="td-center">{{ l.quantidade }}</td>
+                    <td class="td-valor">{{ l.valorTotal | number:'1.2-2':'pt-BR' }}</td>
+                    <td><input type="text" class="fin-edit" [value]="l.lote || ''" (change)="d.lotes[i].lote = $any($event.target).value" /></td>
+                    <td><input type="date" class="fin-edit" [value]="l.dataFabricacao || ''" (change)="d.lotes[i].dataFabricacao = $any($event.target).value" /></td>
+                    <td><input type="date" class="fin-edit" [value]="l.dataValidade || ''" (change)="d.lotes[i].dataValidade = $any($event.target).value" /></td>
+                    <td>{{ l.codigoAnvisa || '--' }}</td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
+
+          <div class="fin-acoes fin-acoes-dual">
+            <button class="btn-voltar-etapa" (click)="finEtapa.set('duplicatas')">&#9664; Voltar</button>
+            <button class="btn-finalizar" [disabled]="finAplicando()" (click)="finalizar()">
+              @if (finAplicando()) { Finalizando... } @else { Finalizar Nota }
+            </button>
+          </div>
         }
-
-        <div class="fin-checks">
-          <label class="check-label">
-            <input type="checkbox" [checked]="finDuplicatasEntregues()" (change)="finDuplicatasEntregues.set($any($event.target).checked)" />
-            <span>DUPLICATAS FORAM ENTREGUES</span>
-          </label>
-          <label class="check-label">
-            <input type="checkbox" [checked]="finNotaPaga()" (change)="finNotaPaga.set($any($event.target).checked)" />
-            <span>NOTA FISCAL JA FOI PAGA</span>
-          </label>
-        </div>
-
-        <div class="fin-acoes">
-          <button class="btn-finalizar" [disabled]="finAplicando()" (click)="finalizar()">
-            @if (finAplicando()) { Finalizando... } @else { Finalizar Nota }
-          </button>
-        </div>
       </div>
     }
   </div>

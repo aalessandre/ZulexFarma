@@ -220,6 +220,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   finAplicando = signal(false);
   finDuplicatasEntregues = signal(false);
   finNotaPaga = signal(false);
+  finEtapa = signal<'duplicatas' | 'lotes'>('duplicatas');
 
   // ── Conferência ───────────────────────────────────────────────
   confItens = signal<CompraProduto[]>([]);
@@ -691,6 +692,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
         this.finDados.set(r.data);
         this.finDuplicatasEntregues.set(false);
         this.finNotaPaga.set(false);
+        this.finEtapa.set('duplicatas');
         this.modo.set('finalizacao');
         this.finCarregando.set(false);
       },
@@ -719,7 +721,14 @@ export class ComprasComponent implements OnInit, OnDestroy {
         compraId: dados.compraId,
         duplicatasEntregues: this.finDuplicatasEntregues(),
         notaPaga: this.finNotaPaga(),
-        nomeUsuario: usuario?.nome || ''
+        nomeUsuario: usuario?.nome || '',
+        duplicatas: dados.duplicatas,
+        lotes: dados.lotes.map((l: any) => ({
+          compraProdutoId: l.compraProdutoId,
+          lote: l.lote,
+          dataFabricacao: l.dataFabricacao,
+          dataValidade: l.dataValidade
+        }))
       }).subscribe({
         next: r => {
           this.finAplicando.set(false);
