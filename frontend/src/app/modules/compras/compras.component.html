@@ -421,10 +421,10 @@
                       [class.ajustado-ok]="col.campo === 'ajustado' && getAjustadoClass(p) === 'ajustado-ok'"
                       [title]="col.campo === 'produtoNome' ? p.produtoNome : ''">
                     @if (isEditableCol(col.campo)) {
-                      <input type="number" class="prec-edit-input"
-                             [value]="$any(p)[col.campo]"
-                             (change)="onPrecCellChange(p, col.campo, +$any($event.target).value)"
-                             step="0.01" />
+                      <input type="text" class="prec-edit-input"
+                             [value]="$any(p)[col.campo] | number:'1.2-2':'pt-BR'"
+                             (blur)="onPrecCellBlur(p, col.campo, $any($event.target))"
+                             (keyup.enter)="onPrecCellBlur(p, col.campo, $any($event.target))" />
                     } @else if (col.campo === 'precoVendaAtual') {
                       <strong>{{ getPrecCellValue(p, col.campo) }}</strong>
                     } @else {

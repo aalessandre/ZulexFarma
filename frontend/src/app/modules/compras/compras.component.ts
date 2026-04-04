@@ -730,6 +730,14 @@ export class ComprasComponent implements OnInit, OnDestroy {
     return ['novoPrecoVenda', 'projecaoLucro', 'markup'].includes(campo);
   }
 
+  onPrecCellBlur(item: PrecificacaoItem, campo: string, input: HTMLInputElement) {
+    // Parse pt-BR format (virgula decimal) or plain number
+    const raw = input.value.replace(/\./g, '').replace(',', '.');
+    const valor = parseFloat(raw);
+    if (isNaN(valor)) return;
+    this.onPrecCellChange(item, campo, valor);
+  }
+
   onPrecCellChange(item: PrecificacaoItem, campo: string, valor: number) {
     const custoBase = this.precBaseCalculo() === 'CUSTO_MEDIO' ? item.custoMedioAtual : item.custoCompraAtual;
     if (custoBase <= 0) return;
