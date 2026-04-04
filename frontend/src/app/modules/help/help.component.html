@@ -530,7 +530,7 @@
           <div class="secao-corpo">
             <div class="cmd-grupo">
               <div class="cmd-label">Visao Geral</div>
-              <span class="cmd-obs">Modulo para atualizacao de precos de venda dos produtos com base nos custos da compra. Pode ser acionado a partir do lancamento de compras (notas com pre-entrada concluida) ou de forma independente.</span>
+              <span class="cmd-obs">Modulo para atualizacao de precos de venda dos produtos. Acesso pelo menu: Manutencao > Atual. Precos (/erp/atualizacao-precos). Suporta atualizacao via ABCFarma (arquivo JSON local ou futuramente via API) e atualizacao manual (pendente).</span>
             </div>
 
             <div class="cmd-grupo">
@@ -539,73 +539,99 @@
                 <strong>Formacao de Preco:</strong> Define como o preco de venda e calculado<br>
                 — <strong>Markup:</strong> valorVenda = custoBase x (1 + markup/100)<br>
                 — <strong>Projecao de Lucro:</strong> valorVenda = custoBase / (1 - projecao/100). Maximo 99%.<br><br>
-
                 <strong>Base de Calculo:</strong> Define qual custo e usado como referencia<br>
                 — <strong>Custo da Compra:</strong> Soma de unitario + ST + outros + IPI + FPC + boleto + difal + frete<br>
                 — <strong>Custo Medio:</strong> Media ponderada = ((estoqueAtual x custoMedioAtual) + (qtdeCompra x custoUnitario)) / (estoqueAtual + qtdeCompra)<br><br>
-
-                <strong>Hierarquia de heranca:</strong> Os valores de formacaoPreco, baseCalculo, %projecaoLucro e %markup sao herdados do Grupo Principal do produto. O usuario pode sobrescrever direto no produto.
+                <strong>Para produtos com PMC (ABCFarma):</strong> Valor de Venda = PMC. Markup e projecao sao recalculados automaticamente.<br><br>
+                <strong>Hierarquia de heranca:</strong> formacaoPreco, baseCalculo, %projecaoLucro e %markup sao herdados do Grupo Principal. O usuario pode sobrescrever direto no produto.
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Campos envolvidos (ProdutoDados por filial)</div>
+              <div class="cmd-label">ABCFarma — Atualizacao em lote (implementado)</div>
               <span class="cmd-obs">
-                — FormacaoPreco: "MARKUP" ou "PROJECAO" (nullable, herda do GrupoPrincipal)<br>
-                — BaseCalculo: "CUSTO_COMPRA" ou "CUSTO_MEDIO" (nullable, herda do GrupoPrincipal)<br>
-                — UltimaCompraUnitario, UltimaCompraSt, UltimaCompraOutros, UltimaCompraIpi, UltimaCompraFpc, UltimaCompraBoleto, UltimaCompraDifal, UltimaCompraFrete<br>
-                — CustoMedio (media ponderada)<br>
-                — ProjecaoLucro (% max 99)<br>
-                — Markup (%)<br>
-                — ValorVenda (calculado ou manual)<br>
-                — Pmc (Preco Maximo ao Consumidor, vem do XML)<br><br>
+                <strong>Tabelas:</strong><br>
+                — <strong>AbcFarmaBase</strong> — Base centralizada (~17.700 produtos). NAO replica (tabelasSemSync). Populada via upload de arquivo JSON.<br>
+                — <strong>AtualizacoesPreco</strong> — Historico de execucoes (filial, tipo, data, usuario, filtros, status APLICADA/REVERTIDA)<br>
+                — <strong>AtualizacoesPrecoItens</strong> — Snapshot por produto (valores antes/depois para reversao)<br><br>
 
-                <strong>Custo Total da Compra</strong> = soma dos 8 campos de ultima compra (campo calculado, exibido na tela)
+                <strong>Fluxo:</strong><br>
+                1. Carregar arquivo JSON do ABCFarma (botao "Atualizar Base" — TRUNCATE + reinserir em lotes de 500)<br>
+                2. Configurar filtros: Acao (aumentar/reduzir/ambos), Modo (lista preview/automatico), Grupos Principais, flags<br>
+                3. Clicar "Atualizar Produtos"<br>
+                4. Sistema busca por EAN (ProdutosBarras + campo principal) e compara PMC da tabela vs Valor Venda atual<br>
+                5. Modo LISTA: mostra preview com checkboxes por produto, botao "Aplicar Selecionados"<br>
+                6. Modo AUTOMATICO: aplica direto e mostra resultado<br>
+                7. Ao aplicar: ValorVenda = PMC, recalcula Markup e ProjecaoLucro com base no CustoMedio<br>
+                8. Log de auditoria individual por produto (acao "ATUALIZACAO PRECO (ABCFARMA)")<br>
+                9. Historico com botao "Reverter" (restaura valores anteriores incluindo Markup e ProjecaoLucro)<br><br>
+
+                <strong>Aliquota ICMS:</strong> Usa AliquotaIcms da Filial para selecionar a coluna correta do ABCFarma (PF_19_5 e PMC_19_5 para PR 19.5%). Se filial nao tem aliquota configurada, bloqueia e pede para ajustar.<br><br>
+
+                <strong>EANs duplicados:</strong> O arquivo ABCFarma pode ter EANs duplicados. No upload, todos entram na base. Na comparacao, usa GroupBy + DataVigencia mais recente.
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Validacoes ao salvar produto</div>
+              <div class="cmd-label">ABCFarma — Integracao no cadastro de produto (implementado)</div>
               <span class="cmd-obs">
-                — Grupo Principal e obrigatorio<br>
-                — Se formacao = Markup: markup nao pode ser zero<br>
-                — Se formacao = Projecao: projecao nao pode ser zero<br>
-                — Valor de Venda nao pode ser zero<br>
-                — Valor de Venda deve ser maior que o Custo Medio
+                <strong>Botao "ABCFarma"</strong> ao lado do codigo de barras no cadastro de produto:<br>
+                — Busca na base por EAN (GET /api/atualizacao-precos/buscar-ean/EAN)<br>
+                — Se encontrado: Toastr verde com PMC e PF, preenche PMC, Valor Venda, Preco Fabrica<br>
+                — Se nao encontrado: Toastr amarelo<br>
+                — Auto-cadastra fabricante se nao existir<br>
+                — Respeita flag NaoAtualizarAbcfarma do produto<br><br>
+
+                <strong>Bloco ABCFarma</strong> na aba Precos do produto:<br>
+                — Campos disabled: P. Fabrica, Markup ABCFarma %, PMC ABCFarma<br>
+                — Markup ABCFarma = ((PMC - PF) / PF) x 100 (calculado, nao gravado)<br>
+                — PrecoFabrica gravado em ProdutoDados<br><br>
+
+                <strong>Checkbox no Grupo Principal:</strong> "Atualizar precos pelo ABCFarma" (AtualizarAbcFarma, default true)
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Fluxo via Compras</div>
+              <div class="cmd-label">Validacao de codigo de barras duplicado (implementado)</div>
               <span class="cmd-obs">
-                1. Usuario conclui pre-entrada (todos os itens vinculados — status verde)<br>
-                2. Na lista de compras, seleciona notas com checkbox (so notas verdes sao selecionaveis)<br>
-                3. Aciona precificacao para as notas selecionadas<br>
-                4. Sistema apresenta produtos das notas com precos atuais vs precos calculados<br>
-                5. Usuario revisa e confirma atualizacao<br>
-                6. Precos sao gravados em ProdutoDados da filial
+                — Endpoint GET /api/produtos/verificar-barras/BARRAS verifica em ProdutosBarras + campo CodigoBarras principal<br>
+                — Parametro excluirProdutoId para ignorar o produto sendo editado<br>
+                — Validacao no campo principal (ao digitar 7+ chars) e ao adicionar barras adicional<br>
+                — Modal com resumo do produto duplicado (ID, Nome, Barras)
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Campos do Grupo Principal (ClassificacaoProdutoBase)</div>
+              <div class="cmd-label">Fiscal — ICMS por UF (implementado)</div>
               <span class="cmd-obs">
-                — FormacaoPreco: "MARKUP" (padrao) ou "PROJECAO"<br>
-                — BaseCalculo: "CUSTO_COMPRA" (padrao) ou "CUSTO_MEDIO"<br>
-                — ProjecaoLucro: % padrao para produtos do grupo<br>
-                — MarkupPadrao: % padrao para produtos do grupo<br>
-                — Esses valores sao herdados automaticamente ao selecionar o Grupo Principal no cadastro do produto
+                — Tabela IcmsUf com 27 estados e aliquotas internas (seed automatico)<br>
+                — CRUD completo: Fiscal > ICMS por UF (/erp/icms-uf)<br>
+                — Campo AliquotaIcms na Filial (combobox carrega da tabela IcmsUf)<br>
+                — Sync nivel 0 (replica entre filiais)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">API Endpoints</div>
+              <span class="cmd-obs">
+                GET /api/atualizacao-precos/info-base — Total registros e ultima atualizacao<br>
+                GET /api/atualizacao-precos/buscar-ean/EAN?aliquota=19.5 — Busca produto na base ABCFarma<br>
+                POST /api/atualizacao-precos/upload-base — Upload arquivo JSON (~25MB, TRUNCATE + reinserir)<br>
+                POST /api/atualizacao-precos/processar — Analisa e/ou aplica atualizacao<br>
+                GET /api/atualizacao-precos/historico/FILIALID — Ultimas 50 atualizacoes<br>
+                POST /api/atualizacao-precos/reverter/ID — Restaura precos anteriores<br>
+                GET /api/produtos/verificar-barras/BARRAS — Verifica duplicidade de barras<br>
+                GET /api/icms-uf — CRUD aliquotas por UF
               </span>
             </div>
 
             <div class="cmd-grupo">
               <div class="cmd-label">Pendente de implementacao</div>
               <span class="cmd-obs">
-                — Tela de precificacao em lote (a partir das notas selecionadas)<br>
-                — Comparativo de precos: preco atual vs preco calculado vs PMC<br>
-                — Aplicacao em lote dos novos precos<br>
-                — Historico de alteracoes de preco<br>
-                — Fase futura: comparativo com precos da regiao (filiais proprias, ABCFarma)
+                — ABCFarma via API (busca online em vez de arquivo local)<br>
+                — Atualizacao manual (seleciona grupos, define percentual, aplica)<br>
+                — Precificacao a partir das notas de compra selecionadas<br>
+                — Comparativo com precos da regiao (filiais proprias)
               </span>
             </div>
           </div>
