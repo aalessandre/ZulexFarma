@@ -123,11 +123,6 @@ export const ErpRoutes: Routes = [
         loadComponent: () =>
           import('../atualizacao-precos/atualizacao-precos.component').then(m => m.AtualizacaoPrecosComponent),
       },
-      {
-        path: 'consultar-sefaz',
-        loadComponent: () =>
-          import('../consultar-sefaz/consultar-sefaz.component').then(m => m.ConsultarSefazComponent),
-      },
       // Placeholders — módulos futuros
       {
         path: '**',

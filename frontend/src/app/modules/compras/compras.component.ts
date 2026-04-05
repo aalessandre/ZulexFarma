@@ -120,7 +120,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   private readonly STATE_KEY = 'zulex_compras_state';
 
   // ── Estado ────────────────────────────────────────────────────
-  modo = signal<'lista' | 'detalhe' | 'precificacao' | 'conferencia' | 'finalizacao'>('lista');
+  modo = signal<'lista' | 'detalhe' | 'precificacao' | 'conferencia' | 'finalizacao' | 'sefaz'>('lista');
   compras = signal<CompraList[]>([]);
   compraSelecionada = signal<CompraList | null>(null);
   compraDetalhe = signal<CompraDetalhe | null>(null);
@@ -218,6 +218,13 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   // Drag-and-drop colunas
   private dragColIdx: number | null = null;
+
+  // ── SEFAZ ─────────────────────────────────────────────────────
+  sefazNotas = signal<any[]>([]);
+  sefazConsultando = signal(false);
+  sefazImportando = signal<string | null>(null);
+  sefazChave = signal('');
+  private sefazApiUrl = `${environment.apiUrl}/sefaz`;
 
   // ── Finalização ───────────────────────────────────────────────
   finDados = signal<any>(null);
@@ -750,6 +757,67 @@ export class ComprasComponent implements OnInit, OnDestroy {
         }
       });
     });
+  }
+
+  // ── SEFAZ ──────────────────────────────────────────────────────
+
+  buscarSefaz() {
+    const usuario = this.auth.usuarioLogado();
+    const filialId = parseInt(usuario?.filialId || '1', 10);
+    this.sefazConsultando.set(true);
+    this.erro.set('');
+    this.modo.set('sefaz');
+
+    this.http.post<any>(`${this.sefazApiUrl}/consultar-nfe`, { filialId }).subscribe({
+      next: r => {
+        this.sefazNotas.set(r.data?.notas ?? []);
+        this.sefazConsultando.set(false);
+        if (r.data?.mensagem) this.toastr.info(r.data.mensagem, 'SEFAZ', { timeOut: 4000, positionClass: 'toast-top-center' });
+      },
+      error: e => {
+        this.erro.set(e?.error?.message || 'Erro ao consultar SEFAZ.');
+        this.sefazConsultando.set(false);
+      }
+    });
+  }
+
+  importarNotaSefaz(nota: any) {
+    if (!nota.xmlCompleto) {
+      this.toastr.warning('XML completo nao disponivel. Necessario manifestar ciencia primeiro.', 'Atenção', { timeOut: 4000, positionClass: 'toast-top-center' });
+      return;
+    }
+    const usuario = this.auth.usuarioLogado();
+    const filialId = parseInt(usuario?.filialId || '1', 10);
+    this.sefazImportando.set(nota.chaveNfe);
+
+    this.http.post<any>(`${this.apiUrl}/importar-xml`, { xmlConteudo: nota.xmlCompleto, filialId }).subscribe({
+      next: () => {
+        this.toastr.success(`NF ${nota.numeroNf || nota.chaveNfe.slice(-8)} importada!`, 'OK', { timeOut: 3000, positionClass: 'toast-top-center' });
+        nota.jaImportada = true;
+        this.sefazNotas.update(n => [...n]);
+        this.sefazImportando.set(null);
+      },
+      error: e => {
+        this.toastr.error(e?.error?.message || 'Erro ao importar.', 'Erro', { timeOut: 4000, positionClass: 'toast-top-center' });
+        this.sefazImportando.set(null);
+      }
+    });
+  }
+
+  buscarPorChave() {
+    const chave = this.sefazChave().trim();
+    if (chave.length !== 44) {
+      this.toastr.warning('A chave da NF-e deve ter 44 digitos.', 'Atenção', { timeOut: 3000, positionClass: 'toast-top-center' });
+      return;
+    }
+    // Por enquanto, tenta importar direto se já tiver o XML local... futuro: consChNFe no SEFAZ
+    this.toastr.info('Busca por chave sera implementada em breve.', 'Info', { timeOut: 3000, positionClass: 'toast-top-center' });
+  }
+
+  voltarDoSefaz() {
+    this.modo.set('lista');
+    this.sefazNotas.set([]);
+    this.carregar();
   }
 
   // ── Conferência ────────────────────────────────────────────────
