@@ -107,6 +107,56 @@
             </div>
           </div>
         </div>
+        <!-- CERTIFICADO DIGITAL -->
+        <div class="form-secao">Certificado Digital (A1)</div>
+        <div class="cert-section">
+          @if (certificado(); as c) {
+            <div class="cert-info-grid">
+              <div class="cert-info">
+                <span>CNPJ</span>
+                <strong>{{ c.cnpj }}</strong>
+              </div>
+              <div class="cert-info">
+                <span>RAZAO SOCIAL</span>
+                <strong>{{ c.razaoSocial }}</strong>
+              </div>
+              <div class="cert-info">
+                <span>VALIDADE</span>
+                <strong [style.color]="c.valido ? '#27ae60' : '#e74c3c'">
+                  {{ c.validade | date:'dd/MM/yyyy' }}
+                </strong>
+              </div>
+              <div class="cert-info">
+                <span>STATUS</span>
+                <strong [style.color]="c.valido ? '#27ae60' : '#e74c3c'">
+                  @if (c.valido) {
+                    Valido ({{ c.diasParaVencer }} dias)
+                  } @else {
+                    EXPIRADO
+                  }
+                </strong>
+              </div>
+            </div>
+          } @else {
+            <div class="cert-aviso">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#856404" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Nenhum certificado digital configurado para esta filial.
+            </div>
+          }
+
+          <div class="cert-upload">
+            <label class="cert-upload-btn" [class.disabled]="uploadandoCert()">
+              <input type="file" accept=".pfx,.p12" (change)="onCertificadoSelected($event)" hidden [disabled]="uploadandoCert()">
+              @if (uploadandoCert()) {
+                Carregando...
+              } @else {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                {{ certificado() ? 'Substituir Certificado (.pfx)' : 'Carregar Certificado (.pfx)' }}
+              }
+            </label>
+          </div>
+        </div>
+
       }
     </div>
 

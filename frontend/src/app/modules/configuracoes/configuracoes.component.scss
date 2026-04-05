@@ -240,3 +240,34 @@
   width: 100%;
   &:focus { border-color: var(--erp-blue); background: var(--erp-surface); }
 }
+
+/* ── Certificado Digital ──────────────────────────────────────────── */
+.cert-section { padding: 8px 0; }
+
+.cert-info-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;
+}
+
+.cert-info {
+  background: var(--erp-surface); border: 1px solid var(--erp-border); border-radius: 8px; padding: 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  span { font-size: 11px; font-weight: 700; color: var(--erp-text-muted); letter-spacing: 0.5px; }
+  strong { font-size: 14px; color: var(--erp-text); }
+}
+
+.cert-aviso {
+  display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+  background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;
+  font-size: 14px; color: #856404; margin-bottom: 16px;
+}
+
+.cert-upload { padding: 4px 0; }
+
+.cert-upload-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 20px; background: linear-gradient(135deg, #2471a3, #3498db);
+  color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: filter 0.15s;
+  &:hover { filter: brightness(1.1); }
+  &.disabled { opacity: 0.5; pointer-events: none; }
+}
