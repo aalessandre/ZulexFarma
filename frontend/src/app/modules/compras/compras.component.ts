@@ -810,8 +810,29 @@ export class ComprasComponent implements OnInit, OnDestroy {
       this.toastr.warning('A chave da NF-e deve ter 44 digitos.', 'Atenção', { timeOut: 3000, positionClass: 'toast-top-center' });
       return;
     }
-    // Por enquanto, tenta importar direto se já tiver o XML local... futuro: consChNFe no SEFAZ
-    this.toastr.info('Busca por chave sera implementada em breve.', 'Info', { timeOut: 3000, positionClass: 'toast-top-center' });
+
+    const usuario = this.auth.usuarioLogado();
+    const filialId = parseInt(usuario?.filialId || '1', 10);
+    this.sefazConsultando.set(true);
+    this.erro.set('');
+    this.modo.set('sefaz');
+
+    this.http.post<any>(`${this.sefazApiUrl}/consultar-chave`, { filialId, chaveNfe: chave }).subscribe({
+      next: r => {
+        this.sefazNotas.set(r.data?.notas ?? []);
+        this.sefazConsultando.set(false);
+        if (r.data?.notas?.length > 0) {
+          this.toastr.success('Nota encontrada!', 'SEFAZ', { timeOut: 3000, positionClass: 'toast-top-center' });
+        } else {
+          this.toastr.warning(r.data?.mensagem || 'Nota nao encontrada.', 'SEFAZ', { timeOut: 4000, positionClass: 'toast-top-center' });
+        }
+        this.sefazChave.set('');
+      },
+      error: e => {
+        this.erro.set(e?.error?.message || 'Erro ao consultar SEFAZ.');
+        this.sefazConsultando.set(false);
+      }
+    });
   }
 
   voltarDoSefaz() {

@@ -21,6 +21,12 @@ public class CertificadoInfoDto
 }
 
 // ── Consulta SEFAZ ──────────────────────────────────────────────────
+public class ConsultarChaveRequest
+{
+    public long FilialId { get; set; }
+    public string ChaveNfe { get; set; } = "";
+}
+
 public class ConsultaSefazRequest
 {
     public long FilialId { get; set; }

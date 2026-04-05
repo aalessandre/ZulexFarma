@@ -34,6 +34,15 @@ public class SefazController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro UploadCertificado"); return StatusCode(500, new { success = false, message = "Erro ao processar certificado." }); }
     }
 
+    [HttpPost("consultar-chave")]
+    public async Task<IActionResult> ConsultarChave([FromBody] ConsultarChaveRequest request)
+    {
+        try { return Ok(new { success = true, data = await _service.ConsultarPorChaveAsync(request.FilialId, request.ChaveNfe) }); }
+        catch (ArgumentException ex) { return BadRequest(new { success = false, message = ex.Message }); }
+        catch (KeyNotFoundException ex) { return NotFound(new { success = false, message = ex.Message }); }
+        catch (Exception ex) { Log.Error(ex, "Erro ConsultarChave"); return StatusCode(500, new { success = false, message = "Erro ao consultar SEFAZ." }); }
+    }
+
     [HttpPost("consultar-nfe")]
     public async Task<IActionResult> ConsultarNfe([FromBody] ConsultaSefazRequest request)
     {

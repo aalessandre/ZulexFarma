@@ -138,6 +138,40 @@ public class SefazService : ISefazService
         }
     }
 
+    // ── Consultar NF-e por chave ────────────────────────────────────
+    public async Task<ConsultaSefazResult> ConsultarPorChaveAsync(long filialId, string chaveNfe)
+    {
+        if (string.IsNullOrEmpty(chaveNfe) || chaveNfe.Length != 44)
+            throw new ArgumentException("Chave da NF-e deve ter 44 digitos.");
+
+        var certDb = await _db.CertificadosDigitais.FirstOrDefaultAsync(c => c.FilialId == filialId)
+            ?? throw new ArgumentException("Certificado digital nao configurado.");
+
+        if (certDb.Validade <= DateTime.UtcNow)
+            throw new ArgumentException("Certificado digital expirado.");
+
+        var filial = await _db.Filiais.FindAsync(filialId)
+            ?? throw new KeyNotFoundException("Filial nao encontrada.");
+
+        var ufCodigo = ObterCodigoUf(filial.Uf);
+        var cnpj = certDb.Cnpj.Replace(".", "").Replace("/", "").Replace("-", "");
+
+        var soapXml = MontarSoapConsChNFe(ufCodigo, cnpj, chaveNfe);
+
+        var pfxBytes = Convert.FromBase64String(certDb.PfxBase64);
+        var cert = new X509Certificate2(pfxBytes, certDb.Senha, X509KeyStorageFlags.Exportable);
+
+        try
+        {
+            var responseXml = await EnviarSoap(URL_PRODUCAO, soapXml, cert);
+            return await ProcessarResposta(responseXml, filialId);
+        }
+        finally
+        {
+            cert.Dispose();
+        }
+    }
+
     // ═════════════════════════════════════════════════════════════════
     // SOAP / HTTP
     // ═════════════════════════════════════════════════════════════════
@@ -162,6 +196,33 @@ public class SefazService : ISefazService
           <distNSU>
             <ultNSU>{ultNSU.PadLeft(15, '0')}</ultNSU>
           </distNSU>
+        </distDFeInt>
+      </nfeDadosMsg>
+    </nfeDistDFeInteresse>
+  </soap12:Body>
+</soap12:Envelope>";
+    }
+
+    private static string MontarSoapConsChNFe(int ufCodigo, string cnpj, string chaveNfe)
+    {
+        return $@"<?xml version=""1.0"" encoding=""utf-8""?>
+<soap12:Envelope xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:soap12=""http://www.w3.org/2003/05/soap-envelope"">
+  <soap12:Header>
+    <nfeCabecMsg xmlns=""http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe"">
+      <cUF>{ufCodigo}</cUF>
+      <versaoDados>1.01</versaoDados>
+    </nfeCabecMsg>
+  </soap12:Header>
+  <soap12:Body>
+    <nfeDistDFeInteresse xmlns=""http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe"">
+      <nfeDadosMsg>
+        <distDFeInt xmlns=""http://www.portalfiscal.inf.br/nfe"" versao=""1.01"">
+          <tpAmb>1</tpAmb>
+          <cUFAutor>{ufCodigo}</cUFAutor>
+          <CNPJ>{cnpj}</CNPJ>
+          <consChNFe>
+            <chNFe>{chaveNfe}</chNFe>
+          </consChNFe>
         </distDFeInt>
       </nfeDadosMsg>
     </nfeDistDFeInteresse>
