@@ -547,18 +547,20 @@
               <tr>
                 <th style="width:70px">NF</th>
                 <th style="width:40px">Serie</th>
-                <th style="width:220px">Fornecedor</th>
-                <th style="width:140px">CNPJ</th>
-                <th style="width:100px">Emissao</th>
-                <th style="width:100px">Valor</th>
-                <th style="width:80px">Situacao</th>
-                <th style="width:80px">Status</th>
+                <th style="width:200px">Fornecedor</th>
+                <th style="width:130px">CNPJ</th>
+                <th style="width:90px">Emissao</th>
+                <th style="width:90px">Valor</th>
+                <th style="width:70px">Situacao</th>
+                <th style="width:75px">XML</th>
+                <th style="width:75px">Lancada</th>
+                <th style="width:90px">Manifestacao</th>
                 <th style="width:90px"></th>
               </tr>
             </thead>
             <tbody>
               @for (n of sefazNotas(); track n.chaveNfe) {
-                <tr [class.sefaz-importada]="n.jaImportada">
+                <tr [class.sefaz-importada]="n.importada" [class.sefaz-lancada]="n.lancada">
                   <td>{{ n.numeroNf }}</td>
                   <td>{{ n.serieNf }}</td>
                   <td>{{ n.razaoSocial }}</td>
@@ -571,16 +573,37 @@
                     </span>
                   </td>
                   <td>
-                    @if (n.jaImportada) {
-                      <span class="badge-status status-vinculado-ok">Importada</span>
-                    } @else if (n.xmlCompleto) {
-                      <span class="badge-status status-preentrada">Disponivel</span>
+                    @if (n.temXml) {
+                      <span class="badge-status status-finalizada">Completo</span>
                     } @else {
                       <span class="badge-status status-pendente">Resumo</span>
                     }
                   </td>
                   <td class="td-center">
-                    @if (!n.jaImportada && n.xmlCompleto && n.situacao === 'Autorizada') {
+                    @if (n.lancada) {
+                      <span class="badge-status status-finalizada">Sim</span>
+                    } @else if (n.importada) {
+                      <span class="badge-status status-preentrada">Entrada</span>
+                    } @else {
+                      <span class="badge-status status-pendente">Nao</span>
+                    }
+                  </td>
+                  <td>
+                    @if (n.manifestada) {
+                      <span class="sefaz-manif-texto">{{ n.tipoManifestacao }}</span>
+                    } @else if (sefazManifestando() === n.chaveNfe) {
+                      <span>...</span>
+                    } @else {
+                      <select class="sefaz-manif-select" (change)="manifestar(n, +$any($event.target).value); $any($event.target).value = ''">
+                        <option value="">Manifestar</option>
+                        <option value="210210">Ciencia</option>
+                        <option value="210220">Desconhecimento</option>
+                        <option value="210240">Nao Realizada</option>
+                      </select>
+                    }
+                  </td>
+                  <td class="td-center">
+                    @if (!n.importada && n.temXml && n.situacao === 'Autorizada') {
                       <button class="btn-importar-sefaz" [disabled]="sefazImportando() === n.chaveNfe" (click)="importarNotaSefaz(n)">
                         @if (sefazImportando() === n.chaveNfe) { ... } @else { Importar }
                       </button>

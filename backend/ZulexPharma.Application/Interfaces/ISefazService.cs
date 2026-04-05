@@ -8,4 +8,6 @@ public interface ISefazService
     Task<CertificadoInfoDto?> ObterCertificadoAsync(long filialId);
     Task<ConsultaSefazResult> ConsultarNfePendentesAsync(long filialId);
     Task<ConsultaSefazResult> ConsultarPorChaveAsync(long filialId, string chaveNfe);
+    Task<List<SefazNotaDto>> ListarNotasAsync(long filialId, DateTime? dataInicio = null, DateTime? dataFim = null);
+    Task ManifestarAsync(ManifestacaoRequest request);
 }

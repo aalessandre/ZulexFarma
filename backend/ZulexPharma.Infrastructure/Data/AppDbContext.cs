@@ -62,6 +62,7 @@ public class AppDbContext : DbContext
     public DbSet<CompraFiscal> ComprasFiscal => Set<CompraFiscal>();
     public DbSet<IcmsUf> IcmsUfs => Set<IcmsUf>();
     public DbSet<CertificadoDigital> CertificadosDigitais => Set<CertificadoDigital>();
+    public DbSet<SefazNota> SefazNotas => Set<SefazNota>();
     public DbSet<AbcFarmaBase> AbcFarmaBase => Set<AbcFarmaBase>();
     public DbSet<AtualizacaoPreco> AtualizacoesPreco => Set<AtualizacaoPreco>();
     public DbSet<AtualizacaoPrecoItem> AtualizacoesPrecoItens => Set<AtualizacaoPrecoItem>();
@@ -101,6 +102,23 @@ public class AppDbContext : DbContext
             e.Property(x => x.NomeEstado).HasMaxLength(50).IsRequired();
             e.Property(x => x.AliquotaInterna).HasColumnType("numeric(5,2)");
             e.HasIndex(x => x.Uf).IsUnique();
+        });
+
+        // ── SefazNota (cache — NÃO replica) ──────────────────────────
+        modelBuilder.Entity<SefazNota>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ChaveNfe).HasMaxLength(44).IsRequired();
+            e.Property(x => x.Cnpj).HasMaxLength(18);
+            e.Property(x => x.RazaoSocial).HasMaxLength(200);
+            e.Property(x => x.NumeroNf).HasMaxLength(20);
+            e.Property(x => x.SerieNf).HasMaxLength(5);
+            e.Property(x => x.Situacao).HasMaxLength(20);
+            e.Property(x => x.TipoDocumento).HasMaxLength(20);
+            e.Property(x => x.TipoManifestacao).HasMaxLength(30);
+            e.HasIndex(x => new { x.FilialId, x.ChaveNfe }).IsUnique();
+            e.HasIndex(x => x.FilialId);
         });
 
         // ── CertificadoDigital ────────────────────────────────────────
@@ -736,7 +754,7 @@ public class AppDbContext : DbContext
     // então não passam pelo interceptor — não precisam estar aqui.
     private static readonly HashSet<string> _tabelasSemSync = new()
     {
-        "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais"
+        "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais", "SefazNotas"
     };
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

@@ -223,6 +223,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   sefazNotas = signal<any[]>([]);
   sefazConsultando = signal(false);
   sefazImportando = signal<string | null>(null);
+  sefazManifestando = signal<string | null>(null);
   sefazChave = signal('');
   private sefazApiUrl = `${environment.apiUrl}/sefaz`;
 
@@ -768,37 +769,66 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.erro.set('');
     this.modo.set('sefaz');
 
+    // Buscar novas do SEFAZ e depois carregar cache completo
     this.http.post<any>(`${this.sefazApiUrl}/consultar-nfe`, { filialId }).subscribe({
       next: r => {
-        this.sefazNotas.set(r.data?.notas ?? []);
-        this.sefazConsultando.set(false);
         if (r.data?.mensagem) this.toastr.info(r.data.mensagem, 'SEFAZ', { timeOut: 4000, positionClass: 'toast-top-center' });
+        this.carregarCacheSefaz();
       },
       error: e => {
         this.erro.set(e?.error?.message || 'Erro ao consultar SEFAZ.');
         this.sefazConsultando.set(false);
+        // Mesmo com erro, mostrar o cache
+        this.carregarCacheSefaz();
       }
     });
   }
 
+  carregarCacheSefaz() {
+    const usuario = this.auth.usuarioLogado();
+    const filialId = parseInt(usuario?.filialId || '1', 10);
+    this.http.get<any>(`${this.sefazApiUrl}/notas/${filialId}`).subscribe({
+      next: r => {
+        this.sefazNotas.set(r.data ?? []);
+        this.sefazConsultando.set(false);
+        this.modo.set('sefaz');
+      },
+      error: () => this.sefazConsultando.set(false)
+    });
+  }
+
   importarNotaSefaz(nota: any) {
-    if (!nota.xmlCompleto) {
-      this.toastr.warning('XML completo nao disponivel. Necessario manifestar ciencia primeiro.', 'Atenção', { timeOut: 4000, positionClass: 'toast-top-center' });
+    if (!nota.temXml) {
+      this.toastr.warning('XML completo nao disponivel. Manifeste "Ciencia" primeiro.', 'Atenção', { timeOut: 4000, positionClass: 'toast-top-center' });
       return;
     }
     const usuario = this.auth.usuarioLogado();
     const filialId = parseInt(usuario?.filialId || '1', 10);
     this.sefazImportando.set(nota.chaveNfe);
 
-    this.http.post<any>(`${this.apiUrl}/importar-xml`, { xmlConteudo: nota.xmlCompleto, filialId }).subscribe({
-      next: () => {
-        this.toastr.success(`NF ${nota.numeroNf || nota.chaveNfe.slice(-8)} importada!`, 'OK', { timeOut: 3000, positionClass: 'toast-top-center' });
-        nota.jaImportada = true;
-        this.sefazNotas.update(n => [...n]);
-        this.sefazImportando.set(null);
+    // Buscar XML completo por chave do cache/SEFAZ, depois importar
+    this.http.post<any>(`${this.sefazApiUrl}/consultar-chave`, { filialId, chaveNfe: nota.chaveNfe }).subscribe({
+      next: r => {
+        const xml = r.data?.notas?.[0]?.xmlCompleto;
+        if (!xml) {
+          this.toastr.error('XML nao disponivel.', 'Erro', { timeOut: 3000, positionClass: 'toast-top-center' });
+          this.sefazImportando.set(null);
+          return;
+        }
+        this.http.post<any>(`${this.apiUrl}/importar-xml`, { xmlConteudo: xml, filialId }).subscribe({
+          next: () => {
+            this.toastr.success(`NF ${nota.numeroNf || ''} importada!`, 'OK', { timeOut: 3000, positionClass: 'toast-top-center' });
+            this.sefazImportando.set(null);
+            this.carregarCacheSefaz();
+          },
+          error: e => {
+            this.toastr.error(e?.error?.message || 'Erro ao importar.', 'Erro', { timeOut: 4000, positionClass: 'toast-top-center' });
+            this.sefazImportando.set(null);
+          }
+        });
       },
       error: e => {
-        this.toastr.error(e?.error?.message || 'Erro ao importar.', 'Erro', { timeOut: 4000, positionClass: 'toast-top-center' });
+        this.toastr.error(e?.error?.message || 'Erro ao buscar XML.', 'Erro', { timeOut: 4000, positionClass: 'toast-top-center' });
         this.sefazImportando.set(null);
       }
     });
@@ -831,6 +861,36 @@ export class ComprasComponent implements OnInit, OnDestroy {
       error: e => {
         this.erro.set(e?.error?.message || 'Erro ao consultar SEFAZ.');
         this.sefazConsultando.set(false);
+      }
+    });
+  }
+
+  manifestar(nota: any, tipoEvento: number) {
+    const usuario = this.auth.usuarioLogado();
+    const filialId = parseInt(usuario?.filialId || '1', 10);
+    const tipoNome = tipoEvento === 210210 ? 'Ciencia' : tipoEvento === 210220 ? 'Desconhecimento' : 'Nao Realizada';
+
+    let justificativa: string | null = null;
+    if (tipoEvento === 210240) {
+      justificativa = prompt('Informe a justificativa (min 15 caracteres):');
+      if (!justificativa || justificativa.length < 15) {
+        this.toastr.warning('Justificativa deve ter no minimo 15 caracteres.', 'Atenção', { timeOut: 3000, positionClass: 'toast-top-center' });
+        return;
+      }
+    }
+
+    this.sefazManifestando.set(nota.chaveNfe);
+    this.http.post<any>(`${this.sefazApiUrl}/manifestar`, {
+      filialId, chaveNfe: nota.chaveNfe, tipoEvento, justificativa
+    }).subscribe({
+      next: () => {
+        this.toastr.success(`${tipoNome} registrada com sucesso!`, 'SEFAZ', { timeOut: 3000, positionClass: 'toast-top-center' });
+        this.sefazManifestando.set(null);
+        this.carregarCacheSefaz();
+      },
+      error: e => {
+        this.toastr.error(e?.error?.message || 'Erro ao manifestar.', 'Erro', { timeOut: 4000, positionClass: 'toast-top-center' });
+        this.sefazManifestando.set(null);
       }
     });
   }

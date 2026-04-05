@@ -406,7 +406,13 @@
   h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--erp-text); }
   .sefaz-info { font-size: var(--erp-fs-body); color: var(--erp-text-muted); }
 }
-.sefaz-importada { opacity: 0.5; }
+.sefaz-importada { background: rgba(39, 174, 96, 0.05) !important; }
+.sefaz-lancada { background: rgba(39, 174, 96, 0.12) !important; }
+.sefaz-manif-select {
+  height: 26px; padding: 0 4px; border: 1px solid var(--erp-border-input); border-radius: 3px;
+  font-size: 11px; cursor: pointer; background: var(--erp-surface); color: var(--erp-text);
+}
+.sefaz-manif-texto { font-size: 10px; color: var(--erp-text-muted); font-weight: 600; }
 .btn-importar-sefaz {
   padding: 4px 14px; background: #27ae60; color: #fff; border: none; border-radius: 4px;
   font-size: var(--erp-fs-xs); font-weight: 600; cursor: pointer;

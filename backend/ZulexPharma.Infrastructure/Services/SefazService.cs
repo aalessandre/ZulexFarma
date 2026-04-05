@@ -172,6 +172,92 @@ public class SefazService : ISefazService
         }
     }
 
+    // ── Listar notas do cache ───────────────────────────────────────
+    public async Task<List<SefazNotaDto>> ListarNotasAsync(long filialId, DateTime? dataInicio = null, DateTime? dataFim = null)
+    {
+        var query = _db.SefazNotas.Where(n => n.FilialId == filialId);
+
+        if (dataInicio.HasValue)
+            query = query.Where(n => n.DataEmissao >= dataInicio.Value);
+        if (dataFim.HasValue)
+            query = query.Where(n => n.DataEmissao < dataFim.Value.AddDays(1));
+
+        // Verificar quais estão importadas/lançadas via tabela Compras
+        var notas = await query.OrderByDescending(n => n.DataEmissao ?? n.ConsultadaEm).ToListAsync();
+        var chaves = notas.Select(n => n.ChaveNfe).ToList();
+        var compras = await _db.Compras
+            .Where(c => chaves.Contains(c.ChaveNfe))
+            .Select(c => new { c.ChaveNfe, c.Status })
+            .ToListAsync();
+        var comprasMap = compras.ToDictionary(c => c.ChaveNfe, c => c.Status);
+
+        return notas.Select(n =>
+        {
+            var importada = comprasMap.ContainsKey(n.ChaveNfe);
+            var lancada = importada && comprasMap[n.ChaveNfe] == Domain.Enums.CompraStatus.Finalizada;
+            return new SefazNotaDto
+            {
+                Id = n.Id, ChaveNfe = n.ChaveNfe, Cnpj = n.Cnpj, RazaoSocial = n.RazaoSocial,
+                NumeroNf = n.NumeroNf, SerieNf = n.SerieNf, DataEmissao = n.DataEmissao,
+                ValorNota = n.ValorNota, Situacao = n.Situacao, TipoDocumento = n.TipoDocumento,
+                TemXml = !string.IsNullOrEmpty(n.XmlCompleto), Manifestada = n.Manifestada,
+                TipoManifestacao = n.TipoManifestacao, Importada = importada, Lancada = lancada,
+                ConsultadaEm = n.ConsultadaEm
+            };
+        }).ToList();
+    }
+
+    // ── Manifestar ───────────────────────────────────────────────────
+    public async Task ManifestarAsync(ManifestacaoRequest request)
+    {
+        var certDb = await _db.CertificadosDigitais.FirstOrDefaultAsync(c => c.FilialId == request.FilialId)
+            ?? throw new ArgumentException("Certificado digital nao configurado.");
+
+        var filial = await _db.Filiais.FindAsync(request.FilialId)
+            ?? throw new KeyNotFoundException("Filial nao encontrada.");
+
+        var ufCodigo = ObterCodigoUf(filial.Uf);
+        var cnpj = certDb.Cnpj.Replace(".", "").Replace("/", "").Replace("-", "");
+
+        var tipoDesc = request.TipoEvento switch
+        {
+            210210 => "Ciencia da Operacao",
+            210220 => "Desconhecimento da Operacao",
+            210240 => "Operacao nao Realizada",
+            _ => throw new ArgumentException("Tipo de evento invalido.")
+        };
+
+        var soapXml = MontarSoapManifestacao(ufCodigo, cnpj, request.ChaveNfe, request.TipoEvento, request.Justificativa);
+        var pfxBytes = Convert.FromBase64String(certDb.PfxBase64);
+        var cert = new X509Certificate2(pfxBytes, certDb.Senha, X509KeyStorageFlags.Exportable);
+
+        try
+        {
+            var responseXml = await EnviarSoapEvento(soapXml, cert);
+            // Atualizar cache
+            var nota = await _db.SefazNotas.FirstOrDefaultAsync(n => n.FilialId == request.FilialId && n.ChaveNfe == request.ChaveNfe);
+            if (nota != null)
+            {
+                nota.Manifestada = true;
+                nota.TipoManifestacao = tipoDesc;
+                await _db.SaveChangesAsync();
+            }
+
+            // Se foi ciência, buscar XML completo por chave
+            if (request.TipoEvento == 210210)
+            {
+                // Aguardar um pouco para SEFAZ processar
+                await Task.Delay(2000);
+                var resultado = await ConsultarPorChaveAsync(request.FilialId, request.ChaveNfe);
+                // O ProcessarResposta já salva no cache com XML completo
+            }
+        }
+        finally
+        {
+            cert.Dispose();
+        }
+    }
+
     // ═════════════════════════════════════════════════════════════════
     // SOAP / HTTP
     // ═════════════════════════════════════════════════════════════════
@@ -228,6 +314,54 @@ public class SefazService : ISefazService
     </nfeDistDFeInteresse>
   </soap12:Body>
 </soap12:Envelope>";
+    }
+
+    private static string MontarSoapManifestacao(int ufCodigo, string cnpj, string chaveNfe, int tpEvento, string? justificativa)
+    {
+        var seqEvento = 1;
+        var detEvento = tpEvento == 210240
+            ? $@"<detEvento versao=""1.00""><descEvento>Operacao nao Realizada</descEvento><xJust>{justificativa ?? "Mercadoria nao recebida"}</xJust></detEvento>"
+            : tpEvento == 210220
+            ? $@"<detEvento versao=""1.00""><descEvento>Desconhecimento da Operacao</descEvento></detEvento>"
+            : $@"<detEvento versao=""1.00""><descEvento>Ciencia da Operacao</descEvento></detEvento>";
+
+        return $@"<?xml version=""1.0"" encoding=""utf-8""?>
+<soap12:Envelope xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:soap12=""http://www.w3.org/2003/05/soap-envelope"">
+  <soap12:Body>
+    <nfeRecepcaoEvento xmlns=""http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4"">
+      <nfeDadosMsg>
+        <envEvento xmlns=""http://www.portalfiscal.inf.br/nfe"" versao=""1.00"">
+          <idLote>1</idLote>
+          <evento versao=""1.00"">
+            <infEvento Id=""ID{tpEvento}{chaveNfe}{seqEvento:00}"">
+              <cOrgao>{ufCodigo}</cOrgao>
+              <tpAmb>1</tpAmb>
+              <CNPJ>{cnpj}</CNPJ>
+              <chNFe>{chaveNfe}</chNFe>
+              <dhEvento>{DateTimeOffset.Now:yyyy-MM-ddTHH:mm:sszzz}</dhEvento>
+              <tpEvento>{tpEvento}</tpEvento>
+              <nSeqEvento>{seqEvento}</nSeqEvento>
+              <verEvento>1.00</verEvento>
+              {detEvento}
+            </infEvento>
+          </evento>
+        </envEvento>
+      </nfeDadosMsg>
+    </nfeRecepcaoEvento>
+  </soap12:Body>
+</soap12:Envelope>";
+    }
+
+    private static async Task<string> EnviarSoapEvento(string soapXml, X509Certificate2 cert)
+    {
+        var url = "https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx";
+        var handler = new HttpClientHandler();
+        handler.ClientCertificates.Add(cert);
+        handler.ServerCertificateCustomValidationCallback = (msg, c, chain, errors) => true;
+        using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+        var content = new StringContent(soapXml, Encoding.UTF8, "application/soap+xml");
+        var response = await client.PostAsync(url, content);
+        return await response.Content.ReadAsStringAsync();
     }
 
     private static async Task<string> EnviarSoap(string url, string soapXml, X509Certificate2 cert)
@@ -335,6 +469,10 @@ public class SefazService : ISefazService
                 }
             }
 
+            // Salvar no cache
+            foreach (var n in notas)
+                await SalvarNoCache(filialId, n);
+
             await SalvarUltimoNsu(filialId, ultNSU);
 
             resultado.TotalNotas = notas.Count;
@@ -387,6 +525,42 @@ public class SefazService : ISefazService
         {
             return Encoding.UTF8.GetString(data);
         }
+    }
+
+    private async Task SalvarNoCache(long filialId, NfeSefazResumo n)
+    {
+        if (string.IsNullOrEmpty(n.ChaveNfe)) return;
+        var existente = await _db.SefazNotas.FirstOrDefaultAsync(s => s.FilialId == filialId && s.ChaveNfe == n.ChaveNfe);
+        if (existente != null)
+        {
+            // Atualizar se agora tem XML completo
+            if (!string.IsNullOrEmpty(n.XmlCompleto) && string.IsNullOrEmpty(existente.XmlCompleto))
+            {
+                existente.XmlCompleto = n.XmlCompleto;
+                existente.TipoDocumento = "procNFe";
+            }
+            if (!string.IsNullOrEmpty(n.NumeroNf)) existente.NumeroNf = n.NumeroNf;
+            if (!string.IsNullOrEmpty(n.SerieNf)) existente.SerieNf = n.SerieNf;
+            if (!string.IsNullOrEmpty(n.RazaoSocial)) existente.RazaoSocial = n.RazaoSocial;
+        }
+        else
+        {
+            _db.SefazNotas.Add(new SefazNota
+            {
+                FilialId = filialId,
+                ChaveNfe = n.ChaveNfe,
+                Cnpj = n.Cnpj,
+                RazaoSocial = n.RazaoSocial,
+                NumeroNf = n.NumeroNf,
+                SerieNf = n.SerieNf,
+                DataEmissao = n.DataEmissao.HasValue ? DateTime.SpecifyKind(n.DataEmissao.Value, DateTimeKind.Utc) : null,
+                ValorNota = n.ValorNota,
+                Situacao = n.Situacao ?? "Autorizada",
+                TipoDocumento = string.IsNullOrEmpty(n.XmlCompleto) ? "resNFe" : "procNFe",
+                XmlCompleto = n.XmlCompleto
+            });
+        }
+        await _db.SaveChangesAsync();
     }
 
     private async Task<string> ObterUltimoNsu(long filialId)

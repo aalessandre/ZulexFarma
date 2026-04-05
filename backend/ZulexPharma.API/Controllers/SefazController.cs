@@ -34,6 +34,21 @@ public class SefazController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro UploadCertificado"); return StatusCode(500, new { success = false, message = "Erro ao processar certificado." }); }
     }
 
+    [HttpGet("notas/{filialId:long}")]
+    public async Task<IActionResult> ListarNotas(long filialId, [FromQuery] DateTime? dataInicio = null, [FromQuery] DateTime? dataFim = null)
+    {
+        try { return Ok(new { success = true, data = await _service.ListarNotasAsync(filialId, dataInicio, dataFim) }); }
+        catch (Exception ex) { Log.Error(ex, "Erro ListarNotas"); return StatusCode(500, new { success = false, message = "Erro." }); }
+    }
+
+    [HttpPost("manifestar")]
+    public async Task<IActionResult> Manifestar([FromBody] ManifestacaoRequest request)
+    {
+        try { await _service.ManifestarAsync(request); return Ok(new { success = true }); }
+        catch (ArgumentException ex) { return BadRequest(new { success = false, message = ex.Message }); }
+        catch (Exception ex) { Log.Error(ex, "Erro Manifestar"); return StatusCode(500, new { success = false, message = "Erro ao manifestar." }); }
+    }
+
     [HttpPost("consultar-chave")]
     public async Task<IActionResult> ConsultarChave([FromBody] ConsultarChaveRequest request)
     {
