@@ -429,26 +429,34 @@
               <span class="cmd-obs">
                 O lancamento de compras funciona em etapas controladas pelo campo Status da tabela Compras:<br><br>
                 <strong>1. Pre-Entrada</strong> — Importacao do XML e vinculacao de produtos<br>
-                <strong>2. Precificacao</strong> — Atualizacao de precos dos produtos (via modulo Atualizacao de Precos)<br>
-                <strong>3. Conferencia</strong> — Conferencia fisica das mercadorias (pendente)<br>
-                <strong>4. Finalizacao</strong> — Atualizacao de estoque, custos e precos finais (pendente)<br>
-                <strong>Cancelada</strong> — Nota cancelada (reverte se ja finalizada)
+                <strong>2. Precificacao</strong> — Ajuste de precos com comparativo (CC/CM anterior vs atual)<br>
+                <strong>3. Conferencia</strong> — Bipe de codigo de barras, controle de fracao, sinalizadores<br>
+                <strong>4. Finalizacao</strong> — Duplicatas + Lotes/Vencimentos + atualiza estoque/custos/precos<br>
+                <strong>Cancelada</strong> — Nota cancelada (reverte estoque se ja finalizada)
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Etapa 1: Pre-Entrada (implementado)</div>
+              <div class="cmd-label">Importacao de XML (3 fontes)</div>
               <span class="cmd-obs">
-                <strong>Importacao do XML:</strong><br>
-                — Usuario clica "Importar XML" e seleciona arquivo .xml da NF-e<br>
+                <strong>1. Importar Pasta:</strong> Botao "Importar XML", seleciona arquivo .xml local da NF-e<br>
+                <strong>2. Buscar SEFAZ:</strong> Consulta DistribuicaoDFe por NSU, cache em SefazNotas, manifestacoes<br>
+                <strong>3. Chave NF-e:</strong> Consulta consChNFe por chave 44 digitos<br><br>
+
                 — Backend parseia XML (namespace http://www.portalfiscal.inf.br/nfe)<br>
                 — Verifica duplicata pela ChaveNfe (44 digitos, unique)<br>
                 — Cria fornecedor automaticamente se CNPJ nao existe (com endereco e telefone do XML)<br>
                 — Cria registros em Compras + ComprasProdutos + ComprasFiscal<br>
-                — XmlConteudo salvo no banco com [JsonIgnore] (nao replica entre filiais)<br><br>
+                — Parser suporta campos IBS/CBS da reforma tributaria<br>
+                — XmlConteudo salvo no banco com [JsonIgnore] (nao replica entre filiais)
+              </span>
+            </div>
 
+            <div class="cmd-grupo">
+              <div class="cmd-label">Etapa 1: Pre-Entrada</div>
+              <span class="cmd-obs">
                 <strong>Auto-vinculacao:</strong><br>
-                — Busca por codigo de barras (ProdutosBarras)<br>
+                — Busca por codigo de barras (ProdutosBarras + campo principal)<br>
                 — Busca por CodigoProdutoFornecedor (ProdutosFornecedores)<br>
                 — Botao "Atualizar" re-executa auto-vinculacao (POST /api/compras/id/re-vincular)<br><br>
 
@@ -474,11 +482,118 @@
             </div>
 
             <div class="cmd-grupo">
+              <div class="cmd-label">Etapa 2: Precificacao</div>
+              <span class="cmd-obs">
+                <strong>Grid comparativo:</strong><br>
+                — CC Anterior (ultima compra unitario) vs CC Atual (ValorItemNota/Quantidade)<br>
+                — CM Anterior (custo medio atual) vs CM Atual (simulacao media ponderada)<br>
+                — Variacoes % com cores (verde = reducao, vermelho = aumento)<br><br>
+
+                <strong>Campos editaveis interligados:</strong><br>
+                — Sug.Vlr.Venda, %Proj.Lucro, %Markup — alterar um recalcula os outros<br>
+                — Combobox Base de Calculo: Custo Compra ou Custo Medio<br>
+                — Formulas: Markup = ((venda-custo)/custo)x100, Projecao = ((venda-custo)/venda)x100<br>
+                — Projecao limitada a 100% com aviso ao usuario<br><br>
+
+                <strong>Botoes de acao:</strong><br>
+                — Acatar PMC Nota (PrecoMaximoConsumidor do XML)<br>
+                — Acatar PMC AbcFarma (busca na base por EAN)<br>
+                — Combobox Selecionar: Todas, Aumento, Reducao, PMC Nota, PMC ABC<br><br>
+
+                <strong>Aplicacao:</strong><br>
+                — Opcao "Agora": atualiza ValorVenda/Markup/Projecao imediatamente em ProdutosDados<br>
+                — Opcao "Na Finalizacao": salva sugestoes em ComprasProdutos (SugestaoVenda, SugestaoMarkup, SugestaoProjecao)<br>
+                — Sugestoes aplicadas automaticamente ao finalizar a nota
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Etapa 3: Conferencia</div>
+              <span class="cmd-obs">
+                <strong>Campo bipe:</strong><br>
+                — Suporta multiplicador: 5*7896509970349 (5 unidades do barras)<br>
+                — Busca no banco: barras principal + ProdutosBarras adicionais<br>
+                — QtdeTotal = quantidade x fracao (persistida no banco)<br>
+                — Fracao minima = 1 (correcao para registros antigos com fracao=0)<br><br>
+
+                <strong>Sinalizadores por linha:</strong><br>
+                — ✓ Verde: conferido completo (QtdeConferida = Quantidade x Fracao)<br>
+                — ⚠ Amarelo: conferido parcial (QtdeConferida > 0 mas menor que total)<br>
+                — ✗ Vermelho: nao conferido (QtdeConferida = 0)<br><br>
+
+                — Botao limpar conferencia (zera QtdeConferida de todos os itens)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Etapa 4: Finalizacao</div>
+              <span class="cmd-obs">
+                <strong>Sub-etapa 1 — Duplicatas:</strong><br>
+                — Grid editavel com duplicatas da nota<br>
+                — Checkboxes: Duplicatas Entregues, Nota Paga<br><br>
+
+                <strong>Sub-etapa 2 — Lotes/Vencimentos:</strong><br>
+                — Grid editavel por produto: Lote e DataValidade<br>
+                — Botao "Finalizar" executa toda a logica<br><br>
+
+                <strong>Ao finalizar o sistema:</strong><br>
+                — Atualiza EstoqueAtual (soma Quantidade x Fracao)<br>
+                — Atualiza UltimaCompra* (unitario, ST, outros, IPI, FPC do XML)<br>
+                — Recalcula CustoMedio: ((estoque x CM) + (qtde x custo)) / (estoque + qtde)<br>
+                — Aplica sugestoes de preco pendentes (SugestaoVenda/Markup/Projecao)<br>
+                — Grava Lote e DataValidade em ProdutosDados<br>
+                — Atualiza UltimaCompraEm e DataEntrada<br>
+                — Registra log de auditoria por produto<br>
+                — Status muda para "Finalizada"
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Exclusao com reversao</div>
+              <span class="cmd-obs">
+                — Nota pendente (Pre-Entrada/Precificacao/Conferencia): exclui cascade simples<br>
+                — Nota finalizada: reverte estoque (subtrai Quantidade x Fracao), registra log de reversao<br>
+                — DELETE /api/compras/id
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Integracao SEFAZ</div>
+              <span class="cmd-obs">
+                <strong>Certificado Digital A1:</strong><br>
+                — Upload em Configuracoes (PFX + senha), armazenado em CertificadosDigitais<br>
+                — Validacao de validade, CNPJ, emissor<br><br>
+
+                <strong>Consulta SEFAZ (DistribuicaoDFe):</strong><br>
+                — SOAP 1.2 com mTLS (comunicacao direta, sem lib externa)<br>
+                — Paginacao por NSU incremental<br>
+                — Cache em SefazNotas (NAO replica entre filiais)<br>
+                — Tipos: resNFe (resumo) e procNFe (XML completo)<br><br>
+
+                <strong>Manifestacao do Destinatario:</strong><br>
+                — Ciencia da Operacao (210210): libera download do XML completo<br>
+                — Desconhecimento da Operacao (210220): informa desconhecimento<br>
+                — Operacao Nao Realizada (210240): requer justificativa<br><br>
+
+                <strong>Consulta por Chave:</strong><br>
+                — consChNFe: consulta nota individual por chave 44 digitos<br>
+                — Resultado salvo no cache SefazNotas<br><br>
+
+                <strong>Fluxo tipico:</strong><br>
+                1. Buscar SEFAZ → lista notas pendentes no cache<br>
+                2. Manifestar Ciencia → libera XML completo<br>
+                3. Importar nota → inicia fluxo de Pre-Entrada
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
               <div class="cmd-label">Tabelas no banco</div>
               <span class="cmd-obs">
-                <strong>Compras</strong> — Cabecalho: ChaveNfe (unique 44 dig), NumeroNf, SerieNf, NaturezaOperacao, DataEmissao, DataEntrada, FornecedorId, FilialId, totais (ValorProdutos, ValorSt, ValorFcpSt, ValorFrete, ValorSeguro, ValorDesconto, ValorIpi, ValorPis, ValorCofins, ValorOutros, ValorNota), Status (enum), XmlConteudo (text, JsonIgnore)<br><br>
-                <strong>ComprasProdutos</strong> — Itens: ProdutoId (nullable), NumeroItem, CodigoProdutoFornecedor, CodigoBarrasXml, DescricaoXml, NcmXml, CestXml, CfopXml, UnidadeXml, Quantidade, ValorUnitario, ValorTotal, ValorDesconto, ValorFrete, ValorOutros, ValorItemNota, Lote, DataFabricacao, DataValidade, CodigoAnvisa, PrecoMaximoConsumidor, Vinculado, InfoAdicional<br><br>
-                <strong>ComprasFiscal</strong> — Fiscal 1:1 com item: ICMS (origem, CST, base, aliq, valor, ST, FCP ST), PIS, COFINS, IBS/CBS (reforma tributaria)
+                <strong>Compras</strong> — Cabecalho: ChaveNfe (unique 44 dig), NumeroNf, SerieNf, NaturezaOperacao, DataEmissao, DataEntrada, FornecedorId, FilialId, totais, Status (enum), DuplicatasEntregues, NotaPaga, DataFinalizacao, XmlConteudo (text, JsonIgnore)<br><br>
+                <strong>ComprasProdutos</strong> — Itens: ProdutoId (nullable), dados XML, Quantidade, valores, Fracao, QtdeConferida, Sugestao* (Venda/Markup/Projecao/CustoMedio), PrecificacaoAplicada<br><br>
+                <strong>ComprasFiscal</strong> — Fiscal 1:1 com item: ICMS (origem, CST, base, aliq, valor, ST, FCP ST), PIS, COFINS, IBS/CBS (reforma tributaria)<br><br>
+                <strong>SefazNotas</strong> — Cache SEFAZ: ChaveNfe, NSU, dados emitente, TipoDocumento (resNFe/procNFe), XmlCompleto, Manifestada, TipoManifestacao, Importada, Lancada. NAO replica.<br><br>
+                <strong>CertificadosDigitais</strong> — Certificado A1: FilialId (unique), PfxBase64, Senha, Validade, Emissor, Cnpj
               </span>
             </div>
 
@@ -488,31 +603,47 @@
                 — Compras = nivel 3 (depende de Fornecedores)<br>
                 — ComprasProdutos = nivel 4 (depende de Compras e Produtos)<br>
                 — ComprasFiscal = nivel 5 (depende de ComprasProdutos)<br>
+                — CertificadosDigitais = nivel 0 (replica entre filiais)<br>
+                — SefazNotas = NAO replica (cache local por filial)<br>
                 — XmlConteudo excluido do payload de sync ([JsonIgnore])
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">API Endpoints</div>
+              <div class="cmd-label">API Endpoints — Compras</div>
               <span class="cmd-obs">
                 GET /api/compras — Lista de compras<br>
                 GET /api/compras/id — Detalhe com produtos e fiscal<br>
-                POST /api/compras/importar-xml — Importa XML NF-e<br>
+                POST /api/compras/importar-xml — Importa XML NF-e (arquivo ou SEFAZ)<br>
                 POST /api/compras/vincular — Vincula produto a item<br>
                 POST /api/compras/desvincular/id — Desvincula produto<br>
                 POST /api/compras/id/re-vincular — Re-executa auto-vinculacao<br>
-                DELETE /api/compras/id — Exclui (so se nao finalizada)<br>
+                POST /api/compras/id/precificar — Salva/aplica sugestoes de preco<br>
+                POST /api/compras/id/bipar — Registra conferencia por bipe<br>
+                POST /api/compras/id/limpar-conferencia — Zera conferencia<br>
+                POST /api/compras/id/finalizar — Finaliza nota (estoque + custos + precos)<br>
+                DELETE /api/compras/id — Exclui (reverte estoque se finalizada)<br>
                 GET /api/compras/id/log — Historico de auditoria
               </span>
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Etapas pendentes</div>
+              <div class="cmd-label">API Endpoints — SEFAZ</div>
               <span class="cmd-obs">
-                — Etapa 2: Precificacao (via modulo Atualizacao de Precos — ver secao abaixo)<br>
-                — Etapa 3: Conferencia fisica (comparar qtde XML vs qtde recebida)<br>
-                — Etapa 4: Finalizacao (atualiza estoque, ultima compra, custo medio, status final)<br>
-                — Busca XML direto do SEFAZ (certificado digital A1)<br>
+                GET /api/sefaz/certificado/filialId — Info do certificado digital<br>
+                POST /api/sefaz/certificado/upload — Upload certificado A1 (PFX + senha)<br>
+                GET /api/sefaz/notas/filialId — Lista notas no cache (filtro por data)<br>
+                POST /api/sefaz/consultar-nfe — Consulta DistribuicaoDFe por NSU<br>
+                POST /api/sefaz/consultar-chave — Consulta por chave 44 digitos<br>
+                POST /api/sefaz/manifestar — Manifestacao (ciencia/desconhecimento/nao realizada)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Pendente de implementacao</div>
+              <span class="cmd-obs">
+                — Manifestacao Confirmacao automatica na finalizacao<br>
+                — Paginacao automatica NSU (buscar todas as paginas sem clique manual)<br>
                 — ComprasFinanceiro (sera criado junto com modulo Financeiro)
               </span>
             </div>
@@ -602,17 +733,7 @@
             </div>
 
             <div class="cmd-grupo">
-              <div class="cmd-label">Fiscal — ICMS por UF (implementado)</div>
-              <span class="cmd-obs">
-                — Tabela IcmsUf com 27 estados e aliquotas internas (seed automatico)<br>
-                — CRUD completo: Fiscal > ICMS por UF (/erp/icms-uf)<br>
-                — Campo AliquotaIcms na Filial (combobox carrega da tabela IcmsUf)<br>
-                — Sync nivel 0 (replica entre filiais)
-              </span>
-            </div>
-
-            <div class="cmd-grupo">
-              <div class="cmd-label">API Endpoints</div>
+              <div class="cmd-label">API Endpoints — Atualizacao de Precos</div>
               <span class="cmd-obs">
                 GET /api/atualizacao-precos/info-base — Total registros e ultima atualizacao<br>
                 GET /api/atualizacao-precos/buscar-ean/EAN?aliquota=19.5 — Busca produto na base ABCFarma<br>
@@ -626,11 +747,22 @@
             </div>
 
             <div class="cmd-grupo">
+              <div class="cmd-label">Fiscal — ICMS por UF</div>
+              <span class="cmd-obs">
+                — Tabela IcmsUfs com 27 estados e aliquotas internas (seed automatico)<br>
+                — CRUD completo: Fiscal > ICMS por UF (/erp/icms-uf)<br>
+                — Campo AliquotaIcms na Filial (combobox carrega da tabela IcmsUfs)<br>
+                — Usado para selecionar coluna correta do ABCFarma (ex: PF_19_5 e PMC_19_5 para PR 19.5%)<br>
+                — Se filial nao tem aliquota configurada, bloqueia atualizacao e avisa<br>
+                — Sync nivel 0 (replica entre filiais)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
               <div class="cmd-label">Pendente de implementacao</div>
               <span class="cmd-obs">
                 — ABCFarma via API (busca online em vez de arquivo local)<br>
                 — Atualizacao manual (seleciona grupos, define percentual, aplica)<br>
-                — Precificacao a partir das notas de compra selecionadas<br>
                 — Comparativo com precos da regiao (filiais proprias)
               </span>
             </div>
