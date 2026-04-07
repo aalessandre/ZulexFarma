@@ -53,7 +53,9 @@
 }
 .th-arrow { width: 30px; } .td-arrow { width: 30px; color: var(--erp-blue); text-align: center; }
 .th-sort { cursor: pointer; &:hover { filter: brightness(0.94); } }
-.sort-icon { margin-left: 5px; font-size: var(--erp-fs-xs); color: var(--erp-text-muted); }
+.sort-icon {
+  display: inline-flex;
+  align-items: center; margin-left: 5px; font-size: var(--erp-fs-xs); color: var(--erp-text-muted); }
 .grid-loading, .grid-vazio { text-align: center; padding: 40px; color: var(--erp-text-muted); }
 .grid-rodape { padding: 8px 16px; font-size: var(--erp-fs-sm); color: var(--erp-text-muted); }
 

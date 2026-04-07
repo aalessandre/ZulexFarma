@@ -33,4 +33,5 @@ public class Pessoa : BaseEntity
 
     public Colaborador? Colaborador { get; set; }
     public Fornecedor? Fornecedor { get; set; }
+    public Cliente? Cliente { get; set; }
 }

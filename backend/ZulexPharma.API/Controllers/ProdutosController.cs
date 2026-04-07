@@ -64,6 +64,133 @@ public class ProdutosController : ControllerBase
         catch (Exception ex) { return await ErroInterno(ex, "VerificarBarras"); }
     }
 
+    /// <summary>Busca avançada de produtos com múltiplos filtros. Retorna lista para seleção múltipla.</summary>
+    [HttpGet("busca-avancada")]
+    public async Task<IActionResult> BuscaAvancada(
+        [FromQuery] long filialId = 1,
+        [FromQuery] string? descricao = null,
+        [FromQuery] long? fabricanteId = null,
+        [FromQuery] long? fornecedorId = null,
+        [FromQuery] long? grupoPrincipalId = null,
+        [FromQuery] long? grupoProdutoId = null,
+        [FromQuery] long? subGrupoId = null,
+        [FromQuery] long? secaoId = null,
+        [FromQuery] long? familiaId = null,
+        [FromQuery] decimal? precoMin = null,
+        [FromQuery] decimal? precoMax = null,
+        [FromQuery] decimal? estoqueMinimo = null,
+        [FromQuery] string? status = "ativos",
+        [FromQuery] int limit = 200)
+    {
+        try
+        {
+            var query = _db.Produtos.AsQueryable();
+
+            // Filtro ativo/inativo
+            if (status == "ativos") query = query.Where(p => p.Ativo);
+            else if (status == "inativos") query = query.Where(p => !p.Ativo);
+
+            // Filtro por descrição
+            if (!string.IsNullOrWhiteSpace(descricao))
+            {
+                var termo = descricao.Trim().ToUpper();
+                query = query.Where(p => p.Nome.ToUpper().Contains(termo) || p.Codigo!.Contains(termo));
+            }
+
+            // Filtros de agrupamento
+            if (fabricanteId.HasValue) query = query.Where(p => p.FabricanteId == fabricanteId);
+            if (grupoPrincipalId.HasValue) query = query.Where(p => p.GrupoPrincipalId == grupoPrincipalId);
+            if (grupoProdutoId.HasValue) query = query.Where(p => p.GrupoProdutoId == grupoProdutoId);
+            if (subGrupoId.HasValue) query = query.Where(p => p.SubGrupoId == subGrupoId);
+
+            // Fornecedor (via ProdutoFornecedor)
+            if (fornecedorId.HasValue)
+                query = query.Where(p => _db.ProdutosFornecedores.Any(pf => pf.ProdutoId == p.Id && pf.FornecedorId == fornecedorId));
+
+            var prodIds = await query.OrderBy(p => p.Nome).Take(limit).Select(p => p.Id).ToListAsync();
+
+            // Buscar dados da filial para filtros de preço/estoque/família/seção
+            var dadosQuery = _db.ProdutosDados
+                .Where(d => prodIds.Contains(d.ProdutoId) && d.FilialId == filialId);
+
+            if (precoMin.HasValue) dadosQuery = dadosQuery.Where(d => d.ValorVenda >= precoMin);
+            if (precoMax.HasValue) dadosQuery = dadosQuery.Where(d => d.ValorVenda <= precoMax);
+            if (estoqueMinimo.HasValue) dadosQuery = dadosQuery.Where(d => d.EstoqueAtual >= estoqueMinimo);
+            if (familiaId.HasValue) dadosQuery = dadosQuery.Where(d => d.ProdutoFamiliaId == familiaId);
+            if (secaoId.HasValue) dadosQuery = dadosQuery.Where(d => d.SecaoId == secaoId);
+
+            var dados = await dadosQuery.Select(d => new { d.ProdutoId, d.ValorVenda, d.CustoMedio, d.EstoqueAtual, d.CurvaAbc }).ToListAsync();
+            var dadosIds = dados.Select(d => d.ProdutoId).ToHashSet();
+
+            // Buscar produtos com dados resolvidos
+            var produtos = await _db.Produtos
+                .Where(p => dadosIds.Contains(p.Id))
+                .Include(p => p.Fabricante)
+                .OrderBy(p => p.Nome)
+                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "" })
+                .ToListAsync();
+
+            var result = produtos.Select(p =>
+            {
+                var d = dados.FirstOrDefault(x => x.ProdutoId == p.Id);
+                return new
+                {
+                    id = p.Id, codigo = p.Codigo, nome = p.Nome, fabricante = p.fabricante,
+                    valorVenda = d?.ValorVenda ?? 0, custoMedio = d?.CustoMedio ?? 0,
+                    estoqueAtual = d?.EstoqueAtual ?? 0, curvaAbc = d?.CurvaAbc ?? ""
+                };
+            });
+
+            return Ok(new { success = true, data = result, total = result.Count() });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em ProdutosController.BuscaAvancada"); return StatusCode(500, new { success = false, message = "Erro na busca avançada." }); }
+    }
+
+    /// <summary>Busca leve de produtos para promoções e seleção rápida. Retorna dados de preço/custo/estoque.</summary>
+    [HttpGet("buscar")]
+    public async Task<IActionResult> Buscar([FromQuery] string termo, [FromQuery] long filialId = 1, [FromQuery] int limit = 20)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(termo) || termo.Trim().Length < 3)
+                return Ok(new { success = true, data = Array.Empty<object>() });
+
+            var termoNorm = termo.Trim().ToUpper();
+
+            var produtos = await _db.Produtos
+                .Where(p => p.Ativo && (
+                    p.Nome.ToUpper().Contains(termoNorm) ||
+                    p.Codigo!.Contains(termoNorm) ||
+                    p.Barras.Any(b => b.Barras.Contains(termoNorm))
+                ))
+                .OrderBy(p => p.Nome)
+                .Take(limit)
+                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "" })
+                .ToListAsync();
+
+            // Buscar dados da filial
+            var prodIds = produtos.Select(p => p.Id).ToList();
+            var dados = await _db.ProdutosDados
+                .Where(d => prodIds.Contains(d.ProdutoId) && d.FilialId == filialId)
+                .Select(d => new { d.ProdutoId, d.ValorVenda, d.CustoMedio, d.EstoqueAtual, d.CurvaAbc })
+                .ToListAsync();
+
+            var result = produtos.Select(p =>
+            {
+                var d = dados.FirstOrDefault(x => x.ProdutoId == p.Id);
+                return new
+                {
+                    id = p.Id, codigo = p.Codigo, nome = p.Nome, fabricante = p.fabricante,
+                    valorVenda = d?.ValorVenda ?? 0, custoMedio = d?.CustoMedio ?? 0,
+                    estoqueAtual = d?.EstoqueAtual ?? 0, curvaAbc = d?.CurvaAbc ?? ""
+                };
+            });
+
+            return Ok(new { success = true, data = result });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em ProdutosController.Buscar"); return StatusCode(500, new { success = false, message = "Erro ao buscar produtos." }); }
+    }
+
     [HttpGet]
     public async Task<IActionResult> Listar([FromQuery] string? busca = null)
     {

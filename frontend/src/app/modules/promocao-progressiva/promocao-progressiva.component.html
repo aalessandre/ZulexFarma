@@ -1,0 +1,222 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()"><span>Procurar</span><span class="sidebar-sub">Consulta</span></div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()"><span>Adicionar</span><span class="sidebar-sub">Nova promoção</span></div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()"><span>Editar</span><span class="sidebar-sub">Alterar registro</span></div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()"><span>Sair</span><span class="sidebar-sub">Fechar tela</span></div>
+  </aside>
+
+  <div class="tela-main">
+
+    <!-- LISTA -->
+    @if (modo() === 'lista') {
+      <div class="lista-header">
+        <div class="lista-filtro"><label>PROCURAR POR</label><div class="input-busca-wrap"><input class="input-busca" type="text" placeholder="Nome da promoção..." [value]="busca()" (input)="busca.set($any($event.target).value)" />@if (busca()) { <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button> }</div></div>
+        <div class="lista-filtro"><label>SITUAÇÃO</label><select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)"><option value="ativos">Ativas</option><option value="inativos">Inativas</option><option value="todos">Todas</option></select></div>
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColLista.update(v => !v)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Colunas</button>
+          @if (painelColLista()) {
+            <div class="col-picker-overlay" (click)="painelColLista.set(false)"></div>
+            <div class="col-picker-painel"><div class="col-picker-header"><span>Personalizar Colunas</span><button class="col-picker-btn-restaurar" (click)="restaurarColLista()">Restaurar padrão</button></div><div class="col-picker-lista">@for (col of listaColunas(); track col.campo) { <label class="col-picker-item"><input type="checkbox" [checked]="col.visivel" (change)="toggleColLista(col.campo)" /><span>{{ col.label }}</span></label> }</div></div>
+          }
+        </div>
+      </div>
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead><tr>
+            <th class="th-arrow"></th>
+            @for (col of listaColVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize" [style.width.px]="col.largura" [style.min-width.px]="col.minLargura" (click)="ordenar(col.campo)" draggable="true" (dragstart)="onDragStartLista(i)" (dragover)="onDragOverLista($event, i)" (drop)="onDropLista()">
+                {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResizeLista($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+              </th>
+            }
+          </tr></thead>
+          <tbody>
+            @if (carregando()) { <tr><td [attr.colspan]="listaColVisiveis().length + 1" class="grid-loading">Carregando...</td></tr> }
+            @else if (registrosFiltrados().length === 0) { <tr><td [attr.colspan]="listaColVisiveis().length + 1" class="grid-vazio">Nenhuma promoção encontrada.</td></tr> }
+            @else { @for (r of registrosFiltrados(); track r.id) {
+              <tr [class.selecionado]="selecionado()?.id === r.id" (click)="selecionar(r)" (dblclick)="editar()">
+                <td class="td-arrow">@if (selecionado()?.id === r.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }</td>
+                @for (col of listaColVisiveis(); track col.campo) { <td>{{ getCellValue(r, col.campo) }}</td> }
+              </tr>
+            } }
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-rodape"><span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span></div>
+    }
+
+    <!-- ETAPA 1: CONFIGURAÇÃO + FAIXAS -->
+    @if (modo() === 'config') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar' : 'Nova' }} Promoção Progressiva — Configuração</div>
+
+        <div class="form-secao">Identificação</div>
+        <div class="form-grid">
+          <div class="field field-3"><label>NOME *</label><input type="text" [value]="fNome()" (input)="fNome.set($any($event.target).value)" maxlength="200" /></div>
+          <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="fAtivo()" (change)="fAtivo.set($any($event.target).checked)" /> Ativo</label></div>
+        </div>
+
+        <div class="form-secao">Vigência</div>
+        <div class="form-grid">
+          <div class="field"><label>INÍCIO *</label><input type="datetime-local" [value]="fDataInicio()" (input)="fDataInicio.set($any($event.target).value)" /></div>
+          <div class="field"><label>TÉRMINO</label><input type="datetime-local" [value]="fDataFim()" (input)="fDataFim.set($any($event.target).value)" /></div>
+        </div>
+
+        <div class="form-secao">Dias da Semana *</div>
+        <div class="form-grid">
+          <div class="dias-wrap">
+            @for (d of dias; track d.valor) { <button class="dia-btn" [class.ativo]="isDiaAtivo(d.valor)" (click)="toggleDia(d.valor)">{{ d.label }}</button> }
+            <button class="dia-btn dia-btn-todos" (click)="todosOsDias()">Todos</button>
+          </div>
+        </div>
+
+        <div class="form-secao">Formas de Pagamento *</div>
+        <div class="checks-grid">
+          @for (tp of tiposPagamento(); track tp.id) { <label class="check-label"><input type="checkbox" [checked]="isPagSel(tp.id)" (change)="togglePag(tp.id)" /> {{ tp.nome }}</label> }
+          <button class="btn-todos-check" (click)="todosPag()">Todos</button>
+        </div>
+
+        <div class="form-secao">Filiais *</div>
+        <div class="checks-grid">
+          @for (f of filiais(); track f.id) { <label class="check-label"><input type="checkbox" [checked]="isFilialSel(f.id)" (change)="toggleFilial(f.id)" /> {{ f.nome }}</label> }
+          <button class="btn-todos-check" (click)="todasFiliais()">Todas</button>
+        </div>
+
+        <div class="form-secao">Regras</div>
+        <div class="checks-grid">
+          <label class="check-label"><input type="checkbox" [checked]="fGerarComissao()" (change)="fGerarComissao.set($any($event.target).checked)" /> Gerar comissão</label>
+          <label class="check-label"><input type="checkbox" [checked]="fExclusivaConvenio()" (change)="fExclusivaConvenio.set($any($event.target).checked)" /> Exclusiva de convênios</label>
+          <label class="check-label"><input type="checkbox" [checked]="fIntersabores()" (change)="fIntersabores.set($any($event.target).checked)" /> Intersabores</label>
+        </div>
+
+        @if (fExclusivaConvenio()) {
+          <div class="form-secao">Convênios Vinculados</div>
+          <div class="form-grid">
+            <div class="field field-2">
+              <select class="select-campo" (change)="adicionarConvenio(+$any($event.target).value); $any($event.target).value = ''">
+                <option value="">-- Selecionar convênio --</option>
+                @for (c of convenios(); track c.id) { @if (!fConvenioIds().includes(c.id)) { <option [value]="c.id">{{ c.nome }}</option> } }
+              </select>
+            </div>
+          </div>
+          @if (fConvenioIds().length > 0) {
+            <div class="tags-wrap">@for (cid of fConvenioIds(); track cid) { <span class="tag-item">{{ nomeConvenio(cid) }}<button (click)="removerConvenio(cid)">&times;</button></span> }</div>
+          }
+        }
+
+        <!-- FAIXAS DE DESCONTO -->
+        <div class="form-secao">Regras da Promoção *</div>
+        <p class="faixa-hint">Defina as faixas de quantidade e o percentual de desconto. A última faixa vale para quantidades iguais ou superiores.</p>
+
+        <div class="faixa-grid">
+          <div class="faixa-header">
+            <span class="faixa-col-qtd">Qtde</span>
+            <span class="faixa-col-pct">% Desconto</span>
+            <span class="faixa-col-acao"></span>
+          </div>
+          @for (f of faixas(); track f.quantidade; let i = $index) {
+            <div class="faixa-row">
+              <div class="faixa-col-qtd">
+                <input type="text" [value]="f.quantidade" (input)="updFaixa(i, 'quantidade', +$any($event.target).value)" class="faixa-input" />
+              </div>
+              <div class="faixa-col-pct">
+                <input type="text" [value]="f.percentualDesconto" (input)="updFaixa(i, 'percentualDesconto', +$any($event.target).value)" class="faixa-input" />
+                <span class="faixa-sufixo">%</span>
+              </div>
+              <div class="faixa-col-acao">
+                <button class="faixa-btn-rem" (click)="removerFaixa(i)" title="Remover">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+        <button class="faixa-btn-add" (click)="adicionarFaixa()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Adicionar faixa
+        </button>
+      </div>
+
+      <footer class="tela-toolbar">
+        <button class="tb-btn tb-salvar" (click)="avancarParaProdutos()">Avançar para Produtos <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+        <button class="tb-btn tb-fechar" (click)="fechar()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Cancelar</button>
+        @if (modoEdicao()) { <div class="tb-separador"></div><button class="tb-btn tb-excluir" (click)="excluir()">Excluir</button> }
+      </footer>
+    }
+
+    <!-- ETAPA 2: PRODUTOS -->
+    @if (modo() === 'produtos') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ fNome() }} — Produtos</div>
+
+        <div class="prod-busca-row">
+          <div class="prod-busca-input autocomplete-wrap">
+            <input type="text" [value]="produtoBusca()" (input)="onProdutoInput($any($event.target).value)" (blur)="onProdutoBlur()" placeholder="Buscar produto por código, barras ou nome..." autocomplete="off" />
+            @if (produtoDropdown() && produtoResultados().length > 0) {
+              <div class="autocomplete-dropdown">
+                @for (p of produtoResultados(); track p.id) {
+                  <div class="autocomplete-item" (mousedown)="adicionarProduto(p)">
+                    <span class="autocomplete-codigo">{{ p.codigo }}</span>
+                    <span class="autocomplete-nome">{{ p.nome }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        @if (produtos().length > 0) {
+          <div class="prod-header">
+            <span class="form-secao" style="margin:0">Produtos da Promoção ({{ produtos().length }})</span>
+            <div class="col-picker-wrap">
+              <button class="btn-colunas" (click)="painelColProd.update(v => !v)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Colunas</button>
+              @if (painelColProd()) {
+                <div class="col-picker-overlay" (click)="painelColProd.set(false)"></div>
+                <div class="col-picker-painel"><div class="col-picker-header"><span>Personalizar Colunas</span><button class="col-picker-btn-restaurar" (click)="restaurarColProd()">Restaurar padrão</button></div><div class="col-picker-lista">@for (col of prodColunas(); track col.campo) { <label class="col-picker-item"><input type="checkbox" [checked]="col.visivel" (change)="toggleColProd(col.campo)" /><span>{{ col.label }}</span></label> }</div></div>
+              }
+            </div>
+          </div>
+          <div class="grid-wrapper">
+            <table class="erp-grid">
+              <thead><tr>
+                <th class="th-check"><input type="checkbox" [checked]="todosProdutosSelecionados()" (change)="toggleTodosProd($any($event.target).checked)" /></th>
+                @for (col of prodColVisiveis(); track col.campo; let i = $index) {
+                  <th class="th-sort th-resize" [style.width.px]="col.largura" [style.min-width.px]="col.minLargura" (click)="ordenarProd(col.campo)" draggable="true" (dragstart)="onDragStartProd(i)" (dragover)="onDragOverProd($event, i)" (drop)="onDropProd()">
+                    {{ col.label }} <span class="sort-icon">{{ sortProdIcon(col.campo) }}</span>
+                    <div class="resize-handle" (mousedown)="iniciarResizeProd($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+                  </th>
+                }
+              </tr></thead>
+              <tbody>
+                @for (p of produtos(); track p.produtoId) {
+                  <tr [class.selecionado]="isProdSel(p.produtoId)">
+                    <td class="td-check"><input type="checkbox" [checked]="isProdSel(p.produtoId)" (change)="toggleProdSel(p.produtoId)" /></td>
+                    @for (col of prodColVisiveis(); track col.campo) { <td>{{ getProdCellValue(p, col.campo) }}</td> }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="grid-vazio" style="padding:40px">Nenhum produto adicionado.</div>
+        }
+      </div>
+
+      <footer class="tela-toolbar">
+        <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          {{ salvando() ? 'Salvando...' : 'Salvar Promoção' }}
+        </button>
+        <button class="tb-btn tb-cancelar" (click)="voltarParaConfig()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Voltar</button>
+        <button class="tb-btn tb-fechar" (click)="fechar()">Cancelar</button>
+        @if (produtosSelecionados().size > 0) {
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" (click)="removerSelecionados()">Excluir ({{ produtosSelecionados().size }})</button>
+        }
+      </footer>
+    }
+
+  </div>
+</div>

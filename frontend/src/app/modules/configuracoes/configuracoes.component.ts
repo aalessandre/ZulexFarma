@@ -10,6 +10,7 @@ import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 import { ToastrService } from 'ngx-toastr';
 
 interface ConfigItem { chave: string; valor: string; descricao?: string; }
+interface PcLookup { id: number; descricao: string; codigoHierarquico: string; }
 interface CertificadoInfo {
   id: number; filialId: number; cnpj: string; razaoSocial: string;
   validade: string; emissor: string; valido: boolean; diasParaVencer: number;
@@ -61,6 +62,7 @@ export class ConfiguracoesComponent implements OnInit {
         for (const item of (r.data ?? [])) map[item.chave] = item.valor;
         this.configs.set(map);
         this.carregando.set(false);
+        this.carregarNomesPc();
       },
       error: () => this.carregando.set(false)
     });
@@ -87,6 +89,79 @@ export class ConfiguracoesComponent implements OnInit {
         this.modal.erro('Erro', 'Erro ao salvar configurações.');
       }
     });
+  }
+
+  // ── Plano de Contas Padrão ──────────────────────────────────────
+  readonly pcChaves = [
+    { chave: 'pc.compra_mercadorias', label: 'Compra de Mercadorias' },
+    { chave: 'pc.venda_vista', label: 'Venda à Vista' },
+    { chave: 'pc.venda_prazo', label: 'Venda a Prazo' },
+    { chave: 'pc.venda_cartao', label: 'Venda Cartão' },
+    { chave: 'pc.transferencia_mercadoria', label: 'Transferência de Mercadoria' },
+    { chave: 'pc.desconto_obtido', label: 'Desconto Obtido' },
+    { chave: 'pc.desconto_concedido', label: 'Desconto Concedido' },
+    { chave: 'pc.juros_pagos', label: 'Juros/Multa Pagos' },
+    { chave: 'pc.juros_recebidos', label: 'Juros/Multa Recebidos' },
+    { chave: 'pc.despesa_bancaria', label: 'Despesas Bancárias' },
+    { chave: 'pc.frete_compra', label: 'Frete sobre Compras' },
+    { chave: 'pc.devolucao_compra', label: 'Devolução de Compra' },
+    { chave: 'pc.devolucao_venda', label: 'Devolução de Venda' },
+    { chave: 'pc.bonificacao_fornecedor', label: 'Bonificação de Fornecedor' },
+  ];
+
+  // Armazena nomes resolvidos para exibir nos inputs
+  pcNomes = signal<Record<string, string>>({});
+  pcBuscaAtiva = signal('');
+  pcResultados = signal<PcLookup[]>([]);
+  pcDropdown = signal(false);
+  private pcTimer: any = null;
+
+  carregarNomesPc() {
+    // Para cada chave que tem valor (id), buscar o nome
+    const configs = this.configs();
+    for (const item of this.pcChaves) {
+      const id = configs[item.chave];
+      if (id) {
+        // Busca individual por ID via listagem
+        this.http.get<any>(`${environment.apiUrl}/planoscontas/pesquisar?termo=${id}`).subscribe({
+          next: r => {
+            const encontrado = (r.data ?? []).find((p: any) => p.id === Number(id));
+            if (encontrado) {
+              this.pcNomes.update(n => ({ ...n, [item.chave]: `${encontrado.codigoHierarquico} - ${encontrado.descricao}` }));
+            }
+          }
+        });
+      }
+    }
+  }
+
+  getPcNome(chave: string): string {
+    return this.pcNomes()[chave] ?? '';
+  }
+
+  onPcBuscaInput(chave: string, valor: string) {
+    this.pcBuscaAtiva.set(chave);
+    this.pcNomes.update(n => ({ ...n, [chave]: valor }));
+    if (this.pcTimer) clearTimeout(this.pcTimer);
+    if (valor.trim().length < 2) { this.pcResultados.set([]); this.pcDropdown.set(false); return; }
+    this.pcTimer = setTimeout(() => {
+      this.http.get<any>(`${environment.apiUrl}/planoscontas/pesquisar?termo=${encodeURIComponent(valor.trim())}`).subscribe({
+        next: r => { this.pcResultados.set(r.data ?? []); this.pcDropdown.set((r.data ?? []).length > 0); }
+      });
+    }, 300);
+  }
+
+  onPcBuscaBlur() { setTimeout(() => this.pcDropdown.set(false), 200); }
+
+  selecionarPcConfig(chave: string, pc: PcLookup) {
+    this.setConfig(chave, String(pc.id));
+    this.pcNomes.update(n => ({ ...n, [chave]: `${pc.codigoHierarquico} - ${pc.descricao}` }));
+    this.pcDropdown.set(false);
+  }
+
+  limparPcConfig(chave: string) {
+    this.setConfig(chave, '');
+    this.pcNomes.update(n => ({ ...n, [chave]: '' }));
   }
 
   // ── Certificado Digital ────────────────────────────────────────

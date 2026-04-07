@@ -101,6 +101,7 @@ export class NcmComponent implements OnInit, OnDestroy {
     if (this.sortColuna() === col) this.sortDirecao.update(d => d === 'asc' ? 'desc' : 'asc');
     else { this.sortColuna.set(col); this.sortDirecao.set('asc'); }
   }
+  sortIcon(campo: string): string { return this.sortColuna() === campo ? (this.sortDirecao() === 'asc' ? '▲' : '▼') : '⇅'; }
 
   incluir() {
     this.form.set(this.novoForm());

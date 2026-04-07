@@ -100,6 +100,24 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFornecedorService
                             ZulexPharma.Infrastructure.Services.FornecedorService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFabricanteService,
                             ZulexPharma.Infrastructure.Services.FabricanteService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPlanoContaService,
+                            ZulexPharma.Infrastructure.Services.PlanoContaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IContaBancariaService,
+                            ZulexPharma.Infrastructure.Services.ContaBancariaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IContaPagarService,
+                            ZulexPharma.Infrastructure.Services.ContaPagarService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ITipoPagamentoService,
+                            ZulexPharma.Infrastructure.Services.TipoPagamentoService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IConvenioService,
+                            ZulexPharma.Infrastructure.Services.ConvenioService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPromocaoService,
+                            ZulexPharma.Infrastructure.Services.PromocaoService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IClienteService,
+                            ZulexPharma.Infrastructure.Services.ClienteService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IHierarquiaDescontoService,
+                            ZulexPharma.Infrastructure.Services.HierarquiaDescontoService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPreVendaService,
+                            ZulexPharma.Infrastructure.Services.PreVendaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISubstanciaService,
                             ZulexPharma.Infrastructure.Services.SubstanciaService>();
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoPrincipal>(

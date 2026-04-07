@@ -1,0 +1,241 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()"><span>Procurar</span><span class="sidebar-sub">Consulta</span></div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()"><span>Adicionar</span><span class="sidebar-sub">Novo convênio</span></div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()"><span>Editar</span><span class="sidebar-sub">Alterar registro</span></div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()"><span>Sair</span><span class="sidebar-sub">Fechar tela</span></div>
+  </aside>
+
+  <div class="tela-main">
+    <!-- ══════ LISTA ══════ -->
+    @if (modo() === 'lista') {
+      <div class="lista-header">
+        <div class="lista-filtro"><label>PROCURAR POR</label><div class="input-busca-wrap"><input class="input-busca" type="text" placeholder="Nome ou CPF/CNPJ..." [value]="busca()" (input)="busca.set($any($event.target).value)" />@if (busca()) { <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button> }</div></div>
+        <div class="lista-filtro"><label>SITUAÇÃO</label><select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)"><option value="ativos">Ativos</option><option value="inativos">Inativos</option><option value="todos">Todos</option></select></div>
+        <div class="col-picker-wrap"><button class="btn-colunas" (click)="painelColunas.update(v => !v)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Colunas</button>@if (painelColunas()) { <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div><div class="col-picker-painel"><div class="col-picker-header"><span>Personalizar Colunas</span><button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button></div><div class="col-picker-lista">@for (col of colunas(); track col.campo) { <label class="col-picker-item"><input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" /><span>{{ col.label }}</span>@if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }</label> }</div></div> }</div>
+      </div>
+      <div class="grid-wrapper"><table class="erp-grid"><thead><tr><th class="th-arrow"></th>@for (col of colunasVisiveis(); track col.campo; let i = $index) { <th class="th-sort th-resize" [style.width.px]="col.largura" [style.min-width.px]="col.minLargura" (click)="ordenar(col.campo)" draggable="true" (dragstart)="onDragStartCol(i)" (dragover)="onDragOverCol($event, i)" (drop)="onDropCol()">{{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span><div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div></th> }</tr></thead><tbody>
+        @if (carregando()) { <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr> }
+        @else if (registrosFiltrados().length === 0) { <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum registro encontrado.</td></tr> }
+        @else { @for (r of registrosFiltrados(); track r.id) { <tr [class.selecionado]="selecionado()?.id === r.id" (click)="selecionar(r)" (dblclick)="editar()"><td class="td-arrow">@if (selecionado()?.id === r.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }</td>@for (col of colunasVisiveis(); track col.campo) { <td>{{ getCellValue(r, col.campo) }}</td> }</tr> } }
+      </tbody></table></div>
+      <div class="grid-rodape"><span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span></div>
+    }
+
+    <!-- ══════ FORMULÁRIO ══════ -->
+    @if (modo() === 'form') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar Convênio' : 'Novo Convênio' }}</div>
+
+        @if (modoEdicao() && detalhe()) {
+          <div class="form-grid form-grid-info">
+            <div class="field"><label>CÓDIGO</label><input type="text" [value]="detalhe()!.id" disabled class="field-disabled" /></div>
+            <div class="field"><label>DATA CADASTRO</label><input type="text" [value]="detalhe()!.criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" /></div>
+          </div>
+        }
+        @if (erro()) { <div class="form-erro">{{ erro() }}</div> }
+
+        <!-- TIPO DE PESSOA -->
+        <div class="form-secao">Tipo de Pessoa</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>TIPO</label>
+            <select class="select-campo" [value]="form().tipo" (change)="onTipoChange($any($event.target).value)">
+              <option value="J">Pessoa Juridica</option>
+              <option value="F">Pessoa Fisica</option>
+            </select>
+          </div>
+        </div>
+
+        @if (form().tipo === 'J') {
+          <!-- PESSOA JURIDICA -->
+          <div class="form-secao">Identificação</div>
+          <div class="form-grid">
+            <div class="field" [class.field-invalido]="erroCampo('pessoaId')">
+              <label>CNPJ *</label>
+              <div class="input-icon-wrap">
+                <input type="text" [value]="form().cpfCnpj" (input)="onCpfCnpjInput($event)" (blur)="onCpfCnpjBlur()" maxlength="18" placeholder="00.000.000/0000-00" />
+                @if (buscandoCnpj()) { <span class="input-spinner">&#x27F3;</span> }
+              </div>
+              @if (erroCampo('pessoaId')) { <span class="field-erro">{{ erroCampo('pessoaId') }}</span> }
+            </div>
+            <div class="field field-2">
+              <label>RAZÃO SOCIAL *</label>
+              <input type="text" [value]="form().razaoSocial" (input)="upd('razaoSocial', $any($event.target).value)" maxlength="200" />
+            </div>
+            <div class="field field-2">
+              <label>NOME FANTASIA *</label>
+              <input type="text" [value]="form().nome" (input)="upd('nome', $any($event.target).value)" maxlength="150" />
+            </div>
+            <div class="field">
+              <label>INSCRIÇÃO ESTADUAL</label>
+              <input type="text" [value]="form().inscricaoEstadual" (input)="upd('inscricaoEstadual', $any($event.target).value)" maxlength="20" />
+            </div>
+          </div>
+          @if (pessoaEncontrada()) {
+            <div class="form-info-pessoa">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Pessoa já cadastrada. Dados preenchidos automaticamente.
+            </div>
+          }
+        }
+
+        @if (form().tipo === 'F') {
+          <!-- PESSOA FISICA -->
+          <div class="form-secao">Identificação</div>
+          <div class="form-grid">
+            <div class="field" [class.field-invalido]="erroCampo('pessoaId')">
+              <label>CPF *</label>
+              <input type="text" [value]="form().cpfCnpj" (input)="onCpfCnpjInput($event)" (blur)="onCpfCnpjBlur()" maxlength="14" placeholder="000.000.000-00" />
+              @if (erroCampo('pessoaId')) { <span class="field-erro">{{ erroCampo('pessoaId') }}</span> }
+            </div>
+            <div class="field field-3">
+              <label>NOME *</label>
+              <input type="text" [value]="form().nome" (input)="upd('nome', $any($event.target).value)" maxlength="150" />
+            </div>
+            <div class="field">
+              <label>RG</label>
+              <input type="text" [value]="form().rg" (input)="upd('rg', $any($event.target).value)" maxlength="20" />
+            </div>
+          </div>
+          @if (pessoaEncontrada()) {
+            <div class="form-info-pessoa">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Pessoa já cadastrada. Dados preenchidos automaticamente.
+            </div>
+          }
+        }
+        <div class="form-grid">
+          <div class="field field-3"><label>AVISO (exibido na venda)</label><input type="text" [value]="form().aviso" (input)="upd('aviso', $any($event.target).value)" maxlength="200" placeholder="Aviso curto para o operador..." /></div>
+          <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="form().ativo" (change)="upd('ativo', $any($event.target).checked)" /> Ativo</label></div>
+        </div>
+
+        <!-- ACCORDION GERAL -->
+        <div class="accordion" [class.aberto]="accGeral()">
+          <div class="accordion-header" (click)="accGeral.update(v => !v)"><span>Geral</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accGeral() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg></div>
+          <div class="accordion-body">
+            <div class="form-grid">
+              <div class="field field-2"><label>MODO DE FECHAMENTO</label>
+                <select class="select-campo" [value]="form().modoFechamento" (change)="upd('modoFechamento', +$any($event.target).value)">
+                  <option [value]="1">Dias Corridos</option><option [value]="2">Por Fechamento</option>
+                </select>
+              </div>
+              @if (form().modoFechamento === 1) {
+                <div class="field"><label>DIAS CORRIDOS</label><input type="text" [value]="form().diasCorridos" (input)="upd('diasCorridos', +$any($event.target).value || 0)" /></div>
+              }
+              @if (form().modoFechamento === 2) {
+                <div class="field"><label>DIA FECHAMENTO</label><input type="text" [value]="form().diaFechamento" (input)="upd('diaFechamento', +$any($event.target).value || 0)" /></div>
+                <div class="field"><label>DIA VENCIMENTO</label><input type="text" [value]="form().diaVencimento" (input)="upd('diaVencimento', +$any($event.target).value || 0)" /></div>
+                <div class="field"><label>MESES P/ VENCIMENTO</label><input type="text" [value]="form().mesesParaVencimento" (input)="upd('mesesParaVencimento', +$any($event.target).value || 0)" /></div>
+              }
+            </div>
+            <div class="form-grid" style="margin-top:12px">
+              <div class="field"><label>VIAS DO CUPOM</label><input type="text" [value]="form().qtdeViasCupom" (input)="upd('qtdeViasCupom', +$any($event.target).value || 0)" /></div>
+              <div class="field"><label>CARÊNCIA BLOQUEIO (dias)</label><input type="text" [value]="form().diasCarenciaBloqueio" (input)="upd('diasCarenciaBloqueio', +$any($event.target).value || 0)" /></div>
+            </div>
+            <div class="form-grid checks-grid" style="margin-top:12px">
+              <label class="check-label"><input type="checkbox" [checked]="form().bloqueado" (change)="upd('bloqueado', $any($event.target).checked)" /> Bloqueado</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().bloquearVendaParcelada" (change)="upd('bloquearVendaParcelada', $any($event.target).checked)" /> Bloquear venda parcelada</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().bloquearDescontoParcelada" (change)="upd('bloquearDescontoParcelada', $any($event.target).checked)" /> Bloquear desconto parcelada</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().bloquearComissao" (change)="upd('bloquearComissao', $any($event.target).checked)" /> Bloquear comissão</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().venderSomenteComSenha" (change)="upd('venderSomenteComSenha', $any($event.target).checked)" /> Vender somente com senha</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().cobrarJurosAtraso" (change)="upd('cobrarJurosAtraso', $any($event.target).checked)" /> Cobrar juros em atraso</label>
+            </div>
+
+            <!-- Bloqueio de condições de pagamento -->
+            @if (tiposPagamento().length > 0) {
+              <div class="sub-secao">Bloquear Condições de Pagamento</div>
+              <div class="checks-grid">
+                @for (tp of tiposPagamento(); track tp.id) {
+                  <label class="check-label"><input type="checkbox" [checked]="isBloqueado(tp.id)" (change)="toggleBloqueio(tp.id)" /> {{ tp.nome }}</label>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- ACCORDION LIMITES -->
+        <div class="accordion" [class.aberto]="accLimites()">
+          <div class="accordion-header" (click)="accLimites.update(v => !v)"><span>Limites</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accLimites() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg></div>
+          <div class="accordion-body">
+            <div class="form-grid">
+              <div class="field"><label>LIMITE DE CRÉDITO</label><input type="number" [value]="form().limiteCredito" (input)="upd('limiteCredito', +$any($event.target).value)" step="0.01" min="0" /></div>
+              <div class="field"><label>MÁXIMO DE PARCELAS</label><input type="number" [value]="form().maximoParcelas" (input)="upd('maximoParcelas', +$any($event.target).value)" min="1" /></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACCORDION DESCONTOS -->
+        <div class="accordion" [class.aberto]="accDescontos()">
+          <div class="accordion-header" (click)="accDescontos.update(v => !v)"><span>Descontos por Agrupador</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accDescontos() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg></div>
+          <div class="accordion-body">
+            <!-- Adicionar -->
+            <div class="desc-add-row">
+              <div class="desc-add-field"><label>TIPO</label>
+                <select class="select-campo" [value]="descTipoAgrupador()" (change)="carregarAgrupadores(+$any($event.target).value)">
+                  <option [value]="1">Grupo Principal</option><option [value]="2">Grupo</option><option [value]="3">SubGrupo</option><option [value]="4">Seção</option>
+                </select>
+              </div>
+              <div class="desc-add-field desc-add-field-2"><label>AGRUPADOR</label>
+                <select class="select-campo" [value]="descAgrupadorId()" (change)="descAgrupadorId.set(+$any($event.target).value)">
+                  <option value="0">-- Selecione --</option>
+                  @for (a of agrupadores(); track a.id) { <option [value]="a.id">{{ a.nome }}</option> }
+                </select>
+              </div>
+              <div class="desc-add-field"><label>% MÍNIMO</label><input type="text" [value]="descMinimo()" (input)="descMinimo.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field"><label>% S/ SENHA</label><input type="text" [value]="descSemSenha()" (input)="descSemSenha.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field"><label>% C/ SENHA</label><input type="text" [value]="descComSenha()" (input)="descComSenha.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field" style="align-self:flex-end"><button class="btn-add-desc" (click)="adicionarDesconto()" [disabled]="!descAgrupadorId()">Adicionar</button></div>
+            </div>
+            <!-- Lista -->
+            @if (descontos().length > 0) {
+              <table class="desc-table">
+                <thead><tr><th>Tipo</th><th>Agrupador</th><th>% Mínimo</th><th>% s/ Senha</th><th>% c/ Senha</th><th></th></tr></thead>
+                <tbody>
+                  @for (d of descontos(); track d.agrupadorId + '-' + d.tipoAgrupador; let i = $index) {
+                    <tr><td>{{ tipoAgrupadorNome(d.tipoAgrupador) }}</td><td>{{ d.agrupadorNome }}</td><td>{{ d.descontoMinimo }}%</td><td>{{ d.descontoMaxSemSenha }}%</td><td>{{ d.descontoMaxComSenha }}%</td>
+                      <td><button class="btn-rem-desc" (click)="removerDesconto(i)" title="Remover"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else { <div class="desc-vazio">Nenhum desconto por agrupador configurado.</div> }
+          </div>
+        </div>
+
+        <!-- ACCORDION OBSERVAÇÃO -->
+        <div class="form-secao">Observações</div>
+        <div class="form-grid">
+          <div class="field field-3"><textarea class="textarea-obs" [value]="form().observacao" (input)="upd('observacao', $any($event.target).value)" maxlength="1000" rows="3" placeholder="Observações..."></textarea></div>
+        </div>
+      </div>
+
+      <footer class="tela-toolbar">
+        @if (isDirty()) { <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>{{ salvando() ? 'Salvando...' : 'Salvar' }}</button> }
+        <button class="tb-btn tb-fechar" (click)="fechar()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Fechar</button>
+        @if (modoEdicao()) {
+          <button class="tb-btn tb-log" (click)="abrirLog()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Histórico</button>
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>Excluir</button>
+        }
+      </footer>
+    }
+  </div>
+</div>
+
+<!-- MODAL LOG -->
+@if (modalLog()) {
+  <div class="modal-overlay" (click)="fecharLog()">
+    <div class="modal-log-box" (click)="$event.stopPropagation()">
+      <div class="modal-log-header"><div class="modal-log-titulo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Histórico — {{ selecionado()?.pessoaNome }}</div><button class="modal-log-fechar" (click)="fecharLog()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+      <div class="modal-log-filtros"><div class="log-filtro-campo"><label>DATA INICIAL</label><input type="date" [value]="logDataInicio()" (change)="logDataInicio.set($any($event.target).value)" /></div><div class="log-filtro-campo"><label>DATA FINAL</label><input type="date" [value]="logDataFim()" (change)="logDataFim.set($any($event.target).value)" /></div><button class="log-btn-filtrar" (click)="filtrarLog()" [disabled]="carregandoLog()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>{{ carregandoLog() ? 'Buscando...' : 'Filtrar' }}</button><span class="log-total">@if (!carregandoLog()) { {{ logRegistros().length }} registro(s) }</span></div>
+      <div class="modal-log-body">
+        @if (carregandoLog()) { <div class="log-loading">Carregando...</div> } @else if (logRegistros().length === 0) { <div class="log-vazio">Nenhum registro.</div> } @else {
+          <div class="log-painel-wrap"><div class="log-painel-lista">@for (entry of logRegistros(); track entry.id) { <div class="log-lista-item" [class.ativo]="logSelecionado()?.id === entry.id" (click)="selecionarLogEntry(entry)"><div class="log-lista-data">{{ entry.realizadoEm | date:'dd/MM/yyyy HH:mm:ss' }}</div><div class="log-lista-info"><span class="log-badge" [class]="acaoCss(entry.acao)">{{ entry.acao }}</span><span class="log-lista-usuario">{{ entry.nomeUsuario }}</span></div></div> }</div>
+          <div class="log-painel-detalhe">@if (logSelecionado()) { @if (logSelecionado()!.campos.length === 0) { <div class="log-detalhe-vazio">Nenhum campo.</div> } @else { <table class="log-campos"><thead><tr><th>Campo</th><th>Anterior</th><th>Atual</th></tr></thead><tbody>@for (c of logSelecionado()!.campos; track c.campo) { <tr><td class="campo-nome">{{ c.campo }}</td><td class="campo-anterior">{{ c.valorAnterior ?? '—' }}</td><td class="campo-atual">{{ c.valorAtual ?? '—' }}</td></tr> }</tbody></table> } }</div></div>
+        }
+      </div>
+      <div class="modal-log-footer"><button class="modal-btn modal-btn-cancelar" (click)="fecharLog()">Fechar</button></div>
+    </div>
+  </div>
+}

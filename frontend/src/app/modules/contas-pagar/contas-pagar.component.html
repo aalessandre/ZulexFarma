@@ -1,0 +1,467 @@
+<div class="tela-erp">
+
+  <!-- SIDEBAR -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()">
+      <span>Procurar</span>
+      <span class="sidebar-sub">Consulta</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()">
+      <span>Novo</span>
+      <span class="sidebar-sub">Lançamento</span>
+    </div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()">
+      <span>Editar</span>
+      <span class="sidebar-sub">Alterar registro</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+
+    @if (abasEdicao().length > 0) {
+      <div class="sidebar-divider"></div>
+      @for (aba of abasEdicao(); track aba.conta.id) {
+        <div class="sidebar-aba" [class.ativo]="abaAtivaId() === aba.conta.id && modo() === 'form'" (click)="ativarAba(aba.conta.id!)">
+          <div class="sidebar-aba-topo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span class="sidebar-aba-id">#{{ aba.conta.id }}</span>
+            @if (aba.isDirty) { <span class="sidebar-aba-dirty">&bull;</span> }
+          </div>
+          <span class="sidebar-aba-nome">{{ aba.conta.descricao }}</span>
+          <button class="sidebar-aba-fechar" (click)="$event.stopPropagation(); fecharAba(aba.conta.id!)" title="Fechar">&times;</button>
+        </div>
+      }
+    }
+  </aside>
+
+  <!-- AREA PRINCIPAL -->
+  <div class="tela-main">
+
+    <!-- ══════ LISTA ══════ -->
+    @if (modo() === 'lista') {
+      <!-- FILTROS BÁSICOS -->
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="Descrição, beneficiário, documento..." [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            @if (busca()) { <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button> }
+          </div>
+        </div>
+        <div class="lista-filtro">
+          <label>STATUS</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="">Todos</option>
+            <option value="1">Aberto</option>
+            <option value="2">Pago</option>
+            <option value="3">Cancelado</option>
+          </select>
+        </div>
+        <div class="lista-filtro">
+          <label>FILIAL</label>
+          <select class="select-status" [value]="filtroFilialId() ?? ''" (change)="filtroFilialId.set(+$any($event.target).value || null)">
+            <option value="">Todas</option>
+            @for (f of filiais(); track f.id) { <option [value]="f.id">{{ f.nome }}</option> }
+          </select>
+        </div>
+        <div class="lista-filtro">
+          <label>VENCIMENTO DE</label>
+          <input type="date" class="input-data" [value]="filtroDataDe()" (change)="filtroDataDe.set($any($event.target).value)" />
+        </div>
+        <div class="lista-filtro">
+          <label>ATÉ</label>
+          <input type="date" class="input-data" [value]="filtroDataAte()" (change)="filtroDataAte.set($any($event.target).value)" />
+        </div>
+        <button class="btn-filtro-avancado" [class.ativo]="filtroAvancadoAberto() || temFiltroAvancado()" (click)="filtroAvancadoAberto.update(v => !v)" title="Filtro avançado">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          Filtros
+          @if (temFiltroAvancado()) { <span class="filtro-badge">!</span> }
+        </button>
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header"><span>Personalizar Colunas</span><button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button></div>
+              <div class="col-picker-lista">
+                @for (col of colunas(); track col.campo) { <label class="col-picker-item"><input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" /><span>{{ col.label }}</span>@if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }</label> }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- PAINEL FILTRO AVANÇADO -->
+      @if (filtroAvancadoAberto()) {
+        <div class="filtro-avancado-painel">
+          <div class="filtro-av-grid">
+            <div class="filtro-av-campo autocomplete-wrap">
+              <label>BENEFICIÁRIO</label>
+              <div class="input-pessoa-wrap">
+                <input type="text" [value]="filtroAvPessoaNome()" (input)="onFiltroAvPessoaInput($any($event.target).value)" (blur)="onFiltroAvPessoaBlur()" placeholder="Pesquisar pessoa..." autocomplete="off" />
+                @if (filtroAvPessoaId()) { <button class="input-busca-limpar" (mousedown)="$event.preventDefault(); limparFiltroAvPessoa()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button> }
+              </div>
+              @if (filtroAvPessoaDropdown() && filtroAvPessoaResultados().length > 0) {
+                <div class="autocomplete-dropdown">
+                  @for (p of filtroAvPessoaResultados(); track p.id) {
+                    <div class="autocomplete-item" (mousedown)="selecionarFiltroAvPessoa(p)">
+                      <span class="autocomplete-tag" [class.tag-forn]="p.tipo === 'fornecedor'">{{ p.tipo === 'fornecedor' ? 'F' : 'C' }}</span>
+                      <span class="autocomplete-nome">{{ p.nome }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+            <div class="filtro-av-campo autocomplete-wrap">
+              <label>PLANO DE CONTAS</label>
+              <div class="input-pessoa-wrap">
+                <input type="text" [value]="filtroAvPlanoContaNome()" (input)="onFiltroAvPcInput($any($event.target).value)" (blur)="onFiltroAvPcBlur()" placeholder="Pesquisar plano..." autocomplete="off" />
+                @if (filtroAvPlanoContaId()) { <button class="input-busca-limpar" (mousedown)="$event.preventDefault(); limparFiltroAvPc()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button> }
+              </div>
+              @if (filtroAvPcDropdown() && filtroAvPcResultados().length > 0) {
+                <div class="autocomplete-dropdown">
+                  @for (pc of filtroAvPcResultados(); track pc.id) {
+                    <div class="autocomplete-item" (mousedown)="selecionarFiltroAvPc(pc)">
+                      <span class="autocomplete-codigo">{{ pc.codigoHierarquico }}</span>
+                      <span>{{ pc.descricao }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+            <div class="filtro-av-campo">
+              <label>NR. DOCUMENTO</label>
+              <input type="text" [value]="filtroAvNrDocumento()" (input)="filtroAvNrDocumento.set($any($event.target).value)" placeholder="Boleto, duplicata..." />
+            </div>
+            <div class="filtro-av-campo">
+              <label>NR. NOTA FISCAL</label>
+              <input type="text" [value]="filtroAvNrNotaFiscal()" (input)="filtroAvNrNotaFiscal.set($any($event.target).value)" />
+            </div>
+            <div class="filtro-av-campo">
+              <label>VALOR MÍNIMO</label>
+              <input type="number" [value]="filtroAvValorMin() ?? ''" (input)="filtroAvValorMin.set($any($event.target).value ? +$any($event.target).value : null)" step="0.01" />
+            </div>
+            <div class="filtro-av-campo">
+              <label>VALOR MÁXIMO</label>
+              <input type="number" [value]="filtroAvValorMax() ?? ''" (input)="filtroAvValorMax.set($any($event.target).value ? +$any($event.target).value : null)" step="0.01" />
+            </div>
+            <div class="filtro-av-campo filtro-av-check">
+              <label class="check-label">
+                <input type="checkbox" [checked]="filtroAvVencidos()" (change)="filtroAvVencidos.set($any($event.target).checked)" />
+                Somente vencidos
+              </label>
+            </div>
+          </div>
+          <div class="filtro-av-acoes">
+            <button class="filtro-av-btn-limpar" (click)="limparFiltroAvancado()">Limpar filtros</button>
+          </div>
+        </div>
+      }
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead><tr>
+            <th class="th-arrow"></th>
+            @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize" [style.width.px]="col.largura" [style.min-width.px]="col.minLargura" (click)="ordenar(col.campo)" draggable="true" (dragstart)="onDragStartCol(i)" (dragover)="onDragOverCol($event, i)" (drop)="onDropCol()">
+                {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+              </th>
+            }
+          </tr></thead>
+          <tbody>
+            @if (carregando()) { <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+            } @else if (registrosFiltrados().length === 0) { <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+            } @else {
+              @for (r of registrosFiltrados(); track r.id) {
+                <tr [class.selecionado]="selecionado()?.id === r.id" [class]="getRowClass(r)" (click)="selecionar(r)" (dblclick)="editar()">
+                  <td class="td-arrow">@if (selecionado()?.id === r.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }</td>
+                  @for (col of colunasVisiveis(); track col.campo) { <td>{{ getCellValue(r, col.campo) }}</td> }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-rodape"><span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span></div>
+    }
+
+    <!-- ══════ FORMULÁRIO UNIFICADO ══════ -->
+    @if (modo() === 'form') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar Conta a Pagar' : 'Nova Conta a Pagar' }}</div>
+
+        @if (modoEdicao()) {
+          <div class="form-grid form-grid-info">
+            <div class="field"><label>CÓDIGO</label><input type="text" [value]="form().id" disabled class="field-disabled" /></div>
+            <div class="field"><label>DATA CADASTRO</label><input type="text" [value]="form().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" /></div>
+            @if (form().recorrenciaParcela) { <div class="field"><label>PARCELA</label><input type="text" [value]="form().recorrenciaParcela" disabled class="field-disabled" /></div> }
+          </div>
+        }
+
+        @if (erro()) { <div class="form-erro">{{ erro() }}</div> }
+
+        <!-- TIPO DE LANÇAMENTO (só no novo) -->
+        @if (!modoEdicao()) {
+          <div class="form-secao">Tipo de Lançamento</div>
+          <div class="form-grid">
+            <div class="field field-2">
+              <label>TIPO</label>
+              <select class="select-campo" [value]="tipoLancamento()" (change)="tipoLancamento.set($any($event.target).value)">
+                <option value="normal">Normal</option>
+                <option value="recorrente">Recorrente</option>
+              </select>
+            </div>
+          </div>
+        }
+
+        <!-- DADOS DO LANÇAMENTO -->
+        <div class="form-secao">Dados do Lançamento</div>
+        <div class="form-grid">
+          <div class="field field-3" [class.field-invalido]="erroCampo('descricao')">
+            <label>DESCRIÇÃO *</label>
+            <input type="text" [value]="form().descricao" (input)="upd('descricao', $any($event.target).value)" maxlength="300" [placeholder]="tipoLancamento() === 'recorrente' ? 'Ex: Conta de água, Aluguel...' : ''" />
+            @if (erroCampo('descricao')) { <span class="field-erro">{{ erroCampo('descricao') }}</span> }
+          </div>
+          <div class="field field-2" [class.field-invalido]="erroCampo('filialId')">
+            <label>FILIAL *</label>
+            <select class="select-campo" [value]="form().filialId || ''" (change)="upd('filialId', +$any($event.target).value)">
+              <option value="">-- Selecione --</option>
+              @for (f of filiais(); track f.id) { <option [value]="f.id">{{ f.nome }}</option> }
+            </select>
+            @if (erroCampo('filialId')) { <span class="field-erro">{{ erroCampo('filialId') }}</span> }
+          </div>
+        </div>
+
+        <!-- BENEFICIÁRIO (pesquisa sob demanda) -->
+        <div class="form-grid">
+          <div class="field" style="min-width: 130px">
+            <label>BUSCAR EM</label>
+            <select class="select-campo" [value]="filtroPessoaTipo()" (change)="filtroPessoaTipo.set($any($event.target).value); pessoaResultados.set([]); pessoaBusca.set('')">
+              <option value="">Todos</option>
+              <option value="fornecedor">Fornecedores</option>
+              <option value="cliente">Clientes</option>
+            </select>
+          </div>
+          <div class="field field-3 autocomplete-wrap">
+            <label>BENEFICIÁRIO</label>
+            <div class="input-pessoa-wrap">
+              <input type="text" [value]="pessoaBusca()"
+                     (input)="onPessoaInput($any($event.target).value)"
+                     (focus)="onPessoaFocus()"
+                     (blur)="onPessoaBlur()"
+                     (keydown)="onPessoaKeydown($event)"
+                     placeholder="Digite 3+ caracteres para pesquisar..."
+                     autocomplete="off" />
+              @if (form().pessoaId) {
+                <button class="input-busca-limpar" (mousedown)="$event.preventDefault(); limparPessoa()" title="Limpar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              }
+            </div>
+            @if (pessoaDropdownAberto() && pessoaResultados().length > 0) {
+              <div class="autocomplete-dropdown">
+                @for (p of pessoaResultados(); track p.id; let i = $index) {
+                  <div class="autocomplete-item"
+                       [class.ativo]="pessoaIndice() === i"
+                       (mousedown)="selecionarPessoa(p)">
+                    <span class="autocomplete-tag" [class.tag-forn]="p.tipo === 'fornecedor'">{{ p.tipo === 'fornecedor' ? 'F' : 'C' }}</span>
+                    <span class="autocomplete-nome">{{ p.nome }}</span>
+                    @if (p.cpfCnpj) { <span class="autocomplete-cpf">{{ p.cpfCnpj }}</span> }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+          <div class="field field-2 autocomplete-wrap">
+            <label>PLANO DE CONTAS</label>
+            <div class="input-pessoa-wrap">
+              <input type="text" [value]="pcBusca()"
+                     (input)="onPcInput($any($event.target).value)"
+                     (focus)="onPcFocus()"
+                     (blur)="onPcBlur()"
+                     (keydown)="onPcKeydown($event)"
+                     placeholder="Digite 2+ caracteres..."
+                     autocomplete="off" />
+              @if (form().planoContaId) {
+                <button class="input-busca-limpar" (mousedown)="$event.preventDefault(); limparPc()" title="Limpar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              }
+            </div>
+            @if (pcDropdownAberto() && pcResultados().length > 0) {
+              <div class="autocomplete-dropdown">
+                @for (pc of pcResultados(); track pc.id; let i = $index) {
+                  <div class="autocomplete-item"
+                       [class.ativo]="pcIndice() === i"
+                       (mousedown)="selecionarPc(pc)">
+                    <span class="autocomplete-codigo">{{ pc.codigoHierarquico }}</span>
+                    <span>{{ pc.descricao }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- VALORES -->
+        <div class="form-secao">Valores</div>
+        <div class="form-grid">
+          <div class="field" [class.field-invalido]="erroCampo('valor')">
+            <label>{{ tipoLancamento() === 'recorrente' ? 'VALOR MENSAL *' : 'VALOR ORIGINAL *' }}</label>
+            <input type="number" [value]="form().valor" (input)="upd('valor', +$any($event.target).value)" step="0.01" min="0" />
+            @if (erroCampo('valor')) { <span class="field-erro">{{ erroCampo('valor') }}</span> }
+          </div>
+          <div class="field">
+            <label>DESCONTO</label>
+            <input type="number" [value]="form().desconto" (input)="upd('desconto', +$any($event.target).value)" step="0.01" min="0" />
+          </div>
+          <div class="field">
+            <label>JUROS</label>
+            <input type="number" [value]="form().juros" (input)="upd('juros', +$any($event.target).value)" step="0.01" min="0" />
+          </div>
+          <div class="field">
+            <label>MULTA</label>
+            <input type="number" [value]="form().multa" (input)="upd('multa', +$any($event.target).value)" step="0.01" min="0" />
+          </div>
+          <div class="field">
+            <label>VALOR FINAL</label>
+            <input type="text" [value]="valorFinalCalc() | currency:'BRL':'symbol':'1.2-2':'pt-BR'" disabled class="field-disabled field-valor-final" />
+          </div>
+        </div>
+
+        <!-- RECORRÊNCIA (aparece só quando tipo = recorrente e novo) -->
+        @if (tipoLancamento() === 'recorrente' && !modoEdicao()) {
+          <div class="form-secao">Recorrência</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>QTD. MESES</label>
+              <input type="number" [value]="recQtdMeses()" (input)="recQtdMeses.set(+$any($event.target).value)" min="2" max="36" />
+            </div>
+            <div class="field">
+              <label>DIA VENCIMENTO</label>
+              <input type="number" [value]="recDiaVencimento()" (input)="recDiaVencimento.set(+$any($event.target).value)" min="1" max="28" />
+            </div>
+            <div class="field">
+              <label>A PARTIR DE</label>
+              <input type="date" [value]="form().dataVencimento" (change)="upd('dataVencimento', $any($event.target).value)" />
+            </div>
+          </div>
+        }
+
+        <!-- DATAS E DOCUMENTOS (normal ou edição) -->
+        @if (tipoLancamento() === 'normal' || modoEdicao()) {
+          <div class="form-secao">Datas e Documentos</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>DATA EMISSÃO</label>
+              <input type="date" [value]="form().dataEmissao" (change)="upd('dataEmissao', $any($event.target).value)" />
+            </div>
+            <div class="field">
+              <label>DATA VENCIMENTO</label>
+              <input type="date" [value]="form().dataVencimento" (change)="upd('dataVencimento', $any($event.target).value)" />
+            </div>
+            <div class="field">
+              <label>NR. DOCUMENTO</label>
+              <input type="text" [value]="form().nrDocumento ?? ''" (input)="upd('nrDocumento', $any($event.target).value)" maxlength="100" />
+            </div>
+            <div class="field">
+              <label>NR. NOTA FISCAL</label>
+              <input type="text" [value]="form().nrNotaFiscal ?? ''" (input)="upd('nrNotaFiscal', $any($event.target).value)" maxlength="100" />
+            </div>
+          </div>
+        }
+
+        <!-- STATUS (só edição) -->
+        @if (modoEdicao()) {
+          <div class="form-secao">Status</div>
+          <div class="form-grid">
+            <div class="field field-2">
+              <label>STATUS</label>
+              <select class="select-campo" [value]="form().status" (change)="upd('status', +$any($event.target).value)">
+                <option [value]="1">Aberto</option>
+                <option [value]="2">Pago</option>
+                <option [value]="3">Cancelado</option>
+              </select>
+            </div>
+          </div>
+        }
+
+        <!-- OBSERVAÇÃO -->
+        <div class="form-secao">Observação</div>
+        <div class="form-grid">
+          <div class="field field-3">
+            <textarea class="textarea-obs" [value]="form().observacao ?? ''" (input)="upd('observacao', $any($event.target).value)" maxlength="500" rows="3" placeholder="Anotações..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLBAR -->
+      <footer class="tela-toolbar">
+        @if (isDirty() || tipoLancamento() === 'recorrente') {
+          <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            {{ salvando() ? 'Salvando...' : (tipoLancamento() === 'recorrente' && !modoEdicao() ? 'Gerar Parcelas' : 'Salvar') }}
+          </button>
+        }
+        @if (isDirty() && tipoLancamento() === 'normal') {
+          <button class="tb-btn tb-cancelar" (click)="cancelarEdicao()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar</button>
+        }
+        <button class="tb-btn tb-fechar" (click)="fecharForm()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Fechar</button>
+        @if (modoEdicao()) {
+          <button class="tb-btn tb-log" (click)="abrirLog()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Histórico</button>
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>Excluir</button>
+        }
+      </footer>
+    }
+
+  </div>
+</div>
+
+<!-- MODAL LOG -->
+@if (modalLog()) {
+  <div class="modal-overlay" (click)="fecharLog()">
+    <div class="modal-log-box" (click)="$event.stopPropagation()">
+      <div class="modal-log-header">
+        <div class="modal-log-titulo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Histórico — {{ selecionado()?.descricao }}</div>
+        <button class="modal-log-fechar" (click)="fecharLog()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-log-filtros">
+        <div class="log-filtro-campo"><label>DATA INICIAL</label><input type="date" [value]="logDataInicio()" (change)="logDataInicio.set($any($event.target).value)" /></div>
+        <div class="log-filtro-campo"><label>DATA FINAL</label><input type="date" [value]="logDataFim()" (change)="logDataFim.set($any($event.target).value)" /></div>
+        <button class="log-btn-filtrar" (click)="filtrarLog()" [disabled]="carregandoLog()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>{{ carregandoLog() ? 'Buscando...' : 'Filtrar' }}</button>
+        <span class="log-total">@if (!carregandoLog()) { {{ logRegistros().length }} registro(s) }</span>
+      </div>
+      <div class="modal-log-body">
+        @if (carregandoLog()) { <div class="log-loading">Carregando...</div> }
+        @else if (logRegistros().length === 0) { <div class="log-vazio">Nenhum registro encontrado.</div> }
+        @else {
+          <div class="log-painel-wrap">
+            <div class="log-painel-lista">
+              @for (entry of logRegistros(); track entry.id) {
+                <div class="log-lista-item" [class.ativo]="logSelecionado()?.id === entry.id" (click)="selecionarLogEntry(entry)">
+                  <div class="log-lista-data">{{ entry.realizadoEm | date:'dd/MM/yyyy HH:mm:ss' }}</div>
+                  <div class="log-lista-info"><span class="log-badge" [class]="acaoCss(entry.acao)">{{ entry.acao }}</span><span class="log-lista-usuario">{{ entry.nomeUsuario }}</span></div>
+                </div>
+              }
+            </div>
+            <div class="log-painel-detalhe">
+              @if (logSelecionado()) {
+                @if (logSelecionado()!.campos.length === 0) { <div class="log-detalhe-vazio">Nenhum campo registrado.</div> }
+                @else { <table class="log-campos"><thead><tr><th>Campo</th><th>Anterior</th><th>Atual</th></tr></thead><tbody>@for (c of logSelecionado()!.campos; track c.campo) { <tr><td class="campo-nome">{{ c.campo }}</td><td class="campo-anterior">{{ c.valorAnterior ?? '—' }}</td><td class="campo-atual">{{ c.valorAtual ?? '—' }}</td></tr> }</tbody></table> }
+              }
+            </div>
+          </div>
+        }
+      </div>
+      <div class="modal-log-footer"><button class="modal-btn modal-btn-cancelar" (click)="fecharLog()">Fechar</button></div>
+    </div>
+  </div>
+}

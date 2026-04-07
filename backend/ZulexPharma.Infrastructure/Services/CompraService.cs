@@ -824,11 +824,45 @@ public class CompraService : ICompraService
             produtosAtualizados++;
         }
 
+        // ── Verificar plano de contas antes de finalizar ────────────
+        var configPc = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "pc.compra_mercadorias");
+        if (configPc == null || string.IsNullOrWhiteSpace(configPc.Valor))
+            throw new ArgumentException("O plano de contas padrão de 'Compra de Mercadorias' não está configurado. Configure em: Configurações > Plano de Contas Padrão antes de finalizar a nota.");
+
         // Atualizar compra
         compra.Status = CompraStatus.Finalizada;
         compra.DuplicatasEntregues = request.DuplicatasEntregues;
         compra.NotaPaga = request.NotaPaga;
         compra.DataFinalizacao = DateTime.UtcNow;
+
+        // ── Gerar Conta a Pagar ─────────────────────────────────────
+        var jaExiste = await _db.ContasPagar.AnyAsync(cp => cp.CompraId == compra.Id);
+        if (!jaExiste)
+        {
+            var planoContaId = long.TryParse(configPc.Valor, out var pcId) ? pcId : (long?)null;
+            var fornecedor = await _db.Fornecedores.FirstOrDefaultAsync(f => f.Id == compra.FornecedorId);
+
+            var contaPagar = new ContaPagar
+            {
+                Descricao = $"NF {compra.NumeroNf} - {request.NomeUsuario}".ToUpper(),
+                PessoaId = fornecedor?.PessoaId,
+                PlanoContaId = planoContaId,
+                FilialId = compra.FilialId,
+                CompraId = compra.Id,
+                Valor = compra.ValorNota,
+                Desconto = 0,
+                Juros = 0,
+                Multa = 0,
+                ValorFinal = compra.ValorNota,
+                DataEmissao = compra.DataEmissao ?? DateTime.UtcNow,
+                DataVencimento = compra.DataEmissao?.AddDays(30) ?? DateTime.UtcNow.AddDays(30),
+                DataPagamento = compra.NotaPaga ? DateTime.UtcNow : null,
+                NrNotaFiscal = compra.NumeroNf,
+                Status = compra.NotaPaga ? StatusConta.Pago : StatusConta.Aberto,
+                Ativo = true
+            };
+            _db.ContasPagar.Add(contaPagar);
+        }
 
         await _db.SaveChangesAsync();
 

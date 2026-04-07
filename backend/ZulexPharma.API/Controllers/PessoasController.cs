@@ -15,6 +15,43 @@ public class PessoasController : ControllerBase
     public PessoasController(AppDbContext db) => _db = db;
 
     /// <summary>
+    /// Pesquisa pessoas por nome ou CPF/CNPJ (mínimo 3 caracteres). Limite 30 resultados.
+    /// Filtro opcional: tipo = fornecedor | cliente | todos
+    /// </summary>
+    [HttpGet("pesquisar")]
+    public async Task<IActionResult> Pesquisar([FromQuery] string termo, [FromQuery] string? tipo = null)
+    {
+        if (string.IsNullOrWhiteSpace(termo) || termo.Trim().Length < 3)
+            return Ok(new { success = true, data = Array.Empty<object>() });
+
+        var termoNorm = termo.Trim().ToUpper();
+
+        var query = _db.Pessoas
+            .Include(p => p.Fornecedor)
+            .Where(p => p.Ativo && (p.Nome.ToUpper().Contains(termoNorm) || p.CpfCnpj.Contains(termoNorm)));
+
+        if (tipo == "fornecedor")
+            query = query.Where(p => p.Fornecedor != null);
+        else if (tipo == "cliente")
+            query = query.Where(p => p.Fornecedor == null);
+
+        var lista = await query
+            .OrderBy(p => p.Nome)
+            .Take(30)
+            .Select(p => new
+            {
+                id = p.Id,
+                nome = p.Nome,
+                cpfCnpj = p.CpfCnpj,
+                tipoPessoa = p.Tipo,
+                ehFornecedor = p.Fornecedor != null
+            })
+            .ToListAsync();
+
+        return Ok(new { success = true, data = lista });
+    }
+
+    /// <summary>
     /// Busca uma Pessoa por CPF/CNPJ. Retorna dados + flags de vínculos.
     /// Usado pelo frontend para reutilizar Pessoa existente ao cadastrar Colaborador/Fornecedor.
     /// </summary>

@@ -1,0 +1,71 @@
+:host { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; }
+
+.tela-erp { display: flex; flex: 1; min-height: 0; background: var(--erp-bg); }
+
+.tela-sidebar {
+  width: 180px; background: transparent; display: flex; flex-direction: column;
+  padding: 8px; gap: 6px; flex-shrink: 0;
+}
+.sidebar-item {
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  padding: 14px 16px; color: #fff; cursor: pointer; border-radius: var(--erp-radius-sm);
+  font-size: var(--erp-fs-body); font-weight: 700; text-align: left; line-height: 1.3;
+  transition: filter 0.15s, transform 0.08s;
+  &:hover { filter: brightness(1.08); } &:active { transform: scale(0.98); }
+  .sidebar-sub { font-size: var(--erp-fs-xs); font-weight: 400; opacity: 0.85; }
+}
+.tile-sair { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+
+.tela-conteudo { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 32px; }
+
+.menu-header {
+  margin-bottom: 28px;
+  h2 { font-size: 22px; font-weight: 700; color: var(--erp-text, #2c3e50); margin: 0; }
+  .menu-sub { font-size: 14px; color: var(--erp-text-muted, #6a7888); }
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  max-width: 900px;
+}
+
+.menu-tile {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 20px;
+  background: var(--erp-surface, #fff);
+  border: 1px solid #e8ecf1;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    border-color: #2980b9;
+  }
+  &:active { transform: translateY(0); }
+}
+
+.menu-tile-icon {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, #2471a3, #3498db);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  svg { width: 22px; height: 22px; stroke: #fff; }
+}
+
+.menu-tile-info {
+  display: flex; flex-direction: column;
+}
+
+.menu-tile-sigla {
+  font-size: 11px; font-weight: 700; color: #2471a3;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+
+.menu-tile-label {
+  font-size: 15px; font-weight: 600; color: var(--erp-text, #2c3e50);
+}

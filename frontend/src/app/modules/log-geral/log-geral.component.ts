@@ -77,6 +77,7 @@ export class LogGeralComponent implements OnInit {
   painelColunas = signal(false);
 
   private resizeState: { campo: string; startX: number; startWidth: number } | null = null;
+  private dragColIdx: number | null = null;
 
   totalPaginas = computed(() => Math.ceil(this.total() / this.tamanhoPagina()) || 1);
 
@@ -164,6 +165,8 @@ export class LogGeralComponent implements OnInit {
     }
   }
 
+  sortIcon(campo: string): string { return this.sortColuna() === campo ? (this.sortDirecao() === 'asc' ? '▲' : '▼') : '⇅'; }
+
   getCellValue(log: LogItem, campo: string): string {
     const v = (log as any)[campo];
     if (v === null || v === undefined || v === '') return '\u2014';
@@ -215,6 +218,14 @@ export class LogGeralComponent implements OnInit {
       document.body.style.userSelect = '';
     }
   }
+
+  onDragStartCol(idx: number) { this.dragColIdx = idx; }
+  onDragOverCol(event: DragEvent, idx: number) {
+    event.preventDefault();
+    if (this.dragColIdx === null || this.dragColIdx === idx) return;
+    this.colunas.update(cols => { const arr = [...cols]; const [moved] = arr.splice(this.dragColIdx!, 1); arr.splice(idx, 0, moved); this.dragColIdx = idx; return arr; });
+  }
+  onDropCol() { this.dragColIdx = null; this.salvarColunasStorage(); }
 
   // ── Colunas: visibilidade ─────────────────────────────────────────
 

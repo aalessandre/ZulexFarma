@@ -1,0 +1,22 @@
+quero criar um ambiente para lidar com atualização de preços, no bloco Manutenção, crie o Tile Atualização de preços. 
+Por enquanto teremos a opção Manual e Abcfarma
+na opção Abcfarma, teremos a opção Manual ou internet, nesse momento iremos trabalhar com a opção manual, que solicitará o caminho do arquivo
+
+a ideia é buscar o arquivo, é um arquivo bem grande, nao quero replicar ele, quero criar uma tabela somente em railway, ao buscar o arquivo ou na Abcfarma ou local, quero subir esse arquivo para essa base no rail, dai todas as filiais ira utilizar essa base para se atualizar, quando buscar direto do abcFarma, ja popula direto no rail, quando carregar local, popula no rail.
+
+então poderia ter dois botões
+- atualizar base=> carrega o arquivo no rail
+- atualizar produtos => atualiza produtos localmente, buscando do rail
+
+quero ter as opções
+- apenas aumentar, apenas reduzir, aumentar e reduzir => pode ser uma combobox
+- combobox com todos os grupos de produtos=> o usuario escolhe quais grupos ele quer atualizar
+- reajustar promoções=> checkbox
+- reajustar ofertas => checkbox
+- atualizar automaticamente, criar lista : aqui será um combobox, se o usurio selecionar atualizar automaricamente, ao processar, ja vai no produto e muda o campo preço de venda para e o  campo pmc para o valor de pmc do produto, se ele escolher criar lista, a gente cria uma lista com todos os produtos encontados, mostrando a variação de preço
+- caso ele selecione atualizar automaticamente, ao final será apresentado uma relação dos produtos que foram alterados
+- um detalhe importante, após a atualização, preciso ter um registro (em uma tabela) com a atualização, com data, hora, etc, a ideia é que se o usuario precise excluir essa atualização, os preços devem voltar ao que era antes
+
+C:\repositorios\ErpPharma\abcfarma=> veja como é o arquivo
+
+analise, coloque suas considerações

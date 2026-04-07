@@ -41,9 +41,9 @@
           <thead>
             <tr>
               <th class="th-arrow"></th>
-              <th class="th-sort" style="width:60px" (click)="ordenar('id')">ID <span class="sort-icon">{{ sortColuna() === 'id' ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span></th>
-              <th class="th-sort" style="width:120px" (click)="ordenar('codigoNcm')">Código <span class="sort-icon">{{ sortColuna() === 'codigoNcm' ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span></th>
-              <th class="th-sort" (click)="ordenar('descricao')">Descrição <span class="sort-icon">{{ sortColuna() === 'descricao' ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span></th>
+              <th class="th-sort" style="width:60px" (click)="ordenar('id')">ID <span class="sort-icon">{{ sortIcon('id') }}</span></th>
+              <th class="th-sort" style="width:120px" (click)="ordenar('codigoNcm')">Código <span class="sort-icon">{{ sortIcon('codigoNcm') }}</span></th>
+              <th class="th-sort" (click)="ordenar('descricao')">Descrição <span class="sort-icon">{{ sortIcon('descricao') }}</span></th>
               <th style="width:80px">Ex-TIPI</th>
               <th style="width:80px">Unidade</th>
               <th style="width:60px">Ativo</th>

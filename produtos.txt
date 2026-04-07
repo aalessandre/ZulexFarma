@@ -1,0 +1,163 @@
+Pbms
+- Popular
+- deposito
+- consultar abcfarma no grupo
+- fabricante
+
+
+campos visiveis:
+- *Codigo
+- *Data Cadastro
+- Codigo Barras => cada produto terá seu codigo de barras principal, mas um produto pode ter N codigos de barras, então preciso ter uam tabela produtoBarras e na tela uma forma de fazer o crud dos codigos de barras adicionais
+- *Nome
+- Substancias => campo para informar uma ou mais substancias, no cadastro de substancias terão inumeros registros, na tela de produto preciso de uma forma de informar uma substancia consultando seu nome, podemos ter uma tabela ProdutoSubstancias
+- *Grupo Principal => combobox buscando do cadastro de GruposPrincipais
+- *Grupo => combobox buscando do cadastro de Grupos
+- Subgrupo => combobox buscando do cadastro de SubGrupos
+- Registro MS => um produto pode ter mais ed um Registro no Ministerio da saude (ms) temos que criar um jeito, o mais correto seria uma tabela ProdutoMs?
+- NCM => buscará da tabela NCM (temos que criar esse cadastro)
+- *Classe Terapeutica=> combobox com as seguintes opções: Não Controlado, Antibiótico, Psicotrópico, por padrão fica Não Controlado
+- *Lista => combobox com as opções: Indefinida, Positiva, Negativa, Neutra
+- *Destino => combobox com as opções:Revenda,Uso Consumo, Serviço - revenda como padrão
+- *Fração
+- Monitorado => mostrar PF, MKP, PMC
+
+Accordions:
+
+ESTOQUE 
+- estoque atual
+- estoque minimo
+- estoque maximo
+- demanda
+- curva abc
+- estoque deposito => depende de parametro
+PREÇOS
+- Ultima compra
+  - Vlr Unt
+  - Vlr St
+  - Vlr Outros +
+    - ipi
+	- fpc
+	- boleto
+	- difal
+	- frete
+- Custo Médio * parametros/replicar
+- %Proj Lucro
+- %Markup
+- Vlr Venda
+- PMC
+- Vlr Promoção a Vista
+- Vlr Promoção a Prazo
+- Data Início Promoção
+- Data Término Promoção
+- %Desc Minimo
+- %Desc Maximo sem senha
+- %Desc Maximo com senha
+
+
+FISCAL
+
+
+GERAL
+- % comissao
+- vlr incentivo
+- local*** => teremos que criar um cadastro de Locais, esse campo será o nome do local cadastrado, esquema de consultar e confirmar
+- bloquear desconto? => checkbox
+- bloquear promoção? => checkbox
+- nao atualizar abcfarma => checkbox
+- nao atualizar gestor tributário => checkbox
+- bloquear compras => checkbox
+- produto formula(manipulação) => checkbox
+- bloquear comissao => checkbox
+- bloquear cobertura de oferta => checkbox
+- uso continuo => checkbox
+- mensagem => campo text area com duas linhas, maximo 200 caracteres
+- Nome Etiqueta => textbox
+- Familia => combobox buscando do cadastro de Familia
+- Seção => combobox buscando do cadastro de Seções
+- aviso de fração => checkbox
+
+ESTATISTICAS
+- ultima compra
+- ultima venda
+- ultimas
+- vendas por mes
+- compras por mes
+
+VINCULOS FORNECEDORES
+
+PROMOÇÕES
+
+OFERTAS
+
+ESTOQUE FILIAIS
+
+Produtos
+  - codigo
+  - data cadastro
+  - codigoBarras
+  - nome
+  - filialorigem(campo padrão)
+  - fabricante => fk tabela fabricantes (precisa inserir esse campo no formulario, antes de grupo principal)
+  - grupoPrincipal=> fk tabela grupoPrincipal
+  - grupo=> fk tabela grupo
+  - subGrupo=> fk tabela subGrupo
+  - registroMs=> um produto poderá ter um ou mais MS, crio uma tabela? o unico dado é o proprio nr do registro MS
+  - NCM => fk tabela NCMs
+  - qtdeembalagem => percisa inserir esse campo no formulario, logo após Nome
+  - precoFP => percisa inserir esse campo no formulario, logo após qtdeembalagem
+  - lista=> Indefinida, Positiva, Negativa e Neutra (são essas as possibilidades, preciso criar uma tabela?)
+  - fracao
+  - ativo
+  - eliminado => 0 não 1 sim, quando um registro nao for mais necessario, como nao será possivel eliminar do banco de dados, por causa de ja ter sido usado, irei deixar com status de eliminado, acho q isso se chama softdelete
+
+
+ProdutosBarras
+ - campos:
+   - idProduto => fk tabela produtos
+   - barras
+   
+ProdutosMS => um produto poderá ter um ou mais MS, crio uma tabela? o unico dado é o proprio nr do registro MS
+
+ProdutosFiscal => essa tabela será para armazenar dados referente a parte fiscal/trubutária, nao sei quais sao os campos que iremos precisar
+
+ProdutosLocal => um produto poderá pertencer a uma localização
+ - id
+ - FilialID => cada filial tera sua localização, exemplo: filial 1 tera a prateleira "Azul", filial 2 tera a "gondola 5"
+ - nome
+
+ProdutosSubstancias => criar um accordion, para que um produto possa ter uma ou mais substancias
+ - idProduto => fk tabela produtos
+ - idsubstancia => fk tabela substancias
+ 
+ProdutosFornecedor
+ - idProduto   => fk com produto
+ - idFornecedor => fk com fornecedor
+ - idProdutoFornecedor => campo varchar 24
+ - nome produto
+ - fração => smallint 2
+  
+ 
+ProdutoDados => aqui entram os campos das abas:
+  - estoque
+  - preços
+  - geral 
+    - dessa aba geral, os campos:
+	  - local => vem da tabela produtosLocal
+      - Familia => vem da tabela
+	  - Seção = > vem da tabela Secoes
+	- demais campos normal  
+	
+
+ajustes
+- limitar campos codigos de barras para somente numerico e maximo 13 caracteres
+- campos numericos nao deixar entrar letras, somente numeros
+- nome do produto limitar a no maximo 110 caracteres
+- nome etiqueta limitar a no maximo 110 caracteres
+- campo MS limitar a 14 digitos, aceitar somente numeros
+- campos de % de desconto limitar a no maximo 100, só aceitar numeros
+- campos de valores em Reais, moeda, formatar para duas casas decimais, ajustar a mascara, atualmente ao digitar . aparece 0
+- GruposPrincipais, seção, grupo, subGrupo podem mostrar todos os registros no dropdown/combobox, a medida se o usuario digitar algo, acontecerá a filtragem. São campos de poucos registros
+- sempre que o dotnet esta parado, quando faço algo no front o erro fica silencioso, por exemplo, se procuro um produto, ele simplesmente nao mostra nada, o erro fica só no console, padronize uma mensagem na modal avisando que tem algo errado, peça para chamar o suporte
+
+	 

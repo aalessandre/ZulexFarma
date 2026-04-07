@@ -1,0 +1,324 @@
+<div class="tela-erp">
+
+  <!-- SIDEBAR -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()"><span>Procurar</span><span class="sidebar-sub">Consulta</span></div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()"><span>Adicionar</span><span class="sidebar-sub">Nova promoção</span></div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()"><span>Editar</span><span class="sidebar-sub">Alterar registro</span></div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()"><span>Sair</span><span class="sidebar-sub">Fechar tela</span></div>
+  </aside>
+
+  <div class="tela-main">
+
+    <!-- ══════ LISTA ══════ -->
+    @if (modo() === 'lista') {
+      <div class="lista-header">
+        <div class="lista-filtro"><label>PROCURAR POR</label><div class="input-busca-wrap"><input class="input-busca" type="text" placeholder="Nome da promoção..." [value]="busca()" (input)="busca.set($any($event.target).value)" />@if (busca()) { <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button> }</div></div>
+        <div class="lista-filtro"><label>SITUAÇÃO</label><select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)"><option value="ativos">Ativas</option><option value="inativos">Inativas</option><option value="todos">Todas</option></select></div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead><tr><th class="th-arrow"></th><th>Nome</th><th>Início</th><th>Fim</th><th>Produtos</th><th>Ativo</th></tr></thead>
+          <tbody>
+            @if (carregando()) { <tr><td colspan="6" class="grid-loading">Carregando...</td></tr> }
+            @else if (registrosFiltrados().length === 0) { <tr><td colspan="6" class="grid-vazio">Nenhuma promoção encontrada.</td></tr> }
+            @else {
+              @for (r of registrosFiltrados(); track r.id) {
+                <tr [class.selecionado]="selecionado()?.id === r.id" (click)="selecionar(r)" (dblclick)="editar()">
+                  <td class="td-arrow">@if (selecionado()?.id === r.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }</td>
+                  <td><strong>{{ r.nome }}</strong></td>
+                  <td>{{ formatarDataHora(r.dataHoraInicio) }}</td>
+                  <td>{{ r.dataHoraFim ? formatarDataHora(r.dataHoraFim) : 'Sem prazo' }}</td>
+                  <td>{{ r.totalProdutos }}</td>
+                  <td>{{ r.ativo ? 'Sim' : 'Não' }}</td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-rodape"><span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span></div>
+    }
+
+    <!-- ══════ ETAPA 1: CONFIGURAÇÃO ══════ -->
+    @if (modo() === 'config') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar' : 'Nova' }} Promoção Fixa — Configuração</div>
+
+        <div class="form-secao">Identificação</div>
+        <div class="form-grid">
+          <div class="field field-3"><label>NOME *</label><input type="text" [value]="fNome()" (input)="fNome.set($any($event.target).value)" maxlength="200" /></div>
+          <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="fAtivo()" (change)="fAtivo.set($any($event.target).checked)" /> Ativo</label></div>
+        </div>
+
+        <div class="form-secao">Vigência</div>
+        <div class="form-grid">
+          <div class="field"><label>INÍCIO *</label><input type="datetime-local" [value]="fDataInicio()" (input)="fDataInicio.set($any($event.target).value)" /></div>
+          <div class="field"><label>TÉRMINO</label><input type="datetime-local" [value]="fDataFim()" (input)="fDataFim.set($any($event.target).value)" /></div>
+        </div>
+
+        <div class="form-secao">Dias da Semana *</div>
+        <div class="form-grid">
+          <div class="dias-wrap">
+            @for (d of dias; track d.valor) { <button class="dia-btn" [class.ativo]="isDiaAtivo(d.valor)" (click)="toggleDia(d.valor)">{{ d.label }}</button> }
+            <button class="dia-btn dia-btn-todos" (click)="todosOsDias()">Todos</button>
+          </div>
+        </div>
+
+        <div class="form-secao">Formas de Pagamento *</div>
+        <div class="checks-grid">
+          @for (tp of tiposPagamento(); track tp.id) { <label class="check-label"><input type="checkbox" [checked]="isPagSelecionado(tp.id)" (change)="togglePagamento(tp.id)" /> {{ tp.nome }}</label> }
+          <button class="btn-todos-check" (click)="todosPagamentos()">Todos</button>
+        </div>
+
+        <div class="form-secao">Filiais *</div>
+        <div class="checks-grid">
+          @for (f of filiais(); track f.id) { <label class="check-label"><input type="checkbox" [checked]="isFilialSelecionada(f.id)" (change)="toggleFilial(f.id)" /> {{ f.nome }}</label> }
+          <button class="btn-todos-check" (click)="todasFiliais()">Todas</button>
+        </div>
+
+        <div class="form-secao">Regras</div>
+        <div class="checks-grid">
+          <label class="check-label"><input type="checkbox" [checked]="fPermitirMudarPreco()" (change)="fPermitirMudarPreco.set($any($event.target).checked)" /> Permitir mudar preço na venda</label>
+          <label class="check-label"><input type="checkbox" [checked]="fGerarComissao()" (change)="fGerarComissao.set($any($event.target).checked)" /> Gerar comissão</label>
+          <label class="check-label"><input type="checkbox" [checked]="fExclusivaConvenio()" (change)="fExclusivaConvenio.set($any($event.target).checked)" /> Exclusiva de convênios</label>
+        </div>
+
+        @if (fExclusivaConvenio()) {
+          <div class="form-secao">Convênios Vinculados</div>
+          <div class="form-grid">
+            <div class="field field-2">
+              <select class="select-campo" (change)="adicionarConvenio(+$any($event.target).value); $any($event.target).value = ''">
+                <option value="">-- Selecionar convênio --</option>
+                @for (c of convenios(); track c.id) { @if (!fConvenioIds().includes(c.id)) { <option [value]="c.id">{{ c.nome }}</option> } }
+              </select>
+            </div>
+          </div>
+          @if (fConvenioIds().length > 0) {
+            <div class="tags-wrap">@for (cid of fConvenioIds(); track cid) { <span class="tag-item">{{ nomeConvenio(cid) }}<button (click)="removerConvenio(cid)">&times;</button></span> }</div>
+          }
+        }
+
+        <div class="form-secao">Opções</div>
+        <div class="form-grid">
+          <div class="field"><label>% REDUÇÃO VENDA A PRAZO</label><input type="number" [value]="fReducaoVendaPrazo()" (input)="fReducaoVendaPrazo.set(+$any($event.target).value)" min="0" max="90" step="0.5" /></div>
+          <div class="field"><label>QTD. MÁX. POR VENDA</label><input type="number" [value]="fQtdeMaxPorVenda() ?? ''" (input)="fQtdeMaxPorVenda.set($any($event.target).value ? +$any($event.target).value : null)" min="1" /></div>
+          <div class="field field-check"><label class="check-label"><input type="checkbox" [checked]="fLancarPorQuantidade()" (change)="fLancarPorQuantidade.set($any($event.target).checked)" /> Lançar por quantidade</label></div>
+        </div>
+        @if (fLancarPorQuantidade()) {
+          <div class="form-grid" style="margin-top:10px">
+            <div class="field field-2"><label>DATA/HORA INÍCIO DA CONTAGEM *</label><input type="datetime-local" [value]="fDataInicioContagem()" (input)="fDataInicioContagem.set($any($event.target).value)" /></div>
+          </div>
+        }
+      </div>
+
+      <footer class="tela-toolbar">
+        <button class="tb-btn tb-salvar" (click)="avancarParaProdutos()">
+          Avançar para Produtos
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="tb-btn tb-fechar" (click)="fechar()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Cancelar</button>
+        @if (modoEdicao()) { <div class="tb-separador"></div><button class="tb-btn tb-excluir" (click)="excluir()">Excluir</button> }
+      </footer>
+    }
+
+    <!-- ══════ ETAPA 2: PRODUTOS ══════ -->
+    @if (modo() === 'produtos') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ fNome() }} — Produtos</div>
+
+        <div class="prod-busca-row">
+          <div class="prod-busca-input autocomplete-wrap">
+            <input type="text" [value]="produtoBusca()" (input)="onProdutoInput($any($event.target).value)" (blur)="onProdutoBlur()" placeholder="Buscar produto por código, barras ou nome..." autocomplete="off" />
+            @if (produtoDropdown() && produtoResultados().length > 0) {
+              <div class="autocomplete-dropdown">
+                @for (p of produtoResultados(); track p.id) {
+                  <div class="autocomplete-item" (mousedown)="adicionarProduto(p)">
+                    <span class="autocomplete-codigo">{{ p.codigo }}</span>
+                    <span class="autocomplete-nome">{{ p.nome }}</span>
+                    <span class="autocomplete-extra">Est: {{ p.estoqueAtual }} | R$ {{ p.valorVenda }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+          <button class="btn-busca-avancada" (click)="abrirBuscaAvancada()" title="Busca avançada">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Avançada
+          </button>
+        </div>
+
+        @if (produtos().length > 0) {
+          <div class="prod-header">
+            <span class="form-secao" style="margin:0">Produtos da Promoção ({{ produtos().length }})@if (produtosSelecionados().size > 0) { — {{ produtosSelecionados().size }} selecionado(s) }</span>
+            <div class="col-picker-wrap">
+              <button class="btn-colunas" (click)="painelColProd.update(v => !v)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Colunas
+              </button>
+              @if (painelColProd()) {
+                <div class="col-picker-overlay" (click)="painelColProd.set(false)"></div>
+                <div class="col-picker-painel">
+                  <div class="col-picker-header"><span>Personalizar Colunas</span><button class="col-picker-btn-restaurar" (click)="restaurarColProd()">Restaurar padrão</button></div>
+                  <div class="col-picker-lista">
+                    @for (col of prodColunas(); track col.campo) {
+                      <label class="col-picker-item"><input type="checkbox" [checked]="col.visivel" (change)="toggleColProd(col.campo)" /><span>{{ col.label }}</span>@if (!col.visivel) { <span class="col-picker-opcional">oculta</span> }</label>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+          <div class="grid-wrapper">
+            <table class="erp-grid">
+              <thead><tr>
+                <th class="th-check"><input type="checkbox" [checked]="todosProdutosSelecionados()" (change)="toggleTodosProdutos($any($event.target).checked)" /></th>
+                @for (col of prodColunasVisiveis(); track col.campo; let i = $index) {
+                  <th class="th-sort th-resize"
+                      [attr.data-col]="col.campo"
+                      [style.width.px]="col.largura"
+                      (click)="!col.editavel && sortProdutos(col.campo)"
+                      draggable="true"
+                      (dragstart)="onDragStartCol(i)"
+                      (dragover)="onDragOverCol($event, i)"
+                      (drop)="onDropCol()">
+                    {{ col.label }} <span class="sort-icon">{{ col.editavel ? '' : sortProdIcon(col.campo) }}</span>
+                    <div class="resize-handle" (mousedown)="iniciarResizeProd($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+                  </th>
+                }
+              </tr></thead>
+              <tbody>
+                @for (p of produtos(); track p.produtoId; let i = $index) {
+                  <tr [class.selecionado]="isProdutoSelecionado(p.produtoId)">
+                    <td class="td-check"><input type="checkbox" [checked]="isProdutoSelecionado(p.produtoId)" (change)="toggleProdutoSelecionado(p.produtoId)" /></td>
+                    @for (col of prodColunasVisiveis(); track col.campo) {
+                      @if (col.campo === 'percentualPromocao') {
+                        <td><input type="number" [value]="p.percentualPromocao" (input)="onPercentualChange(i, +$any($event.target).value)" step="0.01" min="0" max="100" class="prod-input" /></td>
+                      } @else if (col.campo === 'valorPromocao') {
+                        <td><input type="number" [value]="p.valorPromocao" (input)="onValorChange(i, +$any($event.target).value)" step="0.01" min="0" class="prod-input" /></td>
+                      } @else if (col.campo === 'percentualLucro') {
+                        <td><input type="number" [value]="p.percentualLucro" (input)="onLucroChange(i, +$any($event.target).value)" step="0.01" class="prod-input" [class.negativo]="p.percentualLucro < 0" /></td>
+                      } @else if (col.campo === 'qtdeLimite') {
+                        <td><input type="number" [value]="p.qtdeLimite ?? ''" (input)="updProduto(i, 'qtdeLimite', $any($event.target).value ? +$any($event.target).value : undefined)" min="1" class="prod-input" /></td>
+                      } @else if (col.campo === 'percentualAposLimite') {
+                        <td><input type="number" [value]="p.percentualAposLimite ?? ''" (input)="onPercentualAposChange(i, +$any($event.target).value)" step="0.01" min="0" max="100" class="prod-input" /></td>
+                      } @else if (col.campo === 'valorAposLimite') {
+                        <td><input type="number" [value]="p.valorAposLimite ?? ''" (input)="onValorAposChange(i, +$any($event.target).value)" step="0.01" min="0" class="prod-input" /></td>
+                      } @else {
+                        <td>{{ getProdCellValue(p, col.campo) }}</td>
+                      }
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="grid-vazio" style="padding:40px">Nenhum produto adicionado. Use a busca acima para inserir produtos.</div>
+        }
+      </div>
+
+      <footer class="tela-toolbar">
+        <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          {{ salvando() ? 'Salvando...' : 'Salvar Promoção' }}
+        </button>
+        <button class="tb-btn tb-cancelar" (click)="voltarParaConfig()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Voltar</button>
+        <button class="tb-btn tb-fechar" (click)="fechar()">Cancelar</button>
+        @if (produtosSelecionados().size > 0) {
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" (click)="removerProdutosSelecionados()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Excluir ({{ produtosSelecionados().size }})
+          </button>
+        }
+      </footer>
+    }
+
+  </div>
+</div>
+
+<!-- MODAL BUSCA AVANÇADA -->
+@if (modalBuscaAvancada()) {
+  <div class="modal-overlay" (click)="fecharBuscaAvancada()">
+    <div class="modal-ba" (click)="$event.stopPropagation()">
+      <div class="modal-ba-header">
+        <span>Busca Avançada de Produtos</span>
+        <button class="modal-ba-fechar" (click)="fecharBuscaAvancada()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <div class="modal-ba-filtros">
+        <div class="ba-row">
+          <div class="ba-campo ba-campo-3"><label>DESCRIÇÃO / CÓDIGO</label><input type="text" [value]="baDescricao()" (input)="baDescricao.set($any($event.target).value)" placeholder="Nome ou código do produto..." /></div>
+          <div class="ba-campo"><label>STATUS</label>
+            <select [value]="baStatus()" (change)="baStatus.set($any($event.target).value)"><option value="ativos">Ativos</option><option value="inativos">Inativos</option><option value="todos">Todos</option></select>
+          </div>
+        </div>
+        <div class="ba-row">
+          <div class="ba-campo"><label>FABRICANTE</label>
+            <select [value]="baFabricanteId() ?? ''" (change)="baFabricanteId.set(+$any($event.target).value || null)"><option value="">Todos</option>@for (f of baFabricantes(); track f.id) { <option [value]="f.id">{{ f.nome }}</option> }</select>
+          </div>
+          <div class="ba-campo"><label>FORNECEDOR</label>
+            <select [value]="baFornecedorId() ?? ''" (change)="baFornecedorId.set(+$any($event.target).value || null)"><option value="">Todos</option>@for (f of baFornecedores(); track f.id) { <option [value]="f.id">{{ f.nome }}</option> }</select>
+          </div>
+          <div class="ba-campo"><label>GRUPO PRINCIPAL</label>
+            <select [value]="baGrupoPrincipalId() ?? ''" (change)="baGrupoPrincipalId.set(+$any($event.target).value || null)"><option value="">Todos</option>@for (g of baGruposPrincipais(); track g.id) { <option [value]="g.id">{{ g.nome }}</option> }</select>
+          </div>
+          <div class="ba-campo"><label>GRUPO</label>
+            <select [value]="baGrupoProdutoId() ?? ''" (change)="baGrupoProdutoId.set(+$any($event.target).value || null)"><option value="">Todos</option>@for (g of baGrupos(); track g.id) { <option [value]="g.id">{{ g.nome }}</option> }</select>
+          </div>
+        </div>
+        <div class="ba-row">
+          <div class="ba-campo"><label>SUBGRUPO</label>
+            <select [value]="baSubGrupoId() ?? ''" (change)="baSubGrupoId.set(+$any($event.target).value || null)"><option value="">Todos</option>@for (g of baSubGrupos(); track g.id) { <option [value]="g.id">{{ g.nome }}</option> }</select>
+          </div>
+          <div class="ba-campo"><label>SEÇÃO</label>
+            <select [value]="baSecaoId() ?? ''" (change)="baSecaoId.set(+$any($event.target).value || null)"><option value="">Todas</option>@for (g of baSecoes(); track g.id) { <option [value]="g.id">{{ g.nome }}</option> }</select>
+          </div>
+          <div class="ba-campo"><label>PREÇO MÍNIMO</label><input type="number" [value]="baPrecoMin() ?? ''" (input)="baPrecoMin.set($any($event.target).value ? +$any($event.target).value : null)" step="0.01" min="0" /></div>
+          <div class="ba-campo"><label>PREÇO MÁXIMO</label><input type="number" [value]="baPrecoMax() ?? ''" (input)="baPrecoMax.set($any($event.target).value ? +$any($event.target).value : null)" step="0.01" min="0" /></div>
+          <div class="ba-campo"><label>ESTOQUE ACIMA DE</label><input type="number" [value]="baEstoqueMin() ?? ''" (input)="baEstoqueMin.set($any($event.target).value ? +$any($event.target).value : null)" min="0" /></div>
+        </div>
+        <div class="ba-row">
+          <button class="ba-btn-buscar" (click)="executarBuscaAvancada()" [disabled]="baBuscando()">{{ baBuscando() ? 'Buscando...' : 'Buscar' }}</button>
+        </div>
+      </div>
+
+      <div class="modal-ba-body">
+        @if (baResultados().length > 0) {
+          <div class="ba-resultado-info">{{ baResultados().length }} produto(s) encontrado(s) — {{ baSelecionados().size }} selecionado(s)</div>
+          <div class="ba-grid-wrap">
+            <table class="erp-grid">
+              <thead><tr>
+                <th class="th-check"><input type="checkbox" [checked]="todosBaSelecionados()" (change)="toggleBaTodos($any($event.target).checked)" /></th>
+                <th>Código</th><th>Produto</th><th>Fabricante</th><th>Estoque</th><th>Custo Médio</th><th>Preço Venda</th>
+              </tr></thead>
+              <tbody>
+                @for (p of baResultados(); track p.id) {
+                  <tr [class.selecionado]="isBaSelecionado(p.id)" (click)="toggleBaSelecionado(p.id)">
+                    <td class="td-check"><input type="checkbox" [checked]="isBaSelecionado(p.id)" /></td>
+                    <td>{{ p.codigo }}</td>
+                    <td>{{ p.nome }}</td>
+                    <td>{{ p.fabricante }}</td>
+                    <td>{{ p.estoqueAtual }}</td>
+                    <td>{{ p.custoMedio | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</td>
+                    <td>{{ p.valorVenda | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else if (!baBuscando()) {
+          <div class="ba-vazio">Use os filtros acima e clique em Buscar.</div>
+        }
+      </div>
+
+      <div class="modal-ba-footer">
+        <button class="ba-btn-adicionar" (click)="adicionarSelecionados()" [disabled]="baSelecionados().size === 0">
+          Adicionar {{ baSelecionados().size }} produto(s)
+        </button>
+        <button class="ba-btn-cancelar" (click)="fecharBuscaAvancada()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+}

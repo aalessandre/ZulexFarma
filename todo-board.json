@@ -1,0 +1,16 @@
+[
+  {
+    "id": 2,
+    "titulo": "tabelas padr\u00F5es",
+    "descricao": "todas as tabelas devem estar no padr\u00E3o",
+    "tipo": "Tarefa",
+    "prioridade": "Media",
+    "status": "concluido",
+    "modulo": "Geral",
+    "criadoPor": "ALESSANDRE",
+    "atribuidoPara": null,
+    "dataLimite": null,
+    "dataConclusao": "2026-04-06T17:12:54",
+    "criadoEm": "2026-04-05T14:43:33"
+  }
+]

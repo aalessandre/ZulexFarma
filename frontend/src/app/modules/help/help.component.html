@@ -879,6 +879,251 @@
         }
       </section>
 
+      <!-- HIERARQUIA DE DESCONTOS -->
+      <section class="help-secao">
+        <div class="secao-header compras" [class.aberto]="isAberta('hierarquia-descontos')" (click)="toggleSecao('hierarquia-descontos')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          <span>Hierarquia de Descontos</span>
+        </div>
+        @if (isAberta('hierarquia-descontos')) {
+          <div class="secao-corpo">
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Conceito</div>
+              <div class="doc-texto">
+                A Hierarquia de Descontos é uma <strong>engine de regras configurável</strong> que define a ordem de prioridade
+                dos descontos na hora da venda. Em vez de uma lógica fixa, o dono da farmácia monta a sequência que quiser,
+                como um funil: o sistema percorre de cima pra baixo até encontrar um desconto aplicável.
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Componentes Disponíveis (14)</div>
+              <div class="doc-texto">
+                Cada componente representa uma fonte de desconto no sistema:
+              </div>
+              <table class="doc-table">
+                <thead><tr><th>Componente</th><th>Enum</th><th>O que verifica</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Promoção</strong></td><td>1</td><td>Produto está em promoção ativa (tabela Promocao + PromocaoProduto). Verifica vigência, dias da semana, filial, forma de pagamento.</td></tr>
+                  <tr><td><strong>Promoção no Produto</strong></td><td>2</td><td>Campos ValorPromocao/PromocaoInicio/PromocaoFim na tabela ProdutoDados (promoção cadastrada direto no produto).</td></tr>
+                  <tr><td><strong>Seção (escolhida)</strong></td><td>3</td><td>Verifica se o produto pertence a uma das seções selecionadas na hierarquia (HierarquiaDescontoSecao). Usa os descontos definidos na Seção.</td></tr>
+                  <tr><td><strong>Seção (demais)</strong></td><td>4</td><td>Verifica todas as seções que NÃO foram selecionadas no componente "Seção escolhida". Fallback para seções genéricas.</td></tr>
+                  <tr><td><strong>PBMs</strong></td><td>5</td><td>Programa de Benefícios de Medicamentos. (A implementar - placeholder)</td></tr>
+                  <tr><td><strong>Cliente</strong></td><td>6</td><td>Descontos configurados no cadastro do Cliente (ClienteDesconto por agrupador ou por produto, DescontoGeral).</td></tr>
+                  <tr><td><strong>Convênio</strong></td><td>7</td><td>Descontos configurados no cadastro do Convênio (ConvenioDesconto por agrupador).</td></tr>
+                  <tr><td><strong>Família</strong></td><td>8</td><td>Desconto da Família do produto (ProdutoDados.ProdutoFamiliaId → ProdutoFamilia).</td></tr>
+                  <tr><td><strong>Grupo Principal</strong></td><td>9</td><td>Descontos do GrupoPrincipal do produto (Produto.GrupoPrincipalId → GrupoPrincipal).</td></tr>
+                  <tr><td><strong>Grupo</strong></td><td>10</td><td>Descontos do GrupoProduto (Produto.GrupoProdutoId → GrupoProduto).</td></tr>
+                  <tr><td><strong>SubGrupo</strong></td><td>11</td><td>Descontos do SubGrupo (Produto.SubGrupoId → SubGrupo).</td></tr>
+                  <tr><td><strong>Fabricante</strong></td><td>12</td><td>Descontos do Fabricante do produto (Produto.FabricanteId → Fabricante).</td></tr>
+                  <tr><td><strong>Cond. Pagamento</strong></td><td>13</td><td>Descontos definidos no TipoPagamento selecionado na venda (DescontoMinimo, DescontoMaxSemSenha, DescontoMaxComSenha).</td></tr>
+                  <tr><td><strong>Produto</strong></td><td>14</td><td>Descontos configurados direto no produto (ProdutoDados: DescontoMinimo, DescontoMaxSemSenha, DescontoMaxComSenha).</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Como funciona na Venda (Engine de Execução)</div>
+              <div class="doc-texto">
+                <strong>Passo 1 — Selecionar a hierarquia correta:</strong>
+              </div>
+              <ol class="doc-lista">
+                <li>Se foi informado um <strong>cliente</strong> na venda → busca hierarquia vinculada ao cliente (HierarquiaDescontoCliente)</li>
+                <li>Se não encontrou, e há um <strong>convênio</strong> → busca hierarquia vinculada ao convênio (HierarquiaDescontoConvenio)</li>
+                <li>Se não encontrou, e há um <strong>colaborador</strong> vendendo → busca hierarquia vinculada ao colaborador (HierarquiaDescontoColaborador)</li>
+                <li>Se nenhuma específica → busca a hierarquia <strong>padrão</strong> (Padrao = true)</li>
+                <li>Se nenhuma existe → venda sem desconto automático</li>
+              </ol>
+              <div class="doc-texto" style="margin-top:10px">
+                <strong>Passo 2 — Para cada produto da venda, percorrer os itens na ordem:</strong>
+              </div>
+              <pre class="doc-code">
+para cada item da hierarquia (ordenado por Ordem):
+  componente = item.Componente
+
+  switch (componente):
+    case Promocao (1):
+      buscar em Promocao → PromocaoProduto onde:
+        - ProdutoId = produto da venda
+        - Ativo = true
+        - DataHoraInicio &lt;= agora &lt;= DataHoraFim (ou sem fim)
+        - DiaSemana bitmask inclui dia atual
+        - PromocaoFilial inclui filial da venda
+        - PromocaoPagamento inclui forma de pagamento
+      se encontrou:
+        desconto = PromocaoProduto.PercentualPromocao / ValorPromocao
+        se BuscarMenorValorPromocao: pega o menor entre todas as promoções ativas
+        PARA (não olha próximo componente)
+
+    case PromocaoProduto (2):
+      buscar ProdutoDados onde:
+        - ProdutoId = produto, FilialId = filial
+        - ValorPromocao > 0
+        - PromocaoInicio &lt;= agora &lt;= PromocaoFim
+      se encontrou:
+        desconto = ValorPromocao da ProdutoDados
+        PARA
+
+    case SecaoEscolhida (3):
+      buscar ProdutoDados.SecaoId
+      se SecaoId está em HierarquiaDescontoSecao.SecaoId:
+        buscar descontos da Secao (DescontoMinimo, DescontoMaxSemSenha, DescontoMaxComSenha)
+        desconto = conforme AplicarAutomatico e DescontoAutoTipo
+        PARA
+
+    case SecaoDemais (4):
+      buscar ProdutoDados.SecaoId
+      se SecaoId NÃO está em HierarquiaDescontoSecao (do item SecaoEscolhida):
+        buscar descontos da Secao
+        desconto = conforme parâmetros
+        PARA
+
+    case Cliente (6):
+      buscar ClienteDesconto onde ClienteId = cliente da venda:
+        - primeiro por ProdutoId (desconto específico do produto)
+        - depois por agrupador (TipoAgrupador + AgrupadorId)
+        - depois DescontoGeral do Cliente
+      se encontrou qualquer um:
+        desconto = DescontoMinimo ou DescontoMaxSemSenha (conforme DescontoAutoTipo)
+        PARA
+
+    case Convenio (7):
+      buscar ConvenioDesconto onde ConvenioId = convênio da venda:
+        - por TipoAgrupador + AgrupadorId do produto
+      se encontrou:
+        desconto = DescontoMinimo ou DescontoMaxSemSenha
+        PARA
+
+    case Familia (8):
+      buscar ProdutoDados.ProdutoFamiliaId
+      se tem família com descontos configurados:
+        desconto = descontos da família
+        PARA
+
+    case GrupoPrincipal (9) / Grupo (10) / SubGrupo (11):
+      buscar Produto.GrupoPrincipalId / GrupoProdutoId / SubGrupoId
+      se o agrupador tem descontos configurados:
+        desconto = DescontoMinimo ou DescontoMaxSemSenha
+        PARA
+
+    case Fabricante (12):
+      buscar Produto.FabricanteId → Fabricante
+      (fabricante não tem campos de desconto direto, mas pode ser usado
+       em combinação com ClienteDesconto ou ConvenioDesconto por agrupador)
+      PARA se encontrou desconto vinculado
+
+    case CondPagamento (13):
+      buscar TipoPagamento selecionado na venda:
+        - DescontoMinimo, DescontoMaxSemSenha, DescontoMaxComSenha
+      se DescontoMaxSemSenha > 0:
+        desconto = conforme DescontoAutoTipo
+        PARA
+
+    case Produto (14):
+      buscar ProdutoDados:
+        - DescontoMinimo, DescontoMaxSemSenha, DescontoMaxComSenha
+      se DescontoMaxSemSenha > 0:
+        desconto = conforme DescontoAutoTipo
+        PARA
+
+  se nenhum componente retornou desconto:
+    produto sem desconto automático (operador pode dar desconto manual se tiver permissão)
+              </pre>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Parâmetros da Hierarquia</div>
+              <table class="doc-table">
+                <thead><tr><th>Parâmetro</th><th>Tipo</th><th>Descrição</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Nome</strong></td><td>string</td><td>Identificação da hierarquia (ex: "Padrão", "Convênio XPTO")</td></tr>
+                  <tr><td><strong>Padrão</strong></td><td>bool</td><td>Se é a hierarquia fallback. Só uma pode ser padrão.</td></tr>
+                  <tr><td><strong>Aplicar Automaticamente</strong></td><td>bool</td><td>Se true, ao adicionar produto na venda já aplica o desconto encontrado.</td></tr>
+                  <tr><td><strong>Tipo Desconto Auto</strong></td><td>enum</td><td>Quando automático: 1=Mínimo, 2=Máximo sem senha. Define qual percentual usar.</td></tr>
+                  <tr><td><strong>Buscar Menor Promoção</strong></td><td>bool</td><td>Se true e componente Promoção encontrou múltiplas, usa a de menor desconto.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Vinculações</div>
+              <div class="doc-texto">
+                Uma hierarquia pode ser vinculada a:
+              </div>
+              <ul class="doc-lista">
+                <li><strong>Colaboradores</strong> — Quando o colaborador está vendendo, usa esta hierarquia</li>
+                <li><strong>Convênios</strong> — Quando a venda é para este convênio, usa esta hierarquia</li>
+                <li><strong>Clientes</strong> — Quando o cliente está comprando, usa esta hierarquia (maior prioridade)</li>
+              </ul>
+              <div class="doc-texto" style="margin-top:8px">
+                <strong>Prioridade de busca:</strong> Cliente > Convênio > Colaborador > Padrão
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Modelo de Dados</div>
+              <table class="doc-table">
+                <thead><tr><th>Tabela</th><th>Campos</th><th>Escopo</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>HierarquiaDesconto</strong></td><td>Nome, Padrao, AplicarAutomatico, DescontoAutoTipo, BuscarMenorValorPromocao</td><td>BaseEntity (global, sync)</td></tr>
+                  <tr><td><strong>HierarquiaDescontoItem</strong></td><td>HierarquiaDescontoId, Ordem, Componente (enum 1-14)</td><td>Cascade</td></tr>
+                  <tr><td><strong>HierarquiaDescontoSecao</strong></td><td>HierarquiaDescontoItemId, SecaoId</td><td>Cascade (só para componente 3)</td></tr>
+                  <tr><td><strong>HierarquiaDescontoColaborador</strong></td><td>HierarquiaDescontoId, ColaboradorId</td><td>Cascade</td></tr>
+                  <tr><td><strong>HierarquiaDescontoConvenio</strong></td><td>HierarquiaDescontoId, ConvenioId</td><td>Cascade</td></tr>
+                  <tr><td><strong>HierarquiaDescontoCliente</strong></td><td>HierarquiaDescontoId, ClienteId</td><td>Cascade</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">API Endpoints</div>
+              <div class="cmd-grupo"><div class="cmd-label">Listar hierarquias</div><code class="cmd">GET /api/hierarquiadescontos</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Obter detalhe (com itens, vinculações)</div><code class="cmd">GET /api/hierarquiadescontos/&#123;id&#125;</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Criar</div><code class="cmd">POST /api/hierarquiadescontos</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Atualizar</div><code class="cmd">PUT /api/hierarquiadescontos/&#123;id&#125;</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Excluir</div><code class="cmd">DELETE /api/hierarquiadescontos/&#123;id&#125;</code></div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Exemplo de Hierarquia</div>
+              <div class="doc-texto">
+                Hierarquia "Padrão" montada pelo usuário:
+              </div>
+              <ol class="doc-lista">
+                <li><strong>Promoção</strong> — Se o produto está em promoção, usa o desconto e PARA</li>
+                <li><strong>Promoção no Produto</strong> — Se tem promoção direta no cadastro do produto, PARA</li>
+                <li><strong>Seção (escolhida)</strong> — Seções "Medicamentos" e "Perfumaria" com prioridade, PARA</li>
+                <li><strong>Cliente</strong> — Se o cliente tem desconto especial, PARA</li>
+                <li><strong>Convênio</strong> — Se o convênio tem desconto por agrupador, PARA</li>
+                <li><strong>Grupo Principal</strong> — Desconto do grupo principal do produto, PARA</li>
+                <li><strong>Cond. Pagamento</strong> — Desconto da forma de pagamento, PARA</li>
+                <li><strong>Produto</strong> — Desconto configurado direto no produto (último recurso)</li>
+              </ol>
+              <div class="doc-texto" style="margin-top:8px">
+                O sistema percorre nesta ordem. O primeiro que retornar desconto é aplicado. Os demais são ignorados.
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Integração com Vendas (a implementar)</div>
+              <div class="doc-texto">
+                Na tela de Vendas, quando um produto é adicionado:
+              </div>
+              <ol class="doc-lista">
+                <li>Identificar a hierarquia correta (cliente > convênio > colaborador > padrão)</li>
+                <li>Percorrer os itens na ordem</li>
+                <li>Para cada componente, buscar o desconto aplicável</li>
+                <li>Se <strong>AplicarAutomatico = true</strong>: já aplica o desconto no item da venda</li>
+                <li>Se <strong>AplicarAutomatico = false</strong>: disponibiliza o desconto máximo para o operador aplicar manualmente</li>
+                <li>Respeitar: DescontoMinimo ≤ desconto aplicado ≤ DescontoMaxSemSenha (ou DescontoMaxComSenha se liberado com senha)</li>
+              </ol>
+            </div>
+
+          </div>
+        }
+      </section>
+
     </div>
   </main>
 </div>

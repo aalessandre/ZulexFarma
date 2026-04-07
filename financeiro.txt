@@ -1,0 +1,18 @@
+vamos criar nosso financeiro
+- Ja temos um tile Financeiro na home
+- crie um sub menu com:
+  - Dashboard
+  - contas a pagar
+  - contas a receber
+  - controle bancário
+
+
+iremos começar com o contas a pagar, ja prevendo que irá receber o boleto do lançamento de compras
+- a ideia é o usuario lançar tudo que ele gasta
+- possibilitar lançamentos recorrentes, por exemplo conta de agua, ele pode lançar para o ano todo, e conforme for chegando as faturas ele só altera o valor
+- possibilitar escolher a filial dona da despesa
+- campo para encargos, descontos, multas, juros
+- opção de lança ja pago
+- campos nr documento, nr nota fiscal, para ser preenchido quando preciso, no caso de lançamentos oriundas do compras, ja vem preenchido
+
+faça suas sugestões, vamos criar bem clean, mas o mais inteligente possivel

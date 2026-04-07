@@ -94,6 +94,26 @@ export const ErpRoutes: Routes = [
           import('../locais/locais.component').then(m => m.LocaisComponent),
       },
       {
+        path: 'financeiro',
+        loadComponent: () =>
+          import('../financeiro-menu/financeiro-menu.component').then(m => m.FinanceiroMenuComponent),
+      },
+      {
+        path: 'contas-pagar',
+        loadComponent: () =>
+          import('../contas-pagar/contas-pagar.component').then(m => m.ContasPagarComponent),
+      },
+      {
+        path: 'contas-bancarias',
+        loadComponent: () =>
+          import('../contas-bancarias/contas-bancarias.component').then(m => m.ContasBancariasComponent),
+      },
+      {
+        path: 'plano-contas',
+        loadComponent: () =>
+          import('../plano-contas/plano-contas.component').then(m => m.PlanoContasComponent),
+      },
+      {
         path: 'outros-cadastros',
         loadComponent: () =>
           import('../outros-cadastros/outros-cadastros.component').then(m => m.OutrosCadastrosComponent),
@@ -122,6 +142,51 @@ export const ErpRoutes: Routes = [
         path: 'atualizacao-precos',
         loadComponent: () =>
           import('../atualizacao-precos/atualizacao-precos.component').then(m => m.AtualizacaoPrecosComponent),
+      },
+      {
+        path: 'promocoes',
+        loadComponent: () =>
+          import('../promocoes-menu/promocoes-menu.component').then(m => m.PromocoesMenuComponent),
+      },
+      {
+        path: 'promocao-progressiva',
+        loadComponent: () =>
+          import('../promocao-progressiva/promocao-progressiva.component').then(m => m.PromocaoProgressivaComponent),
+      },
+      {
+        path: 'promocao-fixa',
+        loadComponent: () =>
+          import('../promocao-fixa/promocao-fixa.component').then(m => m.PromocaoFixaComponent),
+      },
+      {
+        path: 'convenios',
+        loadComponent: () =>
+          import('../convenios/convenios.component').then(m => m.ConveniosComponent),
+      },
+      {
+        path: 'pre-venda',
+        loadComponent: () =>
+          import('../pre-venda/pre-venda.component').then(m => m.PreVendaComponent),
+      },
+      {
+        path: 'hierarquia-descontos',
+        loadComponent: () =>
+          import('../hierarquia-descontos/hierarquia-descontos.component').then(m => m.HierarquiaDescontosComponent),
+      },
+      {
+        path: 'tipos-pagamento',
+        loadComponent: () =>
+          import('../tipos-pagamento/tipos-pagamento.component').then(m => m.TiposPagamentoComponent),
+      },
+      {
+        path: 'todo-board',
+        loadComponent: () =>
+          import('../todo-board/todo-board.component').then(m => m.TodoBoardComponent),
+      },
+      {
+        path: 'clientes',
+        loadComponent: () =>
+          import('../clientes/clientes.component').then(m => m.ClientesComponent),
       },
       // Placeholders — módulos futuros
       {

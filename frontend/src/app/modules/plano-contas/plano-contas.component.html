@@ -1,0 +1,394 @@
+<div class="tela-erp">
+
+  <!-- SIDEBAR ESQUERDA -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()">
+      <span>Procurar</span>
+      <span class="sidebar-sub">Consulta</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()">
+      <span>Adicionar</span>
+      <span class="sidebar-sub">Nova conta</span>
+    </div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()">
+      <span>Editar</span>
+      <span class="sidebar-sub">Alterar registro</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+
+    @if (abasEdicao().length > 0) {
+      <div class="sidebar-divider"></div>
+      @for (aba of abasEdicao(); track aba.planoConta.id) {
+        <div class="sidebar-aba"
+             [class.ativo]="abaAtivaId() === aba.planoConta.id && modo() === 'form'"
+             (click)="ativarAba(aba.planoConta.id!)">
+          <div class="sidebar-aba-topo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span class="sidebar-aba-id">{{ aba.planoConta.codigoHierarquico }}</span>
+            @if (aba.isDirty) { <span class="sidebar-aba-dirty">&bull;</span> }
+          </div>
+          <span class="sidebar-aba-nome">{{ aba.planoConta.descricao }}</span>
+          <button class="sidebar-aba-fechar"
+                  (click)="$event.stopPropagation(); fecharAba(aba.planoConta.id!)"
+                  title="Fechar">&times;</button>
+        </div>
+      }
+    }
+  </aside>
+
+  <!-- AREA PRINCIPAL -->
+  <div class="tela-main">
+
+    @if (modo() === 'lista') {
+      <!-- LISTA -->
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="Descrição ou código..."
+                   [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            @if (busca()) {
+              <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="lista-filtro">
+          <label>SITUAÇÃO</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+        <div class="lista-filtro">
+          <label>NÍVEL</label>
+          <select class="select-status" [value]="filtroNivel()" (change)="filtroNivel.set($any($event.target).value)">
+            <option value="">Todos</option>
+            <option value="1">Grupo</option>
+            <option value="2">SubGrupo</option>
+            <option value="3">Plano de Contas</option>
+          </select>
+        </div>
+
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header">
+                <span>Personalizar Colunas</span>
+                <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+              </div>
+              <div class="col-picker-lista">
+                @for (col of colunas(); track col.campo) {
+                  <label class="col-picker-item">
+                    <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                    <span>{{ col.label }}</span>
+                    @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+                <th class="th-sort th-resize"
+                    [style.width.px]="col.largura"
+                    [style.min-width.px]="col.minLargura"
+                    (click)="ordenar(col.campo)"
+                    draggable="true"
+                    (dragstart)="onDragStartCol(i)"
+                    (dragover)="onDragOverCol($event, i)"
+                    (drop)="onDropCol()">
+                  {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                  <div class="resize-handle"
+                       (mousedown)="iniciarResize($event, col.campo, col.largura)"
+                       (click)="$event.stopPropagation()"></div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+            } @else if (registrosFiltrados().length === 0) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+            } @else {
+              @for (r of registrosFiltrados(); track r.id) {
+                <tr [class.selecionado]="selecionado()?.id === r.id"
+                    [class.nivel-grupo]="r.nivel === 1"
+                    [class.nivel-subgrupo]="r.nivel === 2"
+                    (click)="selecionar(r)" (dblclick)="editar()">
+                  <td class="td-arrow">
+                    @if (selecionado()?.id === r.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }
+                  </td>
+                  @for (col of colunasVisiveis(); track col.campo) {
+                    <td [class]="col.campo === 'descricao' ? getIndentClass(r) : ''">{{ getCellValue(r, col.campo) }}</td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span>
+      </div>
+    }
+
+    @if (modo() === 'form') {
+      <!-- FORMULARIO -->
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar Plano de Contas' : 'Novo Plano de Contas' }}</div>
+
+        <!-- ID / DATA CADASTRO -->
+        @if (modoEdicao()) {
+          <div class="form-grid form-grid-info">
+            <div class="field">
+              <label>CÓDIGO</label>
+              <input type="text" [value]="form().codigoHierarquico" disabled class="field-disabled" />
+            </div>
+            <div class="field">
+              <label>DATA CADASTRO</label>
+              <input type="text" [value]="form().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" />
+            </div>
+          </div>
+        }
+
+        @if (erro()) {
+          <div class="form-erro">{{ erro() }}</div>
+        }
+
+        <!-- CLASSIFICAÇÃO -->
+        <div class="form-secao">Classificação</div>
+        <div class="form-grid">
+          <div class="field field-2">
+            <label>NÍVEL *</label>
+            <select class="select-campo" [value]="form().nivel" (change)="updNivel(+$any($event.target).value)">
+              <option [value]="1">Grupo</option>
+              <option [value]="2">SubGrupo</option>
+              <option [value]="3">Plano de Contas</option>
+            </select>
+          </div>
+          <div class="field field-2">
+            <label>NATUREZA *</label>
+            <select class="select-campo" [value]="form().natureza" (change)="upd('natureza', +$any($event.target).value)">
+              <option [value]="1">Crédito</option>
+              <option [value]="2">Débito</option>
+            </select>
+          </div>
+          @if (form().nivel !== 1) {
+            <div class="field field-3" [class.field-invalido]="erroCampo('contaPaiId')">
+              <label>CONTA PAI *</label>
+              <select class="select-campo" [value]="form().contaPaiId ?? ''" (change)="upd('contaPaiId', +$any($event.target).value || null)">
+                <option value="">-- Selecione --</option>
+                @for (pai of contasPaiDisponiveis(); track pai.id) {
+                  <option [value]="pai.id">{{ pai.codigoHierarquico }} - {{ pai.descricao }}</option>
+                }
+              </select>
+              @if (erroCampo('contaPaiId')) { <span class="field-erro">{{ erroCampo('contaPaiId') }}</span> }
+            </div>
+          }
+        </div>
+
+        <!-- DADOS -->
+        <div class="form-secao">Dados da Conta</div>
+        <div class="form-grid">
+          <div class="field field-3" [class.field-invalido]="erroCampo('descricao')">
+            <label>DESCRIÇÃO *</label>
+            <input type="text" [value]="form().descricao" (input)="upd('descricao', $any($event.target).value)" maxlength="200" />
+            @if (erroCampo('descricao')) { <span class="field-erro">{{ erroCampo('descricao') }}</span> }
+          </div>
+          <div class="field" [class.field-invalido]="erroCampo('ordem')">
+            <label>ORDEM *</label>
+            <input type="number" [value]="form().ordem" (input)="upd('ordem', +$any($event.target).value)" min="1" style="width:80px" />
+            @if (erroCampo('ordem')) { <span class="field-erro">{{ erroCampo('ordem') }}</span> }
+          </div>
+        </div>
+
+        <!-- OPÇÕES -->
+        <div class="form-secao">Opções</div>
+        <div class="form-grid">
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="form().visivelRelatorio" (change)="upd('visivelRelatorio', $any($event.target).checked)" />
+              Visível nos Relatórios
+            </label>
+          </div>
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="form().ativo" (change)="upd('ativo', $any($event.target).checked)" />
+              Ativo
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLBAR FORM -->
+      <footer class="tela-toolbar">
+        @if (isDirty()) {
+          <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            {{ salvando() ? 'Salvando...' : 'Salvar' }}
+          </button>
+        }
+        @if (isDirty()) {
+          <button class="tb-btn tb-cancelar" (click)="cancelarEdicao()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Cancelar
+          </button>
+        }
+        <button class="tb-btn tb-fechar" (click)="fecharForm()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Fechar
+        </button>
+        @if (modoEdicao()) {
+          <button class="tb-btn tb-log" (click)="abrirLog()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            Histórico
+          </button>
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Excluir
+          </button>
+        }
+      </footer>
+    }
+
+  </div>
+</div>
+
+<!-- MODAL HISTÓRICO DE ALTERAÇÕES -->
+@if (modalLog()) {
+  <div class="modal-overlay" (click)="fecharLog()">
+    <div class="modal-log-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-log-header">
+        <div class="modal-log-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Histórico de Alterações — {{ selecionado()?.descricao }}
+        </div>
+        <button class="modal-log-fechar" (click)="fecharLog()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-log-filtros">
+        <div class="log-filtro-campo">
+          <label>DATA INICIAL</label>
+          <input type="date" [value]="logDataInicio()"
+                 (change)="logDataInicio.set($any($event.target).value)" />
+        </div>
+        <div class="log-filtro-campo">
+          <label>DATA FINAL</label>
+          <input type="date" [value]="logDataFim()"
+                 (change)="logDataFim.set($any($event.target).value)" />
+        </div>
+        <button class="log-btn-filtrar" (click)="filtrarLog()" [disabled]="carregandoLog()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          {{ carregandoLog() ? 'Buscando...' : 'Filtrar' }}
+        </button>
+        <span class="log-total">
+          @if (!carregandoLog()) { {{ logRegistros().length }} registro(s) }
+        </span>
+      </div>
+
+      <div class="modal-log-body">
+        @if (carregandoLog()) {
+          <div class="log-loading">Carregando histórico...</div>
+        } @else if (logRegistros().length === 0) {
+          <div class="log-vazio">Nenhum registro de histórico encontrado.</div>
+        } @else {
+          <div class="log-painel-wrap">
+
+            <div class="log-painel-lista">
+              @for (entry of logRegistros(); track entry.id) {
+                <div class="log-lista-item" [class.ativo]="logSelecionado()?.id === entry.id"
+                     (click)="selecionarLogEntry(entry)">
+                  <div class="log-lista-data">{{ entry.realizadoEm | date:'dd/MM/yyyy HH:mm:ss' }}</div>
+                  <div class="log-lista-info">
+                    <span class="log-badge" [class]="acaoCss(entry.acao)">{{ entry.acao }}</span>
+                    <span class="log-lista-usuario">{{ entry.nomeUsuario }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="log-painel-detalhe">
+              @if (logSelecionado()) {
+                @if (logSelecionado()!.campos.length === 0) {
+                  <div class="log-detalhe-vazio">Nenhum campo registrado para esta ação.</div>
+                } @else {
+                  <table class="log-campos">
+                    <thead>
+                      <tr>
+                        <th>Campo</th>
+                        <th>Valor Anterior</th>
+                        <th>Valor Atual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (c of logSelecionado()!.campos; track c.campo) {
+                        <tr>
+                          <td class="campo-nome">{{ c.campo }}</td>
+                          <td class="campo-anterior">{{ c.valorAnterior ?? '—' }}</td>
+                          <td class="campo-atual">{{ c.valorAtual ?? '—' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              }
+            </div>
+
+          </div>
+        }
+      </div>
+
+      <div class="modal-log-footer">
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharLog()">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+}

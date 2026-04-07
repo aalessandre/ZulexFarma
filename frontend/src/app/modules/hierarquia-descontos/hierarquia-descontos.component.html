@@ -1,0 +1,462 @@
+<div class="tela-erp">
+
+  <!-- SIDEBAR ESQUERDA -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()">
+      <span>Procurar</span>
+      <span class="sidebar-sub">Consulta</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()">
+      <span>Adicionar</span>
+      <span class="sidebar-sub">Nova hierarquia</span>
+    </div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()">
+      <span>Editar</span>
+      <span class="sidebar-sub">Alterar registro</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <!-- AREA PRINCIPAL -->
+  <div class="tela-main">
+
+    @if (modo() === 'lista') {
+      <!-- LISTA -->
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="Nome da hierarquia..."
+                   [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            @if (busca()) {
+              <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="lista-filtro">
+          <label>SITUACAO</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header">
+                <span>Personalizar Colunas</span>
+                <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrao</button>
+              </div>
+              <div class="col-picker-lista">
+                @for (col of colunas(); track col.campo) {
+                  <label class="col-picker-item">
+                    <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                    <span>{{ col.label }}</span>
+                    @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+                <th class="th-sort th-resize"
+                    [style.width.px]="col.largura"
+                    [style.min-width.px]="col.minLargura"
+                    (click)="ordenar(col.campo)"
+                    draggable="true"
+                    (dragstart)="onDragStartCol(i)"
+                    (dragover)="onDragOverCol($event, i)"
+                    (drop)="onDropCol()">
+                  {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                  <div class="resize-handle"
+                       (mousedown)="iniciarResize($event, col.campo, col.largura)"
+                       (click)="$event.stopPropagation()"></div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+            } @else if (registrosFiltrados().length === 0) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+            } @else {
+              @for (f of registrosFiltrados(); track f.id) {
+                <tr [class.selecionado]="selecionado()?.id === f.id"
+                    (click)="selecionar(f)" (dblclick)="editar()">
+                  <td class="td-arrow">
+                    @if (selecionado()?.id === f.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }
+                  </td>
+                  @for (col of colunasVisiveis(); track col.campo) {
+                    <td>{{ getCellValue(f, col.campo) }}</td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span>
+      </div>
+    }
+
+    @if (modo() === 'form') {
+      <!-- FORMULARIO -->
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar Hierarquia de Descontos' : 'Nova Hierarquia de Descontos' }}</div>
+
+        <!-- IDENTIFICACAO -->
+        <div class="form-secao">Identificacao</div>
+        <div class="form-grid">
+          <div class="field field-3">
+            <label>NOME *</label>
+            <input type="text" [value]="fNome()" (input)="fNome.set($any($event.target).value); markDirty()" maxlength="200" />
+          </div>
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="fAtivo()" (change)="fAtivo.set($any($event.target).checked); markDirty()" />
+              Ativo
+            </label>
+          </div>
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="fPadrao()" (change)="fPadrao.set($any($event.target).checked); markDirty()" />
+              Padrao
+            </label>
+          </div>
+        </div>
+
+        <!-- PARAMETROS -->
+        <div class="form-secao">Parametros</div>
+        <div class="form-grid">
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="fAplicarAutomatico()" (change)="fAplicarAutomatico.set($any($event.target).checked); markDirty()" />
+              Aplicar desconto automaticamente
+            </label>
+          </div>
+          @if (fAplicarAutomatico()) {
+            <div class="field">
+              <label>TIPO DE DESCONTO AUTOMATICO</label>
+              <select class="select-status"
+                      [value]="fDescontoAutoTipo() ?? ''"
+                      (change)="fDescontoAutoTipo.set(+$any($event.target).value || undefined); markDirty()">
+                <option value="">Selecione...</option>
+                <option [value]="1">Desconto minimo</option>
+                <option [value]="2">Maximo sem senha</option>
+              </select>
+            </div>
+          }
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="fBuscarMenorValorPromocao()" (change)="fBuscarMenorValorPromocao.set($any($event.target).checked); markDirty()" />
+              Buscar menor valor da promocao
+            </label>
+          </div>
+        </div>
+
+        <!-- HIERARQUIA BUILDER -->
+        <div class="form-secao">Hierarquia</div>
+        <div class="hier-builder">
+          <!-- LEFT: Available components -->
+          <div class="hier-disponivel">
+            <div class="hier-disponivel-titulo">Componentes disponiveis</div>
+            @for (comp of componentesDisponiveis(); track comp.valor) {
+              <div class="hier-card-disponivel"
+                   [style.border-left-color]="ICONE_CORES[comp.icone] || '#546e7a'"
+                   (click)="adicionarComponente(comp.valor)">
+                <span class="hier-card-label">{{ comp.label }}</span>
+                <button class="hier-card-add" title="Adicionar">+</button>
+              </div>
+            }
+            @if (componentesDisponiveis().length === 0) {
+              <div class="hier-vazio">Todos os componentes foram adicionados.</div>
+            }
+          </div>
+
+          <!-- RIGHT: Built sequence -->
+          <div class="hier-sequencia">
+            <div class="hier-sequencia-titulo">Sequencia de aplicacao</div>
+            @if (itens().length === 0) {
+              <div class="hier-vazio">Clique nos componentes a esquerda para montar a hierarquia.</div>
+            }
+            @for (item of itens(); track item.ordem; let i = $index) {
+              <div class="hier-card-item"
+                   draggable="true"
+                   (dragstart)="onDragStartItem(i)"
+                   (dragover)="onDragOverItem($event, i)"
+                   (drop)="onDropItem()"
+                   [style.border-left-color]="componenteCor(item.componente)">
+                <span class="hier-numero">{{ i + 1 }}</span>
+                <span class="hier-card-label">{{ componenteLabel(item.componente) }}</span>
+                <button class="hier-card-remove" (click)="removerComponente(i)" title="Remover">&times;</button>
+              </div>
+              <!-- Secao multi-select when componente = 3 -->
+              @if (item.componente === 3 && secoes().length > 0) {
+                <div class="hier-secao-select">
+                  <label class="hier-secao-label">Secoes vinculadas:</label>
+                  <div class="checks-grid">
+                    @for (sec of secoes(); track sec.id) {
+                      <label class="check-label check-sm">
+                        <input type="checkbox"
+                               [checked]="secaoSelecionada(i, sec.id)"
+                               (change)="toggleSecaoItem(i, sec.id)" />
+                        {{ sec.nome }}
+                      </label>
+                    }
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        </div>
+
+        <!-- VINCULACOES -->
+        <div class="accordion" [class.aberto]="accVinculacoes()">
+          <div class="accordion-header" (click)="accVinculacoes.update(v => !v)">
+            <span>Vinculacoes</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline [attr.points]="accVinculacoes() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/>
+            </svg>
+          </div>
+          <div class="accordion-body">
+
+            <!-- Colaboradores -->
+            <div class="sub-secao">Colaboradores</div>
+            <div class="checks-grid">
+              @for (col of colaboradores(); track col.id) {
+                <label class="check-label check-sm">
+                  <input type="checkbox"
+                         [checked]="colaboradorIds().has(col.id)"
+                         (change)="toggleColaborador(col.id)" />
+                  {{ col.nome }}
+                </label>
+              }
+              @if (colaboradores().length === 0) {
+                <span class="hier-vazio">Nenhum colaborador cadastrado.</span>
+              }
+            </div>
+
+            <!-- Convenios -->
+            <div class="sub-secao">Convenios</div>
+            <div class="checks-grid">
+              @for (conv of convenios(); track conv.id) {
+                <label class="check-label check-sm">
+                  <input type="checkbox"
+                         [checked]="convenioIds().has(conv.id)"
+                         (change)="toggleConvenio(conv.id)" />
+                  {{ conv.nome }}
+                </label>
+              }
+              @if (convenios().length === 0) {
+                <span class="hier-vazio">Nenhum convenio cadastrado.</span>
+              }
+            </div>
+
+            <!-- Clientes -->
+            <div class="sub-secao">Clientes</div>
+            <div class="autocomplete-wrap">
+              <div class="input-pessoa-wrap">
+                <input type="text" class="input-busca"
+                       placeholder="Buscar cliente..."
+                       [value]="clienteBusca()"
+                       (input)="onClienteBuscaInput($any($event.target).value)"
+                       (blur)="fecharClienteDropdown()" />
+                @if (clienteBusca()) {
+                  <button class="input-busca-limpar" (click)="clienteBusca.set(''); clienteDropdown.set(false)" title="Limpar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                }
+              </div>
+              @if (clienteDropdown() && clienteResultados().length > 0) {
+                <div class="autocomplete-dropdown">
+                  @for (c of clienteResultados(); track c.id) {
+                    <div class="autocomplete-item" (mousedown)="adicionarCliente(c)">
+                      <span class="autocomplete-tag">CL</span>
+                      <span class="autocomplete-nome">{{ c.nome }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+            <div class="tags-wrap">
+              @for (cid of clienteIds(); track cid) {
+                <span class="tag-chip">
+                  {{ clienteNome(cid) }}
+                  <button class="tag-chip-remove" (click)="removerCliente(cid)">&times;</button>
+                </span>
+              }
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TOOLBAR FORM -->
+      <footer class="tela-toolbar">
+        @if (isDirty()) {
+          <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            {{ salvando() ? 'Salvando...' : 'Salvar' }}
+          </button>
+        }
+        <button class="tb-btn tb-fechar" (click)="fecharForm()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Fechar
+        </button>
+        @if (modoEdicao()) {
+          <button class="tb-btn tb-log" (click)="abrirLog()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            Historico
+          </button>
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Excluir
+          </button>
+        }
+      </footer>
+    }
+
+  </div>
+</div>
+
+<!-- MODAL HISTORICO DE ALTERACOES -->
+@if (modalLog()) {
+  <div class="modal-overlay" (click)="fecharLog()">
+    <div class="modal-log-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-log-header">
+        <div class="modal-log-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Historico de Alteracoes — {{ fNome() || selecionado()?.nome }}
+        </div>
+        <button class="modal-log-fechar" (click)="fecharLog()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-log-filtros">
+        <div class="log-filtro-campo">
+          <label>DATA INICIAL</label>
+          <input type="date" [value]="logDataInicio()"
+                 (change)="logDataInicio.set($any($event.target).value)" />
+        </div>
+        <div class="log-filtro-campo">
+          <label>DATA FINAL</label>
+          <input type="date" [value]="logDataFim()"
+                 (change)="logDataFim.set($any($event.target).value)" />
+        </div>
+        <button class="log-btn-filtrar" (click)="filtrarLog()" [disabled]="carregandoLog()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          {{ carregandoLog() ? 'Buscando...' : 'Filtrar' }}
+        </button>
+        <span class="log-total">
+          @if (!carregandoLog()) { {{ logRegistros().length }} registro(s) }
+        </span>
+      </div>
+
+      <div class="modal-log-body">
+        @if (carregandoLog()) {
+          <div class="log-loading">Carregando historico...</div>
+        } @else if (logRegistros().length === 0) {
+          <div class="log-vazio">Nenhum registro de historico encontrado.</div>
+        } @else {
+          <div class="log-painel-wrap">
+
+            <div class="log-painel-lista">
+              @for (entry of logRegistros(); track entry.id) {
+                <div class="log-lista-item" [class.ativo]="logSelecionado()?.id === entry.id"
+                     (click)="selecionarLogEntry(entry)">
+                  <div class="log-lista-data">{{ entry.realizadoEm | date:'dd/MM/yyyy HH:mm:ss' }}</div>
+                  <div class="log-lista-info">
+                    <span class="log-badge" [class]="acaoCss(entry.acao)">{{ entry.acao }}</span>
+                    <span class="log-lista-usuario">{{ entry.nomeUsuario }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="log-painel-detalhe">
+              @if (logSelecionado()) {
+                @if (logSelecionado()!.campos.length === 0) {
+                  <div class="log-detalhe-vazio">Nenhum campo registrado para esta acao.</div>
+                } @else {
+                  <table class="log-campos">
+                    <thead>
+                      <tr>
+                        <th>Campo</th>
+                        <th>Valor Anterior</th>
+                        <th>Valor Atual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (c of logSelecionado()!.campos; track c.campo) {
+                        <tr>
+                          <td class="campo-nome">{{ c.campo }}</td>
+                          <td class="campo-anterior">{{ c.valorAnterior ?? '—' }}</td>
+                          <td class="campo-atual">{{ c.valorAtual ?? '—' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              }
+            </div>
+
+          </div>
+        }
+      </div>
+
+      <div class="modal-log-footer">
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharLog()">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+}

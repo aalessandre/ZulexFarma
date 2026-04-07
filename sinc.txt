@@ -1,0 +1,130 @@
+1. Gerenciamento de inconsistências
+Hoje: last-write-wins baseado em AtualizadoEm. Se PC1 e PC2 alteram o mesmo registro, o último a sincronizar ganha. Não há log do que foi sobrescrito.
+
+Sugestão: Criar uma tabela SyncConflitos que registra quando um registro é sobrescrito (antes/depois). A tela de sync mostraria esses conflitos para o admin revisar. Não precisa bloquear — apenas informar.
+
+Minhas considerações
+- concordo que o ultimo ganha
+- nao precisa registrar quando um registro é sobrescrito, isso porque ja existe o log para cada cadastro, em caso de duvida basta ir la e ver quem alterou por ultimo
+
+2. Campos únicos (CPF, CNPJ, Login)
+Hoje: Validação de unicidade acontece apenas no backend local. Se PC1 cadastra CPF "123" e PC2 cadastra o mesmo CPF "123", ambos salvam local sem erro. Quando sincronizam, o segundo sobrescreve ou duplica.
+
+Sugestão: Na AplicarAlteracoes, antes de inserir, verificar campos únicos (CPF, CNPJ, Login). Se já existe localmente com FilialOrigem diferente, registrar como conflito em vez de inserir. Precisamos definir quais campos são únicos por tabela:
+
+Pessoas: CPF
+Filiais: CNPJ
+Usuarios: Login
+Fabricantes/Substancias: Nome (soft unique)
+
+Minhas considerações:
+- ja sinalizei no dd quais sao os campos unicos e obrigatorios
+
+
+3. Periodicidade do sincronismo
+Hoje: 30 segundos fixo (appsettings.pcX.json).
+
+Sugestão: Manter 30s como padrão mas tornar configurável pela tela de Configurações do sistema. Em horário de pico de vendas, poderia ser 10s. De madrugada, 5 minutos. Opções:
+
+Fixo (atual)
+Adaptativo (diminui quando tem alterações pendentes, aumenta quando idle)
+Manual (botão na tela de sync)
+Minha recomendação: 30s está bom para a maioria dos cenários. Quando tiver vendas (PDV), aí sim diminuir para 10-15s.
+
+Minhas considerações:
+- Vamos colocar nas Configuracoes um campo para o usuario possa configurar, vamos permitir 30 segundos 
+  de minimo e 10 minutos de  maximo, e por padrão o campos ja vem com 1 minuto, coloque 1 slide, o usuario poderá deslizar de 30 segundos a 1 minuto, veja se é viavel.
+
+4. Quais tabelas/campos replicam
+Hoje: Todas as 16 tabelas replicam todos os campos, definido em SyncService._tabelasSyncaveis.
+
+Para o futuro, há 3 categorias:
+
+Globais (replicam para todos): Fabricantes, Substâncias, Grupos Produtos, Fornecedores
+Por filial (replicam mas com filtro): Estoque, Preços, Caixa, Vendas
+Locais (NÃO replicam): Configurações, Logs de erro, sessões
+Quando chegar em Estoque e Vendas, precisaremos de filtro por FilialId no sync — PC1 não precisa do estoque detalhado do PC2, só totalizadores.
+
+Minhas considerações:
+- ja definimos e ja esta no dd e documentação
+
+5. Tela de sync mais inteligente
+Sugestões:
+
+Indicador visual de status no grid (verde/vermelho/amarelo)
+Último sync com "há X segundos" em tempo real
+Gráfico simples de registros enviados/recebidos por hora
+Botão "Forçar sync agora"
+Seção de conflitos/erros expandível
+Filtro por tabela com problemas
+6. Alerta no menu principal
+Sugestão: Adicionar um ícone de sino/warning na topbar do ERP que fica vermelho quando:
+
+O sync parou (última execução > 2 minutos)
+Há tabelas com status "ERRO"
+Há conflitos não resolvidos
+O dashboard/topbar já consulta /api/sync/servico, então é só adicionar a lógica visual.
+
+Minhas considerações:
+- ok, boas sugestões
+
+7. Estratégia de envio em lote (dados grandes)
+Hoje: Envia até 500 registros por tabela por ciclo (limite = 500). Se houver mais, pega os próximos 500 no próximo ciclo. Já é paginado.
+
+Possíveis melhorias:
+
+Priorizar tabelas críticas (Vendas, Estoque antes de Fabricantes)
+Compressão gzip no POST/GET (reduz tráfego em ~70%)
+Progresso visível na tela ("Fabricantes: 1500/3000 sincronizados")
+Na carga inicial (primeiro sync de uma filial nova), enviar em chunks menores com retry
+Para a realidade de farmácia: O volume é baixo. Uma farmácia movimenta ~500 vendas/dia. Com 16 tabelas e 500 registros por ciclo a cada 30s, dá conta tranquilo.
+
+
+Minhas considerações:
+- comprimir é bom, pois ajuda quando a web é lenta, nao afeta o desempenho, pelo fato de ter q comprimir e depois descomprimir?
+
+8. Sinalizador de internet lenta
+Sugestão: Medir o tempo de cada ciclo de sync. Se o ciclo que deveria levar 2-5s está levando 15s+, exibir aviso na topbar: "Conexão lenta com o servidor central". Se falhar 3x consecutivas, exibir "Sem conexão".
+
+Implementação: o SyncBackgroundService já tem UltimaExecucao e UltimoStatus. Basta adicionar TempoUltimoCicloMs e o frontend consultar.
+
+9. Definição de nomes (SYNC_PROFILE)
+Hoje: pc1, pc2 — genérico.
+
+Sugestão: Mudar para o nome da filial ou um identificador mais claro:
+
+$env:SYNC_PROFILE = "filial-1" ou $env:SYNC_PROFILE = "campo-santana"
+Ou melhor: em produção, isso seria configurado no instalador/setup da farmácia uma vez só, não manual
+Para agora: pc1/pc2 está OK para teste. Em produção, o setup automatiza.
+
+Minhas considerações:
+- vamos criar uma seção no help, chamada pendencias, dai vc coloca isso la pra nao esquecer quando for para a produção
+
+10. Queda de internet
+Hoje: Se cai a internet, o SyncBackgroundService falha silenciosamente no ciclo (catch → log → status "ERRO"). No próximo ciclo tenta de novo. Quando a internet volta, o sync retoma automaticamente de onde parou (baseado em UltimaVersaoEnviada/Recebida).
+
+O sistema local continua funcionando normalmente — esse é o ponto principal. O PostgreSQL é local, o backend é local. O usuário vende, cadastra, tudo funciona offline. Quando a internet volta, tudo sincroniza.
+
+Melhoria: Mostrar na topbar "Offline - trabalhando local" quando o sync falha 3+ vezes seguidas. Quando reconectar, mostrar "Reconectado - sincronizando...".
+
+Minhas considerações:
+- boa...
+
+11. Dois usuários inserem o mesmo registro
+Cenários:
+
+a) Mesmo registro (mesmo ID): Impossível — cada banco tem sua própria sequence de IDs. PC1 gera Id=5, PC2 gera Id=5, mas são registros diferentes. O sync usa AplicarAlteracoes que verifica por Id.
+
+b) Registro duplicado logicamente (mesmo CPF/CNPJ): Esse é o problema real. Hoje, ambos são aceitos e sincronizados. A solução é o item 2 (validação de campos únicos no sync).
+
+c) Ambos editam o MESMO registro (que veio do sync): Last-write-wins. O último a sincronizar ganha. Com o conflito registrado (item 1), o admin pode revisar.
+
+Recomendação prática para farmácia: Na operação real, cada filial tem responsabilidades diferentes. Filial 1 cadastra seus fornecedores, Filial 2 os dela. Conflitos são raros. O importante é detectar e informar, não bloquear.
+
+Prioridade sugerida
+Alerta na topbar (rápido, alto impacto visual)
+Tela de sync melhorada (status mais claro)
+Validação de campos únicos no sync
+Tabela de conflitos
+Indicador offline/online
+Quer que eu comece por qual?

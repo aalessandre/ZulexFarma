@@ -107,6 +107,58 @@
             </div>
           </div>
         </div>
+        <!-- VENDAS -->
+        <div class="form-secao">Vendas</div>
+        <div class="form-grid">
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="getConfig('vendas.multiplos.vendedores', 'false') === 'true'"
+                     (change)="setConfig('vendas.multiplos.vendedores', $any($event.target).checked ? 'true' : 'false')" />
+              Múltiplos vendedores em uma venda
+            </label>
+          </div>
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="getConfig('vendas.usar.nr.cesta', 'false') === 'true'"
+                     (change)="setConfig('vendas.usar.nr.cesta', $any($event.target).checked ? 'true' : 'false')" />
+              Usar Nr de Cesta
+            </label>
+          </div>
+        </div>
+
+        <!-- PLANO DE CONTAS PADRÃO -->
+        <div class="form-secao">Plano de Contas Padrão</div>
+        <div class="pc-config-grid">
+          @for (item of pcChaves; track item.chave) {
+            <div class="pc-config-item autocomplete-wrap">
+              <label>{{ item.label }}</label>
+              <div class="pc-input-wrap">
+                <input type="text" [value]="getPcNome(item.chave)"
+                       (input)="onPcBuscaInput(item.chave, $any($event.target).value)"
+                       (focus)="pcBuscaAtiva.set(item.chave)"
+                       (blur)="onPcBuscaBlur()"
+                       placeholder="Pesquisar plano de contas..."
+                       autocomplete="off" />
+                @if (getConfig(item.chave)) {
+                  <button class="pc-limpar" (mousedown)="$event.preventDefault(); limparPcConfig(item.chave)" title="Limpar">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                }
+              </div>
+              @if (pcDropdown() && pcBuscaAtiva() === item.chave && pcResultados().length > 0) {
+                <div class="autocomplete-dropdown">
+                  @for (pc of pcResultados(); track pc.id) {
+                    <div class="autocomplete-item" (mousedown)="selecionarPcConfig(item.chave, pc)">
+                      <span class="autocomplete-codigo">{{ pc.codigoHierarquico }}</span>
+                      <span>{{ pc.descricao }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+
         <!-- CERTIFICADO DIGITAL -->
         <div class="form-secao">Certificado Digital (A1)</div>
         <div class="cert-section">

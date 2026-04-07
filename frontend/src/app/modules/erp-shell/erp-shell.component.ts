@@ -1,4 +1,4 @@
-import { Component, computed, signal, HostListener, ElementRef, ViewChild, OnDestroy } from '@angular/core';
+import { Component, computed, signal, effect, HostListener, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,6 +8,7 @@ import { TabService } from '../../core/services/tab.service';
 import { ErpSettingsService, FonteEscala, Tema } from '../../core/services/erp-settings.service';
 import { ModalGlobalComponent } from '../../core/components/modal-global.component';
 import { CassiComponent } from '../cassi/cassi.component';
+import { ModalService } from '../../core/services/modal.service';
 import { environment } from '../../../environments/environment';
 
 export interface TileItem {
@@ -41,6 +42,7 @@ export class ErpShellComponent {
   usuario = computed(() => this.authService.usuarioLogado());
 
   painelAberto = signal(false);
+  painelAbasAberto = signal(false);
   nomeSistema = 'ZulexPharma';
 
   // ── Sync status ────────────────────────────────────────────────
@@ -78,6 +80,7 @@ export class ErpShellComponent {
       nome: 'Movimento',
       cor: '#00acc1',
       tiles: [
+        { label: 'Pre-Venda',        sigla: 'PV', iconKey: 'cart',      rota: '/erp/pre-venda' },
         { label: 'Vendas',           sigla: 'VE', iconKey: 'cart',      rota: '/erp/vendas' },
         { label: 'Emprestimo',       sigla: 'EP', iconKey: 'handshake', rota: '/erp/emprestimo' },
         { label: 'Mov. de Estoque',  sigla: 'ME', iconKey: 'box',       rota: '/erp/movimentacao-estoque' },
@@ -85,8 +88,14 @@ export class ErpShellComponent {
         { label: 'Conta do Cliente', sigla: 'CC', iconKey: 'user',      rota: '/erp/conta-cliente' },
         { label: 'Caixa',            sigla: 'CX', iconKey: 'cash',      rota: '/erp/caixa' },
         { label: 'Compras',          sigla: 'CP', iconKey: 'cart2',     rota: '/erp/compras' },
+        { label: 'Lancar Compras',   sigla: 'LC', iconKey: 'cart2',     rota: '/erp/lancar-compras' },
         { label: 'Financeiro',       sigla: 'FN', iconKey: 'dollar',    rota: '/erp/financeiro' },
         { label: 'Fiscal',           sigla: 'FS', iconKey: 'dollar',    rota: '/erp/fiscal' },
+        { label: 'ICMS por UF',      sigla: 'IC', iconKey: 'dollar',    rota: '/erp/icms-uf' },
+        { label: 'Promoção Fixa',   sigla: 'PF', iconKey: 'dollar',    rota: '/erp/promocao-fixa' },
+        { label: 'Promoção Progressiva', sigla: 'PP', iconKey: 'dollar', rota: '/erp/promocao-progressiva' },
+        { label: 'Contas a Pagar',   sigla: 'CP', iconKey: 'dollar',    rota: '/erp/contas-pagar' },
+        { label: 'Contas a Receber', sigla: 'CR', iconKey: 'dollar',    rota: '/erp/contas-receber' },
       ]
     },
     {
@@ -99,6 +108,12 @@ export class ErpShellComponent {
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
         { label: 'Substancias',      sigla: 'SB', iconKey: 'pill',      rota: '/erp/substancias' },
+        { label: 'NCM',              sigla: 'NC', iconKey: 'log',       rota: '/erp/ncm' },
+        { label: 'Locais',           sigla: 'LC', iconKey: 'log',       rota: '/erp/locais' },
+        { label: 'Plano de Contas',  sigla: 'PC', iconKey: 'log',       rota: '/erp/plano-contas' },
+        { label: 'Contas Bancarias', sigla: 'CB', iconKey: 'log',       rota: '/erp/contas-bancarias' },
+        { label: 'Tipos de Pagamento', sigla: 'TP', iconKey: 'log',   rota: '/erp/tipos-pagamento' },
+        { label: 'Convenios',        sigla: 'CV', iconKey: 'users',    rota: '/erp/convenios' },
       ]
     },
     {
@@ -122,6 +137,7 @@ export class ErpShellComponent {
         { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
         { label: 'Configuracoes',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
         { label: 'Atual. Precos',    sigla: 'AP', iconKey: 'dollar',   rota: '/erp/atualizacao-precos' },
+        { label: 'Hierarquia Descontos', sigla: 'HD', iconKey: 'wrench', rota: '/erp/hierarquia-descontos' },
       ]
     },
     {
@@ -130,6 +146,7 @@ export class ErpShellComponent {
       tiles: [
         { label: 'Help',            sigla: 'HP', iconKey: 'log',      rota: '/erp/help' },
         { label: 'Dic. de Dados',   sigla: 'DD', iconKey: 'log',      rota: '/erp/dicionario-dados' },
+        { label: 'Todo Board',      sigla: 'TD', iconKey: 'log',      rota: '/erp/todo-board' },
       ]
     }
   ];
@@ -179,10 +196,18 @@ export class ErpShellComponent {
     public authService: AuthService,
     private router: Router,
     public settings: ErpSettingsService,
-    private http: HttpClient
+    private http: HttpClient,
+    private modal: ModalService
   ) {
     this.carregarSyncStatus();
     this.syncIntervalId = setInterval(() => this.carregarSyncStatus(), 30000);
+
+    effect(() => {
+      const count = this.tabService.limiteAtingido();
+      if (count > 0) {
+        this.modal.aviso('Limite de telas', `Você atingiu o limite de ${this.tabService.MAX_TABS} telas abertas. Feche alguma tela antes de abrir outra.`);
+      }
+    });
   }
 
   ngOnDestroy() {

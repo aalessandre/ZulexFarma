@@ -66,6 +66,32 @@ public class AppDbContext : DbContext
     public DbSet<AbcFarmaBase> AbcFarmaBase => Set<AbcFarmaBase>();
     public DbSet<AtualizacaoPreco> AtualizacoesPreco => Set<AtualizacaoPreco>();
     public DbSet<AtualizacaoPrecoItem> AtualizacoesPrecoItens => Set<AtualizacaoPrecoItem>();
+    public DbSet<PlanoConta> PlanosContas => Set<PlanoConta>();
+    public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
+    public DbSet<ContaPagar> ContasPagar => Set<ContaPagar>();
+    public DbSet<TipoPagamento> TiposPagamento => Set<TipoPagamento>();
+    public DbSet<Convenio> Convenios => Set<Convenio>();
+    public DbSet<ConvenioDesconto> ConvenioDescontos => Set<ConvenioDesconto>();
+    public DbSet<ConvenioBloqueio> ConvenioBloqueios => Set<ConvenioBloqueio>();
+    public DbSet<Promocao> Promocoes => Set<Promocao>();
+    public DbSet<PromocaoFilial> PromocaoFiliais => Set<PromocaoFilial>();
+    public DbSet<PromocaoPagamento> PromocaoPagamentos => Set<PromocaoPagamento>();
+    public DbSet<PromocaoConvenio> PromocaoConvenios => Set<PromocaoConvenio>();
+    public DbSet<PromocaoProduto> PromocaoProdutos => Set<PromocaoProduto>();
+    public DbSet<PromocaoFaixa> PromocaoFaixas => Set<PromocaoFaixa>();
+    public DbSet<Cliente> Clientes => Set<Cliente>();
+    public DbSet<ClienteConvenio> ClienteConvenios => Set<ClienteConvenio>();
+    public DbSet<ClienteAutorizacao> ClienteAutorizacoes => Set<ClienteAutorizacao>();
+    public DbSet<ClienteDesconto> ClienteDescontos => Set<ClienteDesconto>();
+    public DbSet<ClienteUsoContinuo> ClienteUsosContinuos => Set<ClienteUsoContinuo>();
+    public DbSet<HierarquiaDesconto> HierarquiaDescontos => Set<HierarquiaDesconto>();
+    public DbSet<HierarquiaDescontoItem> HierarquiaDescontoItens => Set<HierarquiaDescontoItem>();
+    public DbSet<HierarquiaDescontoSecao> HierarquiaDescontoSecoes => Set<HierarquiaDescontoSecao>();
+    public DbSet<HierarquiaDescontoColaborador> HierarquiaDescontoColaboradores => Set<HierarquiaDescontoColaborador>();
+    public DbSet<HierarquiaDescontoConvenio> HierarquiaDescontoConvenios => Set<HierarquiaDescontoConvenio>();
+    public DbSet<HierarquiaDescontoCliente> HierarquiaDescontoClientes => Set<HierarquiaDescontoCliente>();
+    public DbSet<PreVenda> PreVendas => Set<PreVenda>();
+    public DbSet<PreVendaItem> PreVendaItens => Set<PreVendaItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -686,6 +712,282 @@ public class AppDbContext : DbContext
             e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.Property(x => x.ProdutoNome).HasMaxLength(200);
             e.HasOne(x => x.AtualizacaoPreco).WithMany(a => a.Itens).HasForeignKey(x => x.AtualizacaoPrecoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── PreVenda ──────────────────────────────────────────────
+        modelBuilder.Entity<PreVenda>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.TotalBruto).HasPrecision(18, 2);
+            e.Property(x => x.TotalDesconto).HasPrecision(18, 2);
+            e.Property(x => x.TotalLiquido).HasPrecision(18, 2);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Colaborador).WithMany().HasForeignKey(x => x.ColaboradorId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.Status);
+        });
+        modelBuilder.Entity<PreVendaItem>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ProdutoCodigo).HasMaxLength(50);
+            e.Property(x => x.ProdutoNome).HasMaxLength(300);
+            e.Property(x => x.Fabricante).HasMaxLength(200);
+            e.Property(x => x.PrecoVenda).HasPrecision(18, 2);
+            e.Property(x => x.Quantidade).HasPrecision(18, 3);
+            e.Property(x => x.PercentualDesconto).HasPrecision(8, 4);
+            e.Property(x => x.ValorDesconto).HasPrecision(18, 2);
+            e.Property(x => x.PrecoUnitario).HasPrecision(18, 2);
+            e.Property(x => x.Total).HasPrecision(18, 2);
+            e.HasOne(x => x.PreVenda).WithMany(x => x.Itens).HasForeignKey(x => x.PreVendaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── HierarquiaDesconto ────────────────────────────────────
+        modelBuilder.Entity<HierarquiaDesconto>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+        });
+        modelBuilder.Entity<HierarquiaDescontoItem>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.HierarquiaDesconto).WithMany(x => x.Itens).HasForeignKey(x => x.HierarquiaDescontoId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<HierarquiaDescontoSecao>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.HierarquiaDescontoItem).WithMany(x => x.Secoes).HasForeignKey(x => x.HierarquiaDescontoItemId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Secao).WithMany().HasForeignKey(x => x.SecaoId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<HierarquiaDescontoColaborador>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.HierarquiaDesconto).WithMany(x => x.Colaboradores).HasForeignKey(x => x.HierarquiaDescontoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Colaborador).WithMany().HasForeignKey(x => x.ColaboradorId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<HierarquiaDescontoConvenio>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.HierarquiaDesconto).WithMany(x => x.Convenios).HasForeignKey(x => x.HierarquiaDescontoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Convenio).WithMany().HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<HierarquiaDescontoCliente>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.HierarquiaDesconto).WithMany(x => x.Clientes).HasForeignKey(x => x.HierarquiaDescontoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Cliente ───────────────────────────────────────────────
+        modelBuilder.Entity<Cliente>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.LimiteCredito).HasPrecision(18, 2);
+            e.Property(x => x.DescontoGeral).HasPrecision(5, 2);
+            e.Property(x => x.Aviso).HasMaxLength(200);
+            e.Property(x => x.Observacao).HasMaxLength(1000);
+            e.Property(x => x.SenhaVendaPrazo).HasMaxLength(50);
+            e.HasOne(x => x.Pessoa).WithOne(p => p.Cliente).HasForeignKey<Cliente>(x => x.PessoaId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<ClienteConvenio>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Matricula).HasMaxLength(50);
+            e.Property(x => x.Cartao).HasMaxLength(50);
+            e.Property(x => x.Limite).HasPrecision(18, 2);
+            e.HasOne(x => x.Cliente).WithMany(x => x.Convenios).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Convenio).WithMany().HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<ClienteAutorizacao>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            e.HasOne(x => x.Cliente).WithMany(x => x.Autorizacoes).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<ClienteDesconto>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.AgrupadorOuProdutoNome).HasMaxLength(200);
+            e.Property(x => x.DescontoMinimo).HasPrecision(5, 2);
+            e.Property(x => x.DescontoMaxSemSenha).HasPrecision(5, 2);
+            e.Property(x => x.DescontoMaxComSenha).HasPrecision(5, 2);
+            e.HasOne(x => x.Cliente).WithMany(x => x.Descontos).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<ClienteUsoContinuo>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Fabricante).HasMaxLength(200);
+            e.Property(x => x.ColaboradorNome).HasMaxLength(200);
+            e.HasOne(x => x.Cliente).WithMany(x => x.UsosContinuos).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── Promocao ──────────────────────────────────────────────
+        modelBuilder.Entity<Promocao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Tipo).IsRequired();
+            e.Property(x => x.ReducaoVendaPrazo).HasPrecision(5, 2);
+        });
+
+        modelBuilder.Entity<PromocaoFilial>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Promocao).WithMany(x => x.Filiais).HasForeignKey(x => x.PromocaoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PromocaoPagamento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Promocao).WithMany(x => x.Pagamentos).HasForeignKey(x => x.PromocaoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PromocaoConvenio>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Promocao).WithMany(x => x.Convenios).HasForeignKey(x => x.PromocaoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Convenio).WithMany().HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PromocaoProduto>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.PercentualPromocao).HasPrecision(8, 4);
+            e.Property(x => x.ValorPromocao).HasPrecision(18, 2);
+            e.Property(x => x.PercentualLucro).HasPrecision(8, 4);
+            e.Property(x => x.PercentualAposLimite).HasPrecision(8, 4);
+            e.Property(x => x.ValorAposLimite).HasPrecision(18, 2);
+            e.HasOne(x => x.Promocao).WithMany(x => x.Produtos).HasForeignKey(x => x.PromocaoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PromocaoFaixa>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.PercentualDesconto).HasPrecision(8, 4);
+            e.HasOne(x => x.Promocao).WithMany(x => x.Faixas).HasForeignKey(x => x.PromocaoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Convenio ───────────────────────────────────────────────
+        modelBuilder.Entity<Convenio>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Aviso).HasMaxLength(200);
+            e.Property(x => x.Observacao).HasMaxLength(1000);
+            e.Property(x => x.ModoFechamento).IsRequired();
+            e.Property(x => x.LimiteCredito).HasPrecision(18, 2);
+            e.HasOne(x => x.Pessoa).WithMany().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.PessoaId).IsUnique();
+        });
+
+        modelBuilder.Entity<ConvenioDesconto>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.AgrupadorNome).HasMaxLength(200);
+            e.Property(x => x.DescontoMinimo).HasPrecision(5, 2);
+            e.Property(x => x.DescontoMaxSemSenha).HasPrecision(5, 2);
+            e.Property(x => x.DescontoMaxComSenha).HasPrecision(5, 2);
+            e.HasOne(x => x.Convenio).WithMany(x => x.Descontos).HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ConvenioBloqueio>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Convenio).WithMany(x => x.Bloqueios).HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ConvenioId, x.TipoPagamentoId }).IsUnique();
+        });
+
+        // ── TipoPagamento ──────────────────────────────────────────
+        modelBuilder.Entity<TipoPagamento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Modalidade).IsRequired();
+            e.Property(x => x.DescontoMinimo).HasPrecision(5, 2);
+            e.Property(x => x.DescontoMaxSemSenha).HasPrecision(5, 2);
+            e.Property(x => x.DescontoMaxComSenha).HasPrecision(5, 2);
+        });
+
+        // ── ContaPagar ─────────────────────────────────────────────
+        modelBuilder.Entity<ContaPagar>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Descricao).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Status).IsRequired();
+            e.Property(x => x.Valor).HasPrecision(18, 2);
+            e.Property(x => x.Desconto).HasPrecision(18, 2);
+            e.Property(x => x.Juros).HasPrecision(18, 2);
+            e.Property(x => x.Multa).HasPrecision(18, 2);
+            e.Property(x => x.ValorFinal).HasPrecision(18, 2);
+            e.Property(x => x.NrDocumento).HasMaxLength(100);
+            e.Property(x => x.NrNotaFiscal).HasMaxLength(100);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.Property(x => x.RecorrenciaParcela).HasMaxLength(10);
+            e.HasOne(x => x.Pessoa).WithMany().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.PlanoConta).WithMany().HasForeignKey(x => x.PlanoContaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.DataVencimento);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.RecorrenciaGrupo);
+        });
+
+        // ── PlanoConta ─────────────────────────────────────────────
+        modelBuilder.Entity<PlanoConta>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Descricao).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Nivel).IsRequired();
+            e.Property(x => x.Natureza).IsRequired();
+            e.Property(x => x.Ordem).IsRequired();
+            e.HasOne(x => x.ContaPai)
+             .WithMany()
+             .HasForeignKey(x => x.ContaPaiId)
+             .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.ContaPaiId);
+        });
+
+        // ── ContaBancaria ──────────────────────────────────────────
+        modelBuilder.Entity<ContaBancaria>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Descricao).HasMaxLength(200).IsRequired();
+            e.Property(x => x.TipoConta).IsRequired();
+            e.Property(x => x.Banco).HasMaxLength(100);
+            e.Property(x => x.Agencia).HasMaxLength(20);
+            e.Property(x => x.AgenciaDigito).HasMaxLength(5);
+            e.Property(x => x.NumeroConta).HasMaxLength(30);
+            e.Property(x => x.ContaDigito).HasMaxLength(5);
+            e.Property(x => x.ChavePix).HasMaxLength(200);
+            e.Property(x => x.SaldoInicial).HasPrecision(18, 2);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.PlanoConta)
+             .WithMany()
+             .HasForeignKey(x => x.PlanoContaId)
+             .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Filial)
+             .WithMany()
+             .HasForeignKey(x => x.FilialId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Configurações globais para todas as entidades BaseEntity

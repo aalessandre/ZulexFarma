@@ -57,6 +57,7 @@ export class DashboardComponent {
       nome: 'Movimento',
       cor: '#00acc1',
       tiles: [
+        { label: 'Pré-Venda',        sigla: 'PV', iconKey: 'cart',      rota: '/erp/pre-venda' },
         { label: 'Vendas',           sigla: 'VE', iconKey: 'cart',      rota: '/erp/vendas' },
         { label: 'Emprestimo',       sigla: 'EP', iconKey: 'handshake', rota: '/erp/emprestimo' },
         { label: 'Mov. de Estoque',  sigla: 'ME', iconKey: 'box',       rota: '/erp/movimentacao-estoque' },
@@ -66,6 +67,7 @@ export class DashboardComponent {
         { label: 'Compras',          sigla: 'CP', iconKey: 'cart2',     rota: '/erp/compras' },
         { label: 'Financeiro',       sigla: 'FN', iconKey: 'dollar',    rota: '/erp/financeiro' },
         { label: 'Fiscal',           sigla: 'FS', iconKey: 'dollar',    rota: '/erp/fiscal' },
+        { label: 'Promoções',        sigla: 'PM', iconKey: 'dollar',    rota: '/erp/promocoes' },
       ]
     },
     {
@@ -78,6 +80,7 @@ export class DashboardComponent {
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
         { label: 'Substancias',      sigla: 'SB', iconKey: 'pill',      rota: '/erp/substancias' },
+        { label: 'Convenios',        sigla: 'CV', iconKey: 'users',     rota: '/erp/convenios' },
         { label: 'Outros',           sigla: 'OT', iconKey: 'grid',      rota: '/erp/outros-cadastros' },
       ]
     },
@@ -102,6 +105,7 @@ export class DashboardComponent {
         { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
         { label: 'Configuracoes',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
         { label: 'Atual. Precos',    sigla: 'AP', iconKey: 'dollar',   rota: '/erp/atualizacao-precos' },
+        { label: 'Hierarquia Descontos', sigla: 'HD', iconKey: 'wrench', rota: '/erp/hierarquia-descontos' },
       ]
     },
     {
@@ -110,6 +114,7 @@ export class DashboardComponent {
       tiles: [
         { label: 'Help',            sigla: 'HP', iconKey: 'log',      rota: '/erp/help' },
         { label: 'Dic. de Dados',   sigla: 'DD', iconKey: 'log',      rota: '/erp/dicionario-dados' },
+        { label: 'Todo Board',      sigla: 'TD', iconKey: 'log',      rota: '/erp/todo-board' },
       ]
     }
   ];

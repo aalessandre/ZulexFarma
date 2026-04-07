@@ -718,6 +718,8 @@
 }
 
 .sort-icon {
+  display: inline-flex;
+  align-items: center;
   margin-left: 5px;
   font-size: var(--erp-fs-xs);
   color: var(--erp-text-muted);

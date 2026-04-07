@@ -1,0 +1,873 @@
+<div class="tela-erp">
+
+  <!-- ── SIDEBAR ESQUERDA ─────────────────────────────────────────── -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()">
+      <span>Procurar</span>
+      <span class="sidebar-sub">Consulta</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()">
+      <span>Adicionar</span>
+      <span class="sidebar-sub">Novo cadastro</span>
+    </div>
+    <div class="sidebar-item tile-editar" [class.disabled]="!selecionado()" (click)="editar()">
+      <span>Editar</span>
+      <span class="sidebar-sub">Alterar registro</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+
+    @if (abasEdicao().length > 0) {
+      <div class="sidebar-divider"></div>
+      @for (aba of abasEdicao(); track aba.cliente.id) {
+        <div class="sidebar-aba"
+             [class.ativo]="abaAtivaId() === aba.cliente.id && modo() === 'form'"
+             (click)="ativarAba(aba.cliente.id!)">
+          <div class="sidebar-aba-topo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span class="sidebar-aba-id">#{{ aba.cliente.id }}</span>
+            @if (aba.isDirty) { <span class="sidebar-aba-dirty">&#x25CF;</span> }
+          </div>
+          <span class="sidebar-aba-nome">{{ aba.cliente.nome }}</span>
+          <button class="sidebar-aba-fechar"
+                  (click)="$event.stopPropagation(); fecharAba(aba.cliente.id!)"
+                  title="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+      }
+    }
+  </aside>
+
+  <!-- ── AREA PRINCIPAL ───────────────────────────────────────────── -->
+  <div class="tela-main">
+
+    @if (modo() === 'lista') {
+      <!-- LISTA -->
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="Digite ao menos 3 caracteres..."
+                   [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            @if (busca()) {
+              <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="lista-filtro">
+          <label>SITUACAO</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header">
+                <span>Personalizar Colunas</span>
+                <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrao</button>
+              </div>
+              <div class="col-picker-lista">
+                @for (col of colunas(); track col.campo) {
+                  <label class="col-picker-item">
+                    <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                    <span>{{ col.label }}</span>
+                    @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th class="th-arrow"></th>
+              @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+                <th class="th-sort th-resize"
+                    [style.width.px]="col.largura"
+                    [style.min-width.px]="col.minLargura"
+                    (click)="ordenar(col.campo)"
+                    draggable="true"
+                    (dragstart)="onDragStartCol(i)"
+                    (dragover)="onDragOverCol($event, i)"
+                    (drop)="onDropCol()">
+                  {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                  <div class="resize-handle"
+                       (mousedown)="iniciarResize($event, col.campo, col.largura)"
+                       (click)="$event.stopPropagation()"></div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+            } @else if (registrosFiltrados().length === 0) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+            } @else {
+              @for (c of registrosFiltrados(); track c.id) {
+                <tr [class.selecionado]="selecionado()?.id === c.id"
+                    (click)="selecionar(c)" (dblclick)="editar()">
+                  <td class="td-arrow">
+                    @if (selecionado()?.id === c.id) { <span>&#x25B6;</span> }
+                  </td>
+                  @for (col of colunasVisiveis(); track col.campo) {
+                    <td>{{ getCellValue(c, col.campo) }}</td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span>
+      </div>
+    }
+
+    @if (modo() === 'form') {
+      <!-- FORMULARIO -->
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar Cliente' : 'Novo Cliente' }}</div>
+
+        <!-- CODIGO / DATA CADASTRO (somente edicao) -->
+        @if (modoEdicao()) {
+          <div class="form-grid form-grid-info">
+            <div class="field">
+              <label>CODIGO</label>
+              <input type="text" [value]="clienteForm().id" disabled class="field-disabled" />
+            </div>
+            <div class="field">
+              <label>DATA CADASTRO</label>
+              <input type="text" [value]="clienteForm().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" />
+            </div>
+          </div>
+        }
+
+        @if (erro()) {
+          <div class="form-erro">{{ erro() }}</div>
+        }
+
+        <!-- ── TIPO DE PESSOA ──────────────────────────────────────── -->
+        <div class="form-secao">Tipo de Pessoa</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>TIPO</label>
+            <select [value]="clienteForm().tipo" (change)="onTipoChange($any($event.target).value)">
+              <option value="J">Pessoa Juridica</option>
+              <option value="F">Pessoa Fisica</option>
+            </select>
+          </div>
+        </div>
+
+        @if (clienteForm().tipo === 'J') {
+          <!-- PESSOA JURIDICA -->
+          <div class="form-secao">Identificacao</div>
+          <div class="form-grid">
+            <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')">
+              <label>CNPJ *</label>
+              <div class="input-icon-wrap">
+                <input type="text" [value]="clienteForm().cpfCnpj"
+                       (input)="onCpfCnpjInput($event)" (blur)="onCpfCnpjBlur()" maxlength="18" placeholder="00.000.000/0000-00" />
+                @if (buscandoCnpj()) { <span class="input-spinner">&#x27F3;</span> }
+              </div>
+              @if (erroCampo('cpfCnpj')) { <span class="field-erro">{{ erroCampo('cpfCnpj') }}</span> }
+            </div>
+
+            <div class="field field-2" [class.field-invalido]="erroCampo('razaoSocial')">
+              <label>RAZAO SOCIAL *</label>
+              <input type="text" [value]="clienteForm().razaoSocial || ''"
+                     (input)="updateForm('razaoSocial', $any($event.target).value)" maxlength="200" />
+              @if (erroCampo('razaoSocial')) { <span class="field-erro">{{ erroCampo('razaoSocial') }}</span> }
+            </div>
+
+            <div class="field field-2" [class.field-invalido]="erroCampo('nome')">
+              <label>NOME FANTASIA *</label>
+              <input type="text" [value]="clienteForm().nome"
+                     (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
+              @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
+            </div>
+
+            <div class="field">
+              <label>INSCRICAO ESTADUAL</label>
+              <input type="text" [value]="clienteForm().inscricaoEstadual || ''"
+                     (input)="updateForm('inscricaoEstadual', $any($event.target).value)" maxlength="20" />
+            </div>
+          </div>
+
+          @if (pessoaEncontrada()) {
+            <div class="form-info-pessoa">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Pessoa ja cadastrada{{ pessoaEncontrada()?.temColaborador ? ' como Colaborador' : '' }}. Dados preenchidos automaticamente.
+            </div>
+          }
+        }
+
+        @if (clienteForm().tipo === 'F') {
+          <!-- PESSOA FISICA -->
+          <div class="form-secao">Identificacao</div>
+          <div class="form-grid">
+            <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')">
+              <label>CPF *</label>
+              <input type="text" [value]="clienteForm().cpfCnpj"
+                     (input)="onCpfCnpjInput($event)" (blur)="onCpfCnpjBlur()" maxlength="14" placeholder="000.000.000-00" />
+              @if (erroCampo('cpfCnpj')) { <span class="field-erro">{{ erroCampo('cpfCnpj') }}</span> }
+            </div>
+
+            <div class="field field-3" [class.field-invalido]="erroCampo('nome')">
+              <label>NOME *</label>
+              <input type="text" [value]="clienteForm().nome"
+                     (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
+              @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
+            </div>
+
+            <div class="field">
+              <label>RG</label>
+              <input type="text" [value]="clienteForm().rg || ''"
+                     (input)="updateForm('rg', $any($event.target).value)" maxlength="20" />
+            </div>
+
+            <div class="field">
+              <label>DATA NASCIMENTO</label>
+              <input type="date" [value]="clienteForm().dataNascimento ? clienteForm().dataNascimento!.slice(0,10) : ''"
+                     (input)="updateForm('dataNascimento', $any($event.target).value)" />
+            </div>
+          </div>
+
+          @if (pessoaEncontrada()) {
+            <div class="form-info-pessoa">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Pessoa ja cadastrada{{ pessoaEncontrada()?.temColaborador ? ' como Colaborador' : '' }}. Dados preenchidos automaticamente.
+            </div>
+          }
+        }
+
+        <div class="form-grid" style="margin-top:10px">
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="clienteForm().ativo"
+                     (change)="updateForm('ativo', $any($event.target).checked)" />
+              <span>Ativo</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- ══════ ACCORDION ENDERECOS ══════ -->
+        <div class="accordion" [class.aberto]="accEnderecos()">
+          <div class="accordion-header" (click)="accEnderecos.update(v => !v)">
+            <span>Enderecos ({{ clienteForm().enderecos.length }})</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accEnderecos() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+          </div>
+          <div class="accordion-body">
+            <div class="form-secao-toolbar">
+              <span></span>
+              <button class="btn-add-item" (click)="adicionarEndereco()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Adicionar
+              </button>
+            </div>
+
+            @if (erroCampo('enderecos')) {
+              <div class="form-erro">{{ erroCampo('enderecos') }}</div>
+            }
+
+            @for (end of clienteForm().enderecos; track $index; let i = $index) {
+              <div class="item-card">
+                <div class="item-card-header">
+                  <span class="item-card-titulo">Endereco {{ i + 1 }}</span>
+                  <label class="check-label check-sm">
+                    <input type="checkbox" [checked]="end.principal"
+                           (change)="updateEndereco(i, 'principal', $any($event.target).checked)" />
+                    <span>Principal</span>
+                  </label>
+                  <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>TIPO</label>
+                    <select [value]="end.tipo" (change)="updateEndereco(i, 'tipo', $any($event.target).value)">
+                      @for (t of tiposEndereco; track t) { <option [value]="t">{{ t }}</option> }
+                    </select>
+                  </div>
+
+                  <div class="field" [class.field-invalido]="erroCampo('end_cep_' + i)">
+                    <label>CEP *</label>
+                    <div class="input-icon-wrap">
+                      <input type="text" [value]="end.cep"
+                             (input)="onCepEnderecoInput($event, i)" maxlength="9" placeholder="00000-000" />
+                      @if (buscandoCep()) { <span class="input-spinner">&#x27F3;</span> }
+                    </div>
+                    @if (erroCampo('end_cep_' + i)) { <span class="field-erro">{{ erroCampo('end_cep_' + i) }}</span> }
+                  </div>
+
+                  <div class="field field-3" [class.field-invalido]="erroCampo('end_rua_' + i)">
+                    <label>RUA *</label>
+                    <input type="text" [value]="end.rua"
+                           (input)="updateEndereco(i, 'rua', $any($event.target).value)" maxlength="200" />
+                    @if (erroCampo('end_rua_' + i)) { <span class="field-erro">{{ erroCampo('end_rua_' + i) }}</span> }
+                  </div>
+
+                  <div class="field" [class.field-invalido]="erroCampo('end_numero_' + i)">
+                    <label>NUMERO *</label>
+                    <input type="text" [value]="end.numero"
+                           (input)="updateEndereco(i, 'numero', $any($event.target).value)" maxlength="10" />
+                    @if (erroCampo('end_numero_' + i)) { <span class="field-erro">{{ erroCampo('end_numero_' + i) }}</span> }
+                  </div>
+
+                  <div class="field">
+                    <label>COMPLEMENTO</label>
+                    <input type="text" [value]="end.complemento || ''"
+                           (input)="updateEndereco(i, 'complemento', $any($event.target).value)" maxlength="100" />
+                  </div>
+
+                  <div class="field field-2" [class.field-invalido]="erroCampo('end_bairro_' + i)">
+                    <label>BAIRRO *</label>
+                    <input type="text" [value]="end.bairro"
+                           (input)="updateEndereco(i, 'bairro', $any($event.target).value)" maxlength="100" />
+                    @if (erroCampo('end_bairro_' + i)) { <span class="field-erro">{{ erroCampo('end_bairro_' + i) }}</span> }
+                  </div>
+
+                  <div class="field field-2" [class.field-invalido]="erroCampo('end_cidade_' + i)">
+                    <label>CIDADE *</label>
+                    <input type="text" [value]="end.cidade"
+                           (input)="updateEndereco(i, 'cidade', $any($event.target).value)" maxlength="100" />
+                    @if (erroCampo('end_cidade_' + i)) { <span class="field-erro">{{ erroCampo('end_cidade_' + i) }}</span> }
+                  </div>
+
+                  <div class="field" [class.field-invalido]="erroCampo('end_uf_' + i)">
+                    <label>UF *</label>
+                    <input type="text" [value]="end.uf"
+                           (input)="updateEndereco(i, 'uf', $any($event.target).value.toUpperCase())" maxlength="2"
+                           style="text-transform:uppercase" />
+                    @if (erroCampo('end_uf_' + i)) { <span class="field-erro">{{ erroCampo('end_uf_' + i) }}</span> }
+                  </div>
+                </div>
+              </div>
+            }
+
+            @if (clienteForm().enderecos.length === 0) {
+              <div class="item-vazio">Nenhum endereco cadastrado. Clique em "Adicionar" para incluir.</div>
+            }
+          </div>
+        </div>
+
+        <!-- ══════ ACCORDION CONTATOS ══════ -->
+        <div class="accordion" [class.aberto]="accContatos()">
+          <div class="accordion-header" (click)="accContatos.update(v => !v)">
+            <span>Contatos ({{ clienteForm().contatos.length }})</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accContatos() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+          </div>
+          <div class="accordion-body">
+            <div class="form-secao-toolbar">
+              <span></span>
+              <button class="btn-add-item" (click)="adicionarContato()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Adicionar
+              </button>
+            </div>
+
+            @if (clienteForm().contatos.length === 0) {
+              <div class="item-vazio">Nenhum contato cadastrado. Clique em "Adicionar" para incluir.</div>
+            }
+
+            @for (ct of clienteForm().contatos; track $index; let i = $index) {
+              <div class="item-card">
+                <div class="item-card-header">
+                  <span class="item-card-titulo">Contato {{ i + 1 }}</span>
+                  <label class="check-label check-sm">
+                    <input type="checkbox" [checked]="ct.principal"
+                           (change)="updateContato(i, 'principal', $any($event.target).checked)" />
+                    <span>Principal</span>
+                  </label>
+                  <button class="btn-remove-item" (click)="removerContato(i)" title="Remover">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>TIPO</label>
+                    <select [value]="ct.tipo" (change)="updateContato(i, 'tipo', $any($event.target).value)">
+                      @for (t of tiposContato; track t) { <option [value]="t">{{ t }}</option> }
+                    </select>
+                  </div>
+
+                  <div class="field field-2">
+                    <label>VALOR *</label>
+                    <input type="text" [value]="ct.valor"
+                           (input)="onContatoValorInput($event, i)" maxlength="150"
+                           [placeholder]="ct.tipo === 'EMAIL' ? 'email@exemplo.com' : '(00) 00000-0000'" />
+                  </div>
+
+                  <div class="field field-2">
+                    <label>DESCRICAO</label>
+                    <input type="text" [value]="ct.descricao || ''"
+                           (input)="updateContato(i, 'descricao', $any($event.target).value)" maxlength="100"
+                           placeholder="Ex.: Pessoal, Comercial" />
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- ══════ ACCORDION CONVENIO ══════ -->
+        <div class="accordion" [class.aberto]="accConvenios()">
+          <div class="accordion-header" (click)="accConvenios.update(v => !v)">
+            <span>Convenios ({{ clienteForm().convenios.length }})</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accConvenios() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+          </div>
+          <div class="accordion-body">
+            <div class="desc-add-row">
+              <select [value]="convAddId()" (change)="convAddId.set(+$any($event.target).value)">
+                <option [value]="0">-- Selecione um convenio --</option>
+                @for (cv of conveniosLookup(); track cv.id) {
+                  <option [value]="cv.id">{{ cv.pessoaNome }}</option>
+                }
+              </select>
+              <input type="text" [value]="convAddMatricula()" (input)="convAddMatricula.set($any($event.target).value)" placeholder="Matricula" style="width:120px" />
+              <input type="text" [value]="convAddCartao()" (input)="convAddCartao.set($any($event.target).value)" placeholder="Cartao" style="width:120px" />
+              <input type="text" [value]="convAddLimite()" (input)="convAddLimite.set(+$any($event.target).value)" placeholder="Limite" style="width:100px" />
+              <button class="btn-add-desc" (click)="adicionarConvenio()" [disabled]="!convAddId()">Adicionar</button>
+            </div>
+
+            @if (clienteForm().convenios.length > 0) {
+              <table class="desc-table">
+                <thead><tr><th>Convenio</th><th>Matricula</th><th>Cartao</th><th>Limite</th><th></th></tr></thead>
+                <tbody>
+                  @for (cv of clienteForm().convenios; track $index; let i = $index) {
+                    <tr>
+                      <td>{{ cv.convenioNome }}</td>
+                      <td>{{ cv.matricula }}</td>
+                      <td>{{ cv.cartao }}</td>
+                      <td>{{ cv.limite }}</td>
+                      <td><button class="btn-rem-desc" (click)="removerConvenio(i)" title="Remover"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <div class="desc-vazio">Nenhum convenio vinculado.</div>
+            }
+          </div>
+        </div>
+
+        <!-- ══════ ACCORDION GERAL ══════ -->
+        <div class="accordion" [class.aberto]="accGeral()">
+          <div class="accordion-header" (click)="accGeral.update(v => !v)">
+            <span>Geral</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accGeral() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+          </div>
+          <div class="accordion-body">
+            <div class="form-grid">
+              <div class="field">
+                <label>LIMITE DE CREDITO</label>
+                <input type="text" [value]="clienteForm().limiteCredito"
+                       (input)="updateForm('limiteCredito', +$any($event.target).value)" />
+              </div>
+              <div class="field">
+                <label>DESCONTO GERAL (%)</label>
+                <input type="text" [value]="clienteForm().descontoGeral"
+                       (input)="updateForm('descontoGeral', +$any($event.target).value)" />
+              </div>
+              <div class="field">
+                <label>MAX. PARCELAS</label>
+                <input type="text" [value]="clienteForm().qtdeMaxParcelas"
+                       (input)="updateForm('qtdeMaxParcelas', +$any($event.target).value)" />
+              </div>
+            </div>
+
+            <div class="form-grid" style="margin-top:12px">
+              <div class="field field-2">
+                <label>PRAZO DE PAGAMENTO</label>
+                <select [value]="clienteForm().prazoPagamento" (change)="updateForm('prazoPagamento', +$any($event.target).value)">
+                  <option [value]="1">Dias Corridos</option>
+                  <option [value]="2">Por Fechamento</option>
+                </select>
+              </div>
+              @if (clienteForm().prazoPagamento === 1) {
+                <div class="field">
+                  <label>QTD. DIAS</label>
+                  <input type="text" [value]="clienteForm().qtdeDias"
+                         (input)="updateForm('qtdeDias', +$any($event.target).value)" />
+                </div>
+              }
+              @if (clienteForm().prazoPagamento === 2) {
+                <div class="field">
+                  <label>DIA FECHAMENTO</label>
+                  <input type="text" [value]="clienteForm().diaFechamento"
+                         (input)="updateForm('diaFechamento', +$any($event.target).value)" />
+                </div>
+                <div class="field">
+                  <label>DIA VENCIMENTO</label>
+                  <input type="text" [value]="clienteForm().diaVencimento"
+                         (input)="updateForm('diaVencimento', +$any($event.target).value)" />
+                </div>
+                <div class="field">
+                  <label>QTD. MESES</label>
+                  <input type="text" [value]="clienteForm().qtdeMeses"
+                         (input)="updateForm('qtdeMeses', +$any($event.target).value)" />
+                </div>
+              }
+            </div>
+
+            <div class="form-grid checks-grid" style="margin-top:12px">
+              <label class="check-label"><input type="checkbox" [checked]="clienteForm().bloqueado" (change)="updateForm('bloqueado', $any($event.target).checked)" /> Bloqueado</label>
+              <label class="check-label"><input type="checkbox" [checked]="clienteForm().permiteFidelidade" (change)="updateForm('permiteFidelidade', $any($event.target).checked)" /> Permite Fidelidade</label>
+              <label class="check-label"><input type="checkbox" [checked]="clienteForm().permiteVendaParcelada" (change)="updateForm('permiteVendaParcelada', $any($event.target).checked)" /> Permite Venda Parcelada</label>
+              <label class="check-label"><input type="checkbox" [checked]="clienteForm().permiteVendaPrazo" (change)="updateForm('permiteVendaPrazo', $any($event.target).checked)" /> Permite Venda a Prazo</label>
+              <label class="check-label"><input type="checkbox" [checked]="clienteForm().permiteVendaVista" (change)="updateForm('permiteVendaVista', $any($event.target).checked)" /> Permite Venda a Vista</label>
+              <label class="check-label"><input type="checkbox" [checked]="clienteForm().calcularJuros" (change)="updateForm('calcularJuros', $any($event.target).checked)" /> Calcular Juros</label>
+              <label class="check-label"><input type="checkbox" [checked]="clienteForm().bloquearComissao" (change)="updateForm('bloquearComissao', $any($event.target).checked)" /> Bloquear Comissao</label>
+              <label class="check-label"><input type="checkbox" [checked]="clienteForm().pedirSenhaVendaPrazo" (change)="updateForm('pedirSenhaVendaPrazo', $any($event.target).checked)" /> Pedir Senha Venda a Prazo</label>
+            </div>
+
+            @if (clienteForm().pedirSenhaVendaPrazo) {
+              <div class="form-grid" style="margin-top:12px">
+                <div class="field">
+                  <label>SENHA VENDA A PRAZO</label>
+                  <input type="password" [value]="clienteForm().senhaVendaPrazo"
+                         (input)="updateForm('senhaVendaPrazo', $any($event.target).value)" maxlength="20" />
+                </div>
+              </div>
+            }
+
+            <div class="form-grid" style="margin-top:12px">
+              <div class="field field-3">
+                <label>AVISO (exibido na venda)</label>
+                <input type="text" [value]="clienteForm().aviso || ''"
+                       (input)="updateForm('aviso', $any($event.target).value)" maxlength="200" placeholder="Aviso curto para o operador..." />
+              </div>
+            </div>
+
+            <div class="form-grid" style="margin-top:12px">
+              <div class="field field-full">
+                <label>OBSERVACAO</label>
+                <textarea rows="3" [value]="clienteForm().observacao || ''"
+                          (input)="updateForm('observacao', $any($event.target).value)" maxlength="500"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════ ACCORDION AUTORIZACOES ══════ -->
+        <div class="accordion" [class.aberto]="accAutorizacoes()">
+          <div class="accordion-header" (click)="accAutorizacoes.update(v => !v)">
+            <span>Autorizacoes ({{ clienteForm().autorizacoes.length }})</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accAutorizacoes() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+          </div>
+          <div class="accordion-body">
+            <div class="desc-add-row">
+              <input type="text" [value]="autAddNome()" (input)="autAddNome.set($any($event.target).value)"
+                     placeholder="Nome da pessoa autorizada" style="flex:1" (keydown.enter)="adicionarAutorizacao()" />
+              <button class="btn-add-desc" (click)="adicionarAutorizacao()" [disabled]="!autAddNome().trim()">Adicionar</button>
+            </div>
+            <div class="tags-wrap">
+              @for (aut of clienteForm().autorizacoes; track $index; let i = $index) {
+                <span class="tag-chip">
+                  {{ aut.nome }}
+                  <button class="tag-chip-remove" (click)="removerAutorizacao(i)" title="Remover">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </span>
+              }
+            </div>
+            @if (clienteForm().autorizacoes.length === 0) {
+              <div class="desc-vazio">Nenhuma pessoa autorizada cadastrada.</div>
+            }
+          </div>
+        </div>
+
+        <!-- ══════ ACCORDION DESCONTOS ESPECIAIS ══════ -->
+        <div class="accordion" [class.aberto]="accDescontos()">
+          <div class="accordion-header" (click)="accDescontos.update(v => !v)">
+            <span>Descontos Especiais ({{ clienteForm().descontos.length }})</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accDescontos() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+          </div>
+          <div class="accordion-body">
+            <!-- Por Agrupador -->
+            <div class="sub-secao">Por Agrupador</div>
+            <div class="desc-add-row">
+              <div class="desc-add-field"><label>TIPO</label>
+                <select class="select-campo" [value]="descTipoAgrupador()" (change)="carregarAgrupadores(+$any($event.target).value)">
+                  <option [value]="1">Grupo Principal</option><option [value]="2">Grupo</option><option [value]="3">SubGrupo</option><option [value]="4">Seção</option>
+                </select>
+              </div>
+              <div class="desc-add-field desc-add-field-2"><label>AGRUPADOR</label>
+                <select class="select-campo" [value]="descAgrupadorId()" (change)="descAgrupadorId.set(+$any($event.target).value)">
+                  <option [value]="0">-- Selecione --</option>
+                  @for (a of agrupadores(); track a.id) { <option [value]="a.id">{{ a.nome }}</option> }
+                </select>
+              </div>
+              <div class="desc-add-field"><label>% MÍNIMO</label><input type="text" [value]="descMinimo()" (input)="descMinimo.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field"><label>% S/ SENHA</label><input type="text" [value]="descSemSenha()" (input)="descSemSenha.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field"><label>% C/ SENHA</label><input type="text" [value]="descComSenha()" (input)="descComSenha.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field" style="align-self:flex-end"><button class="btn-add-desc" (click)="adicionarDescontoAgrupador()" [disabled]="!descAgrupadorId()">Adicionar</button></div>
+            </div>
+
+            <!-- Por Produto -->
+            <div class="sub-secao">Por Produto</div>
+            <div class="desc-add-row">
+              <div class="desc-add-field desc-add-field-2 autocomplete-wrap"><label>PRODUTO</label>
+                <input type="text" [value]="descProdutoBusca()" (input)="descProdutoBusca.set($any($event.target).value); buscarProdutoDesconto()"
+                       placeholder="Buscar produto..." />
+                @if (descProdutoResultados().length > 0) {
+                  <div class="autocomplete-dropdown">
+                    @for (p of descProdutoResultados(); track p.id) {
+                      <div class="autocomplete-item" (click)="selecionarProdutoDesconto(p)">
+                        <span class="autocomplete-codigo">{{ p.id }}</span>
+                        <span>{{ p.nome }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              <div class="desc-add-field"><label>% MÍNIMO</label><input type="text" [value]="descProdMinimo()" (input)="descProdMinimo.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field"><label>% S/ SENHA</label><input type="text" [value]="descProdSemSenha()" (input)="descProdSemSenha.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field"><label>% C/ SENHA</label><input type="text" [value]="descProdComSenha()" (input)="descProdComSenha.set(+$any($event.target).value || 0)" style="width:80px" /></div>
+              <div class="desc-add-field" style="align-self:flex-end"><button class="btn-add-desc" (click)="adicionarDescontoProduto()" [disabled]="!descProdutoSelecionado()">Adicionar</button></div>
+            </div>
+
+            <!-- Tabela de descontos -->
+            @if (clienteForm().descontos.length > 0) {
+              <table class="desc-table" style="margin-top:12px">
+                <thead><tr><th>Tipo</th><th>Nome</th><th>% Mínimo</th><th>% s/ Senha</th><th>% c/ Senha</th><th></th></tr></thead>
+                <tbody>
+                  @for (d of clienteForm().descontos; track $index; let i = $index) {
+                    <tr>
+                      <td>{{ tipoAgrupadorNome(d.tipoAgrupador) }}</td>
+                      <td>{{ d.agrupadorOuProdutoNome }}</td>
+                      <td>{{ d.descontoMinimo }}%</td>
+                      <td>{{ d.descontoMaxSemSenha }}%</td>
+                      <td>{{ d.descontoMaxComSenha }}%</td>
+                      <td><button class="btn-rem-desc" (click)="removerDesconto(i)" title="Remover"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <div class="desc-vazio">Nenhum desconto especial configurado.</div>
+            }
+          </div>
+        </div>
+
+        <!-- ══════ ACCORDION USO CONTINUO ══════ -->
+        <div class="accordion" [class.aberto]="accUsoContinuo()">
+          <div class="accordion-header" (click)="accUsoContinuo.update(v => !v)">
+            <span>Uso Continuo ({{ clienteForm().usosContinuos.length }})</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accUsoContinuo() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+          </div>
+          <div class="accordion-body">
+            <div class="desc-add-row">
+              <div class="autocomplete-wrap" style="flex:1">
+                <input type="text" [value]="ucProdutoBusca()" (input)="ucProdutoBusca.set($any($event.target).value); buscarProdutoUC()"
+                       placeholder="Buscar produto..." style="width:100%" />
+                @if (ucProdutoResultados().length > 0) {
+                  <div class="autocomplete-dropdown">
+                    @for (p of ucProdutoResultados(); track p.id) {
+                      <div class="autocomplete-item" (click)="selecionarProdutoUC(p)">
+                        <span class="autocomplete-codigo">{{ p.id }}</span>
+                        <span>{{ p.nome }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              <input type="text" [value]="ucQtdeAoDia()" (input)="ucQtdeAoDia.set(+$any($event.target).value)" placeholder="Qtd/Dia" style="width:80px" />
+              <input type="date" [value]="ucUltimaCompra()" (input)="ucUltimaCompra.set($any($event.target).value)" style="width:140px" />
+              <input type="text" [value]="ucColaboradorNome()" (input)="ucColaboradorNome.set($any($event.target).value)" placeholder="Colaborador" style="width:150px" />
+              <button class="btn-add-desc" (click)="adicionarUsoContinuo()" [disabled]="!ucProdutoSelecionado()">Adicionar</button>
+            </div>
+
+            @if (clienteForm().usosContinuos.length > 0) {
+              <table class="desc-table" style="margin-top:12px">
+                <thead><tr><th>Produto</th><th>Fabricante</th><th>Apresentacao</th><th>Qtd/Dia</th><th>Ult. Compra</th><th>Prox. Compra</th><th>Colaborador</th><th></th></tr></thead>
+                <tbody>
+                  @for (uc of clienteForm().usosContinuos; track $index; let i = $index) {
+                    <tr>
+                      <td>{{ uc.produtoNome }}</td>
+                      <td>{{ uc.fabricante }}</td>
+                      <td>{{ uc.apresentacao }}</td>
+                      <td>{{ uc.qtdeAoDia }}</td>
+                      <td>{{ uc.ultimaCompra | date:'dd/MM/yyyy' }}</td>
+                      <td>{{ uc.proximaCompra | date:'dd/MM/yyyy' }}</td>
+                      <td>{{ uc.colaboradorNome }}</td>
+                      <td><button class="btn-rem-desc" (click)="removerUsoContinuo(i)" title="Remover"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <div class="desc-vazio">Nenhum medicamento de uso continuo cadastrado.</div>
+            }
+          </div>
+        </div>
+
+      </div>
+    }
+
+    <!-- ── TOOLBAR INFERIOR ──────────────────────────────────────────── -->
+    @if (modo() === 'form') {
+    <footer class="tela-toolbar">
+      @if (isDirty()) {
+        <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          {{ salvando() ? 'Salvando...' : 'Salvar' }}
+        </button>
+      }
+      @if (isDirty()) {
+        <button class="tb-btn tb-cancelar" (click)="cancelarEdicao()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Cancelar
+        </button>
+      }
+      <button class="tb-btn tb-fechar" (click)="fecharForm()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Fechar
+      </button>
+      @if (modoEdicao()) {
+        <button class="tb-btn tb-log" (click)="abrirLog()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Historico
+        </button>
+        <div class="tb-separador"></div>
+        <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          Excluir
+        </button>
+      }
+    </footer>
+    }
+
+  </div>
+</div>
+
+<!-- ── MODAL HISTORICO DE ALTERACOES ────────────────────────────────── -->
+@if (modalLog()) {
+  <div class="modal-overlay" (click)="fecharLog()">
+    <div class="modal-log-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-log-header">
+        <div class="modal-log-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Historico de Alteracoes — {{ selecionado()?.nome }}
+        </div>
+        <button class="modal-log-fechar" (click)="fecharLog()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-log-filtros">
+        <div class="log-filtro-campo">
+          <label>DATA INICIAL</label>
+          <input type="date" [value]="logDataInicio()" (change)="logDataInicio.set($any($event.target).value)" />
+        </div>
+        <div class="log-filtro-campo">
+          <label>DATA FINAL</label>
+          <input type="date" [value]="logDataFim()" (change)="logDataFim.set($any($event.target).value)" />
+        </div>
+        <button class="log-btn-filtrar" (click)="filtrarLog()" [disabled]="carregandoLog()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          {{ carregandoLog() ? 'Buscando...' : 'Filtrar' }}
+        </button>
+        <span class="log-total">
+          @if (!carregandoLog()) { {{ logRegistros().length }} registro(s) }
+        </span>
+      </div>
+
+      <div class="modal-log-body">
+        @if (carregandoLog()) {
+          <div class="log-loading">Carregando historico...</div>
+        } @else if (logRegistros().length === 0) {
+          <div class="log-vazio">Nenhum registro de historico encontrado.</div>
+        } @else {
+          <div class="log-painel-wrap">
+            <div class="log-painel-lista">
+              @for (entry of logRegistros(); track entry.id) {
+                <div class="log-lista-item" [class.ativo]="logSelecionado()?.id === entry.id"
+                     (click)="selecionarLogEntry(entry)">
+                  <div class="log-lista-data">{{ entry.realizadoEm | date:'dd/MM/yyyy HH:mm:ss' }}</div>
+                  <div class="log-lista-info">
+                    <span class="log-badge" [class]="acaoCss(entry.acao)">{{ entry.acao }}</span>
+                    <span class="log-lista-usuario">{{ entry.nomeUsuario }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="log-painel-detalhe">
+              @if (logSelecionado()) {
+                @if (logSelecionado()!.campos.length === 0) {
+                  <div class="log-detalhe-vazio">Nenhum campo registrado para esta acao.</div>
+                } @else {
+                  <table class="log-campos">
+                    <thead><tr><th>Campo</th><th>Valor Anterior</th><th>Valor Atual</th></tr></thead>
+                    <tbody>
+                      @for (c of logSelecionado()!.campos; track c.campo) {
+                        <tr>
+                          <td class="campo-nome">{{ c.campo }}</td>
+                          <td class="campo-anterior">{{ c.valorAnterior ?? '&#x2014;' }}</td>
+                          <td class="campo-atual">{{ c.valorAtual ?? '&#x2014;' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="modal-log-footer">
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharLog()">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+}

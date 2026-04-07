@@ -1,0 +1,70 @@
+a ideia da precificação é a seguinte, abrirá uma tela com todos os produtos das notas selecionadas, vamos apresentar os seguintes campos:
+- codigo do produto
+- nome do produto
+- fabricante
+- custo compra anterior => é o custo da ultima compra, que esta no produto
+- custo compra atual=> é o custo dos campos totalizados
+- Custo médio anterior=> é o custo medio que esta no produto
+- Custo médio atual=> é o custo medio ja calculado com a compra que esta sendo lançada
+- % var Custo Medio=> é a diferença em pecentual do custo medio atual em relação ao custo medio anterior
+- % var Custo Compra=> é a diferença em pecentual do custo compra atual em relação co custo compra anterior
+- preço de venda atual => vlr venda que esta no produto
+- Sug. Custo Compra => é o valor sugerido de venda usando markup e custo compra atual
+- Sug. Custo Médio => é o valor sugerido de venda usando custo medio atual e custo compra atual
+- PMC
+
+** custo da compra sempe são as somsa dos campos:
+- VLR UNITÁRIO + VLR ST + VLR OUTROS + IPI + FPC + BOLETO + DIFAL + FRETE
+- quando me refiro custo da compra anterior, são os valores desses campos que estão no cadastro do produto, que são referentes a ultima compra lançada
+- quando me refiro custo da compra atual, são os valores desses campos da nota/compra que esta sendo lançada
+
+- quando vou no google e coloco o codigo de barras do produto, consigo ver preço de algumas lojas on line, vc nao consegue criar um codigo que faça a mesma coisa? tras uma relação de preços que encontrar, ate no maximo 10
+
+
+vamos alterar 
+- vamos dar a opção do usuario escolher como ele quer compor o preço, igual ja tem em produto, aaui eu sugiro usar combobox:
+  - base de calculo: custo compra ou custo médio atual
+
+- as colunas vão ficar assim:
+- codigo do produto
+- nome do produto
+- fabricante
+- custo compra anterior => é o custo da ultima compra, que esta no produto
+- custo compra atual=> é o custo dos campos totalizados
+- Custo médio anterior=> é o custo medio que esta no produto
+- Custo médio atual=> é o custo medio ja calculado com a compra que esta sendo lançada
+- % var Custo Medio=> é a diferença em pecentual do custo medio atual em relação ao custo medio anterior
+- % var Custo Compra=> é a diferença em pecentual do custo compra atual em relação co custo compra anterior
+- preço de venda atual => vlr venda que esta no produto
+- Sug de vlr venda=> resulta no calculo do custo compra atual ou custo medio atual(depende da seleção) em relação ao %Proj Lucro que ja esta no cadastro do produto 
+- %Projeção Lucro => vem do cadastro do produto
+- %Markup=> vem do cadastro do produto
+- manter os campos  %Projeção Lucro, %Markup e Sug de preço venda editaveis, ao alterar qualquer um deles o calculo é feito, igual fez no produto
+- coloque dois botões: Acatar PMC Nota e Acatar PMC AbcFarma, ao clicar=>
+  - selecionar os produtos que tem o campo PMC Preenchido
+  - aplicar o valor do pmc ao campo Sug Vlr Venda, recalcular markup e proj lucro
+- quando clicar em atualizar, será usado o valor que esta em Sug de vlr venda para ser colocado no campo Vlr Venda do produto, e nao pode esquecer de refazer os calculos
+- um detalhe importante, a gente tem etapas para o lançamento da compra,a primeira foi fazer a pre-entrada, depois o reajuste de preço, depois virá a conferencia e por fim a finalização, ao atualizar,  o usuario poderá optar por atualizar os preços agora ou quando a ultima etapa for finalizada, que é quando finaliza o lançamento da nota
+- uma outra coisa, após finalizar o lançamento da nota, por algum motivo o usuario pode eliminar esse lançamento, então eu preciso desfazer todo o lançamento, gravar um log em cada produto e nos logs gerais, e desfazer as alterações dos preços e deduzir do estoque
+
+
+Conferencia
+Nessa tela será feito a conferencia dos produtos, bipando(escaneando o codigo de barras) um a um, campos:
+- no topo um campo para bipar o produto, ao bipar soma 1 na quantidade conferida
+- campos da tabela:
+ - codigo produto
+ - barras do produto
+ - nome do produto
+ - fabricante
+ - fração
+ - qtde Conf => conforme for bipando, será incrementado 1 nesse campo, precisamos de uma coluna que será o sinalizador, quando bater fica verde, se passar fica amarelo, abaixo da quantidade fica vermelho
+- a para bater a quantidade deve se levado em conta a fração:
+  - se é fração de 1, a quantidade comprada é 10, ao bipar 10 vezes bateu, fica verde
+  - se é fração de 10, foi comprado duas caixas, então a quantidade comprada total é 20, enquanto nao bipar 20x nao bate
+- no campo onde é bipado o produto, o usuario poderá usar o *, por exemplo, a quantidade total é 20, o usuario pode digitar 20* e bipar uma vez, será jogado no campo qtde conf 20
+- para localizar o produto, pode ser usado o codigo de barras principal ou os adicionais, ou seja, ao bipar um produto, se nao achar o codigo de barras principal, buscar na tabela de codigo de barras adicionais
+- um detalhe importante, a busca tem que ser feita no banco de dados, ou seja, eu preciso saber se o produto que esta sendo bipado existe no banco
+- o usuário poderá selecionar varias notas para conferencia, a medida que cada nota for batendo (nao sei se ja mostro algum status..), ao fechar a tela de conferencia, as notas que bateram tem que estar com um status de conferido
+ 
+
+

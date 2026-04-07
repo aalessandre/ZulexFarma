@@ -1,0 +1,312 @@
+<div class="pv-container">
+
+  <!-- ABAS DE ATENDIMENTO -->
+  <div class="pv-abas">
+    @for (aba of atendimentos(); track aba.id) {
+      <div class="pv-aba" [class.ativa]="abaAtivaId() === aba.id" (click)="trocarAba(aba.id)">
+        <span class="pv-aba-label">{{ aba.label }}</span>
+        @if (atendimentos().length > 1) {
+          <button class="pv-aba-fechar" (click)="$event.stopPropagation(); fecharAba(aba.id)" title="Fechar">&times;</button>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- HEADER -->
+  <div class="pv-header">
+
+    <!-- Cliente -->
+    <div class="pv-field-row">
+      <label class="pv-label">CLIENTE</label>
+      <div class="pv-autocomplete">
+        <input type="text" class="pv-input-full" placeholder="Buscar cliente..."
+               [value]="clienteBusca()"
+               (input)="onClienteBuscaInput($any($event.target).value)"
+               (focus)="clienteDropdown.set(clienteResultados().length > 0)" />
+        @if (clienteDropdown() && clienteResultados().length > 0) {
+          <div class="pv-dropdown">
+            @for (c of clienteResultados(); track c.id) {
+              <div class="pv-dropdown-item" (click)="selecionarCliente(c)">
+                <span class="pv-dropdown-nome">{{ c.nome }}</span>
+                @if (c.cpfCnpj) {
+                  <span class="pv-dropdown-sub">{{ c.cpfCnpj }}</span>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Payment type buttons -->
+    <div class="pv-pagamentos">
+      @for (tp of tiposPagamento(); track tp.id; let i = $index) {
+        <button class="pv-btn-pagamento"
+                [class.pv-btn-pagamento-ativo]="tipoPagamentoId() === tp.id"
+                [style.background-color]="corPagamento(i)"
+                (click)="selecionarPagamento(tp.id)">
+          {{ tp.nome }}
+        </button>
+      }
+    </div>
+
+    <!-- Vendedor -->
+    <div class="pv-field-row">
+      <label class="pv-label">VENDEDOR</label>
+      <div class="pv-autocomplete">
+        <input type="text" class="pv-input-full" placeholder="Buscar vendedor..."
+               [value]="colaboradorBusca()"
+               (input)="onColaboradorBuscaInput($any($event.target).value)"
+               (focus)="colaboradorDropdown.set(colaboradorResultados().length > 0)" />
+        @if (colaboradorDropdown() && colaboradorResultados().length > 0) {
+          <div class="pv-dropdown">
+            @for (c of colaboradorResultados(); track c.id) {
+              <div class="pv-dropdown-item" (click)="selecionarColaborador(c)">
+                <span class="pv-dropdown-nome">{{ c.nome }}</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Produto -->
+    <div class="pv-field-row">
+      <label class="pv-label">PRODUTO</label>
+      <div class="pv-autocomplete">
+        <input #inputProduto type="text" class="pv-input-full" placeholder="Buscar produto (codigo, nome, EAN)..."
+               [value]="produtoBusca()"
+               (input)="onProdutoBuscaInput($any($event.target).value)"
+               (keydown)="onProdutoKeydown($event)"
+               (focus)="produtoDropdown.set(produtoResultados().length > 0)" />
+        @if (produtoDropdown() && produtoResultados().length > 0) {
+          <div class="pv-dropdown pv-dropdown-produto">
+            @for (p of produtoResultados(); track p.id) {
+              <div class="pv-dropdown-item" (click)="selecionarProduto(p)">
+                <span class="pv-dropdown-codigo">{{ p.codigo }}</span>
+                <span class="pv-dropdown-nome">{{ p.nome }}</span>
+                <span class="pv-dropdown-preco">R$ {{ p.valorVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- GRID -->
+  <div class="pv-grid">
+    <div class="pv-grid-toolbar">
+      <span class="pv-grid-titulo">Itens da Pre-Venda</span>
+      <div class="col-picker-wrap">
+        <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          Colunas
+        </button>
+        @if (painelColunas()) {
+          <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+          <div class="col-picker-painel">
+            <div class="col-picker-header">
+              <span>Personalizar Colunas</span>
+              <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrao</button>
+            </div>
+            <div class="col-picker-lista">
+              @for (col of colunas(); track col.campo) {
+                <label class="col-picker-item">
+                  <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                  <span>{{ col.label }}</span>
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="grid-wrapper">
+      <table class="erp-grid">
+        <thead>
+          <tr>
+            <th class="th-arrow"></th>
+            @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize"
+                  [style.width.px]="col.largura"
+                  [style.min-width.px]="col.minLargura"
+                  (click)="ordenar(col.campo)"
+                  draggable="true"
+                  (dragstart)="onDragStartCol(i)"
+                  (dragover)="onDragOverCol($event, i)"
+                  (drop)="onDropCol()">
+                {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                <div class="resize-handle"
+                     (mousedown)="iniciarResize($event, col.campo, col.largura)"
+                     (click)="$event.stopPropagation()"></div>
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @if (itensSorted().length === 0) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum produto adicionado.</td></tr>
+          } @else {
+            @for (item of itensSorted(); track $index; let rowIdx = $index) {
+              <tr [class.selecionado]="itensSelecionadoIdx() === rowIdx"
+                  (click)="selecionarItem(rowIdx)">
+                <td class="td-arrow">
+                  @if (itensSelecionadoIdx() === rowIdx) {
+                    <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span>
+                  }
+                </td>
+                @for (col of colunasVisiveis(); track col.campo) {
+                  <td [class.td-editavel]="isEditavel(col.campo)"
+                      [class.td-numero]="col.tipo === 'numero'">
+                    @if (isEditavel(col.campo)) {
+                      <input type="text" class="pv-cell-input"
+                             [value]="getEditValue(item, col.campo)"
+                             (blur)="onCellEdit(rowIdx, col.campo, $event)"
+                             (keydown.enter)="$any($event.target).blur()" />
+                    } @else {
+                      {{ getCellValue(item, col.campo) }}
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- INFO + TOTALS FOOTER -->
+  <div class="pv-footer">
+    <div class="pv-info">
+      <div class="pv-info-row">
+        <span class="pv-info-label">ITENS:</span>
+        <span class="pv-info-valor">{{ totalItens() }}</span>
+      </div>
+      <div class="pv-info-row">
+        <span class="pv-info-label">ESTOQUE:</span>
+        <span class="pv-info-valor">{{ itemSelecionado()?.estoqueAtual ?? '-' }}</span>
+      </div>
+      <div class="pv-info-row">
+        <span class="pv-info-label">DESC. MAX (%):</span>
+        <span class="pv-info-valor">0,00</span>
+      </div>
+      <div class="pv-info-row">
+        <span class="pv-info-label">FORMULA:</span>
+        <span class="pv-info-valor">-</span>
+      </div>
+      <div class="pv-info-row">
+        <span class="pv-info-label">GRUPO:</span>
+        <span class="pv-info-valor">-</span>
+      </div>
+    </div>
+    <div class="pv-totais">
+      <div class="pv-total-row">
+        <span class="pv-total-label">TOTAL BRUTO</span>
+        <span class="pv-total-valor">{{ totalBruto().toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+      </div>
+      <div class="pv-total-row">
+        <span class="pv-total-label">DESCONTO</span>
+        <span class="pv-total-valor pv-total-desconto">{{ totalDesconto().toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+      </div>
+      <div class="pv-total-row pv-total-row-liquido">
+        <span class="pv-total-label">TOTAL LIQUIDO</span>
+        <span class="pv-total-valor pv-total-liquido">{{ totalLiquido().toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="pv-toolbar">
+    <button class="pv-tb-btn pv-tb-limpar" (click)="limpar()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+      </svg>
+      Limpar
+    </button>
+    <button class="pv-tb-btn pv-tb-eliminar" [disabled]="itensSelecionadoIdx() === null" (click)="eliminar()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+      Eliminar
+    </button>
+    <button class="pv-tb-btn pv-tb-pendentes" (click)="pendentes()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>
+      </svg>
+      Pendentes
+    </button>
+    <div class="pv-opcoes-wrap">
+      <button class="pv-tb-btn pv-tb-opcoes" (click)="menuOpcoesAberto.update(v => !v)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Opções
+      </button>
+      @if (menuOpcoesAberto()) {
+        <div class="pv-opcoes-overlay" (click)="menuOpcoesAberto.set(false)"></div>
+        <div class="pv-mega-menu">
+          <div class="pv-mega-grid">
+            <div class="pv-mega-item" (click)="novaAba(); menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span class="pv-mega-label">Novo Atendimento</span>
+              <span class="pv-mega-atalho">Ctrl+N</span>
+            </div>
+            <div class="pv-mega-item" (click)="pendentes(); menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span class="pv-mega-label">Vendas Pendentes</span>
+            </div>
+            <div class="pv-mega-item" (click)="menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span class="pv-mega-label">Cliente</span>
+            </div>
+            <div class="pv-mega-item" (click)="menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+              <span class="pv-mega-label">Produto</span>
+            </div>
+            <div class="pv-mega-item" (click)="menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+              <span class="pv-mega-label">Estoque</span>
+            </div>
+            <div class="pv-mega-item" (click)="menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              <span class="pv-mega-label">Devolução</span>
+            </div>
+            <div class="pv-mega-item" (click)="menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              <span class="pv-mega-label">Cob. Oferta</span>
+            </div>
+            <div class="pv-mega-item" (click)="menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span class="pv-mega-label">Digitalizar</span>
+            </div>
+            <div class="pv-mega-item" (click)="menuOpcoesAberto.set(false)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              <span class="pv-mega-label">Mov. Estoque</span>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+    <button class="pv-tb-btn pv-tb-sair" (click)="sairDaTela()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      Sair
+    </button>
+    <div class="pv-tb-separador"></div>
+    <button class="pv-tb-btn pv-tb-finalizar" [disabled]="salvando() || itens().length === 0" (click)="finalizar()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      {{ salvando() ? 'Salvando...' : 'Finalizar' }}
+    </button>
+  </div>
+
+</div>

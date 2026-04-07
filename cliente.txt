@@ -1,0 +1,77 @@
+agora crie o cadastro de cliente
+
+- herda a tabela pessoa
+
+campos visiveis
+- Id
+- data adastro
+- filial origem
+- tipo Pessoa => combobox : Fisica / Juridica
+- CNPJ/CPF => de acordo com o tipo escolhido, busca na tabela pessoa, busca na api de busca de cnpj
+- nome
+- I.E / RG
+- Data Nascimento => em caso de pessoa fisica
+- Ativo
+
+Accordion Endereços
+
+Accordion Contato
+
+Accordion convenio
+- aqui deve permitir inserir um ou mais convenios, uma pessoa poderá fazer parte de mais de um convenio
+- para cada vinculo com convenio preciso dos campos:
+  - matricula
+  - cartão
+  - limite
+
+Accordion Geral
+- limite de credito
+- %desconto geral
+- permite Fidelidade
+- combobox Prazo Pagamento com as opções Dias corridos ou Fechamento
+  - se dias corrido preciso do campo Qtde Dias
+  - de Fechamento preciso dos campos:
+    - dia fechamento
+    - dia vencimento
+    - Qtde Meses
+- permite venda parcelada
+- qtde maxima de pardelas
+- permite venda a prazo
+- permite venda a vista=> padrão marcado
+- bloquear
+- calcular juros => padrão marcado
+- bloquear comissão
+- pedir senha para venda a prazo=> se sim:
+- senha => exibir quando "pedir senha para venda a prazo" for marcado
+- aviso
+- Observações
+
+Accordion Autorizações
+- aqui preciso de uma table para informar quem esta autorizado a comprar no nome do cliente, as vezes o cliente autoriza o pai, ou mae ou filhos ou conjuje a comprar a prazo:
+- nome autozizado
+- * nao precisa ser uma table, pode ser um componente menos complexo
+
+Accordion Descontos Especiais
+- um cliente poderá ter descontos especiais ou por agrupadores ou por produtos especificos, ou os dois
+- crie um esquema em que eu posso sinalizar descontos por agrupadores de produtos e por produtos, vc fez por agrupadores no cadastro do convenio
+
+Accordion Uso Continuo
+- uso continuo são medicamentos que o usuario usa de forma continua, preciso registrar para que seja feito um trabalho de acompanhamento do cliente
+- para inserir na table preciso dos campos:
+ - produto => campo para pesquisar e inserir o produto
+ - fabricante => carrega do produto
+ - apresentação=> campo numerico, representa a quantidade de comprimidos que vem na embalagem
+ - qtde ao dia
+ - ultima compra
+ - proxima compra=> apresentação + ultima compra
+ - colaborador que esta inserindo=> campo de pesquisa para informar o colaborador
+
+
+** use os padrões do projeto
+** olhe o help antes de começar
+** olhe a memoria para resgatar padrões do projeto
+** nosso cadastro padrão é fabricante e compras, use as telas padroes
+** nao duplique codigos que tem que ser reaprovitados
+** capriche no visual, nao crie campos longos 
+
+

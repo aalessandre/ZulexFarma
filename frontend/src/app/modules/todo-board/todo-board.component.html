@@ -1,0 +1,193 @@
+<div class="todo-wrap">
+
+  <!-- HEADER -->
+  <div class="todo-header">
+    <div class="todo-header-left">
+      <button class="todo-btn-novo" (click)="abrirNovo()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Novo
+      </button>
+    </div>
+    <div class="todo-filtros">
+      <select [value]="filtroTipo()" (change)="filtroTipo.set($any($event.target).value)">
+        <option value="">Tipo: Todos</option>
+        @for (t of tipos; track t) { <option [value]="t">{{ t }}</option> }
+      </select>
+      <select [value]="filtroPrioridade()" (change)="filtroPrioridade.set($any($event.target).value)">
+        <option value="">Prioridade: Todas</option>
+        @for (p of prioridades; track p) { <option [value]="p">{{ p }}</option> }
+      </select>
+      <select [value]="filtroModulo()" (change)="filtroModulo.set($any($event.target).value)">
+        <option value="">Módulo: Todos</option>
+        @for (m of modulos; track m) { <option [value]="m">{{ m }}</option> }
+      </select>
+    </div>
+    <button class="todo-btn-sair" (click)="sairDaTela()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- KANBAN -->
+  <div class="kanban">
+
+    <!-- ABERTO -->
+    <div class="kanban-col">
+      <div class="kanban-col-header col-aberto">
+        <span class="col-titulo">Aberto</span>
+        <span class="col-badge">{{ totalAbertos() }}</span>
+      </div>
+      <div class="kanban-col-body">
+        @for (item of abertos(); track item.id) {
+          <div class="card" (click)="abrirEditar(item)">
+            <div class="card-top">
+              <span class="card-tipo" [style.background]="tipoCor(item.tipo)">{{ item.tipo }}</span>
+              <span class="card-prio" [style.color]="prioCor(item.prioridade)">{{ item.prioridade }}</span>
+            </div>
+            <div class="card-titulo">{{ item.titulo }}</div>
+            @if (item.descricao) { <div class="card-desc">{{ item.descricao }}</div> }
+            <div class="card-footer">
+              @if (item.modulo) { <span class="card-modulo">{{ item.modulo }}</span> }
+              @if (item.atribuidoPara) { <span class="card-atrib">{{ item.atribuidoPara }}</span> }
+              @if (item.dataLimite) { <span class="card-data">{{ formatarData(item.dataLimite) }}</span> }
+            </div>
+            <div class="card-acoes" (click)="$event.stopPropagation()">
+              <button class="card-acao" title="Mover para Em Andamento" (click)="moverPara(item.id, 'em_andamento')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+              <button class="card-acao card-acao-del" title="Excluir" (click)="excluir(item)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+              </button>
+            </div>
+          </div>
+        }
+        @if (abertos().length === 0) { <div class="kanban-vazio">Nenhum item</div> }
+      </div>
+    </div>
+
+    <!-- EM ANDAMENTO -->
+    <div class="kanban-col">
+      <div class="kanban-col-header col-andamento">
+        <span class="col-titulo">Em Andamento</span>
+        <span class="col-badge">{{ totalAndamento() }}</span>
+      </div>
+      <div class="kanban-col-body">
+        @for (item of emAndamento(); track item.id) {
+          <div class="card" (click)="abrirEditar(item)">
+            <div class="card-top">
+              <span class="card-tipo" [style.background]="tipoCor(item.tipo)">{{ item.tipo }}</span>
+              <span class="card-prio" [style.color]="prioCor(item.prioridade)">{{ item.prioridade }}</span>
+            </div>
+            <div class="card-titulo">{{ item.titulo }}</div>
+            @if (item.descricao) { <div class="card-desc">{{ item.descricao }}</div> }
+            <div class="card-footer">
+              @if (item.modulo) { <span class="card-modulo">{{ item.modulo }}</span> }
+              @if (item.atribuidoPara) { <span class="card-atrib">{{ item.atribuidoPara }}</span> }
+            </div>
+            <div class="card-acoes" (click)="$event.stopPropagation()">
+              <button class="card-acao card-acao-back" title="Voltar para Aberto" (click)="moverPara(item.id, 'aberto')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <button class="card-acao card-acao-done" title="Concluir" (click)="moverPara(item.id, 'concluido')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+              <button class="card-acao card-acao-del" title="Excluir" (click)="excluir(item)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+              </button>
+            </div>
+          </div>
+        }
+        @if (emAndamento().length === 0) { <div class="kanban-vazio">Nenhum item</div> }
+      </div>
+    </div>
+
+    <!-- CONCLUÍDO -->
+    <div class="kanban-col">
+      <div class="kanban-col-header col-concluido">
+        <span class="col-titulo">Concluído</span>
+        <span class="col-badge">{{ totalConcluidos() }}</span>
+      </div>
+      <div class="kanban-col-body">
+        @for (item of concluidos(); track item.id) {
+          <div class="card card-done" (click)="abrirEditar(item)">
+            <div class="card-top">
+              <span class="card-tipo" [style.background]="tipoCor(item.tipo)">{{ item.tipo }}</span>
+              <span class="card-data-done">{{ formatarData(item.dataConclusao) }}</span>
+            </div>
+            <div class="card-titulo">{{ item.titulo }}</div>
+            <div class="card-footer">
+              @if (item.modulo) { <span class="card-modulo">{{ item.modulo }}</span> }
+            </div>
+            <div class="card-acoes" (click)="$event.stopPropagation()">
+              <button class="card-acao card-acao-back" title="Reabrir" (click)="moverPara(item.id, 'aberto')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <button class="card-acao card-acao-del" title="Excluir" (click)="excluir(item)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+              </button>
+            </div>
+          </div>
+        }
+        @if (concluidos().length === 0) { <div class="kanban-vazio">Nenhum item</div> }
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL FORM -->
+@if (modalAberto()) {
+  <div class="modal-overlay" (click)="fecharModal()">
+    <div class="modal-todo" (click)="$event.stopPropagation()">
+      <div class="modal-todo-header">
+        <span>{{ editandoId() ? 'Editar' : 'Novo' }} Item</span>
+        <button class="modal-todo-fechar" (click)="fecharModal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-todo-body">
+        <div class="modal-campo">
+          <label>TÍTULO *</label>
+          <input type="text" [value]="fTitulo()" (input)="fTitulo.set($any($event.target).value)" maxlength="200" placeholder="Resumo do item..." />
+        </div>
+        <div class="modal-campo">
+          <label>DESCRIÇÃO</label>
+          <textarea [value]="fDescricao()" (input)="fDescricao.set($any($event.target).value)" rows="3" maxlength="1000" placeholder="Detalhamento..."></textarea>
+        </div>
+        <div class="modal-row">
+          <div class="modal-campo">
+            <label>TIPO</label>
+            <select [value]="fTipo()" (change)="fTipo.set($any($event.target).value)">
+              @for (t of tipos; track t) { <option [value]="t">{{ t }}</option> }
+            </select>
+          </div>
+          <div class="modal-campo">
+            <label>PRIORIDADE</label>
+            <select [value]="fPrioridade()" (change)="fPrioridade.set($any($event.target).value)">
+              @for (p of prioridades; track p) { <option [value]="p">{{ p }}</option> }
+            </select>
+          </div>
+          <div class="modal-campo">
+            <label>MÓDULO</label>
+            <select [value]="fModulo()" (change)="fModulo.set($any($event.target).value)">
+              @for (m of modulos; track m) { <option [value]="m">{{ m }}</option> }
+            </select>
+          </div>
+        </div>
+        <div class="modal-row">
+          <div class="modal-campo">
+            <label>ATRIBUÍDO PARA</label>
+            <input type="text" [value]="fAtribuido()" (input)="fAtribuido.set($any($event.target).value)" placeholder="Nome..." />
+          </div>
+          <div class="modal-campo">
+            <label>DATA LIMITE</label>
+            <input type="date" [value]="fDataLimite()" (change)="fDataLimite.set($any($event.target).value)" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-todo-footer">
+        <button class="modal-btn-cancelar" (click)="fecharModal()">Cancelar</button>
+        <button class="modal-btn-salvar" (click)="salvar()" [disabled]="!fTitulo().trim()">Salvar</button>
+      </div>
+    </div>
+  </div>
+}

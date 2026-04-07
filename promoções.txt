@@ -1,0 +1,80 @@
+esquema de promoção
+
+vamos criar nosso esquema de promoção, basicamente teremos:
+ - promoção fixa => aqui o desconto é fixo
+ - promoção progressiva => aqui quero criar um esquema onde quanto mais comprar maior o desconto
+ 
+crie um tile na home, bloco movimento chamado promoções, depois um submenu igual outros, dai vc coloca os dois tipos citados acima
+primeiro vamos focar na fixa 
+
+- *nome
+- *periodo de vigencia: 
+   - *data/hora inicial=> campo obrigatorio, pode vir preenchido com data e hora atual 
+   - data/hora termino=> nao é obrigatorio e deve vir vazio, se vazio nao terá prazo para terminar
+- dias da semana
+- *formas de pagamentos => componente que mostre as condições cadastradas, e permita selecionar mais de uma marcando checkbox 
+- *opção de selecionar quais filiais aceitarão a promoção
+- Permitir mudar o preço na venda => checkbox
+- gerar comissão
+- gerar exclusividade de comvenios=> se sim preciso informar quais convenios, pode ser igual vc fez para informar codigos de barras adicionais
+- %redução para venda a prazo=> campo para valor decimal, maximo 90%
+
+- quantidade maxima por venda
+- lançar por quantidade
+  - a ideia de lançar por quantidade é a seguinte, o usuario poderá dizer que a promoção será valida para ate x quantidades, por exemplo: vale para as 100 primeiros vendidos, nesse caso precisa definir qual a data de partida, exemplo: a contagem das quantidades vendidas será a partir da data x hora x, e após essa quantidade qual seria o valor do desconto ou % de promoção
+ - busca avançada para inserir produtos:
+   - buscar por agrupadores
+   - buscar por familia
+   - buscar por descrição, com checkbox para selecionar varios
+   - buscar por fabricante
+   - buscar por fornecedor
+   - buscar por faixa de preço
+   - somente ativos/inativos
+   - somente com estoque acima de x qtdes
+- nessa segunda tela oonde serão informados os produtos que preciso ter a questão da quantidade, tanto por venda, quanto por quantidade vendida, no caso da quantidade vendida, preciso ter colunas para definir %desconto/valor para as X quantidades e após ser vendido as X quantidades
+
+
+- nessa segunda tela onde irão ser lançados os produtos preciso ter as colunas:
+  - codigo produto
+  - nome produto
+  - fabricante
+  - qtd estoque
+  - curva
+  - %promoção => campo editavel para o usuario digitar o % que ele deseja inserir
+  - valor promoção => campo editavel para o usuario digitar o valor
+  - %proj lucro=> campo editavel para o usuario digitar o %de lucro que ele deseja ter
+  - ** os campos %promoção, valor promoção e %proj lucro deve se recalculaveis entre eles, altera um muda os outros
+
+
+
+
+Progressiva
+- copiar da promoção fixa (das configurações)
+ - identificação
+ - vigencia
+ - dias da semana
+ - forma de pagamento
+ - filiais
+ - Regras => 
+   - gerar comissão 
+   - exclusiva de convenios
+   - intersabores => se marcado a quantidade pode ser de qualquer item da lista, exemplo:
+     - se na lista tem sabonete hortelã, sabonete x, sabonete y e ele comprar um de cada somam 3, então entra na regra do desconto
+
+dai vc vai acrescentar Regras da Promoção
+uma tabela com campos editaveis para o usuario digitar
+
+|qtde|%desconto|Vlr Unitario|Vlr Total|
+  1     10       calc valor  calc valor
+  2     20
+  3     33
+
+** se eu parei em 3 quer dizer q acima de 3 é 33% de desconto
+
+
+a ideia é que quanto mais o consumidor comprar, maior o desconto, o usuario vai definir isso na tabela:
+
+na segunda tela o usuario insere os produtos
+
+
+   

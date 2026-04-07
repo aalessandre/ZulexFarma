@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PGPASSWORD=internet2010 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d zulexpharma_db -c \":*)",
+      "Bash(PGPASSWORD=internet2010 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d zulexpharma_db -c \"SET client_encoding TO ''UTF8'';\" -c \":*)",
+      "Bash(PGPASSWORD=internet2010 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d zulexpharma_db -t -A -c \":*)",
+      "Bash(PGPASSWORD=internet2010 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d zulexpharma_db -c 'SELECT \"\"Id\"\", \"\"Nome\"\", \"\"FilialOrigemId\"\", \"\"VersaoSync\"\" FROM \"\"Fabricantes\"\" ORDER BY \"\"Id\"\";')",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:csharp.hotexamples.com)",
+      "Read(//c/Users/alessandre/.nuget/packages/zeus.net.nfe.nfce/**)",
+      "Bash(dotnet tool:*)",
+      "Bash(dotnet script:*)",
+      "Bash(taskkill //PID 35164 //F)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(taskkill //PID 44328 //F)"
+    ]
+  }
+}

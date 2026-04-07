@@ -106,13 +106,16 @@
           <thead>
             <tr>
               <th class="th-arrow"></th>
-              @for (col of colunasVisiveis(); track col.campo) {
+              @for (col of colunasVisiveis(); track col.campo; let i = $index) {
                 <th class="th-sort th-resize"
                     [style.width.px]="col.largura"
                     [style.min-width.px]="col.minLargura"
-                    (click)="ordenar(col.campo)">
-                  {{ col.label }}
-                  <span class="sort-icon">{{ sortColuna() === col.campo ? (sortDirecao() === 'asc' ? '▲' : '▼') : '⇅' }}</span>
+                    (click)="ordenar(col.campo)"
+                    draggable="true"
+                    (dragstart)="onDragStartCol(i)"
+                    (dragover)="onDragOverCol($event, i)"
+                    (drop)="onDropCol()">
+                  {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
                   <div class="resize-handle"
                        (mousedown)="iniciarResize($event, col.campo, col.largura)"
                        (click)="$event.stopPropagation()"></div>

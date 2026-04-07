@@ -98,6 +98,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   colunasVisiveis = computed(() => this.colunas().filter(c => c.visivel));
   painelColunas = signal(false);
   private resizeState: { campo: string; startX: number; startWidth: number } | null = null;
+  private dragColIdx: number | null = null;
 
   private apiUrl = `${environment.apiUrl}/colaboradores`;
 
@@ -284,6 +285,8 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     }
   }
 
+  sortIcon(campo: string): string { return this.sortColuna() === campo ? (this.sortDirecao() === 'asc' ? '▲' : '▼') : '⇅'; }
+
   // ── Colunas: resize ───────────────────────────────────────────────
   iniciarResize(e: MouseEvent, campo: string, largura: number) {
     e.stopPropagation(); e.preventDefault();
@@ -313,6 +316,14 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       document.body.style.userSelect = '';
     }
   }
+
+  onDragStartCol(idx: number) { this.dragColIdx = idx; }
+  onDragOverCol(event: DragEvent, idx: number) {
+    event.preventDefault();
+    if (this.dragColIdx === null || this.dragColIdx === idx) return;
+    this.colunas.update(cols => { const arr = [...cols]; const [moved] = arr.splice(this.dragColIdx!, 1); arr.splice(idx, 0, moved); this.dragColIdx = idx; return arr; });
+  }
+  onDropCol() { this.dragColIdx = null; this.salvarColunasStorage(); }
 
   toggleColunaVisivel(campo: string) {
     this.colunas.update(cols => cols.map(c => c.campo === campo ? { ...c, visivel: !c.visivel } : c));

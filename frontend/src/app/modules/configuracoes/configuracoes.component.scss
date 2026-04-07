@@ -241,6 +241,92 @@
   &:focus { border-color: var(--erp-blue); background: var(--erp-surface); }
 }
 
+/* ── Plano de Contas Padrão ───────────────────────────────────────── */
+.pc-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.pc-config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+
+  label {
+    font-size: var(--erp-fs-xs);
+    font-weight: 700;
+    color: var(--erp-text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  input[type="text"] {
+    height: 34px;
+    padding: 0 28px 0 10px;
+    border: 1px solid var(--erp-border-input);
+    border-radius: 4px;
+    font-size: var(--erp-fs-sm);
+    color: var(--erp-text);
+    background: var(--erp-input-bg);
+    outline: none;
+    width: 100%;
+    &:focus { border-color: var(--erp-blue); background: var(--erp-surface); }
+  }
+}
+
+.pc-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pc-limpar {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  padding: 3px;
+  border-radius: 3px;
+  color: var(--erp-text-muted);
+  cursor: pointer;
+  display: flex; align-items: center;
+  &:hover { background: var(--erp-bg); color: #c0392b; }
+}
+
+.autocomplete-wrap { position: relative; }
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border-input);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 50;
+}
+
+.autocomplete-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
+  font-size: var(--erp-fs-sm);
+  color: var(--erp-text);
+  cursor: pointer;
+  transition: background 0.1s;
+  &:hover { background: var(--erp-row-hover); }
+}
+
+.autocomplete-codigo {
+  font-weight: 700;
+  color: var(--erp-blue);
+  min-width: 50px;
+  font-size: var(--erp-fs-xs);
+}
+
 /* ── Certificado Digital ──────────────────────────────────────────── */
 .cert-section { padding: 8px 0; }
 
