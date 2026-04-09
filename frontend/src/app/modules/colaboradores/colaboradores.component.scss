@@ -396,6 +396,26 @@
   }
 }
 
+/* ── Accordion ────────────────────────────────────────────────────── */
+.accordion {
+  border: 1px solid var(--erp-border);
+  border-radius: 8px;
+  margin-top: 14px;
+  overflow: hidden;
+
+  .accordion-body { display: none; padding: 16px; }
+  &.aberto .accordion-body { display: block; }
+}
+
+.accordion-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; cursor: pointer;
+  background: var(--erp-bg); font-weight: 700; font-size: var(--erp-fs-body);
+  color: var(--erp-blue); user-select: none;
+  transition: background 0.12s;
+  &:hover { background: var(--erp-row-hover); }
+}
+
 /* ── Cards de endereço / contato ───────────────────────────────────── */
 .form-secao-toolbar {
   display: flex;
@@ -463,6 +483,9 @@
   background: var(--erp-bg);
   border: 1px solid var(--erp-border);
   border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
 }
 
 /* ── Layout duas colunas do Acesso ─────────────────────────────────── */

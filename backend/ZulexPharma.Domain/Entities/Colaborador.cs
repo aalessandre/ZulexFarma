@@ -14,6 +14,7 @@ public class Colaborador : BaseEntity
     public DateTime? DataAdmissao { get; set; }
     public decimal? Salario { get; set; }
     public string? Observacao { get; set; }
+    public bool PermitirAbrirCaixa { get; set; }
 
     public Usuario? Usuario { get; set; }
 }

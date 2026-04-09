@@ -4,6 +4,7 @@ namespace ZulexPharma.Application.DTOs.Colaboradores;
 public class ColaboradorListDto
 {
     public long   Id              { get; set; }
+    public string? Codigo         { get; set; }
     public string Nome            { get; set; } = string.Empty;
     public string Cpf             { get; set; } = string.Empty;
     public string? Rg             { get; set; }
@@ -22,6 +23,7 @@ public class ColaboradorListDto
 public class ColaboradorDetalheDto
 {
     public long   Id              { get; set; }
+    public string? Codigo         { get; set; }
     public string Nome            { get; set; } = string.Empty;
     public string Cpf             { get; set; } = string.Empty;
     public string? Rg             { get; set; }
@@ -31,6 +33,7 @@ public class ColaboradorDetalheDto
     public decimal? Salario       { get; set; }
     public string? Observacao     { get; set; }
     public bool   Ativo           { get; set; }
+    public bool   PermitirAbrirCaixa { get; set; }
     public DateTime CriadoEm     { get; set; }
 
     public List<EnderecoFormDto> Enderecos { get; set; } = new();
@@ -62,6 +65,7 @@ public class ColaboradorFormDto
 
     public string? Observacao     { get; set; }
     public bool    Ativo          { get; set; } = true;
+    public bool    PermitirAbrirCaixa { get; set; }
 }
 
 // ── Acesso ──────────────────────────────────────────────────────────

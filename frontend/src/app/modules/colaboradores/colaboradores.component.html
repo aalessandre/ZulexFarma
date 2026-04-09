@@ -160,7 +160,7 @@
           <div class="form-grid form-grid-info">
             <div class="field">
               <label>CÓDIGO</label>
-              <input type="text" [value]="colaboradorForm().id" disabled class="field-disabled" />
+              <input type="text" [value]="colaboradorForm().codigo ?? colaboradorForm().id ?? ''" disabled class="field-disabled" />
             </div>
             <div class="field">
               <label>DATA CADASTRO</label>
@@ -173,38 +173,7 @@
           <div class="form-erro">{{ erro() }}</div>
         }
 
-        <!-- ── ABAS DO FORMULÁRIO ──────────────────────────────────── -->
-        <div class="form-tabs">
-          <button class="form-tab" [class.ativo]="abaFormAtiva() === 'dados'" (click)="abaFormAtiva.set('dados')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-            </svg>
-            Dados Pessoais
-          </button>
-          <button class="form-tab" [class.ativo]="abaFormAtiva() === 'endereco'" (click)="abaFormAtiva.set('endereco')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-            </svg>
-            Endereço
-            @if (erroCampo('enderecos') || hasEnderecoErrors()) { <span class="tab-erro">!</span> }
-          </button>
-          <button class="form-tab" [class.ativo]="abaFormAtiva() === 'contato'" (click)="abaFormAtiva.set('contato')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-            </svg>
-            Contato
-          </button>
-          <button class="form-tab" [class.ativo]="abaFormAtiva() === 'acesso'" (click)="abaFormAtiva.set('acesso')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-            Acesso
-          </button>
-        </div>
-
-        <!-- ── ABA: DADOS PESSOAIS ─────────────────────────────────── -->
-        @if (abaFormAtiva() === 'dados') {
-          <div class="form-secao">Identificação</div>
+        <!-- ── DADOS PESSOAIS ────────────────────────────────────────── -->
           <div class="form-grid">
             <div class="field" [class.field-invalido]="erroCampo('cpf')">
               <label>CPF *</label>
@@ -240,7 +209,6 @@
             </div>
           }
 
-          <div class="form-secao">Emprego</div>
           <div class="form-grid">
             <div class="field field-2">
               <label>CARGO</label>
@@ -261,187 +229,191 @@
             </div>
           </div>
 
-          <div class="form-secao">Observações</div>
-          <div class="form-grid">
-            <div class="field field-full">
-              <label>OBSERVAÇÃO</label>
-              <textarea rows="3" [value]="colaboradorForm().observacao || ''"
-                        (input)="updateForm('observacao', $any($event.target).value)" maxlength="500"></textarea>
-            </div>
-
-            <div class="field field-check">
-              <label class="check-label">
-                <input type="checkbox" [checked]="colaboradorForm().ativo"
-                       (change)="updateForm('ativo', $any($event.target).checked)" />
-                <span>Ativo</span>
-              </label>
-            </div>
-          </div>
-        }
-
-        <!-- ── ABA: ENDEREÇO ───────────────────────────────────────── -->
-        @if (abaFormAtiva() === 'endereco') {
-          <div class="form-secao-toolbar">
+        <!-- ══════ ACCORDION ENDEREÇOS ══════ -->
+        <div class="accordion" [class.aberto]="accEnderecos()">
+          <div class="accordion-header" (click)="accEnderecos.update(v => !v)">
             <span>Endereços ({{ colaboradorForm().enderecos.length }})</span>
-            <button class="btn-add-item" (click)="adicionarEndereco()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Adicionar
-            </button>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accEnderecos() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
           </div>
+          <div class="accordion-body">
+            <div class="form-secao-toolbar">
+              <span></span>
+              <button class="btn-add-item" (click)="adicionarEndereco()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Adicionar
+              </button>
+            </div>
 
-          @if (erroCampo('enderecos')) {
-            <div class="form-erro">{{ erroCampo('enderecos') }}</div>
-          }
+            @if (erroCampo('enderecos')) {
+              <div class="form-erro">{{ erroCampo('enderecos') }}</div>
+            }
 
-          @for (end of colaboradorForm().enderecos; track $index; let i = $index) {
-            <div class="item-card">
-              <div class="item-card-header">
-                <span class="item-card-titulo">Endereço {{ i + 1 }}</span>
-                <label class="check-label check-sm">
-                  <input type="checkbox" [checked]="end.principal"
-                         (change)="updateEndereco(i, 'principal', $any($event.target).checked)" />
-                  <span>Principal</span>
-                </label>
-                <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-              <div class="form-grid">
-                <div class="field">
-                  <label>TIPO</label>
-                  <select [value]="end.tipo" (change)="updateEndereco(i, 'tipo', $any($event.target).value)">
-                    @for (t of tiposEndereco; track t) { <option [value]="t">{{ t }}</option> }
-                  </select>
+            @for (end of colaboradorForm().enderecos; track $index; let i = $index) {
+              <div class="item-card">
+                <div class="item-card-header">
+                  <span class="item-card-titulo">Endereço {{ i + 1 }}</span>
+                  <label class="check-label check-sm">
+                    <input type="checkbox" [checked]="end.principal"
+                           (change)="updateEndereco(i, 'principal', $any($event.target).checked)" />
+                    <span>Principal</span>
+                  </label>
+                  <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
                 </div>
-
-                <div class="field" [class.field-invalido]="erroCampo('end_cep_' + i)">
-                  <label>CEP *</label>
-                  <div class="input-icon-wrap">
-                    <input type="text" [value]="end.cep"
-                           (input)="onCepEnderecoInput($event, i)" maxlength="9" placeholder="00000-000" />
-                    @if (buscandoCep()) { <span class="input-spinner">⟳</span> }
+                <div class="form-grid">
+                  <div class="field">
+                    <label>TIPO</label>
+                    <select [value]="end.tipo" (change)="updateEndereco(i, 'tipo', $any($event.target).value)">
+                      @for (t of tiposEndereco; track t) { <option [value]="t">{{ t }}</option> }
+                    </select>
                   </div>
-                  @if (erroCampo('end_cep_' + i)) { <span class="field-erro">{{ erroCampo('end_cep_' + i) }}</span> }
-                </div>
 
-                <div class="field field-3" [class.field-invalido]="erroCampo('end_rua_' + i)">
-                  <label>RUA *</label>
-                  <input type="text" [value]="end.rua"
-                         (input)="updateEndereco(i, 'rua', $any($event.target).value)" maxlength="200" />
-                  @if (erroCampo('end_rua_' + i)) { <span class="field-erro">{{ erroCampo('end_rua_' + i) }}</span> }
-                </div>
+                  <div class="field" [class.field-invalido]="erroCampo('end_cep_' + i)">
+                    <label>CEP *</label>
+                    <div class="input-icon-wrap">
+                      <input type="text" [value]="end.cep"
+                             (input)="onCepEnderecoInput($event, i)" maxlength="9" placeholder="00000-000" />
+                      @if (buscandoCep()) { <span class="input-spinner">⟳</span> }
+                    </div>
+                    @if (erroCampo('end_cep_' + i)) { <span class="field-erro">{{ erroCampo('end_cep_' + i) }}</span> }
+                  </div>
 
-                <div class="field" [class.field-invalido]="erroCampo('end_numero_' + i)">
-                  <label>NÚMERO *</label>
-                  <input type="text" [value]="end.numero"
-                         (input)="updateEndereco(i, 'numero', $any($event.target).value)" maxlength="10" />
-                  @if (erroCampo('end_numero_' + i)) { <span class="field-erro">{{ erroCampo('end_numero_' + i) }}</span> }
-                </div>
+                  <div class="field field-3" [class.field-invalido]="erroCampo('end_rua_' + i)">
+                    <label>RUA *</label>
+                    <input type="text" [value]="end.rua"
+                           (input)="updateEndereco(i, 'rua', $any($event.target).value)" maxlength="200" />
+                    @if (erroCampo('end_rua_' + i)) { <span class="field-erro">{{ erroCampo('end_rua_' + i) }}</span> }
+                  </div>
 
-                <div class="field">
-                  <label>COMPLEMENTO</label>
-                  <input type="text" [value]="end.complemento || ''"
-                         (input)="updateEndereco(i, 'complemento', $any($event.target).value)" maxlength="100" />
-                </div>
+                  <div class="field" [class.field-invalido]="erroCampo('end_numero_' + i)">
+                    <label>NÚMERO *</label>
+                    <input type="text" [value]="end.numero"
+                           (input)="updateEndereco(i, 'numero', $any($event.target).value)" maxlength="10" />
+                    @if (erroCampo('end_numero_' + i)) { <span class="field-erro">{{ erroCampo('end_numero_' + i) }}</span> }
+                  </div>
 
-                <div class="field field-2" [class.field-invalido]="erroCampo('end_bairro_' + i)">
-                  <label>BAIRRO *</label>
-                  <input type="text" [value]="end.bairro"
-                         (input)="updateEndereco(i, 'bairro', $any($event.target).value)" maxlength="100" />
-                  @if (erroCampo('end_bairro_' + i)) { <span class="field-erro">{{ erroCampo('end_bairro_' + i) }}</span> }
-                </div>
+                  <div class="field">
+                    <label>COMPLEMENTO</label>
+                    <input type="text" [value]="end.complemento || ''"
+                           (input)="updateEndereco(i, 'complemento', $any($event.target).value)" maxlength="100" />
+                  </div>
 
-                <div class="field field-2" [class.field-invalido]="erroCampo('end_cidade_' + i)">
-                  <label>CIDADE *</label>
-                  <input type="text" [value]="end.cidade"
-                         (input)="updateEndereco(i, 'cidade', $any($event.target).value)" maxlength="100" />
-                  @if (erroCampo('end_cidade_' + i)) { <span class="field-erro">{{ erroCampo('end_cidade_' + i) }}</span> }
-                </div>
+                  <div class="field field-2" [class.field-invalido]="erroCampo('end_bairro_' + i)">
+                    <label>BAIRRO *</label>
+                    <input type="text" [value]="end.bairro"
+                           (input)="updateEndereco(i, 'bairro', $any($event.target).value)" maxlength="100" />
+                    @if (erroCampo('end_bairro_' + i)) { <span class="field-erro">{{ erroCampo('end_bairro_' + i) }}</span> }
+                  </div>
 
-                <div class="field" [class.field-invalido]="erroCampo('end_uf_' + i)">
-                  <label>UF *</label>
-                  <input type="text" [value]="end.uf"
-                         (input)="updateEndereco(i, 'uf', $any($event.target).value.toUpperCase())" maxlength="2"
-                         style="text-transform:uppercase" />
-                  @if (erroCampo('end_uf_' + i)) { <span class="field-erro">{{ erroCampo('end_uf_' + i) }}</span> }
+                  <div class="field field-2" [class.field-invalido]="erroCampo('end_cidade_' + i)">
+                    <label>CIDADE *</label>
+                    <input type="text" [value]="end.cidade"
+                           (input)="updateEndereco(i, 'cidade', $any($event.target).value)" maxlength="100" />
+                    @if (erroCampo('end_cidade_' + i)) { <span class="field-erro">{{ erroCampo('end_cidade_' + i) }}</span> }
+                  </div>
+
+                  <div class="field" [class.field-invalido]="erroCampo('end_uf_' + i)">
+                    <label>UF *</label>
+                    <input type="text" [value]="end.uf"
+                           (input)="updateEndereco(i, 'uf', $any($event.target).value.toUpperCase())" maxlength="2"
+                           style="text-transform:uppercase" />
+                    @if (erroCampo('end_uf_' + i)) { <span class="field-erro">{{ erroCampo('end_uf_' + i) }}</span> }
+                  </div>
                 </div>
               </div>
-            </div>
-          }
-        }
+            }
 
-        <!-- ── ABA: CONTATO ────────────────────────────────────────── -->
-        @if (abaFormAtiva() === 'contato') {
-          <div class="form-secao-toolbar">
+            @if (colaboradorForm().enderecos.length === 0) {
+              <div class="item-vazio">Nenhum endereço cadastrado. Clique em "Adicionar" para incluir.</div>
+            }
+          </div>
+        </div>
+
+        <!-- ══════ ACCORDION CONTATOS ══════ -->
+        <div class="accordion" [class.aberto]="accContatos()">
+          <div class="accordion-header" (click)="accContatos.update(v => !v)">
             <span>Contatos ({{ colaboradorForm().contatos.length }})</span>
-            <button class="btn-add-item" (click)="adicionarContato()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Adicionar
-            </button>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accContatos() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
           </div>
-
-          @if (colaboradorForm().contatos.length === 0) {
-            <div class="item-vazio">Nenhum contato cadastrado. Clique em "Adicionar" para incluir.</div>
-          }
-
-          @for (ct of colaboradorForm().contatos; track $index; let i = $index) {
-            <div class="item-card">
-              <div class="item-card-header">
-                <span class="item-card-titulo">Contato {{ i + 1 }}</span>
-                <label class="check-label check-sm">
-                  <input type="checkbox" [checked]="ct.principal"
-                         (change)="updateContato(i, 'principal', $any($event.target).checked)" />
-                  <span>Principal</span>
-                </label>
-                <button class="btn-remove-item" (click)="removerContato(i)" title="Remover">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-              <div class="form-grid">
-                <div class="field">
-                  <label>TIPO</label>
-                  <select [value]="ct.tipo" (change)="updateContato(i, 'tipo', $any($event.target).value)">
-                    @for (t of tiposContato; track t) { <option [value]="t">{{ t }}</option> }
-                  </select>
-                </div>
-
-                <div class="field field-2">
-                  <label>VALOR *</label>
-                  <input type="text" [value]="ct.valor"
-                         (input)="onContatoValorInput($event, i)" maxlength="150"
-                         [placeholder]="ct.tipo === 'EMAIL' ? 'email@exemplo.com' : '(00) 00000-0000'" />
-                </div>
-
-                <div class="field field-2">
-                  <label>DESCRIÇÃO</label>
-                  <input type="text" [value]="ct.descricao || ''"
-                         (input)="updateContato(i, 'descricao', $any($event.target).value)" maxlength="100"
-                         placeholder="Ex.: Pessoal, Comercial" />
-                </div>
-              </div>
+          <div class="accordion-body">
+            <div class="form-secao-toolbar">
+              <span></span>
+              <button class="btn-add-item" (click)="adicionarContato()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Adicionar
+              </button>
             </div>
-          }
-        }
 
-        <!-- ── ABA: ACESSO ──────────────────────────────────────────── -->
-        @if (abaFormAtiva() === 'acesso') {
-          <div class="form-secao-toolbar">
-            <span>Acesso ao Sistema</span>
+            @if (colaboradorForm().contatos.length === 0) {
+              <div class="item-vazio">Nenhum contato cadastrado. Clique em "Adicionar" para incluir.</div>
+            }
+
+            @for (ct of colaboradorForm().contatos; track $index; let i = $index) {
+              <div class="item-card">
+                <div class="item-card-header">
+                  <span class="item-card-titulo">Contato {{ i + 1 }}</span>
+                  <label class="check-label check-sm">
+                    <input type="checkbox" [checked]="ct.principal"
+                           (change)="updateContato(i, 'principal', $any($event.target).checked)" />
+                    <span>Principal</span>
+                  </label>
+                  <button class="btn-remove-item" (click)="removerContato(i)" title="Remover">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>TIPO</label>
+                    <select [value]="ct.tipo" (change)="updateContato(i, 'tipo', $any($event.target).value)">
+                      @for (t of tiposContato; track t) { <option [value]="t">{{ t }}</option> }
+                    </select>
+                  </div>
+
+                  <div class="field field-2">
+                    <label>VALOR *</label>
+                    <input type="text" [value]="ct.valor"
+                           (input)="onContatoValorInput($event, i)" maxlength="150"
+                           [placeholder]="ct.tipo === 'EMAIL' ? 'email@exemplo.com' : '(00) 00000-0000'" />
+                  </div>
+
+                  <div class="field field-2">
+                    <label>DESCRIÇÃO</label>
+                    <input type="text" [value]="ct.descricao || ''"
+                           (input)="updateContato(i, 'descricao', $any($event.target).value)" maxlength="100"
+                           placeholder="Ex.: Pessoal, Comercial" />
+                  </div>
+                </div>
+              </div>
+            }
           </div>
+        </div>
 
+        <!-- ══════ ACCORDION ACESSO ══════ -->
+        <div class="accordion" [class.aberto]="accAcesso()">
+          <div class="accordion-header" (click)="accAcesso.update(v => !v)">
+            <span>Acesso ao Sistema</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accAcesso() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+          </div>
+          <div class="accordion-body">
           <div class="acesso-toggle">
             <label class="check-label">
               <input type="checkbox" [checked]="acessoHabilitado()"
                      (change)="toggleAcesso($any($event.target).checked)" />
               <span>Este colaborador possui acesso ao sistema</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" [checked]="colaboradorForm().permitirAbrirCaixa"
+                     (change)="updateForm('permitirAbrirCaixa', $any($event.target).checked)" />
+              <span>Permitir abrir caixa</span>
             </label>
           </div>
 
@@ -551,7 +523,24 @@
               Este colaborador não possui acesso ao sistema. Marque a opção acima para configurar.
             </div>
           }
-        }
+          </div>
+        </div>
+
+        <!-- ── OBSERVAÇÃO / ATIVO ─────────────────────────────────────── -->
+        <div class="form-grid" style="margin-top:14px">
+          <div class="field field-full">
+            <label>OBSERVAÇÃO</label>
+            <textarea rows="3" [value]="colaboradorForm().observacao || ''"
+                      (input)="updateForm('observacao', $any($event.target).value)" maxlength="500"></textarea>
+          </div>
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="colaboradorForm().ativo"
+                     (change)="updateForm('ativo', $any($event.target).checked)" />
+              <span>Ativo</span>
+            </label>
+          </div>
+        </div>
       </div>
     }
 
