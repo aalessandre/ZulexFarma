@@ -34,6 +34,7 @@ public class ColaboradorService : IColaboradorService
                 .Select(c => new ColaboradorListDto
                 {
                     Id             = c.Id,
+                    Codigo         = c.Codigo,
                     Nome           = c.Pessoa.Nome,
                     Cpf            = c.Pessoa.CpfCnpj,
                     Rg             = c.Pessoa.Rg,
@@ -84,6 +85,7 @@ public class ColaboradorService : IColaboradorService
         var dto = new ColaboradorDetalheDto
         {
             Id             = c.Id,
+            Codigo         = c.Codigo,
             Nome           = c.Pessoa.Nome,
             Cpf            = c.Pessoa.CpfCnpj,
             Rg             = c.Pessoa.Rg,
@@ -93,6 +95,7 @@ public class ColaboradorService : IColaboradorService
             Salario        = c.Salario,
             Observacao     = c.Observacao,
             Ativo          = c.Ativo,
+            PermitirAbrirCaixa = c.PermitirAbrirCaixa,
             CriadoEm       = c.CriadoEm,
             Enderecos = c.Pessoa.Enderecos.Select(e => new EnderecoFormDto
             {
@@ -238,7 +241,8 @@ public class ColaboradorService : IColaboradorService
                 DataAdmissao = ToUtc(dto.DataAdmissao),
                 Salario     = dto.Salario,
                 Observacao  = dto.Observacao?.Trim(),
-                Ativo       = dto.Ativo
+                Ativo       = dto.Ativo,
+                PermitirAbrirCaixa = dto.PermitirAbrirCaixa
             };
 
             _db.Colaboradores.Add(colaborador);
@@ -295,6 +299,7 @@ public class ColaboradorService : IColaboradorService
             colaborador.Salario     = dto.Salario;
             colaborador.Observacao  = dto.Observacao?.Trim();
             colaborador.Ativo       = dto.Ativo;
+            colaborador.PermitirAbrirCaixa = dto.PermitirAbrirCaixa;
 
             // Sincronizar endereços
             SincronizarEnderecos(pessoa, dto.Enderecos);

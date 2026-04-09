@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ZulexPharma.Infrastructure.Data;
@@ -11,9 +12,11 @@ using ZulexPharma.Infrastructure.Data;
 namespace ZulexPharma.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260407225749_AddPermitirAbrirCaixa")]
+    partial class AddPermitirAbrirCaixa
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -298,81 +301,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("SyncGuid");
 
                     b.ToTable("AtualizacoesPrecoItens");
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.Caixa", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("AtualizadoEm")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("Codigo")
-                        .HasColumnType("text");
-
-                    b.Property<long>("ColaboradorId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime>("DataAbertura")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime?>("DataConferencia")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime?>("DataFechamento")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<long>("FilialId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long?>("FilialOrigemId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Observacao")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("SyncGuid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<long?>("UsuarioId")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("ValorAbertura")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("ColaboradorId");
-
-                    b.HasIndex("FilialId");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("SyncGuid");
-
-                    b.HasIndex("UsuarioId");
-
-                    b.ToTable("Caixas");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.CertificadoDigital", b =>
@@ -3143,6 +3071,155 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.ToTable("PlanosContas");
                 });
 
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.PreVenda", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("ClienteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Codigo")
+                        .HasColumnType("text");
+
+                    b.Property<long?>("ColaboradorId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("ConvenioId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("FilialId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("FilialOrigemId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SyncGuid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<long?>("TipoPagamentoId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("TotalBruto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalDesconto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("TotalItens")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TotalLiquido")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("Codigo")
+                        .HasFilter("\"Codigo\" IS NOT NULL");
+
+                    b.HasIndex("ColaboradorId");
+
+                    b.HasIndex("FilialId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("SyncGuid");
+
+                    b.HasIndex("TipoPagamentoId");
+
+                    b.ToTable("PreVendas");
+                });
+
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.PreVendaItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Fabricante")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("PercentualDesconto")
+                        .HasPrecision(8, 4)
+                        .HasColumnType("numeric(8,4)");
+
+                    b.Property<long>("PreVendaId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("PrecoUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("PrecoVenda")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("ProdutoCodigo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<long>("ProdutoId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ProdutoNome")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("ValorDesconto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PreVendaId");
+
+                    b.HasIndex("ProdutoId");
+
+                    b.ToTable("PreVendaItens");
+                });
+
             modelBuilder.Entity("ZulexPharma.Domain.Entities.Produto", b =>
                 {
                     b.Property<long>("Id")
@@ -4489,12 +4566,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<int>("Ordem")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("PadraoSistema")
-                        .HasColumnType("boolean");
-
                     b.Property<Guid>("SyncGuid")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
@@ -4654,221 +4725,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.ToTable("UsuarioFilialGrupos");
                 });
 
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.Venda", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("AtualizadoEm")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<long?>("CaixaId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long?>("ClienteId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Codigo")
-                        .HasColumnType("text");
-
-                    b.Property<long?>("ColaboradorId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long?>("ConvenioId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<long>("FilialId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long?>("FilialOrigemId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("NrCesta")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Observacao")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<int>("Origem")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("SyncGuid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<long?>("TipoPagamentoId")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("TotalBruto")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("TotalDesconto")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<int>("TotalItens")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TotalLiquido")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CaixaId");
-
-                    b.HasIndex("ClienteId");
-
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("ColaboradorId");
-
-                    b.HasIndex("FilialId");
-
-                    b.HasIndex("NrCesta");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("SyncGuid");
-
-                    b.HasIndex("TipoPagamentoId");
-
-                    b.ToTable("Vendas", (string)null);
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.VendaItem", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("ColaboradorId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Fabricante")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("Ordem")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("PercentualDesconto")
-                        .HasPrecision(8, 4)
-                        .HasColumnType("numeric(8,4)");
-
-                    b.Property<decimal>("PercentualPromocao")
-                        .HasPrecision(8, 4)
-                        .HasColumnType("numeric(8,4)");
-
-                    b.Property<decimal>("PrecoUnitario")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("PrecoVenda")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("ProdutoCodigo")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<long>("ProdutoId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("ProdutoNome")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
-
-                    b.Property<decimal>("Quantidade")
-                        .HasPrecision(18, 3)
-                        .HasColumnType("numeric(18,3)");
-
-                    b.Property<decimal>("Total")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("ValorDesconto")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<long>("VendaId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ColaboradorId");
-
-                    b.HasIndex("ProdutoId");
-
-                    b.HasIndex("VendaId");
-
-                    b.ToTable("VendaItens", (string)null);
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.VendaItemDesconto", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("LiberadoPorId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Origem")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<long?>("OrigemId")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("Percentual")
-                        .HasPrecision(8, 4)
-                        .HasColumnType("numeric(8,4)");
-
-                    b.Property<string>("Regra")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("Tipo")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("VendaItemId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LiberadoPorId");
-
-                    b.HasIndex("VendaItemId");
-
-                    b.ToTable("VendaItemDescontos", (string)null);
-                });
-
             modelBuilder.Entity("ZulexPharma.Domain.Entities.AtualizacaoPrecoItem", b =>
                 {
                     b.HasOne("ZulexPharma.Domain.Entities.AtualizacaoPreco", "AtualizacaoPreco")
@@ -4878,32 +4734,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("AtualizacaoPreco");
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.Caixa", b =>
-                {
-                    b.HasOne("ZulexPharma.Domain.Entities.Colaborador", "Colaborador")
-                        .WithMany()
-                        .HasForeignKey("ColaboradorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ZulexPharma.Domain.Entities.Filial", "Filial")
-                        .WithMany()
-                        .HasForeignKey("FilialId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ZulexPharma.Domain.Entities.Usuario", "Usuario")
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Colaborador");
-
-                    b.Navigation("Filial");
-
-                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.Cliente", b =>
@@ -5303,6 +5133,57 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Navigation("ContaPai");
                 });
 
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.PreVenda", b =>
+                {
+                    b.HasOne("ZulexPharma.Domain.Entities.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ZulexPharma.Domain.Entities.Colaborador", "Colaborador")
+                        .WithMany()
+                        .HasForeignKey("ColaboradorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ZulexPharma.Domain.Entities.Filial", "Filial")
+                        .WithMany()
+                        .HasForeignKey("FilialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ZulexPharma.Domain.Entities.TipoPagamento", "TipoPagamento")
+                        .WithMany()
+                        .HasForeignKey("TipoPagamentoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Colaborador");
+
+                    b.Navigation("Filial");
+
+                    b.Navigation("TipoPagamento");
+                });
+
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.PreVendaItem", b =>
+                {
+                    b.HasOne("ZulexPharma.Domain.Entities.PreVenda", "PreVenda")
+                        .WithMany("Itens")
+                        .HasForeignKey("PreVendaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZulexPharma.Domain.Entities.Produto", "Produto")
+                        .WithMany()
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PreVenda");
+
+                    b.Navigation("Produto");
+                });
+
             modelBuilder.Entity("ZulexPharma.Domain.Entities.Produto", b =>
                 {
                     b.HasOne("ZulexPharma.Domain.Entities.Fabricante", "Fabricante")
@@ -5588,89 +5469,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.Venda", b =>
-                {
-                    b.HasOne("ZulexPharma.Domain.Entities.Caixa", "Caixa")
-                        .WithMany()
-                        .HasForeignKey("CaixaId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ZulexPharma.Domain.Entities.Cliente", "Cliente")
-                        .WithMany()
-                        .HasForeignKey("ClienteId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ZulexPharma.Domain.Entities.Colaborador", "Colaborador")
-                        .WithMany()
-                        .HasForeignKey("ColaboradorId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ZulexPharma.Domain.Entities.Filial", "Filial")
-                        .WithMany()
-                        .HasForeignKey("FilialId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ZulexPharma.Domain.Entities.TipoPagamento", "TipoPagamento")
-                        .WithMany()
-                        .HasForeignKey("TipoPagamentoId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Caixa");
-
-                    b.Navigation("Cliente");
-
-                    b.Navigation("Colaborador");
-
-                    b.Navigation("Filial");
-
-                    b.Navigation("TipoPagamento");
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.VendaItem", b =>
-                {
-                    b.HasOne("ZulexPharma.Domain.Entities.Colaborador", "Colaborador")
-                        .WithMany()
-                        .HasForeignKey("ColaboradorId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ZulexPharma.Domain.Entities.Produto", "Produto")
-                        .WithMany()
-                        .HasForeignKey("ProdutoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ZulexPharma.Domain.Entities.Venda", "Venda")
-                        .WithMany("Itens")
-                        .HasForeignKey("VendaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Colaborador");
-
-                    b.Navigation("Produto");
-
-                    b.Navigation("Venda");
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.VendaItemDesconto", b =>
-                {
-                    b.HasOne("ZulexPharma.Domain.Entities.Colaborador", "LiberadoPor")
-                        .WithMany()
-                        .HasForeignKey("LiberadoPorId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ZulexPharma.Domain.Entities.VendaItem", "VendaItem")
-                        .WithMany("Descontos")
-                        .HasForeignKey("VendaItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("LiberadoPor");
-
-                    b.Navigation("VendaItem");
-                });
-
             modelBuilder.Entity("ZulexPharma.Domain.Entities.AtualizacaoPreco", b =>
                 {
                     b.Navigation("Itens");
@@ -5763,6 +5561,11 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Navigation("Fornecedor");
                 });
 
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.PreVenda", b =>
+                {
+                    b.Navigation("Itens");
+                });
+
             modelBuilder.Entity("ZulexPharma.Domain.Entities.Produto", b =>
                 {
                     b.Navigation("Barras");
@@ -5796,16 +5599,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Navigation("FilialGrupos");
 
                     b.Navigation("LogsAcoes");
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.Venda", b =>
-                {
-                    b.Navigation("Itens");
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.VendaItem", b =>
-                {
-                    b.Navigation("Descontos");
                 });
 #pragma warning restore 612, 618
         }

@@ -19,10 +19,10 @@ interface Endereco {
 }
 
 interface Colaborador {
-  id?: number; nome: string; cpf: string; rg?: string; dataNascimento?: string;
+  id?: number; codigo?: string; nome: string; cpf: string; rg?: string; dataNascimento?: string;
   cargo?: string; dataAdmissao?: string; salario?: number;
   email?: string; telefone?: string; cidade?: string; uf?: string;
-  observacao?: string; ativo: boolean; criadoEm?: string;
+  observacao?: string; ativo: boolean; permitirAbrirCaixa: boolean; criadoEm?: string;
 }
 
 interface FilialGrupoItem { filialId: number; grupoUsuarioId: number; nomeFilial?: string; nomeGrupo?: string; }
@@ -83,6 +83,11 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   private formOriginal: ColaboradorDetalhe | null = null;
 
   abaFormAtiva = signal<AbaForm>('dados');
+
+  // Accordions
+  accEnderecos = signal(true);
+  accContatos  = signal(false);
+  accAcesso    = signal(false);
 
   // Modais
   modalLog = signal(false);
@@ -176,6 +181,8 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         if (this.abasEdicao().find(a => a.colaborador.id === c.id)) return;
         const detalhe: ColaboradorDetalhe = {
           ...c,
+          codigo: r.data.codigo,
+          permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
           observacao: r.data.observacao,
@@ -272,6 +279,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
     if (campo === 'dataNascimento' && v) return new Date(v).toLocaleDateString('pt-BR');
     if (campo === 'salario' && v != null) return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    if (campo === 'codigo') return v ?? String(c.id ?? '');
     return v ?? '';
   }
 
@@ -381,6 +389,8 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         if (this.abasEdicao().find(a => a.colaborador.id === c.id)) { this.ativarAba(c.id!); return; }
         const detalhe: ColaboradorDetalhe = {
           ...c,
+          codigo: r.data.codigo,
+          permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
           observacao: r.data.observacao,
@@ -462,6 +472,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       dataNascimento: f.dataNascimento || null,
       cargo: f.cargo, dataAdmissao: f.dataAdmissao || null,
       salario: f.salario, observacao: f.observacao, ativo: f.ativo,
+      permitirAbrirCaixa: f.permitirAbrirCaixa,
       enderecos: f.enderecos, contatos: f.contatos,
       acesso
     };
@@ -939,7 +950,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   private novoColaborador(): ColaboradorDetalhe {
     return {
       nome: '', cpf: '', rg: '', dataNascimento: '', cargo: '', dataAdmissao: '',
-      salario: undefined, observacao: '', ativo: true,
+      salario: undefined, observacao: '', ativo: true, permitirAbrirCaixa: false,
       enderecos: [{ tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
       contatos: [],
       acesso: null

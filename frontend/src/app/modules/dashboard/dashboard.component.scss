@@ -46,9 +46,6 @@
 .dash-main {
   flex: 1;
   overflow: auto;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
   padding: 40px 16px;
   min-height: 0;
   transition: background 0.3s;
@@ -58,9 +55,9 @@
   display: flex;
   gap: 24px;
   flex-wrap: nowrap;
-  justify-content: center;
   align-items: flex-start;
-  max-width: 1400px;
+  min-width: fit-content;
+  margin: 0 auto;
 }
 
 .bloco {

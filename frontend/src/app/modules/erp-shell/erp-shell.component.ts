@@ -1,5 +1,6 @@
 import { Component, computed, signal, effect, HostListener, ElementRef, ViewChild, OnDestroy } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -73,6 +74,8 @@ export class ErpShellComponent {
     const tab = this.tabService.tabs().find(t => t.id === id);
     return tab ? tab.titulo : '';
   });
+
+  estaHome = signal(true);
 
   // ── Blocos (tiles data for search) ──────────────────────────────
   blocos: BlocoTiles[] = [
@@ -201,6 +204,13 @@ export class ErpShellComponent {
   ) {
     this.carregarSyncStatus();
     this.syncIntervalId = setInterval(() => this.carregarSyncStatus(), 30000);
+
+    // Detecta se está na home para ocultar barra de título
+    this.estaHome.set(this.router.url === '/erp' || this.router.url === '/erp/');
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: any) => {
+      const url: string = e.urlAfterRedirects ?? e.url;
+      this.estaHome.set(url === '/erp' || url === '/erp/');
+    });
 
     effect(() => {
       const count = this.tabService.limiteAtingido();
