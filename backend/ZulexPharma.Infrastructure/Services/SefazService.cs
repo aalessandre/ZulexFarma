@@ -8,6 +8,7 @@ using System.Xml.Linq;
 using ZulexPharma.Application.DTOs.Fiscal;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -94,8 +95,8 @@ public class SefazService : ISefazService
             RazaoSocial = cert.RazaoSocial,
             Validade = cert.Validade,
             Emissor = cert.Emissor,
-            Valido = cert.Validade > DateTime.UtcNow,
-            DiasParaVencer = (int)(cert.Validade - DateTime.UtcNow).TotalDays
+            Valido = cert.Validade > DataHoraHelper.Agora(),
+            DiasParaVencer = (int)(cert.Validade - DataHoraHelper.Agora()).TotalDays
         };
     }
 
@@ -105,7 +106,7 @@ public class SefazService : ISefazService
         var certDb = await _db.CertificadosDigitais.FirstOrDefaultAsync(c => c.FilialId == filialId)
             ?? throw new ArgumentException("Certificado digital nao configurado para esta filial.");
 
-        if (certDb.Validade <= DateTime.UtcNow)
+        if (certDb.Validade <= DataHoraHelper.Agora())
             throw new ArgumentException("Certificado digital expirado.");
 
         var filial = await _db.Filiais.FindAsync(filialId)
@@ -147,7 +148,7 @@ public class SefazService : ISefazService
         var certDb = await _db.CertificadosDigitais.FirstOrDefaultAsync(c => c.FilialId == filialId)
             ?? throw new ArgumentException("Certificado digital nao configurado.");
 
-        if (certDb.Validade <= DateTime.UtcNow)
+        if (certDb.Validade <= DataHoraHelper.Agora())
             throw new ArgumentException("Certificado digital expirado.");
 
         var filial = await _db.Filiais.FindAsync(filialId)

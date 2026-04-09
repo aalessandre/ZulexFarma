@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using ZulexPharma.Application.DTOs.Clientes;
 using ZulexPharma.Application.Interfaces;
+using ZulexPharma.Domain.Helpers;
+using ZulexPharma.Infrastructure.Data;
 using ZulexPharma.API.Filters;
 
 namespace ZulexPharma.API.Controllers;
@@ -14,8 +17,56 @@ public class ClientesController : ControllerBase
 {
     private readonly IClienteService _service;
     private readonly ILogAcaoService _log;
+    private readonly AppDbContext _db;
 
-    public ClientesController(IClienteService service, ILogAcaoService log) { _service = service; _log = log; }
+    public ClientesController(IClienteService service, ILogAcaoService log, AppDbContext db) { _service = service; _log = log; _db = db; }
+
+    /// <summary>Pesquisa clientes por código, CPF/CNPJ ou nome. Retorna dados para seleção na pré-venda.</summary>
+    [HttpGet("pesquisar")]
+    public async Task<IActionResult> Pesquisar([FromQuery] string termo, [FromQuery] string status = "ativos", [FromQuery] int limit = 30)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(termo) || termo.Trim().Length < 2)
+                return Ok(new { success = true, data = Array.Empty<object>() });
+
+            var termoNorm = termo.Trim().ToUpper();
+            var termoDigitos = CpfCnpjHelper.SomenteDigitos(termo);
+
+            var query = _db.Set<Domain.Entities.Cliente>()
+                .Include(c => c.Pessoa)
+                .Include(c => c.Convenios).ThenInclude(cv => cv.Convenio).ThenInclude(cv => cv.Pessoa)
+                .AsQueryable();
+
+            // Filtro ativo
+            if (status == "ativos") query = query.Where(c => c.Ativo);
+            else if (status == "inativos") query = query.Where(c => !c.Ativo);
+
+            // Busca por código, CPF/CNPJ, nome, matrícula ou cartão de convênio
+            query = query.Where(c =>
+                (c.Codigo != null && c.Codigo.Contains(termoNorm)) ||
+                (termoDigitos.Length > 0 && c.Pessoa.CpfCnpj.Contains(termoDigitos)) ||
+                c.Pessoa.Nome.ToUpper().Contains(termoNorm) ||
+                c.Convenios.Any(cv => (cv.Matricula != null && cv.Matricula.Contains(termoNorm)) ||
+                                      (cv.Cartao != null && cv.Cartao.Contains(termoNorm)))
+            );
+
+            var clientes = await query.OrderBy(c => c.Pessoa.Nome).Take(limit)
+                .Select(c => new
+                {
+                    clienteId = c.Id,
+                    codigo = c.Codigo,
+                    nome = c.Pessoa.Nome,
+                    cpfCnpj = c.Pessoa.CpfCnpj,
+                    convenios = c.Convenios.Select(cv => new { id = cv.ConvenioId, nome = cv.Convenio.Pessoa.Nome, matricula = cv.Matricula, cartao = cv.Cartao }).ToList(),
+                    ativo = c.Ativo
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = clientes });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em ClientesController.Pesquisar"); return StatusCode(500, new { success = false, message = "Erro ao pesquisar clientes." }); }
+    }
 
     [HttpGet]
     [Permissao("clientes", "c")]

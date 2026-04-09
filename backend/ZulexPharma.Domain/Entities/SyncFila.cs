@@ -13,7 +13,7 @@ public class SyncFila
     public string? RegistroCodigo { get; set; }
     public string? DadosJson { get; set; }
     public long FilialOrigemId { get; set; }
-    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime CriadoEm { get; set; } = Helpers.DataHoraHelper.Agora();
     public bool Enviado { get; set; }
     public DateTime? EnviadoEm { get; set; }
     public string? Erro { get; set; }

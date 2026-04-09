@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using ZulexPharma.Application.DTOs.Colaboradores;
 using ZulexPharma.Application.Interfaces;
+using ZulexPharma.Infrastructure.Data;
 using ZulexPharma.API.Filters;
 
 namespace ZulexPharma.API.Controllers;
@@ -14,11 +16,50 @@ public class ColaboradoresController : ControllerBase
 {
     private readonly IColaboradorService _service;
     private readonly ILogAcaoService _log;
+    private readonly AppDbContext _db;
 
-    public ColaboradoresController(IColaboradorService service, ILogAcaoService log)
+    public ColaboradoresController(IColaboradorService service, ILogAcaoService log, AppDbContext db)
     {
         _service = service;
         _log = log;
+        _db = db;
+    }
+
+    /// <summary>Pesquisa colaboradores ativos por código ou nome. Retorna dados para seleção na pré-venda.</summary>
+    [HttpGet("pesquisar")]
+    public async Task<IActionResult> Pesquisar([FromQuery] string termo, [FromQuery] string status = "ativos", [FromQuery] int limit = 30)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(termo) || termo.Trim().Length < 2)
+                return Ok(new { success = true, data = Array.Empty<object>() });
+
+            var termoNorm = termo.Trim().ToUpper();
+
+            var query = _db.Set<Domain.Entities.Colaborador>()
+                .Include(c => c.Pessoa)
+                .AsQueryable();
+
+            if (status == "ativos") query = query.Where(c => c.Ativo);
+
+            var lista = await query
+                .Where(c =>
+                    (c.Codigo != null && c.Codigo.Contains(termoNorm)) ||
+                    c.Pessoa.Nome.ToUpper().Contains(termoNorm)
+                )
+                .OrderBy(c => c.Pessoa.Nome)
+                .Take(limit)
+                .Select(c => new
+                {
+                    id = c.Id,
+                    codigo = c.Codigo,
+                    nome = c.Pessoa.Nome
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = lista });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em ColaboradoresController.Pesquisar"); return StatusCode(500, new { success = false, message = "Erro ao pesquisar colaboradores." }); }
     }
 
     [HttpGet]

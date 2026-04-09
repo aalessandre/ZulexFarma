@@ -7,6 +7,15 @@ import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
 
+interface ItemDesconto {
+  tipo: number; // 1=Desconto, 2=Promocao
+  percentual: number;
+  origem: string;
+  regra: string;
+  origemId?: number;
+  liberadoPorId?: number;
+}
+
 interface PreVendaItem {
   produtoId: number;
   produtoCodigo: string;
@@ -15,26 +24,71 @@ interface PreVendaItem {
   precoVenda: number;
   quantidade: number;
   percentualDesconto: number;
+  percentualPromocao: number;
   valorDesconto: number;
   precoUnitario: number;
   total: number;
   estoqueAtual?: number;
   unidade?: string;
+  vendedor?: string;
+  descontoMaxPermitido?: number;
+  componenteDesconto?: string;
+  descontos: ItemDesconto[];
+  colaboradorId?: number;
+  temPromocao?: boolean;
+}
+
+interface HierarquiaInfo {
+  id: number; nome: string; padrao: boolean; aplicarAutomatico: boolean; descontoAutoTipo?: number; totalItens: number;
+}
+
+interface DescontoResolucao {
+  hierarquiaId?: number; hierarquiaNome?: string; descontoMinimo: number; descontoMaxSemSenha: number;
+  descontoMaxComSenha: number; descontoAplicar: number; aplicarAutomatico: boolean; componente?: string;
+}
+
+interface PromocaoFaixa {
+  quantidade: number;
+  percentualDesconto: number;
+}
+
+interface PromocaoProduto {
+  promocaoId: number;
+  nome: string;
+  tipo: number; // 1=Fixa, 2=Progressiva
+  tipoDescricao: string;
+  percentualPromocao: number;
+  valorPromocao: number;
+  qtdeLimite?: number;
+  qtdeVendida: number;
+  permitirMudarPreco: boolean;
+  faixas: PromocaoFaixa[];
 }
 
 interface TipoPagBtn {
   id: number;
   nome: string;
+  ordem: number;
+  padraoSistema: boolean;
+}
+
+interface ConvenioLookup {
+  id: number;
+  nome: string;
 }
 
 interface ClienteLookup {
-  id: number;
+  clienteId: number;
+  codigo?: string;
   nome: string;
   cpfCnpj?: string;
+  convenios: ConvenioLookup[];
+  ativo: boolean;
 }
 
 interface ColaboradorLookup {
   id: number;
+  codigo?: string;
   nome: string;
 }
 
@@ -46,6 +100,7 @@ interface ProdutoLookup {
   valorVenda: number;
   estoqueAtual?: number;
   unidade?: string;
+  temPromocao?: boolean;
 }
 
 interface ColunaDef {
@@ -75,14 +130,15 @@ interface Atendimento {
 }
 
 const PREVENDA_COLUNAS: ColunaDef[] = [
-  { campo: 'produtoCodigo',     label: 'Codigo',          largura: 80,  minLargura: 60,  padrao: true, tipo: 'texto' },
-  { campo: 'produtoNome',       label: 'Nome do Produto', largura: 280, minLargura: 150, padrao: true, tipo: 'texto' },
-  { campo: 'fabricante',        label: 'Fabricante',      largura: 130, minLargura: 80,  padrao: true, tipo: 'texto' },
-  { campo: 'precoVenda',        label: 'Preco Venda',     largura: 100, minLargura: 70,  padrao: true, tipo: 'numero', editavel: true },
-  { campo: 'quantidade',        label: 'Qtde',            largura: 70,  minLargura: 50,  padrao: true, tipo: 'numero', editavel: true },
-  { campo: 'percentualDesconto', label: 'Desconto',       largura: 80,  minLargura: 60,  padrao: true, tipo: 'numero', editavel: true },
-  { campo: 'precoUnitario',     label: 'Preco Unitario',  largura: 100, minLargura: 70,  padrao: true, tipo: 'numero' },
-  { campo: 'total',             label: 'Total',           largura: 100, minLargura: 70,  padrao: true, tipo: 'numero' },
+  { campo: 'produtoCodigo',      label: 'CÓDIGO',       largura: 80,  minLargura: 60,  padrao: true, tipo: 'texto' },
+  { campo: 'produtoNome',        label: 'PRODUTO',      largura: 280, minLargura: 150, padrao: true, tipo: 'texto' },
+  { campo: 'fabricante',         label: 'FABRICANTE',   largura: 130, minLargura: 80,  padrao: true, tipo: 'texto' },
+  { campo: 'precoVenda',         label: 'PREÇO VENDA',  largura: 100, minLargura: 70,  padrao: true, tipo: 'numero', editavel: true },
+  { campo: 'quantidade',         label: 'QTDE',         largura: 70,  minLargura: 50,  padrao: true, tipo: 'numero', editavel: true },
+  { campo: 'percentualDesconto', label: '%DESC',        largura: 80,  minLargura: 60,  padrao: true, tipo: 'numero', editavel: true },
+  { campo: 'precoUnitario',      label: 'PREÇO UNIT',   largura: 100, minLargura: 70,  padrao: true, tipo: 'numero', editavel: true },
+  { campo: 'total',              label: 'TOTAL',        largura: 100, minLargura: 70,  padrao: true, tipo: 'numero', editavel: true },
+  { campo: 'vendedor',           label: 'VENDEDOR',     largura: 120, minLargura: 80,  padrao: true, tipo: 'texto' },
 ];
 
 const CORES_PAGAMENTO = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336', '#009688', '#795548'];
@@ -99,8 +155,79 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   private readonly STORAGE_KEY_COLUNAS = 'zulex_colunas_prevenda_itens';
   private readonly apiUrl = environment.apiUrl;
 
+  @ViewChild('inputCliente') inputClienteRef!: ElementRef<HTMLInputElement>;
+  @ViewChild('inputVendedor') inputVendedorRef!: ElementRef<HTMLInputElement>;
   @ViewChild('inputProduto') inputProdutoRef!: ElementRef<HTMLInputElement>;
   private saindo = false;
+
+  // ── Configurações de venda ──────────────────────────────────────
+  cfgMultiplosVendedores = signal(false);
+  cfgDuplicarLinha = signal(false);
+  cfgFocarQuantidade = signal(false);
+  cfgAlterarPrecoPromo = signal(false);
+  cfgObrigarEscanear = signal(false);
+  cfgPromoMultiplas = signal<'exibir' | 'menor'>('exibir');
+  cfgInformarCesta = signal(false);
+
+  // ── Modal cesta ─────────────────────────────────────────────────
+  modalCesta = signal(false);
+  cestaNumero = signal('');
+
+  // ── Modal pendentes ─────────────────────────────────────────────
+  readonly STORAGE_PEND_VENDAS = 'zulex_colunas_pend_vendas';
+  readonly STORAGE_PEND_ITENS = 'zulex_colunas_pend_itens';
+  modalPendentes = signal(false);
+  vendasPendentes = signal<any[]>([]);
+  pendentesLoading = signal(false);
+  pendenteSelecionada = signal<any | null>(null);
+  pendenteItens = signal<any[]>([]);
+  pendenteItensLoading = signal(false);
+
+  // Grid vendas pendentes
+  pendVendasCols = signal<ColunaEstado[]>(this.carregarColsPend(this.STORAGE_PEND_VENDAS, [
+    { campo: 'codigo',            label: 'CÓDIGO',     largura: 80,  minLargura: 60,  padrao: true },
+    { campo: 'nrCesta',           label: 'CESTA',      largura: 80,  minLargura: 60,  padrao: true },
+    { campo: 'colaboradorNome',   label: 'VENDEDOR',   largura: 140, minLargura: 80,  padrao: true },
+    { campo: 'clienteNome',       label: 'CLIENTE',    largura: 200, minLargura: 100, padrao: true },
+    { campo: 'totalItens',        label: 'ITENS',      largura: 60,  minLargura: 50,  padrao: true },
+    { campo: 'totalLiquido',      label: 'TOTAL',      largura: 100, minLargura: 70,  padrao: true },
+    { campo: 'criadoEm',          label: 'DATA/HORA',  largura: 140, minLargura: 100, padrao: true },
+    { campo: 'tipoPagamentoNome', label: 'PAGAMENTO',  largura: 110, minLargura: 80,  padrao: true },
+  ]));
+  pendVendasColsVisiveis = computed(() => this.pendVendasCols().filter(c => c.visivel));
+  pendVendasSort = signal(''); pendVendasSortDir = signal<'asc' | 'desc'>('asc');
+  pendVendasPainel = signal(false);
+  private pendVendasDragIdx: number | null = null;
+  private pendVendasResizeState: { campo: string; startX: number; startW: number } | null = null;
+
+  // Grid itens pendente
+  pendItensCols = signal<ColunaEstado[]>(this.carregarColsPend(this.STORAGE_PEND_ITENS, [
+    { campo: 'produtoCodigo',      label: 'CÓDIGO',      largura: 80,  minLargura: 60,  padrao: true },
+    { campo: 'produtoNome',        label: 'PRODUTO',     largura: 260, minLargura: 120, padrao: true },
+    { campo: 'fabricante',         label: 'FABRICANTE',  largura: 140, minLargura: 80,  padrao: true },
+    { campo: 'quantidade',         label: 'QTDE',        largura: 60,  minLargura: 50,  padrao: true },
+    { campo: 'precoVenda',         label: 'PREÇO VENDA', largura: 100, minLargura: 70,  padrao: true },
+    { campo: 'percentualDesconto', label: '%DESC',       largura: 80,  minLargura: 60,  padrao: true },
+    { campo: 'precoUnitario',      label: 'PREÇO UNIT',  largura: 100, minLargura: 70,  padrao: true },
+    { campo: 'total',              label: 'TOTAL',       largura: 100, minLargura: 70,  padrao: true },
+  ]));
+  pendItensColsVisiveis = computed(() => this.pendItensCols().filter(c => c.visivel));
+  pendItensSort = signal(''); pendItensSortDir = signal<'asc' | 'desc'>('asc');
+  pendItensPainel = signal(false);
+  private pendItensDragIdx: number | null = null;
+  private pendItensResizeState: { campo: string; startX: number; startW: number } | null = null;
+
+  // ── Filial ──────────────────────────────────────────────────────
+  filiais = signal<{ id: number; nome: string }[]>([]);
+  filialId = signal(1);
+
+  // ── Modais de promoção ───────────────────────────────────────────
+  modalPromoProgressiva = signal(false);
+  promoProgressivaAtual = signal<PromocaoProduto | null>(null);
+  promoProgressivaItemIdx = signal(-1);
+  modalPromoFixas = signal(false);
+  promoFixasLista = signal<PromocaoProduto[]>([]);
+  promoFixasItemIdx = signal(-1);
 
   // ── Abas de atendimento ─────────────────────────────────────────
   atendimentos = signal<Atendimento[]>([]);
@@ -112,31 +239,48 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   itens = signal<PreVendaItem[]>([]);
   itensSelecionadoIdx = signal<number | null>(null);
 
-  // ── Client ──────────────────────────────────────────────────────
+  // ── Client (ComboGrid) ──────────────────────────────────────────
   clienteId = signal<number | null>(null);
   clienteNome = signal('');
   clienteBusca = signal('');
   clienteResultados = signal<ClienteLookup[]>([]);
   clienteDropdown = signal(false);
+  clienteAtivos = signal(true);
+  clienteIndice = signal(-1);
+  clienteExpandidoId = signal<number | null>(null);
+  clienteSort = signal<{ col: string; dir: 'asc' | 'desc' } | null>(null);
   private clienteTimer: any = null;
 
-  // ── Collaborator ────────────────────────────────────────────────
+  // ── Collaborator (ComboGrid) ────────────────────────────────────
   colaboradorId = signal<number | null>(null);
   colaboradorNome = signal('');
   colaboradorBusca = signal('');
   colaboradorResultados = signal<ColaboradorLookup[]>([]);
   colaboradorDropdown = signal(false);
+  colaboradorAtivos = signal(true);
+  colaboradorIndice = signal(-1);
+  colaboradorSort = signal<{ col: string; dir: 'asc' | 'desc' } | null>(null);
   private colaboradorTimer: any = null;
 
   // ── Payment type ────────────────────────────────────────────────
   tipoPagamentoId = signal<number | null>(null);
   tiposPagamento = signal<TipoPagBtn[]>([]);
 
-  // ── Product search ──────────────────────────────────────────────
+  // ── Hierarquia de desconto ──────────────────────────────────────
+  hierarquiaAtiva = signal<HierarquiaInfo | null>(null);
+  convenioIdCliente = signal<number | null>(null);
+
+  // ── Product (ComboGrid) ──────────────────────────────────────────
   produtoBusca = signal('');
   produtoResultados = signal<ProdutoLookup[]>([]);
   produtoDropdown = signal(false);
+  produtoAtivos = signal(true);
+  produtoIndice = signal(-1);
+  produtoSort = signal<{ col: string; dir: 'asc' | 'desc' } | null>(null);
   private produtoTimer: any = null;
+
+  // ── ComboGrid: resize state ─────────────────────────────────────
+  private cgResizeState: { target: HTMLElement; startX: number; startW: number } | null = null;
 
   // ── Grid columns ────────────────────────────────────────────────
   colunas = signal<ColunaEstado[]>(this.carregarColunas());
@@ -193,8 +337,41 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    this.carregarFiliais();
+    this.carregarConfigs();
     this.carregarTiposPagamento();
     this.restaurarEstado();
+    this.buscarHierarquia();
+    this.focarCliente();
+  }
+
+  private carregarFiliais() {
+    const usuario = this.auth.usuarioLogado();
+    this.filialId.set(parseInt(usuario?.filialId || '1', 10));
+    this.http.get<any>(`${this.apiUrl}/filiais`).subscribe({
+      next: r => this.filiais.set((r.data ?? []).map((f: any) => ({ id: f.id, nome: f.nomeFilial ?? f.nomeFantasia ?? f.nome ?? `Filial ${f.id}` }))),
+      error: () => {
+        // Se não tem permissão para listar, criar entrada com a filial do usuário
+        const id = this.filialId();
+        this.filiais.set([{ id, nome: usuario?.nomeFilial ?? `Filial ${id}` }]);
+      }
+    });
+  }
+
+  private carregarConfigs() {
+    this.http.get<any>(`${this.apiUrl}/configuracoes`).subscribe({
+      next: r => {
+        const map: Record<string, string> = {};
+        for (const item of (r.data ?? [])) map[item.chave] = item.valor;
+        this.cfgMultiplosVendedores.set(map['venda.multiplos.vendedores'] === 'true');
+        this.cfgDuplicarLinha.set(map['venda.duplicar.linha'] === 'true');
+        this.cfgFocarQuantidade.set(map['venda.focar.quantidade'] === 'true');
+        this.cfgAlterarPrecoPromo.set(map['venda.alterar.preco.promo'] === 'true');
+        this.cfgObrigarEscanear.set(map['venda.obrigar.escanear'] === 'true');
+        this.cfgPromoMultiplas.set((map['venda.promo.multiplas'] ?? 'exibir') as 'exibir' | 'menor');
+        this.cfgInformarCesta.set(map['caixa.informar.cesta'] === 'true');
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -228,9 +405,10 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   novaAba() {
     this.salvarAbaAtiva();
     const id = this.nextAbaId++;
+    const tipoPadrao = this.tiposPagamento().length > 0 ? this.tiposPagamento()[0].id : null;
     const aba: Atendimento = {
       id, label: `Atendimento ${id}`, preVendaId: null, itens: [],
-      clienteId: null, clienteNome: '', colaboradorId: null, colaboradorNome: '', tipoPagamentoId: null
+      clienteId: null, clienteNome: '', colaboradorId: null, colaboradorNome: '', tipoPagamentoId: tipoPadrao
     };
     this.atendimentos.update(abas => [...abas, aba]);
     this.carregarAba(id);
@@ -283,7 +461,14 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   // ── Payment types ───────────────────────────────────────────────
   carregarTiposPagamento() {
     this.http.get<any>(`${this.apiUrl}/tipospagamento`).subscribe({
-      next: r => this.tiposPagamento.set(r.data ?? []),
+      next: r => {
+        const tipos = (r.data ?? []).filter((t: any) => t.ativo).sort((a: any, b: any) => a.ordem - b.ordem);
+        this.tiposPagamento.set(tipos);
+        // Selecionar o primeiro por padrão (Dinheiro) se nenhum selecionado
+        if (!this.tipoPagamentoId() && tipos.length > 0) {
+          this.tipoPagamentoId.set(tipos[0].id);
+        }
+      },
       error: () => this.modal.erro('Erro', 'Erro ao carregar tipos de pagamento.')
     });
   }
@@ -293,12 +478,52 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   }
 
   selecionarPagamento(id: number) {
-    this.tipoPagamentoId.set(this.tipoPagamentoId() === id ? null : id);
+    if (this.tipoPagamentoId() === id) return; // Não permitir desselecionar
+    this.tipoPagamentoId.set(id);
+    // Recalcular descontos de todos os itens com a nova condição
+    this.recalcularDescontosTodosItens();
+  }
+
+  private recalcularDescontosTodosItens() {
+    const itens = this.itens();
+    if (itens.length === 0) return;
+    itens.forEach((item, idx) => {
+      this.resolverDescontoProduto(item.produtoId, (desc) => {
+        this.itens.update(lista => {
+          const arr = [...lista];
+          const it = { ...arr[idx] };
+          it.descontoMaxPermitido = desc.descontoMaxSemSenha;
+          it.componenteDesconto = desc.componente ?? undefined;
+          // Se desconto atual ultrapassa o novo máximo, ajustar
+          if (it.descontoMaxPermitido > 0 && it.percentualDesconto > it.descontoMaxPermitido) {
+            it.percentualDesconto = it.descontoMaxPermitido;
+            it.precoUnitario = Math.round(it.precoVenda * (1 - it.percentualDesconto / 100) * 100) / 100;
+            it.valorDesconto = Math.round(it.precoVenda * it.quantidade * it.percentualDesconto / 100 * 100) / 100;
+            it.total = Math.round(it.precoUnitario * it.quantidade * 100) / 100;
+          }
+          arr[idx] = it;
+          return arr;
+        });
+      });
+    });
   }
 
   // ── Product search ──────────────────────────────────────────────
+  private avisoEscanearMostrado = false;
+
   onProdutoBuscaInput(valor: string) {
+    // Obrigatório escanear: bloquear digitação de texto, aceitar apenas números (barcode)
+    if (this.cfgObrigarEscanear() && valor.length > 0 && !/^\d+$/.test(valor)) {
+      this.produtoBusca.set(valor.replace(/\D/g, ''));
+      if (!this.avisoEscanearMostrado) {
+        this.avisoEscanearMostrado = true;
+        this.modal.aviso('Pesquisa por Código de Barras', 'A pesquisa por texto está desabilitada. Utilize o leitor de código de barras para inserir produtos. Para alterar, acesse Configurações > Venda.');
+        setTimeout(() => this.avisoEscanearMostrado = false, 5000);
+      }
+      return;
+    }
     this.produtoBusca.set(valor);
+    this.produtoIndice.set(-1);
     if (this.produtoTimer) clearTimeout(this.produtoTimer);
     if (valor.trim().length < 2) {
       this.produtoResultados.set([]);
@@ -308,9 +533,15 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     this.produtoTimer = setTimeout(() => this.buscarProdutos(valor), 300);
   }
 
+  onProdutoAtivosChange(ativo: boolean) {
+    this.produtoAtivos.set(ativo);
+    const termo = this.produtoBusca();
+    if (termo.trim().length >= 2) this.buscarProdutos(termo);
+  }
+
   private buscarProdutos(termo: string) {
     this.http.get<any>(`${this.apiUrl}/produtos/buscar`, {
-      params: { termo, filialId: '1' }
+      params: { termo, filialId: this.filialId().toString(), status: this.produtoAtivos() ? 'ativos' : 'todos' }
     }).subscribe({
       next: r => {
         this.produtoResultados.set(r.data ?? []);
@@ -320,7 +551,74 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Cores para múltiplos vendedores ─────────────────────────────
+  private readonly CORES_VENDEDOR = ['#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#E53935', '#00ACC1', '#6D4C41'];
+  private vendedorCoresMap = new Map<number, string>();
+
+  corVendedor(colaboradorId?: number): string {
+    if (!colaboradorId) return 'inherit';
+    const ids = [...new Set(this.itens().map(i => i.colaboradorId).filter(Boolean) as number[])];
+    if (ids.length <= 1) return 'inherit';
+    if (!this.vendedorCoresMap.has(colaboradorId)) {
+      this.vendedorCoresMap.set(colaboradorId, this.CORES_VENDEDOR[this.vendedorCoresMap.size % this.CORES_VENDEDOR.length]);
+    }
+    return this.vendedorCoresMap.get(colaboradorId)!;
+  }
+
+  temMultiplosVendedores(): boolean {
+    const ids = new Set(this.itens().map(i => i.colaboradorId).filter(Boolean));
+    return ids.size > 1;
+  }
+
   selecionarProduto(p: ProdutoLookup) {
+    if (!this.tipoPagamentoId()) {
+      this.modal.aviso('Condição de Pagamento', 'Selecione uma condição de pagamento antes de inserir produtos.');
+      return;
+    }
+
+    // ── Vendedor obrigatório ─────────────────────────────────────
+    if (!this.colaboradorId()) {
+      this.modal.aviso('Vendedor Obrigatório', 'Informe o vendedor antes de inserir produtos.');
+      return;
+    }
+
+    // ── Múltiplos vendedores: validar se vendedor mudou ──────────
+    const vendedorAtualId = this.colaboradorId()!;
+    const vendedorAtualNome = this.colaboradorNome() || '';
+    if (!this.cfgMultiplosVendedores() && this.itens().length > 0) {
+      const vendedorExistente = this.itens().find(i => i.colaboradorId && i.colaboradorId !== vendedorAtualId);
+      if (vendedorExistente) {
+        this.modal.aviso('Vendedor', 'Não é permitido ter múltiplos vendedores nesta venda. Para habilitar, acesse Configurações > Venda.');
+        return;
+      }
+    }
+
+    // ── Duplicar linha: se desabilitado, incrementar quantidade ──
+    if (!this.cfgDuplicarLinha()) {
+      const idxExistente = this.itens().findIndex(i => i.produtoId === p.id);
+      if (idxExistente >= 0) {
+        this.itens.update(lista => {
+          const arr = [...lista];
+          const item = { ...arr[idxExistente] };
+          item.quantidade += 1;
+          item.valorDesconto = Math.round(item.precoVenda * item.quantidade * item.percentualDesconto / 100 * 100) / 100;
+          item.total = Math.round(item.precoUnitario * item.quantidade * 100) / 100;
+          arr[idxExistente] = item;
+          return arr;
+        });
+        this.itensSelecionadoIdx.set(idxExistente);
+        this.produtoBusca.set('');
+        this.produtoResultados.set([]);
+        this.produtoDropdown.set(false);
+        if (this.cfgFocarQuantidade()) {
+          this.focarCelulaQuantidade(idxExistente);
+        } else {
+          setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
+        }
+        return;
+      }
+    }
+
     const novoItem: PreVendaItem = {
       produtoId: p.id,
       produtoCodigo: p.codigo,
@@ -329,38 +627,246 @@ export class PreVendaComponent implements OnInit, OnDestroy {
       precoVenda: p.valorVenda,
       quantidade: 1,
       percentualDesconto: 0,
+      percentualPromocao: 0,
       valorDesconto: 0,
       precoUnitario: p.valorVenda,
       total: p.valorVenda,
       estoqueAtual: p.estoqueAtual,
-      unidade: p.unidade
+      vendedor: vendedorAtualNome,
+      colaboradorId: vendedorAtualId ?? undefined,
+      unidade: p.unidade,
+      descontos: []
     };
     this.itens.update(lista => [...lista, novoItem]);
-    this.itensSelecionadoIdx.set(this.itens().length - 1);
+    const idx = this.itens().length - 1;
+    this.itensSelecionadoIdx.set(idx);
     this.produtoBusca.set('');
     this.produtoResultados.set([]);
     this.produtoDropdown.set(false);
+
+    // Resolver desconto via hierarquia
+    this.resolverDescontoProduto(p.id, (desc) => {
+      this.itens.update(lista => {
+        const arr = [...lista];
+        const item = { ...arr[idx], descontos: [...arr[idx].descontos] };
+        item.descontoMaxPermitido = desc.descontoMaxSemSenha;
+        item.componenteDesconto = desc.componente ?? undefined;
+        if (desc.aplicarAutomatico && desc.descontoAplicar > 0) {
+          item.percentualDesconto = desc.descontoAplicar;
+          item.precoUnitario = Math.round(item.precoVenda * (1 - desc.descontoAplicar / 100) * 100) / 100;
+          item.valorDesconto = Math.round(item.precoVenda * item.quantidade * desc.descontoAplicar / 100 * 100) / 100;
+          item.total = Math.round(item.precoUnitario * item.quantidade * 100) / 100;
+          item.descontos.push({
+            tipo: 1,
+            percentual: desc.descontoAplicar,
+            origem: desc.componente ?? 'Padrao',
+            regra: desc.hierarquiaNome ?? 'Padrão',
+            origemId: desc.hierarquiaId
+          });
+        }
+        arr[idx] = item;
+        return arr;
+      });
+    });
+
+    // Buscar promoções ativas para o produto
+    this.buscarPromocoesProduto(p.id, idx);
+
+    // ── Focar quantidade ou voltar ao campo produto ──────────────
+    if (this.cfgFocarQuantidade()) {
+      this.focarCelulaQuantidade(idx);
+    } else {
+      setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
+    }
+  }
+
+  // ── Promoções ───────────────────────────────────────────────────
+  private buscarPromocoesProduto(produtoId: number, itemIdx: number) {
+    const params: any = { produtoId, filialId: this.filialId().toString() };
+    if (this.tipoPagamentoId()) params.tipoPagamentoId = this.tipoPagamentoId()!.toString();
+
+    this.http.get<any>(`${this.apiUrl}/desconto-engine/promocoes`, { params }).subscribe({
+      next: r => {
+        const promos: PromocaoProduto[] = r.data ?? [];
+        if (promos.length === 0) return;
+
+        const fixas = promos.filter(p => p.tipo === 1);
+        const progressivas = promos.filter(p => p.tipo === 2);
+
+        // Promoção fixa
+        if (fixas.length === 1) {
+          this.aplicarPromocaoFixaUnica(fixas[0], itemIdx);
+        } else if (fixas.length > 1) {
+          if (this.cfgPromoMultiplas() === 'menor') {
+            // Lançar menor preço automaticamente
+            const menor = fixas.sort((a, b) => b.percentualPromocao - a.percentualPromocao)[0];
+            this.aplicarPromocaoFixaUnica(menor, itemIdx);
+          } else {
+            // Exibir modal com as promoções para o usuário escolher
+            this.promoFixasLista.set(fixas);
+            this.promoFixasItemIdx.set(itemIdx);
+            this.modalPromoFixas.set(true);
+          }
+        }
+
+        // Promoção progressiva: abrir modal para o usuário escolher a faixa
+        if (progressivas.length > 0) {
+          this.promoProgressivaAtual.set(progressivas[0]);
+          this.promoProgressivaItemIdx.set(itemIdx);
+          this.modalPromoProgressiva.set(true);
+        }
+      }
+    });
+  }
+
+  private aplicarPromocaoFixaUnica(promo: PromocaoProduto, itemIdx: number) {
+    this.itens.update(lista => {
+      const arr = [...lista];
+      if (itemIdx >= arr.length) return arr;
+      const item = { ...arr[itemIdx], descontos: [...arr[itemIdx].descontos] };
+      item.percentualPromocao = promo.percentualPromocao;
+      item.temPromocao = true;
+      const percTotal = item.percentualDesconto + item.percentualPromocao;
+      item.precoUnitario = Math.round(item.precoVenda * (1 - percTotal / 100) * 100) / 100;
+      item.valorDesconto = Math.round(item.precoVenda * item.quantidade * percTotal / 100 * 100) / 100;
+      item.total = Math.round(item.precoUnitario * item.quantidade * 100) / 100;
+      item.descontos.push({
+        tipo: 2,
+        percentual: promo.percentualPromocao,
+        origem: 'PromocaoFixa',
+        regra: promo.nome,
+        origemId: promo.promocaoId
+      });
+      arr[itemIdx] = item;
+      return arr;
+    });
+  }
+
+  selecionarPromocaoFixa(promo: PromocaoProduto) {
+    this.aplicarPromocaoFixaUnica(promo, this.promoFixasItemIdx());
+    this.modalPromoFixas.set(false);
+    this.promoFixasLista.set([]);
+  }
+
+  fecharModalPromoFixas() {
+    this.modalPromoFixas.set(false);
+    this.promoFixasLista.set([]);
+  }
+
+  aplicarPromocaoProgressiva(faixa: PromocaoFaixa) {
+    const promo = this.promoProgressivaAtual();
+    const itemIdx = this.promoProgressivaItemIdx();
+    if (!promo || itemIdx < 0) return;
+
+    this.itens.update(lista => {
+      const arr = [...lista];
+      if (itemIdx >= arr.length) return arr;
+      const item = { ...arr[itemIdx], descontos: [...arr[itemIdx].descontos] };
+      item.quantidade = faixa.quantidade;
+      item.percentualPromocao = faixa.percentualDesconto;
+      item.temPromocao = true;
+      const percTotal = item.percentualDesconto + item.percentualPromocao;
+      item.precoUnitario = Math.round(item.precoVenda * (1 - percTotal / 100) * 100) / 100;
+      item.valorDesconto = Math.round(item.precoVenda * item.quantidade * percTotal / 100 * 100) / 100;
+      item.total = Math.round(item.precoUnitario * item.quantidade * 100) / 100;
+      item.descontos.push({
+        tipo: 2,
+        percentual: faixa.percentualDesconto,
+        origem: 'PromocaoProgressiva',
+        regra: promo.nome,
+        origemId: promo.promocaoId
+      });
+      arr[itemIdx] = item;
+      return arr;
+    });
+
+    this.modalPromoProgressiva.set(false);
+    this.promoProgressivaAtual.set(null);
+  }
+
+  fecharModalPromoProgressiva() {
+    this.modalPromoProgressiva.set(false);
+    this.promoProgressivaAtual.set(null);
+  }
+
+  calcularPrecoLiquidoFaixa(faixa: PromocaoFaixa): number {
+    const idx = this.promoProgressivaItemIdx();
+    const itens = this.itens();
+    if (idx < 0 || idx >= itens.length) return 0;
+    const item = itens[idx];
+    return Math.round(item.precoVenda * (1 - faixa.percentualDesconto / 100) * 100) / 100;
+  }
+
+  private focarVendedor() {
+    setTimeout(() => this.inputVendedorRef?.nativeElement?.focus(), 50);
+  }
+
+  private focarProduto() {
     setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
   }
 
+  private focarCelulaQuantidade(idx: number) {
+    setTimeout(() => {
+      const row = document.querySelector(`.pv-grid tbody tr:nth-child(${idx + 1})`);
+      const qtdeCell = row?.querySelector('td[data-campo="quantidade"] input') as HTMLInputElement;
+      if (qtdeCell) { qtdeCell.focus(); qtdeCell.select(); }
+    }, 100);
+  }
+
   onProdutoKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      this.produtoDropdown.set(false);
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      // future: navigate dropdown
+    if (e.key === 'Escape') { this.produtoDropdown.set(false); return; }
+    const lista = this.produtoResultados();
+    if (e.key === 'ArrowDown' && lista.length > 0) {
+      e.preventDefault();
+      this.produtoIndice.update(i => Math.min(i + 1, lista.length - 1));
+    } else if (e.key === 'ArrowUp' && lista.length > 0) {
+      e.preventDefault();
+      this.produtoIndice.update(i => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
-      const resultados = this.produtoResultados();
-      if (resultados.length === 1) {
-        this.selecionarProduto(resultados[0]);
+      e.preventDefault();
+      if (this.produtoTimer) clearTimeout(this.produtoTimer);
+      const idx = this.produtoIndice();
+      if (idx >= 0 && idx < lista.length) {
+        this.selecionarProduto(lista[idx]);
+      } else if (lista.length === 1) {
+        this.selecionarProduto(lista[0]);
+      } else if (this.produtoBusca().trim().length >= 1) {
+        // Busca direta — fecha dropdown e busca imediato
+        this.produtoDropdown.set(false);
+        this.buscarProdutoDireto(this.produtoBusca().trim());
       }
     }
+  }
+
+  private buscarProdutoDireto(termo: string) {
+    this.http.get<any>(`${this.apiUrl}/produtos/buscar`, {
+      params: { termo, filialId: this.filialId().toString(), limit: '2' }
+    }).subscribe({
+      next: r => {
+        const lista = r.data ?? [];
+        if (lista.length === 1) {
+          this.selecionarProduto(lista[0]);
+        } else if (lista.length > 1) {
+          this.produtoResultados.set(lista);
+          this.produtoDropdown.set(true);
+        } else {
+          this.modal.aviso('Produto', `Nenhum produto encontrado para "${termo}".`);
+        }
+      }
+    });
   }
 
   // ── Client search ──────────────────────────────────────────────
   onClienteBuscaInput(valor: string) {
     this.clienteBusca.set(valor);
-    this.clienteId.set(null);
-    this.clienteNome.set('');
+    this.clienteIndice.set(-1);
+    this.clienteExpandidoId.set(null);
+    if (this.clienteId()) {
+      this.clienteId.set(null);
+      this.clienteNome.set('');
+      this.convenioIdCliente.set(null);
+      this.buscarHierarquia();
+    }
     if (this.clienteTimer) clearTimeout(this.clienteTimer);
     if (valor.trim().length < 2) {
       this.clienteResultados.set([]);
@@ -370,31 +876,105 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     this.clienteTimer = setTimeout(() => this.buscarClientes(valor), 300);
   }
 
+  onClienteKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') { this.clienteDropdown.set(false); return; }
+    const lista = this.clienteResultados();
+    if (e.key === 'ArrowDown' && lista.length > 0) {
+      e.preventDefault();
+      this.clienteIndice.update(i => Math.min(i + 1, lista.length - 1));
+    } else if (e.key === 'ArrowUp' && lista.length > 0) {
+      e.preventDefault();
+      this.clienteIndice.update(i => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = this.clienteIndice();
+      if (idx >= 0 && idx < lista.length) {
+        this.selecionarCliente(lista[idx]);
+      } else if (lista.length === 1) {
+        this.selecionarCliente(lista[0]);
+      } else if (lista.length === 0) {
+        this.focarVendedor();
+      }
+    }
+  }
+
+  onClienteAtivosChange(ativo: boolean) {
+    this.clienteAtivos.set(ativo);
+    const termo = this.clienteBusca();
+    if (termo.trim().length >= 2) this.buscarClientes(termo);
+  }
+
   private buscarClientes(termo: string) {
-    this.http.get<any>(`${this.apiUrl}/pessoas/pesquisar`, {
-      params: { termo }
+    this.http.get<any>(`${this.apiUrl}/clientes/pesquisar`, {
+      params: { termo, status: this.clienteAtivos() ? 'ativos' : 'todos' }
     }).subscribe({
       next: r => {
-        this.clienteResultados.set(r.data ?? []);
-        this.clienteDropdown.set((r.data ?? []).length > 0);
+        const lista = (r.data ?? []).map((c: any) => ({ ...c, convenios: c.convenios ?? [] }));
+        this.clienteResultados.set(lista);
+        this.clienteDropdown.set(lista.length > 0);
       },
       error: () => {}
     });
   }
 
   selecionarCliente(c: ClienteLookup) {
-    this.clienteId.set(c.id);
+    if (c.convenios.length > 1 && this.clienteExpandidoId() !== c.clienteId) {
+      this.clienteExpandidoId.set(c.clienteId);
+      return;
+    }
+    this.confirmarCliente(c, c.convenios.length === 1 ? c.convenios[0] : null);
+  }
+
+  selecionarConvenio(c: ClienteLookup, conv: ConvenioLookup | null) {
+    this.confirmarCliente(c, conv);
+  }
+
+  private confirmarCliente(c: ClienteLookup, conv: ConvenioLookup | null) {
+    this.clienteId.set(c.clienteId);
     this.clienteNome.set(c.nome);
     this.clienteBusca.set(c.nome);
+    this.convenioIdCliente.set(conv?.id ?? null);
     this.clienteResultados.set([]);
     this.clienteDropdown.set(false);
+    this.clienteExpandidoId.set(null);
+    this.buscarHierarquia();
+    this.focarVendedor();
+  }
+
+  // ── Hierarquia de desconto ─────────────────────────────────────
+  buscarHierarquia() {
+    const params: string[] = [];
+    if (this.clienteId()) params.push(`clienteId=${this.clienteId()}`);
+    if (this.convenioIdCliente()) params.push(`convenioId=${this.convenioIdCliente()}`);
+    if (this.colaboradorId()) params.push(`colaboradorId=${this.colaboradorId()}`);
+    const url = `${this.apiUrl}/desconto-engine/hierarquia${params.length ? '?' + params.join('&') : ''}`;
+    this.http.get<any>(url).subscribe({
+      next: r => {
+        if (r.data) this.hierarquiaAtiva.set(r.data);
+        else this.hierarquiaAtiva.set(null);
+      }
+    });
+  }
+
+  resolverDescontoProduto(produtoId: number, callback: (desc: DescontoResolucao) => void) {
+    const params: string[] = [`produtoId=${produtoId}`, `filialId=${this.filialId()}`];
+    if (this.clienteId()) params.push(`clienteId=${this.clienteId()}`);
+    if (this.convenioIdCliente()) params.push(`convenioId=${this.convenioIdCliente()}`);
+    if (this.colaboradorId()) params.push(`colaboradorId=${this.colaboradorId()}`);
+    if (this.tipoPagamentoId()) params.push(`tipoPagamentoId=${this.tipoPagamentoId()}`);
+    this.http.get<any>(`${this.apiUrl}/desconto-engine/resolver?${params.join('&')}`).subscribe({
+      next: r => { if (r.data) callback(r.data); }
+    });
   }
 
   // ── Collaborator search ─────────────────────────────────────────
   onColaboradorBuscaInput(valor: string) {
     this.colaboradorBusca.set(valor);
-    this.colaboradorId.set(null);
-    this.colaboradorNome.set('');
+    this.colaboradorIndice.set(-1);
+    if (this.colaboradorId()) {
+      this.colaboradorId.set(null);
+      this.colaboradorNome.set('');
+    }
     if (this.colaboradorTimer) clearTimeout(this.colaboradorTimer);
     if (valor.trim().length < 2) {
       this.colaboradorResultados.set([]);
@@ -404,9 +984,62 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     this.colaboradorTimer = setTimeout(() => this.buscarColaboradores(valor), 300);
   }
 
+  onColaboradorKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') { this.colaboradorDropdown.set(false); return; }
+    const lista = this.colaboradorResultados();
+    if (e.key === 'ArrowDown' && lista.length > 0) {
+      e.preventDefault();
+      this.colaboradorIndice.update(i => Math.min(i + 1, lista.length - 1));
+    } else if (e.key === 'ArrowUp' && lista.length > 0) {
+      e.preventDefault();
+      this.colaboradorIndice.update(i => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (this.colaboradorTimer) clearTimeout(this.colaboradorTimer);
+      const idx = this.colaboradorIndice();
+      if (idx >= 0 && idx < lista.length) {
+        this.selecionarColaborador(lista[idx]);
+      } else if (lista.length === 1) {
+        this.selecionarColaborador(lista[0]);
+      } else if (this.colaboradorId()) {
+        // Já tem vendedor selecionado, pula pro produto
+        this.colaboradorDropdown.set(false);
+        this.focarProduto();
+      } else if (this.colaboradorBusca().trim().length >= 1) {
+        // Busca direta e seleciona se encontrar 1
+        this.colaboradorDropdown.set(false);
+        this.buscarColaboradorDireto(this.colaboradorBusca().trim());
+      }
+    }
+  }
+
+  private buscarColaboradorDireto(termo: string) {
+    this.http.get<any>(`${this.apiUrl}/colaboradores/pesquisar`, {
+      params: { termo, limit: '2' }
+    }).subscribe({
+      next: r => {
+        const lista = r.data ?? [];
+        if (lista.length === 1) {
+          this.selecionarColaborador(lista[0]);
+        } else if (lista.length > 1) {
+          this.colaboradorResultados.set(lista);
+          this.colaboradorDropdown.set(true);
+        } else {
+          this.modal.aviso('Vendedor', `Nenhum vendedor encontrado para "${termo}".`);
+        }
+      }
+    });
+  }
+
+  onColaboradorAtivosChange(ativo: boolean) {
+    this.colaboradorAtivos.set(ativo);
+    const termo = this.colaboradorBusca();
+    if (termo.trim().length >= 2) this.buscarColaboradores(termo);
+  }
+
   private buscarColaboradores(termo: string) {
-    this.http.get<any>(`${this.apiUrl}/colaboradores`, {
-      params: { busca: termo }
+    this.http.get<any>(`${this.apiUrl}/colaboradores/pesquisar`, {
+      params: { termo, status: this.colaboradorAtivos() ? 'ativos' : 'todos' }
     }).subscribe({
       next: r => {
         this.colaboradorResultados.set(r.data ?? []);
@@ -422,6 +1055,7 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     this.colaboradorBusca.set(c.nome);
     this.colaboradorResultados.set([]);
     this.colaboradorDropdown.set(false);
+    this.focarProduto();
   }
 
   // ── Grid: sort ──────────────────────────────────────────────────
@@ -525,6 +1159,10 @@ export class PreVendaComponent implements OnInit, OnDestroy {
 
   // ── Grid: cell value ───────────────────────────────────────────
   getCellValue(item: PreVendaItem, campo: string): string {
+    if (campo === 'percentualDesconto') {
+      const total = item.percentualDesconto + (item.percentualPromocao || 0);
+      return this.formatarNumero(total);
+    }
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
     if (typeof v === 'number') return this.formatarNumero(v);
@@ -546,6 +1184,31 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     return def?.editavel ?? false;
   }
 
+  isCelulaEditavel(item: PreVendaItem, campo: string): boolean {
+    // Quando promoção aplicada e config bloqueia alteração
+    if (item.temPromocao && !this.cfgAlterarPrecoPromo()) {
+      if (['precoVenda', 'percentualDesconto', 'precoUnitario', 'total'].includes(campo)) return false;
+    }
+    return true;
+  }
+
+  onCellKeydown(e: KeyboardEvent, idx: number, campo: string) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const ordem = ['quantidade', 'percentualDesconto', 'precoUnitario', 'total'];
+    const posAtual = ordem.indexOf(campo);
+    if (posAtual >= 0 && posAtual < ordem.length - 1) {
+      // Próxima coluna na mesma linha
+      const prox = ordem[posAtual + 1];
+      const row = (e.target as HTMLElement).closest('tr');
+      const nextInput = row?.querySelector(`td[data-campo="${prox}"] input`) as HTMLInputElement;
+      if (nextInput) { nextInput.focus(); nextInput.select(); }
+    } else {
+      // Última coluna ou não encontrado — volta ao campo produto
+      setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
+    }
+  }
+
   onCellEdit(idx: number, campo: string, event: Event) {
     const valor = (event.target as HTMLInputElement).value;
     const num = this.parseNumero(valor);
@@ -555,7 +1218,16 @@ export class PreVendaComponent implements OnInit, OnDestroy {
       const arr = [...lista];
       const item = { ...arr[idx] };
       (item as any)[campo] = num;
-      this.recalcularItem(item);
+      this.recalcularItem(item, campo);
+
+      // Validar desconto máximo da hierarquia
+      if (item.descontoMaxPermitido != null && item.descontoMaxPermitido > 0 && item.percentualDesconto > item.descontoMaxPermitido) {
+        item.percentualDesconto = item.descontoMaxPermitido;
+        // Recalcular com o desconto limitado
+        this.recalcularItem(item, 'percentualDesconto');
+        this.modal.aviso('Desconto limitado', `Desconto máximo permitido: ${item.descontoMaxPermitido}%. O valor foi ajustado automaticamente.`);
+      }
+
       arr[idx] = item;
       return arr;
     });
@@ -566,10 +1238,52 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     return parseFloat(limpo);
   }
 
-  private recalcularItem(item: PreVendaItem) {
-    item.valorDesconto = item.precoVenda * item.quantidade * (item.percentualDesconto / 100);
-    item.precoUnitario = item.precoVenda * (1 - item.percentualDesconto / 100);
-    item.total = item.precoUnitario * item.quantidade;
+  private recalcularItem(item: PreVendaItem, campoAlterado: string) {
+    const r = (v: number) => Math.round(v * 100) / 100;
+
+    switch (campoAlterado) {
+      case 'precoVenda':
+        // Recalcula unitário e total mantendo o % desconto
+        item.precoUnitario = r(item.precoVenda * (1 - item.percentualDesconto / 100));
+        item.valorDesconto = r(item.precoVenda * item.quantidade * item.percentualDesconto / 100);
+        item.total = r(item.precoUnitario * item.quantidade);
+        break;
+
+      case 'quantidade':
+        // Mantém % desconto, recalcula unitário e total
+        item.precoUnitario = r(item.precoVenda * (1 - item.percentualDesconto / 100));
+        item.valorDesconto = r(item.precoVenda * item.quantidade * item.percentualDesconto / 100);
+        item.total = r(item.precoUnitario * item.quantidade);
+        break;
+
+      case 'percentualDesconto':
+        // Recalcula unitário e total a partir do %
+        item.precoUnitario = r(item.precoVenda * (1 - item.percentualDesconto / 100));
+        item.valorDesconto = r(item.precoVenda * item.quantidade * item.percentualDesconto / 100);
+        item.total = r(item.precoUnitario * item.quantidade);
+        break;
+
+      case 'precoUnitario':
+        // Recalcula % desconto e total a partir do preço unitário
+        item.percentualDesconto = item.precoVenda > 0 ? r((item.precoVenda - item.precoUnitario) / item.precoVenda * 100) : 0;
+        item.valorDesconto = r((item.precoVenda - item.precoUnitario) * item.quantidade);
+        item.total = r(item.precoUnitario * item.quantidade);
+        break;
+
+      case 'total':
+        // Recalcula unitário e % a partir do total
+        item.precoUnitario = item.quantidade > 0 ? r(item.total / item.quantidade) : 0;
+        item.percentualDesconto = item.precoVenda > 0 ? r((item.precoVenda - item.precoUnitario) / item.precoVenda * 100) : 0;
+        item.valorDesconto = r((item.precoVenda - item.precoUnitario) * item.quantidade);
+        break;
+
+      default:
+        // Fallback padrão
+        item.precoUnitario = r(item.precoVenda * (1 - item.percentualDesconto / 100));
+        item.valorDesconto = r(item.precoVenda * item.quantidade * item.percentualDesconto / 100);
+        item.total = r(item.precoUnitario * item.quantidade);
+        break;
+    }
   }
 
   getEditValue(item: PreVendaItem, campo: string): string {
@@ -602,9 +1316,21 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     this.colaboradorId.set(null);
     this.colaboradorNome.set('');
     this.colaboradorBusca.set('');
-    this.tipoPagamentoId.set(null);
+    this.cestaNumero.set('');
     this.produtoBusca.set('');
+    // Selecionar DINHEIRO (primeiro tipo de pagamento)
+    const tipos = this.tiposPagamento();
+    this.tipoPagamentoId.set(tipos.length > 0 ? tipos[0].id : null);
     this.salvarEstado();
+    this.focarCliente();
+  }
+
+  cancelarAlteracao() {
+    this.resetTudo();
+  }
+
+  editando(): boolean {
+    return this.preVendaId() !== null;
   }
 
   eliminar() {
@@ -633,54 +1359,294 @@ export class PreVendaComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Informar cesta (se habilitado)
+    if (this.cfgInformarCesta()) {
+      if (!this.cestaNumero()) {
+        this.modalCesta.set(true);
+        return;
+      }
+    }
+
+    this.executarFinalizacao();
+  }
+
+  confirmarCesta() {
+    const nr = this.cestaNumero().trim();
+    if (this.cfgInformarCesta() && !nr) {
+      this.modal.aviso('Cesta Obrigatória', 'Informe o número da cesta para finalizar a pré-venda.');
+      return;
+    }
+    this.modalCesta.set(false);
+    this.executarFinalizacao();
+  }
+
+  cancelarCesta() {
+    this.modalCesta.set(false);
+    this.focarCliente();
+  }
+
+  private executarFinalizacao() {
     this.salvando.set(true);
 
-    const body = {
+    const body: any = {
+      filialId: this.filialId(),
       clienteId: this.clienteId(),
       colaboradorId: this.colaboradorId(),
       tipoPagamentoId: this.tipoPagamentoId(),
+      convenioId: this.convenioIdCliente(),
+      nrCesta: this.cestaNumero() || null,
+      origem: 1,
       itens: this.itens().map(i => ({
         produtoId: i.produtoId,
-        quantidade: i.quantidade,
+        produtoCodigo: i.produtoCodigo,
+        produtoNome: i.produtoNome,
+        fabricante: i.fabricante,
         precoVenda: i.precoVenda,
+        quantidade: i.quantidade,
         percentualDesconto: i.percentualDesconto,
+        percentualPromocao: i.percentualPromocao,
+        valorDesconto: i.valorDesconto,
+        precoUnitario: i.precoUnitario,
+        total: i.total,
+        descontos: i.descontos
       }))
     };
 
     const salvar$ = this.preVendaId()
-      ? this.http.put<any>(`${this.apiUrl}/prevendas/${this.preVendaId()}`, body)
-      : this.http.post<any>(`${this.apiUrl}/prevendas`, body);
+      ? this.http.put<any>(`${this.apiUrl}/vendas/${this.preVendaId()}`, body)
+      : this.http.post<any>(`${this.apiUrl}/vendas`, body);
 
     salvar$.subscribe({
       next: (r: any) => {
+        this.salvando.set(false);
         const id = this.preVendaId() ?? r.data?.id;
         if (!id) {
-          this.salvando.set(false);
-          this.modal.erro('Erro', 'Erro ao salvar pre-venda.');
+          this.modal.erro('Erro', 'Erro ao salvar pré-venda.');
           return;
         }
-        this.http.post<any>(`${this.apiUrl}/prevendas/${id}/finalizar`, {}).subscribe({
-          next: () => {
-            this.salvando.set(false);
-            this.modal.aviso('Sucesso', 'Pre-venda finalizada com sucesso!');
-            this.resetTudo();
-          },
-          error: () => {
-            this.salvando.set(false);
-            this.modal.erro('Erro', 'Erro ao finalizar pre-venda.');
-          }
-        });
+        this.preVendaId.set(id);
+        this.modal.sucesso('Salvo', 'Pré-venda salva com sucesso.');
+        this.resetTudo();
       },
-      error: () => {
+      error: (err: any) => {
         this.salvando.set(false);
-        this.modal.erro('Erro', 'Erro ao salvar pre-venda.');
+        const msg = err?.error?.message || 'Erro ao salvar pré-venda.';
+        // Se erro de cesta duplicada, reabrir modal para informar outra
+        if (msg.includes('cesta')) {
+          this.modal.aviso('Cesta em Uso', msg);
+          this.cestaNumero.set('');
+          this.modalCesta.set(true);
+        } else {
+          this.modal.erro('Erro', msg);
+        }
       }
     });
   }
 
   pendentes() {
-    // Placeholder for future implementation
-    this.modal.aviso('Em Desenvolvimento', 'A funcionalidade de pre-vendas pendentes sera implementada em breve.');
+    this.pendentesLoading.set(true);
+    this.modalPendentes.set(true);
+    this.http.get<any>(`${this.apiUrl}/vendas`, { params: { filialId: this.filialId().toString() } }).subscribe({
+      next: r => {
+        const lista = (r.data ?? []).filter((v: any) => v.status === 1); // Aberta = 1
+        this.vendasPendentes.set(lista);
+        this.pendentesLoading.set(false);
+      },
+      error: () => {
+        this.pendentesLoading.set(false);
+        this.modal.erro('Erro', 'Erro ao carregar vendas pendentes.');
+      }
+    });
+  }
+
+  selecionarPendente(venda: any) {
+    this.pendenteSelecionada.set(venda);
+    this.pendenteItensLoading.set(true);
+    this.http.get<any>(`${this.apiUrl}/vendas/${venda.id}`).subscribe({
+      next: r => {
+        this.pendenteItens.set(r.data?.itens ?? []);
+        this.pendenteItensLoading.set(false);
+      },
+      error: () => this.pendenteItensLoading.set(false)
+    });
+  }
+
+  pendenteTotalItens(): number {
+    return this.pendenteItens().reduce((s, i) => s + (i.quantidade ?? 0), 0);
+  }
+
+  pendenteTotalValor(): number {
+    return this.pendenteItens().reduce((s, i) => s + (i.total ?? 0), 0);
+  }
+
+  abrirPendente(venda: any) {
+    this.modalPendentes.set(false);
+    this.http.get<any>(`${this.apiUrl}/vendas/${venda.id}`).subscribe({
+      next: r => {
+        const d = r.data;
+        if (!d) return;
+        this.preVendaId.set(d.id);
+        this.clienteId.set(d.clienteId);
+        this.clienteNome.set(d.clienteNome ?? '');
+        this.clienteBusca.set(d.clienteNome ?? '');
+        this.colaboradorId.set(d.colaboradorId);
+        this.colaboradorNome.set(d.colaboradorNome ?? '');
+        this.colaboradorBusca.set(d.colaboradorNome ?? '');
+        this.tipoPagamentoId.set(d.tipoPagamentoId);
+        this.convenioIdCliente.set(d.convenioId);
+        this.cestaNumero.set(d.nrCesta ?? '');
+        const itens: PreVendaItem[] = (d.itens ?? []).map((i: any) => ({
+          produtoId: i.produtoId,
+          produtoCodigo: i.produtoCodigo,
+          produtoNome: i.produtoNome,
+          fabricante: i.fabricante ?? '',
+          precoVenda: i.precoVenda,
+          quantidade: i.quantidade,
+          percentualDesconto: i.percentualDesconto,
+          percentualPromocao: i.percentualPromocao ?? 0,
+          valorDesconto: i.valorDesconto,
+          precoUnitario: i.precoUnitario,
+          total: i.total,
+          estoqueAtual: i.estoqueAtual ?? 0,
+          vendedor: '',
+          descontos: (i.descontos ?? []).map((dd: any) => ({
+            tipo: dd.tipo, percentual: dd.percentual,
+            origem: dd.origem, regra: dd.regra,
+            origemId: dd.origemId, liberadoPorId: dd.liberadoPorId
+          })),
+          temPromocao: (i.percentualPromocao ?? 0) > 0
+        }));
+        this.itens.set(itens);
+        this.buscarHierarquia();
+        this.focarCliente();
+      }
+    });
+  }
+
+  fecharPendentes() {
+    this.modalPendentes.set(false);
+    this.pendenteSelecionada.set(null);
+    this.pendenteItens.set([]);
+  }
+
+  // ── Grid pendentes: utilitários ────────────────────────────────
+  private carregarColsPend(key: string, defs: ColunaDef[]): ColunaEstado[] {
+    try {
+      const json = localStorage.getItem(key);
+      if (json) {
+        const saved: ColunaEstado[] = JSON.parse(json);
+        return defs.map(def => {
+          const s = saved.find(c => c.campo === def.campo);
+          return { ...def, visivel: s ? s.visivel : def.padrao, largura: s?.largura ?? def.largura };
+        });
+      }
+    } catch {}
+    return defs.map(c => ({ ...c, visivel: c.padrao }));
+  }
+
+  pendOrdenar(colSignal: ReturnType<typeof signal<string>>, dirSignal: ReturnType<typeof signal<'asc' | 'desc'>>, campo: string) {
+    if (colSignal() === campo) dirSignal.set(dirSignal() === 'asc' ? 'desc' : 'asc');
+    else { colSignal.set(campo); dirSignal.set('asc'); }
+  }
+
+  pendSortIcon(colSignal: ReturnType<typeof signal<string>>, dirSignal: ReturnType<typeof signal<'asc' | 'desc'>>, campo: string): string {
+    if (colSignal() !== campo) return '⇅';
+    return dirSignal() === 'asc' ? '▲' : '▼';
+  }
+
+  pendSorted<T>(lista: T[], colSignal: ReturnType<typeof signal<string>>, dirSignal: ReturnType<typeof signal<'asc' | 'desc'>>): T[] {
+    const col = colSignal(); const dir = dirSignal();
+    if (!col) return lista;
+    return [...lista].sort((a, b) => {
+      const va = (a as any)[col] ?? '';
+      const vb = (b as any)[col] ?? '';
+      const cmp = typeof va === 'number' ? va - (vb as number) : String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base' });
+      return dir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  pendCellValue(item: any, campo: string): string {
+    const v = item[campo];
+    if (v === null || v === undefined) return '—';
+    if (campo === 'criadoEm') return this.formatarData(v);
+    if (campo === 'totalLiquido' || campo === 'precoVenda' || campo === 'precoUnitario' || campo === 'total')
+      return typeof v === 'number' ? v.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : v;
+    if (campo === 'percentualDesconto') {
+      const perc = (item.percentualDesconto ?? 0) + (item.percentualPromocao ?? 0);
+      return perc.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    }
+    return String(v);
+  }
+
+  pendToggleColuna(colsSignal: ReturnType<typeof signal<ColunaEstado[]>>, storageKey: string, campo: string) {
+    colsSignal.update(cols => cols.map(c => c.campo === campo ? { ...c, visivel: !c.visivel } : c));
+    localStorage.setItem(storageKey, JSON.stringify(colsSignal()));
+  }
+
+  pendRestaurarCols(colsSignal: ReturnType<typeof signal<ColunaEstado[]>>, storageKey: string, defs: ColunaDef[]) {
+    colsSignal.set(defs.map(c => ({ ...c, visivel: c.padrao })));
+    localStorage.setItem(storageKey, JSON.stringify(colsSignal()));
+  }
+
+  pendIniciarResize(e: MouseEvent, stateRef: 'vendas' | 'itens', campo: string, largura: number) {
+    e.stopPropagation(); e.preventDefault();
+    const state = { campo, startX: e.clientX, startW: largura };
+    if (stateRef === 'vendas') this.pendVendasResizeState = state;
+    else this.pendItensResizeState = state;
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onPendResizeMove(e: MouseEvent) {
+    const doResize = (state: any, colsSignal: ReturnType<typeof signal<ColunaEstado[]>>, defs: ColunaDef[]) => {
+      if (!state) return;
+      const delta = e.clientX - state.startX;
+      const def = defs.find(c => c.campo === state.campo);
+      const min = def?.minLargura ?? 50;
+      const novaLargura = Math.max(min, state.startW + delta);
+      colsSignal.update(cols => cols.map(c => c.campo === state.campo ? { ...c, largura: novaLargura } : c));
+    };
+    doResize(this.pendVendasResizeState, this.pendVendasCols, this.pendVendasCols().map(c => ({ ...c })));
+    doResize(this.pendItensResizeState, this.pendItensCols, this.pendItensCols().map(c => ({ ...c })));
+  }
+
+  @HostListener('document:mouseup')
+  onPendResizeEnd() {
+    if (this.pendVendasResizeState) {
+      localStorage.setItem(this.STORAGE_PEND_VENDAS, JSON.stringify(this.pendVendasCols()));
+      this.pendVendasResizeState = null;
+    }
+    if (this.pendItensResizeState) {
+      localStorage.setItem(this.STORAGE_PEND_ITENS, JSON.stringify(this.pendItensCols()));
+      this.pendItensResizeState = null;
+    }
+    document.body.style.cursor = ''; document.body.style.userSelect = '';
+  }
+
+  pendDragStart(ref: 'vendas' | 'itens', idx: number) {
+    if (ref === 'vendas') this.pendVendasDragIdx = idx; else this.pendItensDragIdx = idx;
+  }
+  pendDragOver(e: DragEvent, ref: 'vendas' | 'itens', idx: number) {
+    e.preventDefault();
+    const dragIdx = ref === 'vendas' ? this.pendVendasDragIdx : this.pendItensDragIdx;
+    const colsSignal = ref === 'vendas' ? this.pendVendasCols : this.pendItensCols;
+    if (dragIdx === null || dragIdx === idx) return;
+    colsSignal.update(cols => { const arr = [...cols]; const [m] = arr.splice(dragIdx!, 1); arr.splice(idx, 0, m); return arr; });
+    if (ref === 'vendas') this.pendVendasDragIdx = idx; else this.pendItensDragIdx = idx;
+  }
+  pendDrop(ref: 'vendas' | 'itens') {
+    if (ref === 'vendas') { this.pendVendasDragIdx = null; localStorage.setItem(this.STORAGE_PEND_VENDAS, JSON.stringify(this.pendVendasCols())); }
+    else { this.pendItensDragIdx = null; localStorage.setItem(this.STORAGE_PEND_ITENS, JSON.stringify(this.pendItensCols())); }
+  }
+
+  private focarCliente() {
+    setTimeout(() => this.inputClienteRef?.nativeElement?.focus(), 50);
+  }
+
+  formatarData(data: string): string {
+    if (!data) return '';
+    const d = new Date(data);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
 
   opcoes() {
@@ -688,29 +1654,110 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     this.modal.aviso('Em Desenvolvimento', 'As opcoes adicionais serao implementadas em breve.');
   }
 
-  async sairDaTela() {
+  sairDaTela() {
+    // Fechar todas as modais abertas antes de sair
+    this.modalPendentes.set(false);
+    this.modalCesta.set(false);
+    this.modalPromoFixas.set(false);
+    this.modalPromoProgressiva.set(false);
+    this.clienteDropdown.set(false);
+    this.colaboradorDropdown.set(false);
+    this.produtoDropdown.set(false);
+
+    this.salvarAbaAtiva();
     const abas = this.atendimentos();
-    const abasComItens = abas.filter(a => a.itens.length > 0 || a.clienteId);
-    if (abasComItens.length > 0) {
+    const temDados = abas.some(a => a.itens.length > 0 || a.clienteId);
+    if (temDados) {
       const msg = abas.length > 1
         ? `Você possui ${abas.length} atendimento(s) aberto(s). Ao sair, todos serão descartados. Deseja continuar?`
         : 'Ao sair, o atendimento atual será descartado. Deseja continuar?';
-      const resultado = await this.modal.confirmar('Sair da Pré-Venda', msg, 'Sim, sair', 'Não, continuar');
-      if (!resultado.confirmado) return;
+      setTimeout(() => {
+        this.modal.confirmar('Sair da Pré-Venda', msg, 'Sim, sair', 'Não, continuar').then(resultado => {
+          if (resultado.confirmado) {
+            this.saindo = true;
+            sessionStorage.removeItem(this.STATE_KEY);
+            this.tabService.fecharTabAtiva();
+          }
+        });
+      }, 100);
+    } else {
+      this.saindo = true;
+      sessionStorage.removeItem(this.STATE_KEY);
+      this.tabService.fecharTabAtiva();
     }
-    this.saindo = true;
-    sessionStorage.removeItem(this.STATE_KEY);
-    this.tabService.fecharTabAtiva();
   }
 
   // ── Dropdown close on outside click ─────────────────────────────
   @HostListener('document:click', ['$event'])
   onDocumentClick(e: MouseEvent) {
     const target = e.target as HTMLElement;
-    if (!target.closest('.pv-autocomplete')) {
+    if (!target.closest('.cg-wrap')) {
       this.produtoDropdown.set(false);
       this.clienteDropdown.set(false);
       this.colaboradorDropdown.set(false);
     }
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onDocumentKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      if (this.modalPendentes()) { this.fecharPendentes(); return; }
+      if (this.modalCesta()) { this.cancelarCesta(); return; }
+      if (this.modalPromoFixas()) { this.fecharModalPromoFixas(); return; }
+      if (this.modalPromoProgressiva()) { this.fecharModalPromoProgressiva(); return; }
+    }
+    if (e.key === 'Delete' && this.itensSelecionadoIdx() !== null) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
+      const idx = this.itensSelecionadoIdx()!;
+      this.itens.update(lista => lista.filter((_, i) => i !== idx));
+      this.itensSelecionadoIdx.set(null);
+    }
+  }
+
+  // ══ ComboGrid: utilitários de sort e resize ════════════════════
+  cgSort(sortSignal: ReturnType<typeof signal<{ col: string; dir: 'asc' | 'desc' } | null>>, col: string) {
+    const atual = sortSignal();
+    if (atual?.col === col) {
+      sortSignal.set(atual.dir === 'asc' ? { col, dir: 'desc' } : null);
+    } else {
+      sortSignal.set({ col, dir: 'asc' });
+    }
+  }
+
+  cgSortIcon(sortSignal: ReturnType<typeof signal<{ col: string; dir: 'asc' | 'desc' } | null>>, col: string): string {
+    const s = sortSignal();
+    if (!s || s.col !== col) return '⇅';
+    return s.dir === 'asc' ? '▲' : '▼';
+  }
+
+  cgSortedList<T>(lista: T[], sortSignal: ReturnType<typeof signal<{ col: string; dir: 'asc' | 'desc' } | null>>): T[] {
+    const s = sortSignal();
+    if (!s) return lista;
+    return [...lista].sort((a, b) => {
+      const va = (a as any)[s.col] ?? '';
+      const vb = (b as any)[s.col] ?? '';
+      const cmp = typeof va === 'number' ? va - (vb as number) : String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base' });
+      return s.dir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  cgResizeStart(e: MouseEvent, th: HTMLElement) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.cgResizeState = { target: th, startX: e.clientX, startW: th.offsetWidth };
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onCgResizeMove(e: MouseEvent) {
+    if (!this.cgResizeState) return;
+    const diff = e.clientX - this.cgResizeState.startX;
+    const novaLargura = Math.max(50, this.cgResizeState.startW + diff);
+    this.cgResizeState.target.style.width = novaLargura + 'px';
+  }
+
+  @HostListener('document:mouseup')
+  onCgResizeEnd() {
+    this.cgResizeState = null;
   }
 }

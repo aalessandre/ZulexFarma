@@ -1,0 +1,227 @@
+:host { display: flex; flex-direction: column; flex: 1; height: 100%; min-height: 0; }
+
+/* ══ Caixa — Layout principal ══════════════════════════════════════ */
+.cx-container {
+  display: flex; flex-direction: column; height: 100%; background: var(--erp-bg);
+  overflow: hidden;
+}
+
+/* ── Barra superior ──────────────────────────────────────────────── */
+.cx-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px; background: var(--erp-surface);
+  border-bottom: 2px solid var(--erp-border);
+  gap: 16px; flex-shrink: 0;
+}
+.cx-topbar-info {
+  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+}
+.cx-info-item {
+  display: flex; align-items: center; gap: 8px;
+}
+.cx-info-label {
+  font-size: var(--erp-fs-xs); font-weight: 700; color: var(--erp-text-sec);
+  letter-spacing: 0.5px;
+}
+.cx-info-value {
+  font-size: var(--erp-fs-sm); font-weight: 600; color: var(--erp-text);
+  background: var(--erp-bg); padding: 4px 12px; border-radius: 6px;
+  border: 1px solid var(--erp-border);
+}
+.cx-fechado { color: var(--erp-text-muted); font-style: italic; }
+
+.cx-topbar-acoes {
+  display: flex; gap: 6px; flex-shrink: 0;
+}
+.cx-btn-top {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border: none; border-radius: 8px; font-size: var(--erp-fs-xs); font-weight: 700;
+  cursor: pointer; color: #fff; transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+  &:hover { opacity: 0.88; }
+  &:active { transform: scale(0.97); }
+}
+.cx-btn-abrir     { background: #43A047; }
+.cx-btn-fechar    { background: #E53935; }
+.cx-btn-opcoes    { background: #FF9800; }
+.cx-btn-sangria   { background: #E53935; }
+.cx-btn-suprimento { background: #7B1FA2; }
+.cx-btn-recargas  { background: #546E7A; }
+
+/* ── Body (sidebar + main) ───────────────────────────────────────── */
+.cx-body {
+  display: flex; flex: 1; overflow: hidden;
+}
+
+/* ── Sidebar colapsável ──────────────────────────────────────────── */
+.cx-sidebar {
+  width: 54px; background: var(--erp-surface); border-right: 1px solid var(--erp-border);
+  display: flex; flex-direction: column; gap: 2px; padding: 6px 4px;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden; flex-shrink: 0; z-index: 10;
+  &.cx-sidebar-expandido { width: 210px; box-shadow: 4px 0 16px rgba(0,0,0,0.08); }
+}
+.cx-sidebar-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 8px;
+  border-radius: 8px; cursor: pointer; position: relative;
+  transition: background 0.15s; min-height: 44px; overflow: hidden;
+  svg { flex-shrink: 0; stroke: var(--item-cor); }
+  &:hover { background: var(--erp-row-hover); }
+  &.cx-sidebar-item-ativo {
+    background: color-mix(in srgb, var(--item-cor) 12%, transparent);
+    &::before {
+      content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px;
+      background: var(--item-cor); border-radius: 0 3px 3px 0;
+    }
+  }
+}
+.cx-sidebar-label {
+  font-size: var(--erp-fs-xs); font-weight: 600; color: var(--erp-text);
+  white-space: nowrap; opacity: 0; transition: opacity 0.2s;
+  .cx-sidebar-expandido & { opacity: 1; }
+}
+.cx-sidebar-sigla {
+  position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+  font-size: 8px; font-weight: 700; color: var(--erp-text-muted); letter-spacing: 0.5px;
+  .cx-sidebar-expandido & { display: none; }
+}
+
+/* ── Área central ────────────────────────────────────────────────── */
+.cx-main {
+  flex: 1; overflow: hidden; padding: 0; display: flex; flex-direction: column;
+}
+.cx-painel {
+  background: var(--erp-surface); border-radius: 12px;
+  border: 1px solid var(--erp-border); flex: 1; margin: 16px;
+  display: flex; flex-direction: column; overflow: hidden;
+  &.cx-painel-vender {
+    border: none; border-radius: 0; background: transparent; margin: 0;
+    app-caixa-venda { display: flex; flex-direction: column; flex: 1; height: 100%; }
+  }
+}
+.cx-painel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--erp-border);
+  h3 { margin: 0; font-size: var(--erp-fs-body); font-weight: 700; color: var(--erp-text); }
+}
+.cx-painel-placeholder {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; color: var(--erp-text-muted);
+  p { margin: 0; font-size: var(--erp-fs-sm); }
+}
+.cx-painel-hint { font-size: var(--erp-fs-xs) !important; color: var(--erp-text-muted); }
+.cx-painel-loading, .cx-painel-vazio {
+  padding: 40px; text-align: center; color: var(--erp-text-muted);
+  font-size: var(--erp-fs-sm);
+}
+
+/* ── Busca por cesta ─────────────────────────────────────────────── */
+.cx-cesta-busca {
+  display: flex; gap: 6px;
+  input {
+    width: 120px; height: 30px; padding: 0 8px; border: 1px solid var(--erp-border-input);
+    border-radius: 4px; font-size: var(--erp-fs-sm); color: var(--erp-text);
+  }
+  button {
+    height: 30px; padding: 0 12px; border: none; border-radius: 4px;
+    background: var(--erp-primary, #2196F3); color: #fff; font-size: var(--erp-fs-xs);
+    font-weight: 600; cursor: pointer;
+    &:hover { opacity: 0.88; }
+  }
+}
+
+/* ── Grid de painéis ─────────────────────────────────────────────── */
+.cx-grid {
+  width: 100%; border-collapse: collapse; font-size: var(--erp-fs-sm);
+  thead tr { background: var(--erp-grid-head); }
+  th {
+    padding: 8px 12px; text-align: left; font-weight: 700; color: var(--erp-text-sec);
+    font-size: var(--erp-fs-xs); letter-spacing: 0.4px;
+  }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--erp-border); color: var(--erp-text); }
+  tbody tr { cursor: pointer; &:hover { background: var(--erp-row-hover); } }
+}
+.cx-valor { font-weight: 600; text-align: right; }
+
+/* ── Toolbar (padrão pré-venda) ───────────────────────────────────── */
+.pv-toolbar {
+  height: 46px; flex-shrink: 0; background: var(--erp-surface);
+  border-top: 2px solid var(--erp-border);
+  display: flex; align-items: center; padding: 0 12px; gap: 8px;
+}
+.pv-tb-btn {
+  display: flex; align-items: center; gap: 6px; padding: 0 14px; height: 34px;
+  border: none; border-radius: 4px; font-size: var(--erp-fs-body); font-weight: 600;
+  cursor: pointer; color: #fff; transition: filter 0.15s; letter-spacing: 0.2px;
+  white-space: nowrap;
+  &:hover:not(:disabled) { filter: brightness(1.1); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+.pv-tb-limpar     { background: #2980b9; }
+.pv-tb-eliminar   { background: #e74c3c; }
+.pv-tb-pendentes  { background: #8e44ad; }
+.pv-tb-opcoes     { background: #546e7a; }
+.pv-tb-sair       { background: #c0392b; }
+.pv-tb-finalizar  { background: #27ae60; }
+
+/* ══ Modal Abertura de Caixa ═════════════════════════════════════ */
+.cx-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.cx-modal-abertura {
+  background: var(--erp-surface); border-radius: 14px; width: 420px; max-width: 92vw;
+  box-shadow: 0 20px 56px rgba(0,0,0,0.25); overflow: hidden;
+  animation: cxSlideIn 0.2s ease-out;
+}
+@keyframes cxSlideIn {
+  from { opacity: 0; transform: scale(0.93) translateY(16px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.cx-modal-abertura-header {
+  display: flex; align-items: center; gap: 10px; padding: 16px 24px;
+  background: linear-gradient(135deg, #2e7d32, #43A047); color: #fff;
+  h3 { margin: 0; font-size: 16px; font-weight: 700; }
+}
+.cx-modal-abertura-body {
+  padding: 24px; display: flex; flex-direction: column; gap: 16px;
+}
+.cx-modal-field {
+  display: flex; flex-direction: column; gap: 4px;
+  label {
+    font-size: var(--erp-fs-xs); font-weight: 700; color: var(--erp-text-muted);
+    letter-spacing: 0.5px;
+  }
+  input, select {
+    height: 40px; padding: 0 12px; border: 1px solid var(--erp-border);
+    border-radius: 8px; font-size: var(--erp-fs-body); color: var(--erp-text);
+    background: var(--erp-bg); font-weight: 600;
+    &:disabled { opacity: 0.7; cursor: not-allowed; }
+  }
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236a7888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+    padding-right: 30px;
+  }
+}
+.cx-modal-abertura-footer {
+  display: flex; justify-content: flex-end; gap: 10px; padding: 14px 24px;
+  border-top: 1px solid var(--erp-border); background: var(--erp-bg);
+}
+.cx-modal-btn-cancelar {
+  padding: 9px 20px; border: 1px solid var(--erp-border-input); border-radius: 8px;
+  background: var(--erp-surface); color: var(--erp-text-sec); font-size: 14px;
+  font-weight: 600; cursor: pointer;
+  &:hover { background: var(--erp-row-hover); }
+}
+.cx-modal-btn-abrir {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 22px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #2e7d32, #43A047); color: #fff;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: opacity 0.15s;
+  &:hover { opacity: 0.9; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}

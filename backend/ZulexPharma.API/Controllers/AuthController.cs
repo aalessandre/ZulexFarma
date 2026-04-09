@@ -8,6 +8,7 @@ using System.Text;
 using ZulexPharma.Application.DTOs.Auth;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
@@ -156,7 +157,7 @@ public class AuthController : ControllerBase
 
             _db.LogsAcao.Add(new LogAcao
             {
-                RealizadoEm        = DateTime.UtcNow,
+                RealizadoEm        = DataHoraHelper.Agora(),
                 UsuarioId           = usuarioSolicitanteId,
                 Tela                = request.Tela,
                 Acao                = $"LIBERAÇÃO POR SENHA ({nomeAcao})",

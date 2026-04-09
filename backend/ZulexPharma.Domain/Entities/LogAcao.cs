@@ -2,7 +2,7 @@ namespace ZulexPharma.Domain.Entities;
 
 public class LogAcao : BaseEntity
 {
-    public DateTime RealizadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime RealizadoEm { get; set; } = Helpers.DataHoraHelper.Agora();
 
     public long UsuarioId { get; set; }
     public Usuario Usuario { get; set; } = null!;

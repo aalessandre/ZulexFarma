@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
@@ -25,10 +26,11 @@ public class PessoasController : ControllerBase
             return Ok(new { success = true, data = Array.Empty<object>() });
 
         var termoNorm = termo.Trim().ToUpper();
+        var termoDigitos = CpfCnpjHelper.SomenteDigitos(termo);
 
         var query = _db.Pessoas
             .Include(p => p.Fornecedor)
-            .Where(p => p.Ativo && (p.Nome.ToUpper().Contains(termoNorm) || p.CpfCnpj.Contains(termoNorm)));
+            .Where(p => p.Ativo && (p.Nome.ToUpper().Contains(termoNorm) || (termoDigitos.Length > 0 && p.CpfCnpj.Contains(termoDigitos))));
 
         if (tipo == "fornecedor")
             query = query.Where(p => p.Fornecedor != null);
@@ -66,7 +68,7 @@ public class PessoasController : ControllerBase
             .Include(p => p.Fornecedor)
             .Include(p => p.Contatos)
             .Include(p => p.Enderecos)
-            .FirstOrDefaultAsync(p => p.CpfCnpj == valor.Trim());
+            .FirstOrDefaultAsync(p => p.CpfCnpj == CpfCnpjHelper.SomenteDigitos(valor));
 
         if (pessoa == null)
             return Ok(new { success = true, data = (object?)null });

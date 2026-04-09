@@ -5,6 +5,7 @@ using System.Text.Json;
 using ZulexPharma.Application.DTOs.Fiscal;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -59,7 +60,7 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
         var registros = JsonSerializer.Deserialize<List<AbcFarmaJson>>(conteudoJson, opts)
             ?? throw new ArgumentException("JSON inválido.");
 
-        var agora = DateTime.UtcNow;
+        var agora = DataHoraHelper.Agora();
         var inseridos = 0;
         var atualizados = 0;
 
@@ -287,7 +288,7 @@ public class AtualizacaoPrecoService : IAtualizacaoPrecoService
         {
             FilialId = request.FilialId,
             Tipo = "ABCFARMA",
-            DataExecucao = DateTime.UtcNow,
+            DataExecucao = DataHoraHelper.Agora(),
             NomeUsuario = request.NomeUsuario,
             FiltroJson = JsonSerializer.Serialize(new { request.Modo, request.GruposPrincipaisIds, request.ReajustarPromocoes, request.ReajustarOfertas }),
             TotalProdutos = dadosProdutos.Count,

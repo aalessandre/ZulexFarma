@@ -20,6 +20,8 @@ interface TipoPagamento {
   descontoMaxSemSenha: number;
   descontoMaxComSenha: number;
   aceitaPromocao: boolean;
+  ordem: number;
+  padraoSistema: boolean;
   ativo: boolean;
   criadoEm?: string;
 }
@@ -159,7 +161,7 @@ export class TiposPagamentoComponent implements OnInit, OnDestroy {
   onDropCol() { this.dragColIdx = null; this.salvarColunasStorage(); }
 
   async incluir() { if (!await this.verificarPermissao('i')) return; this.form.set(this.novoRegistro()); this.formOriginal = this.clonar(this.novoRegistro()); this.modoEdicao.set(false); this.isDirty.set(false); this.erro.set(''); this.errosCampos.set({}); this.modo.set('form'); }
-  async editar() { if (!await this.verificarPermissao('a')) return; const r = this.selecionado(); if (!r?.id) return; const ja = this.abasEdicao().find(a => a.registro.id === r.id); if (ja) { this.ativarAba(r.id); return; } const aba: AbaEdicao = { registro: { ...r }, form: this.clonar(r), isDirty: false }; this.abasEdicao.update(abas => [...abas, aba]); this.abaAtivaId.set(r.id!); this.form.set(this.clonar(r)); this.formOriginal = this.clonar(r); this.modoEdicao.set(true); this.isDirty.set(false); this.erro.set(''); this.errosCampos.set({}); this.modo.set('form'); }
+  async editar() { if (!await this.verificarPermissao('a')) return; const r = this.selecionado(); if (!r?.id) return; if (r.padraoSistema) { this.modal.aviso('Bloqueado', 'Tipo de pagamento padrão do sistema não pode ser editado.'); return; } const ja = this.abasEdicao().find(a => a.registro.id === r.id); if (ja) { this.ativarAba(r.id); return; } const aba: AbaEdicao = { registro: { ...r }, form: this.clonar(r), isDirty: false }; this.abasEdicao.update(abas => [...abas, aba]); this.abaAtivaId.set(r.id!); this.form.set(this.clonar(r)); this.formOriginal = this.clonar(r); this.modoEdicao.set(true); this.isDirty.set(false); this.erro.set(''); this.errosCampos.set({}); this.modo.set('form'); }
   ativarAba(id: number) { this.salvarEstadoAbaAtiva(); const aba = this.abasEdicao().find(a => a.registro.id === id); if (!aba) return; this.abaAtivaId.set(id); this.form.set(this.clonar(aba.form)); this.formOriginal = this.clonar(aba.form); this.isDirty.set(aba.isDirty); this.modoEdicao.set(true); this.erro.set(''); this.errosCampos.set({}); this.modo.set('form'); }
   fecharAba(id: number) { this.abasEdicao.update(abas => abas.filter(a => a.registro.id !== id)); if (this.abaAtivaId() === id) { const rest = this.abasEdicao(); if (rest.length > 0) this.ativarAba(rest[rest.length - 1].registro.id!); else { this.modo.set('lista'); this.abaAtivaId.set(null); } } }
   fechar() { this.modo.set('lista'); this.carregar(); }
@@ -177,7 +179,7 @@ export class TiposPagamentoComponent implements OnInit, OnDestroy {
     if (Object.keys(erros).length) { this.errosCampos.set(erros); return; }
     this.errosCampos.set({}); this.salvando.set(true);
     const headers = this.headerLiberacao();
-    const body: any = { nome: f.nome, modalidade: f.modalidade, descontoMinimo: f.descontoMinimo, descontoMaxSemSenha: f.descontoMaxSemSenha, descontoMaxComSenha: f.descontoMaxComSenha, aceitaPromocao: f.aceitaPromocao, ativo: f.ativo };
+    const body: any = { nome: f.nome, modalidade: f.modalidade, descontoMinimo: f.descontoMinimo, descontoMaxSemSenha: f.descontoMaxSemSenha, descontoMaxComSenha: f.descontoMaxComSenha, aceitaPromocao: f.aceitaPromocao, ordem: f.ordem, ativo: f.ativo };
     const op$ = this.modoEdicao() ? this.http.put(`${this.apiUrl}/${f.id}`, body, { headers }) : this.http.post<any>(this.apiUrl, body, { headers });
     op$.subscribe({
       next: (r: any) => { this.salvando.set(false); this.isDirty.set(false); if (this.modoEdicao()) this.fecharAba(f.id!); this.carregar(); this.modo.set('lista'); },
@@ -206,6 +208,6 @@ export class TiposPagamentoComponent implements OnInit, OnDestroy {
   selecionarLogEntry(entry: LogEntry) { this.logSelecionado.set(entry); }
   acaoCss(acao: string): string { const map: Record<string, string> = { 'CRIAÇÃO': 'log-badge badge-criacao', 'ALTERAÇÃO': 'log-badge badge-alteracao', 'EXCLUSÃO': 'log-badge badge-exclusao', 'DESATIVAÇÃO': 'log-badge badge-desativacao' }; return map[acao] ?? 'log-badge'; }
 
-  private novoRegistro(): TipoPagamento { return { nome: '', modalidade: 1, descontoMinimo: 0, descontoMaxSemSenha: 0, descontoMaxComSenha: 0, aceitaPromocao: true, ativo: true }; }
+  private novoRegistro(): TipoPagamento { return { nome: '', modalidade: 1, descontoMinimo: 0, descontoMaxSemSenha: 0, descontoMaxComSenha: 0, aceitaPromocao: true, ordem: 99, padraoSistema: false, ativo: true }; }
   private clonar<T>(obj: T): T { return JSON.parse(JSON.stringify(obj)); }
 }

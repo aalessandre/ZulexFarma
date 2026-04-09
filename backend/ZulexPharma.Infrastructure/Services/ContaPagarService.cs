@@ -4,6 +4,7 @@ using ZulexPharma.Application.DTOs.ContasPagar;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Domain.Enums;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -21,7 +22,7 @@ public class ContaPagarService : IContaPagarService
     {
         try
         {
-            var hoje = DateTime.UtcNow.Date;
+            var hoje = DataHoraHelper.Agora().Date;
             return await _db.ContasPagar
                 .Include(c => c.Pessoa)
                 .Include(c => c.PlanoConta)
@@ -254,7 +255,7 @@ public class ContaPagarService : IContaPagarService
         Observacao = c.Observacao,
         Status = c.Status,
         StatusDescricao = StatusParaTexto(c.Status),
-        Vencido = c.Status == StatusConta.Aberto && c.DataVencimento < DateTime.UtcNow.Date,
+        Vencido = c.Status == StatusConta.Aberto && c.DataVencimento < DataHoraHelper.Agora().Date,
         RecorrenciaGrupo = c.RecorrenciaGrupo,
         RecorrenciaParcela = c.RecorrenciaParcela,
         Ativo = c.Ativo,

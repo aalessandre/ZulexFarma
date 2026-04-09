@@ -2,10 +2,12 @@ using ZulexPharma.Domain.Enums;
 
 namespace ZulexPharma.Domain.Entities;
 
-public class PreVenda : BaseEntity
+public class Venda : BaseEntity
 {
     public long FilialId { get; set; }
     public Filial? Filial { get; set; }
+    public long? CaixaId { get; set; }
+    public Caixa? Caixa { get; set; }
     public long? ClienteId { get; set; }
     public Cliente? Cliente { get; set; }
     public long? ColaboradorId { get; set; }
@@ -14,6 +16,12 @@ public class PreVenda : BaseEntity
     public TipoPagamento? TipoPagamento { get; set; }
     public long? ConvenioId { get; set; }
 
+    /// <summary>Número da cesta informado pelo usuário (opcional, configurável).</summary>
+    public string? NrCesta { get; set; }
+
+    /// <summary>Origem: PreVenda ou Caixa.</summary>
+    public VendaOrigem Origem { get; set; } = VendaOrigem.PreVenda;
+
     // ── Totais ──────────────────────────────────────────────────
     public decimal TotalBruto { get; set; }
     public decimal TotalDesconto { get; set; }
@@ -21,9 +29,9 @@ public class PreVenda : BaseEntity
     public int TotalItens { get; set; }
 
     // ── Status ──────────────────────────────────────────────────
-    public PreVendaStatus Status { get; set; } = PreVendaStatus.Aberta;
+    public VendaStatus Status { get; set; } = VendaStatus.Aberta;
     public string? Observacao { get; set; }
 
     // ── Navigation ─────────────────────────────────────────────
-    public ICollection<PreVendaItem> Itens { get; set; } = new List<PreVendaItem>();
+    public ICollection<VendaItem> Itens { get; set; } = new List<VendaItem>();
 }

@@ -90,8 +90,10 @@ public class AppDbContext : DbContext
     public DbSet<HierarquiaDescontoColaborador> HierarquiaDescontoColaboradores => Set<HierarquiaDescontoColaborador>();
     public DbSet<HierarquiaDescontoConvenio> HierarquiaDescontoConvenios => Set<HierarquiaDescontoConvenio>();
     public DbSet<HierarquiaDescontoCliente> HierarquiaDescontoClientes => Set<HierarquiaDescontoCliente>();
-    public DbSet<PreVenda> PreVendas => Set<PreVenda>();
-    public DbSet<PreVendaItem> PreVendaItens => Set<PreVendaItem>();
+    public DbSet<Caixa> Caixas => Set<Caixa>();
+    public DbSet<Venda> Vendas => Set<Venda>();
+    public DbSet<VendaItem> VendaItens => Set<VendaItem>();
+    public DbSet<VendaItemDesconto> VendaItemDescontos => Set<VendaItemDesconto>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -714,22 +716,39 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.AtualizacaoPreco).WithMany(a => a.Itens).HasForeignKey(x => x.AtualizacaoPrecoId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ── PreVenda ──────────────────────────────────────────────
-        modelBuilder.Entity<PreVenda>(e =>
+        // ── Caixa ─────────────────────────────────────────────────
+        modelBuilder.Entity<Caixa>(e =>
         {
             e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ValorAbertura).HasPrecision(18, 2);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Colaborador).WithMany().HasForeignKey(x => x.ColaboradorId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.Status);
+        });
+
+        // ── Venda ─────────────────────────────────────────────────
+        modelBuilder.Entity<Venda>(e =>
+        {
+            e.ToTable("Vendas");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.NrCesta).HasMaxLength(20);
             e.Property(x => x.TotalBruto).HasPrecision(18, 2);
             e.Property(x => x.TotalDesconto).HasPrecision(18, 2);
             e.Property(x => x.TotalLiquido).HasPrecision(18, 2);
             e.Property(x => x.Observacao).HasMaxLength(500);
             e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Caixa).WithMany().HasForeignKey(x => x.CaixaId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Colaborador).WithMany().HasForeignKey(x => x.ColaboradorId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.NrCesta);
         });
-        modelBuilder.Entity<PreVendaItem>(e =>
+        modelBuilder.Entity<VendaItem>(e =>
         {
+            e.ToTable("VendaItens");
             e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.Property(x => x.ProdutoCodigo).HasMaxLength(50);
             e.Property(x => x.ProdutoNome).HasMaxLength(300);
@@ -737,11 +756,24 @@ public class AppDbContext : DbContext
             e.Property(x => x.PrecoVenda).HasPrecision(18, 2);
             e.Property(x => x.Quantidade).HasPrecision(18, 3);
             e.Property(x => x.PercentualDesconto).HasPrecision(8, 4);
+            e.Property(x => x.PercentualPromocao).HasPrecision(8, 4);
             e.Property(x => x.ValorDesconto).HasPrecision(18, 2);
             e.Property(x => x.PrecoUnitario).HasPrecision(18, 2);
             e.Property(x => x.Total).HasPrecision(18, 2);
-            e.HasOne(x => x.PreVenda).WithMany(x => x.Itens).HasForeignKey(x => x.PreVendaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Venda).WithMany(x => x.Itens).HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Colaborador).WithMany().HasForeignKey(x => x.ColaboradorId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<VendaItemDesconto>(e =>
+        {
+            e.ToTable("VendaItemDescontos");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tipo).IsRequired();
+            e.Property(x => x.Percentual).HasPrecision(8, 4);
+            e.Property(x => x.Origem).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Regra).HasMaxLength(200).IsRequired();
+            e.HasOne(x => x.VendaItem).WithMany(x => x.Descontos).HasForeignKey(x => x.VendaItemId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.LiberadoPor).WithMany().HasForeignKey(x => x.LiberadoPorId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // ── HierarquiaDesconto ────────────────────────────────────
@@ -1067,7 +1099,7 @@ public class AppDbContext : DbContext
             foreach (var entry in ChangeTracker.Entries<BaseEntity>())
             {
                 if (entry.State == EntityState.Modified)
-                    entry.Entity.AtualizadoEm = DateTime.UtcNow;
+                    entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
             }
             return await base.SaveChangesAsync(cancellationToken);
         }
@@ -1094,7 +1126,7 @@ public class AppDbContext : DbContext
             }
             else if (entry.State == EntityState.Modified)
             {
-                entry.Entity.AtualizadoEm = DateTime.UtcNow;
+                entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
                 if (!_tabelasSemSync.Contains(tabela))
                     operacoesPendentes.Add((tabela, "U", entry.Entity));
             }

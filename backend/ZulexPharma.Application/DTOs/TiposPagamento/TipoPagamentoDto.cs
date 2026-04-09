@@ -12,6 +12,8 @@ public class TipoPagamentoListDto
     public decimal DescontoMaxSemSenha { get; set; }
     public decimal DescontoMaxComSenha { get; set; }
     public bool AceitaPromocao { get; set; }
+    public int Ordem { get; set; }
+    public bool PadraoSistema { get; set; }
     public bool Ativo { get; set; }
     public DateTime CriadoEm { get; set; }
 }
@@ -24,5 +26,6 @@ public class TipoPagamentoFormDto
     public decimal DescontoMaxSemSenha { get; set; }
     public decimal DescontoMaxComSenha { get; set; }
     public bool AceitaPromocao { get; set; } = true;
+    public int Ordem { get; set; }
     public bool Ativo { get; set; } = true;
 }

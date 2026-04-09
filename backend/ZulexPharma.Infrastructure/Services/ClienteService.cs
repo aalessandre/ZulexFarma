@@ -4,6 +4,7 @@ using ZulexPharma.Application.DTOs.Clientes;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Domain.Enums;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -151,7 +152,7 @@ public class ClienteService : IClienteService
             // Atualizar dados pessoa
             pessoa.Tipo = dto.Tipo; pessoa.Nome = dto.Nome.Trim().ToUpper();
             pessoa.RazaoSocial = dto.RazaoSocial?.Trim().ToUpper();
-            pessoa.CpfCnpj = dto.CpfCnpj.Replace(".", "").Replace("-", "").Replace("/", "").Trim();
+            pessoa.CpfCnpj = CpfCnpjHelper.SomenteDigitos(dto.CpfCnpj);
             pessoa.InscricaoEstadual = dto.InscricaoEstadual?.Trim();
             pessoa.Rg = dto.Rg?.Trim();
             pessoa.DataNascimento = string.IsNullOrEmpty(dto.DataNascimento) ? null : DateTime.Parse(dto.DataNascimento);
@@ -223,7 +224,7 @@ public class ClienteService : IClienteService
     // ── Helpers ─────────────────────────────────────────────────────
     private async Task<Pessoa> ResolverPessoa(ClienteFormDto dto)
     {
-        var cpfCnpj = dto.CpfCnpj.Replace(".", "").Replace("-", "").Replace("/", "").Trim();
+        var cpfCnpj = CpfCnpjHelper.SomenteDigitos(dto.CpfCnpj);
         var existente = await _db.Pessoas.Include(p => p.Cliente).FirstOrDefaultAsync(p => p.CpfCnpj == cpfCnpj);
         if (existente != null)
         {

@@ -69,8 +69,8 @@ const HIERARQUIA_COLUNAS: ColunaDef[] = [
 ];
 
 const COMPONENTES = [
-  { valor: 1, label: 'Promo\u00e7\u00e3o', icone: 'tag' },
-  { valor: 2, label: 'Promo\u00e7\u00e3o no Produto', icone: 'tag' },
+  { valor: 1, label: 'Promo\u00e7\u00e3o Fixa', icone: 'tag' },
+  { valor: 2, label: 'Promo\u00e7\u00e3o Progressiva', icone: 'tag' },
   { valor: 3, label: 'Se\u00e7\u00e3o (escolhida)', icone: 'grid' },
   { valor: 4, label: 'Se\u00e7\u00e3o (demais)', icone: 'grid' },
   { valor: 5, label: 'PBMs', icone: 'pill' },
@@ -144,6 +144,26 @@ export class HierarquiaDescontosComponent implements OnInit, OnDestroy {
   convenios = signal<LookupItem[]>([]);
   clientes = signal<LookupItem[]>([]);
   secoes = signal<LookupItem[]>([]);
+
+  // Multi-select dropdowns
+  colabDropdownAberto = signal(false);
+  convDropdownAberto = signal(false);
+
+  colabSelecionadosLabel = computed(() => {
+    const ids = this.colaboradorIds();
+    const lista = this.colaboradores().filter(c => ids.has(c.id));
+    if (lista.length === 0) return 'Nenhum selecionado';
+    if (lista.length <= 3) return lista.map(c => c.nome).join(', ');
+    return `${lista.length} selecionados`;
+  });
+
+  convSelecionadosLabel = computed(() => {
+    const ids = this.convenioIds();
+    const lista = this.convenios().filter(c => ids.has(c.id));
+    if (lista.length === 0) return 'Nenhum selecionado';
+    if (lista.length <= 3) return lista.map(c => c.nome).join(', ');
+    return `${lista.length} selecionados`;
+  });
 
   // Accordion
   accVinculacoes = signal(false);
@@ -230,7 +250,7 @@ export class HierarquiaDescontosComponent implements OnInit, OnDestroy {
       error: () => {}
     });
     this.http.get<any>(`${environment.apiUrl}/convenios`).subscribe({
-      next: r => this.convenios.set((r.data ?? []).map((x: any) => ({ id: x.id, nome: x.nome }))),
+      next: r => this.convenios.set((r.data ?? []).map((x: any) => ({ id: x.id, nome: x.pessoaNome ?? x.nome }))),
       error: () => {}
     });
     this.http.get<any>(`${environment.apiUrl}/secoes`).subscribe({
@@ -334,6 +354,14 @@ export class HierarquiaDescontosComponent implements OnInit, OnDestroy {
     this.colunas.update(cols =>
       cols.map(c => c.campo === this.resizeState!.campo ? { ...c, largura: novaLargura } : c)
     );
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocClick(e: MouseEvent) {
+    if (!(e.target as HTMLElement).closest('.ms-wrap')) {
+      this.colabDropdownAberto.set(false);
+      this.convDropdownAberto.set(false);
+    }
   }
 
   @HostListener('document:mouseup')

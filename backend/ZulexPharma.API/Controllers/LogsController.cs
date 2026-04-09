@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using ZulexPharma.API.Filters;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
@@ -31,9 +32,9 @@ public class LogsController : ControllerBase
         try
         {
             // Usar fuso horário local (Brasil UTC-3) para filtro de data
-            var inicio = DateTime.SpecifyKind((dataInicio ?? DateTime.UtcNow.AddDays(-7)).Date, DateTimeKind.Utc)
+            var inicio = (dataInicio ?? DataHoraHelper.Agora().AddDays(-7)).Date
                          .AddHours(-3); // Ajuste para cobrir o dia inteiro no fuso BR
-            var fim = DateTime.SpecifyKind((dataFim ?? DateTime.UtcNow).Date, DateTimeKind.Utc)
+            var fim = (dataFim ?? DataHoraHelper.Agora()).Date
                       .AddDays(1).AddHours(-3);
 
             var query = _db.LogsAcao

@@ -17,6 +17,17 @@ public static class DatabaseSeeder
     {
         await context.Database.MigrateAsync();
 
+        // Normalizar CPF/CNPJ: remover máscara (só dígitos), pulando registros que gerariam duplicata
+        await context.Database.ExecuteSqlRawAsync(@"
+            UPDATE ""Pessoas"" p SET ""CpfCnpj"" = REGEXP_REPLACE(p.""CpfCnpj"", '[^0-9]', '', 'g')
+            WHERE p.""CpfCnpj"" ~ '[^0-9]'
+              AND NOT EXISTS (
+                  SELECT 1 FROM ""Pessoas"" p2
+                  WHERE p2.""Id"" <> p.""Id""
+                    AND p2.""CpfCnpj"" = REGEXP_REPLACE(p.""CpfCnpj"", '[^0-9]', '', 'g')
+              )
+        ");
+
         // Configurar sequences para a faixa de IDs da filial
         if (filialCodigo > 0)
             await ConfigurarSequences(context, filialCodigo);
@@ -188,6 +199,22 @@ public static class DatabaseSeeder
         }
 
         await context.SaveChangesAsync();
+
+        // Seed: Tipos de Pagamento padrão do sistema
+        if (!await context.TiposPagamento.AnyAsync(t => t.PadraoSistema))
+        {
+            var tpBase = filialCodigo > 0 ? filialCodigo * ID_RANGE_PER_FILIAL : 0;
+            var tiposPadrao = new[]
+            {
+                new TipoPagamento { Id = tpBase + 1, Nome = "DINHEIRO", Modalidade = Domain.Enums.ModalidadePagamento.VendaVista, Ordem = 1, PadraoSistema = true, AceitaPromocao = true, FilialOrigemId = filialSeedId },
+                new TipoPagamento { Id = tpBase + 2, Nome = "A PRAZO", Modalidade = Domain.Enums.ModalidadePagamento.VendaPrazo, Ordem = 2, PadraoSistema = true, AceitaPromocao = true, FilialOrigemId = filialSeedId },
+                new TipoPagamento { Id = tpBase + 3, Nome = "CARTÃO", Modalidade = Domain.Enums.ModalidadePagamento.VendaCartao, Ordem = 3, PadraoSistema = true, AceitaPromocao = true, FilialOrigemId = filialSeedId },
+                new TipoPagamento { Id = tpBase + 4, Nome = "PIX", Modalidade = Domain.Enums.ModalidadePagamento.VendaPix, Ordem = 4, PadraoSistema = true, AceitaPromocao = true, FilialOrigemId = filialSeedId },
+            };
+            context.TiposPagamento.AddRange(tiposPadrao);
+            await context.SaveChangesAsync();
+            Log.Information("Seed: 4 tipos de pagamento padrão criados.");
+        }
 
         context.AplicandoSync = false;
 

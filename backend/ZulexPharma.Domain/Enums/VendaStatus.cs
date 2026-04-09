@@ -1,6 +1,6 @@
 namespace ZulexPharma.Domain.Enums;
 
-public enum PreVendaStatus
+public enum VendaStatus
 {
     Aberta = 1,
     Finalizada = 2,

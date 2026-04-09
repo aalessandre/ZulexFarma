@@ -27,6 +27,18 @@ export class ConfiguracoesComponent implements OnInit {
   carregando = signal(false);
   salvando = signal(false);
   configs = signal<Record<string, string>>({});
+  accordionAberto = signal<string>('geral');
+
+  // Parâmetros já implementados (fonte verde na tela)
+  readonly implementados = new Set([
+    'venda.multiplos.vendedores', 'caixa.multiplos.vendedores',
+    'venda.duplicar.linha', 'caixa.duplicar.linha',
+    'venda.focar.quantidade', 'caixa.focar.quantidade',
+    'venda.alterar.preco.promo', 'caixa.alterar.preco.promo',
+    'venda.obrigar.escanear', 'caixa.obrigar.escanear',
+    'caixa.informar.cesta',
+    'venda.promo.multiplas',
+  ]);
   certificado = signal<CertificadoInfo | null>(null);
   uploadandoCert = signal(false);
   private apiUrl = `${environment.apiUrl}/configuracoes`;
@@ -46,6 +58,18 @@ export class ConfiguracoesComponent implements OnInit {
   }
 
   sairDaTela() { this.tabService.fecharTabAtiva(); }
+
+  toggleAccordion(id: string) {
+    this.accordionAberto.set(this.accordionAberto() === id ? '' : id);
+  }
+
+  getBool(chave: string, padrao = false): boolean {
+    return (this.configs()[chave] ?? (padrao ? 'true' : 'false')) === 'true';
+  }
+
+  setBool(chave: string, valor: boolean) {
+    this.setConfig(chave, valor ? 'true' : 'false');
+  }
 
   formatarIntervalo(segundos: number): string {
     if (segundos < 60) return `${segundos}s`;

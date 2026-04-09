@@ -250,34 +250,50 @@
           <div class="accordion-body">
 
             <!-- Colaboradores -->
-            <div class="sub-secao">Colaboradores</div>
-            <div class="checks-grid">
-              @for (col of colaboradores(); track col.id) {
-                <label class="check-label check-sm">
-                  <input type="checkbox"
-                         [checked]="colaboradorIds().has(col.id)"
-                         (change)="toggleColaborador(col.id)" />
-                  {{ col.nome }}
-                </label>
-              }
-              @if (colaboradores().length === 0) {
-                <span class="hier-vazio">Nenhum colaborador cadastrado.</span>
+            <div class="sub-secao">Colaboradores <span class="hier-info" title="Quando nenhum colaborador selecionado, a hierarquia vale para todos.">i</span></div>
+            <div class="ms-wrap">
+              <div class="ms-trigger" (click)="colabDropdownAberto.set(!colabDropdownAberto())">
+                <span class="ms-label">{{ colabSelecionadosLabel() }}</span>
+                <span class="ms-chevron">{{ colabDropdownAberto() ? '▲' : '▼' }}</span>
+              </div>
+              @if (colabDropdownAberto()) {
+                <div class="ms-dropdown">
+                  @for (col of colaboradores(); track col.id) {
+                    <label class="ms-item" (mousedown)="$event.preventDefault(); toggleColaborador(col.id)">
+                      <span class="ms-check" [class.ms-checked]="colaboradorIds().has(col.id)">
+                        @if (colaboradorIds().has(col.id)) { <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> }
+                      </span>
+                      {{ col.nome }}
+                    </label>
+                  }
+                  @if (colaboradores().length === 0) {
+                    <div class="ms-vazio">Nenhum colaborador cadastrado.</div>
+                  }
+                </div>
               }
             </div>
 
-            <!-- Convenios -->
-            <div class="sub-secao">Convenios</div>
-            <div class="checks-grid">
-              @for (conv of convenios(); track conv.id) {
-                <label class="check-label check-sm">
-                  <input type="checkbox"
-                         [checked]="convenioIds().has(conv.id)"
-                         (change)="toggleConvenio(conv.id)" />
-                  {{ conv.nome }}
-                </label>
-              }
-              @if (convenios().length === 0) {
-                <span class="hier-vazio">Nenhum convenio cadastrado.</span>
+            <!-- Convênios -->
+            <div class="sub-secao">Convênios <span class="hier-info" title="Quando nenhum convênio selecionado, a hierarquia vale para todos.">i</span></div>
+            <div class="ms-wrap">
+              <div class="ms-trigger" (click)="convDropdownAberto.set(!convDropdownAberto())">
+                <span class="ms-label">{{ convSelecionadosLabel() }}</span>
+                <span class="ms-chevron">{{ convDropdownAberto() ? '▲' : '▼' }}</span>
+              </div>
+              @if (convDropdownAberto()) {
+                <div class="ms-dropdown">
+                  @for (conv of convenios(); track conv.id) {
+                    <label class="ms-item" (mousedown)="$event.preventDefault(); toggleConvenio(conv.id)">
+                      <span class="ms-check" [class.ms-checked]="convenioIds().has(conv.id)">
+                        @if (convenioIds().has(conv.id)) { <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> }
+                      </span>
+                      {{ conv.nome }}
+                    </label>
+                  }
+                  @if (convenios().length === 0) {
+                    <div class="ms-vazio">Nenhum convênio cadastrado.</div>
+                  }
+                </div>
               }
             </div>
 

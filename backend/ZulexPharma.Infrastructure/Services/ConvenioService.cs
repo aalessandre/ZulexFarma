@@ -4,6 +4,7 @@ using ZulexPharma.Application.DTOs.Convenios;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Domain.Enums;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -273,7 +274,7 @@ public class ConvenioService : IConvenioService
     {
         if (dto.PessoaId > 0) return;
 
-        var cpfCnpj = dto.CpfCnpj?.Replace(".", "").Replace("-", "").Replace("/", "").Trim();
+        var cpfCnpj = CpfCnpjHelper.SomenteDigitos(dto.CpfCnpj);
         if (string.IsNullOrWhiteSpace(cpfCnpj))
             throw new ArgumentException("CPF/CNPJ é obrigatório.");
         if (string.IsNullOrWhiteSpace(dto.Nome))

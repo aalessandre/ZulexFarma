@@ -879,6 +879,77 @@
         }
       </section>
 
+      <!-- COMBOGRID -->
+      <section class="help-secao">
+        <div class="secao-header compras" [class.aberto]="isAberta('combogrid')" (click)="toggleSecao('combogrid')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          <span>ComboGrid — Padrão de Busca</span>
+        </div>
+        @if (isAberta('combogrid')) {
+          <div class="secao-corpo">
+            <p>
+              O <strong>ComboGrid</strong> é o padrão de componente de busca com dropdown em formato de grid,
+              usado em campos como Cliente, Vendedor e Produto na Pré-Venda.
+              Diferencia-se do <strong>Grid de Cadastro</strong> (telas de listagem) por ser um dropdown
+              temporário ancorado a um campo de texto.
+            </p>
+
+            <h3>Regras do Padrão</h3>
+            <table class="help-tabela">
+              <thead><tr><th>Aspecto</th><th>Regra</th></tr></thead>
+              <tbody>
+                <tr><td>Coluna CÓDIGO</td><td>Sempre primeira coluna, largura fixa ~80px</td></tr>
+                <tr><td>Colunas adicionais</td><td>Específicas por entidade (nome, CPF, convênio, preço, etc.)</td></tr>
+                <tr><td>Ordenação</td><td>Click no header com indicadores ▲ ▼ ⇅ (mesmo padrão do Grid de Cadastro)</td></tr>
+                <tr><td>Redimensionar</td><td>Arrastar borda direita do header da coluna</td></tr>
+                <tr><td>Navegação teclado</td><td>↑↓ navega entre linhas, Enter seleciona, Escape fecha</td></tr>
+                <tr><td>Debounce</td><td>300ms após parar de digitar</td></tr>
+                <tr><td>Mín. caracteres</td><td>2 caracteres para disparar a busca</td></tr>
+                <tr><td>Filtro Ativos</td><td>Toggle switch moderno no rodapé do dropdown, ligado por padrão. Ao desligar, busca todos (ativos + inativos)</td></tr>
+                <tr><td>Botão limpar (X)</td><td>Aparece no input quando há seleção ativa. Limpa campo e seleção</td></tr>
+                <tr><td>Altura máxima</td><td>280px com scroll vertical</td></tr>
+                <tr><td>Click fora</td><td>Fecha o dropdown automaticamente</td></tr>
+                <tr><td>Destaque linha</td><td>Linha ativa (navegação por teclado) com cor diferenciada</td></tr>
+                <tr><td>Resultado vazio</td><td>Exibe "Nenhum resultado" centralizado no corpo da tabela</td></tr>
+                <tr><td>Backend</td><td>Endpoint <code>pesquisar</code> separado do <code>listar</code>. Sempre retorna <code>codigo</code></td></tr>
+              </tbody>
+            </table>
+
+            <h3>ComboGrids Implementados</h3>
+            <table class="help-tabela">
+              <thead><tr><th>Campo</th><th>Colunas</th><th>Busca por</th></tr></thead>
+              <tbody>
+                <tr><td>Cliente</td><td>CÓDIGO, NOME, CPF/CNPJ, CONVÊNIO</td><td>Código, CPF/CNPJ, nome, matrícula ou cartão de convênio</td></tr>
+                <tr><td>Vendedor</td><td>CÓDIGO, NOME</td><td>Código ou nome</td></tr>
+                <tr><td>Produto</td><td>CÓDIGO, NOME, FABRICANTE, PREÇO</td><td>Código, nome ou EAN</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Diferença entre ComboGrid e Grid de Cadastro</h3>
+            <table class="help-tabela">
+              <thead><tr><th>Característica</th><th>ComboGrid</th><th>Grid de Cadastro</th></tr></thead>
+              <tbody>
+                <tr><td>Onde aparece</td><td>Dropdown ancorado a campo de texto</td><td>Corpo principal da tela</td></tr>
+                <tr><td>Propósito</td><td>Seleção rápida de registro</td><td>Listagem e gerenciamento completo</td></tr>
+                <tr><td>Drag-drop colunas</td><td>Não</td><td>Sim</td></tr>
+                <tr><td>Seletor de colunas</td><td>Não</td><td>Sim</td></tr>
+                <tr><td>localStorage</td><td>Não</td><td>Sim (persiste largura e ordem)</td></tr>
+                <tr><td>Ordenação</td><td>Sim (▲▼⇅)</td><td>Sim (▲▼⇅)</td></tr>
+                <tr><td>Redimensionar</td><td>Sim</td><td>Sim</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Convênios no ComboGrid de Cliente</h3>
+            <p>
+              Quando um cliente possui <strong>múltiplos convênios</strong>, a coluna CONVÊNIO mostra o nome do primeiro
+              convênio seguido de um <strong>badge azul</strong> com a contagem (ex: <em>Farmácia Popular</em> <strong>+2</strong>).
+              Ao clicar no cliente, a linha <strong>expande</strong> mostrando sub-linhas para selecionar qual convênio usar,
+              incluindo a opção "sem convênio".
+            </p>
+          </div>
+        }
+      </section>
+
       <!-- HIERARQUIA DE DESCONTOS -->
       <section class="help-secao">
         <div class="secao-header compras" [class.aberto]="isAberta('hierarquia-descontos')" (click)="toggleSecao('hierarquia-descontos')">
@@ -1118,6 +1189,190 @@ para cada item da hierarquia (ordenado por Ordem):
                 <li>Se <strong>AplicarAutomatico = false</strong>: disponibiliza o desconto máximo para o operador aplicar manualmente</li>
                 <li>Respeitar: DescontoMinimo ≤ desconto aplicado ≤ DescontoMaxSemSenha (ou DescontoMaxComSenha se liberado com senha)</li>
               </ol>
+            </div>
+
+          </div>
+        }
+      </section>
+
+      <!-- PRÉ-VENDA / VENDAS -->
+      <section class="help-secao">
+        <div class="secao-header compras" [class.aberto]="isAberta('pre-venda')" (click)="toggleSecao('pre-venda')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          <span>Pré-Venda / Vendas</span>
+        </div>
+        @if (isAberta('pre-venda')) {
+          <div class="secao-corpo">
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Visão Geral</div>
+              <div class="doc-texto">
+                A <strong>Pré-Venda</strong> é a tela de atendimento ao cliente (POS). Permite registrar itens, aplicar descontos,
+                selecionar condição de pagamento e finalizar o pedido. A <strong>Venda</strong> (Caixa) será a finalização com pagamento efetivo.
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Layout da Tela</div>
+              <div class="doc-texto">
+                Tela full-screen sem sidebar. Estrutura de cima para baixo:
+              </div>
+              <ol class="doc-lista">
+                <li><strong>Abas de atendimento</strong> — Múltiplos atendimentos simultâneos. Cada aba é independente com seu próprio cliente, vendedor, itens.</li>
+                <li><strong>Campo CLIENTE</strong> — Autocomplete. Ao selecionar, busca a hierarquia de desconto vinculada.</li>
+                <li><strong>Botões de condição de pagamento</strong> — Carregados de TipoPagamento. Coloridos, arredondados. Clicar seleciona.</li>
+                <li><strong>Campo VENDEDOR</strong> — Autocomplete de colaboradores.</li>
+                <li><strong>Campo PRODUTO</strong> — Autocomplete. Ao selecionar, adiciona na grid e resolve o desconto.</li>
+                <li><strong>Grid de itens</strong> — Padrão ERP (sort, drag-drop, resize, colunas opcionais).</li>
+                <li><strong>Rodapé informativo</strong> — ITENS, ESTOQUE, DESC.MAX, FÓRMULA, GRUPO, REGRA, ORIGEM DESC + Totais.</li>
+                <li><strong>Barra de ações</strong> — Limpar, Eliminar, Opções (mega menu), Sair, Finalizar.</li>
+              </ol>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Múltiplos Atendimentos (Abas)</div>
+              <div class="doc-texto">
+                O operador pode atender vários clientes simultaneamente. Cada aba mantém estado independente (cliente, vendedor, itens, condição de pagamento).
+              </div>
+              <ul class="doc-lista">
+                <li><strong>Nova aba:</strong> Opções → "Novo Atendimento" ou Ctrl+N (pode ser interceptado pelo navegador)</li>
+                <li><strong>Trocar aba:</strong> Clicar na aba desejada. O estado da aba anterior é salvo automaticamente.</li>
+                <li><strong>Fechar aba:</strong> Botão X na aba (não permite fechar a última).</li>
+                <li><strong>Persistência:</strong> Todas as abas são salvas no sessionStorage ao navegar para outra tela. Ao voltar, restaura tudo.</li>
+                <li><strong>Sair:</strong> Botão Sair limpa TODO o sessionStorage das pré-vendas (com confirmação se houver atendimentos com itens).</li>
+                <li><strong>Label da aba:</strong> Mostra o nome do cliente quando informado, senão "Atendimento N".</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Colunas da Grid</div>
+              <table class="doc-table">
+                <thead><tr><th>Coluna</th><th>Editável</th><th>Descrição</th></tr></thead>
+                <tbody>
+                  <tr><td>CÓDIGO</td><td>Não</td><td>Código do produto (campo Codigo da tabela Produtos)</td></tr>
+                  <tr><td>PRODUTO</td><td>Não</td><td>Nome do produto</td></tr>
+                  <tr><td>FABRICANTE</td><td>Não</td><td>Nome do fabricante</td></tr>
+                  <tr><td>PREÇO VENDA</td><td>Sim</td><td>Preço de venda original. Ao alterar, recalcula PREÇO UNIT e TOTAL mantendo %DESC.</td></tr>
+                  <tr><td>QTDE</td><td>Sim</td><td>Quantidade. Ao alterar, recalcula TOTAL mantendo %DESC.</td></tr>
+                  <tr><td>DESC</td><td>Sim</td><td>Percentual de desconto. Ao alterar, recalcula PREÇO UNIT e TOTAL.</td></tr>
+                  <tr><td>PREÇO UNIT</td><td>Sim</td><td>Preço unitário com desconto. Ao alterar, recalcula %DESC e TOTAL (inverso).</td></tr>
+                  <tr><td>TOTAL</td><td>Sim</td><td>Total da linha. Ao alterar, recalcula PREÇO UNIT e %DESC (inverso).</td></tr>
+                  <tr><td>VENDEDOR</td><td>Não</td><td>Coluna opcional. Mostra o vendedor que inseriu o item (útil com múltiplos vendedores).</td></tr>
+                </tbody>
+              </table>
+              <div class="doc-texto" style="margin-top:8px">
+                <strong>Recálculo entre campos:</strong> Os 5 campos editáveis (PREÇO VENDA, QTDE, DESC, PREÇO UNIT, TOTAL) são interconectados.
+                Alterar qualquer um recalcula os demais automaticamente.
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Engine de Descontos (Integração com Hierarquia)</div>
+              <div class="doc-texto">
+                Ao adicionar um produto, o sistema consulta a engine de descontos para determinar o desconto aplicável.
+              </div>
+              <div class="doc-texto" style="margin-top:8px"><strong>Fluxo:</strong></div>
+              <ol class="doc-lista">
+                <li><strong>Identificar hierarquia:</strong> Cliente → Convênio → Colaborador → Padrão</li>
+                <li><strong>Percorrer componentes:</strong> Na ordem configurada na hierarquia</li>
+                <li><strong>Primeiro match:</strong> O primeiro componente que retornar desconto é aplicado. Os demais são ignorados.</li>
+                <li><strong>Aplicação automática:</strong> Se a hierarquia tem <code>AplicarAutomatico = true</code>, o desconto é aplicado imediatamente no item.</li>
+                <li><strong>Desconto manual:</strong> Se não automático, o DESC.MAX é mostrado no rodapé para o operador aplicar manualmente.</li>
+              </ol>
+              <div class="doc-texto" style="margin-top:8px"><strong>Endpoints da engine:</strong></div>
+              <div class="cmd-grupo"><div class="cmd-label">Identificar hierarquia</div><code class="cmd">GET /api/desconto-engine/hierarquia?clienteId=X&amp;convenioId=Y&amp;colaboradorId=Z</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Resolver desconto de um produto</div><code class="cmd">GET /api/desconto-engine/resolver?produtoId=X&amp;filialId=Y&amp;clienteId=Z&amp;tipoPagamentoId=W</code></div>
+              <div class="doc-texto" style="margin-top:8px"><strong>Resposta do resolver:</strong></div>
+              <pre class="doc-code">
+&#123;
+  "hierarquiaId": 1,
+  "hierarquiaNome": "PADRÃO",
+  "descontoMinimo": 5.00,
+  "descontoMaxSemSenha": 15.00,
+  "descontoMaxComSenha": 25.00,
+  "descontoAplicar": 5.00,       // se automático, valor a aplicar
+  "aplicarAutomatico": true,
+  "componente": "Produto"         // de onde veio o desconto
+&#125;
+              </pre>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Rodapé Informativo</div>
+              <table class="doc-table">
+                <thead><tr><th>Campo</th><th>Descrição</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>ITENS</strong></td><td>Quantidade total de itens na pré-venda</td></tr>
+                  <tr><td><strong>ESTOQUE</strong></td><td>Estoque atual do produto selecionado na grid</td></tr>
+                  <tr><td><strong>DESC. MAX (%)</strong></td><td>Desconto máximo permitido (sem senha) para o produto selecionado, vindo da hierarquia</td></tr>
+                  <tr><td><strong>FÓRMULA</strong></td><td>Indicador de produto fórmula (a implementar)</td></tr>
+                  <tr><td><strong>GRUPO</strong></td><td>Grupo do produto selecionado (a implementar)</td></tr>
+                  <tr><td><strong>REGRA</strong></td><td>Nome da hierarquia de desconto ativa (ex: "PADRÃO", "CONV. XPTO")</td></tr>
+                  <tr><td><strong>ORIGEM DESC</strong></td><td>Componente da hierarquia que gerou o desconto (ex: "Produto", "Cliente", "Promoção")</td></tr>
+                  <tr><td><strong>TOTAL BRUTO</strong></td><td>Soma de (precoVenda × quantidade) de todos os itens</td></tr>
+                  <tr><td><strong>DESCONTO</strong></td><td>Soma dos valores de desconto de todos os itens</td></tr>
+                  <tr><td><strong>TOTAL LÍQUIDO</strong></td><td>Soma dos totais de todos os itens (bruto - desconto)</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Mega Menu (Opções)</div>
+              <div class="doc-texto">
+                O botão Opções na barra inferior abre um mega menu com atalhos rápidos:
+              </div>
+              <ul class="doc-lista">
+                <li><strong>Novo Atendimento</strong> — Cria nova aba (Ctrl+N)</li>
+                <li><strong>Vendas Pendentes</strong> — Lista pré-vendas salvas (a implementar)</li>
+                <li><strong>Cliente</strong> — Acesso rápido ao cadastro de cliente</li>
+                <li><strong>Produto</strong> — Acesso rápido ao cadastro de produto</li>
+                <li><strong>Estoque</strong> — Consulta de estoque</li>
+                <li><strong>Devolução</strong> — Iniciar devolução</li>
+                <li><strong>Cob. Oferta</strong> — Cobertura de oferta</li>
+                <li><strong>Digitalizar</strong> — Digitalizar documento</li>
+                <li><strong>Mov. Estoque</strong> — Movimentação de estoque</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Condições de Pagamento</div>
+              <div class="doc-texto">
+                Os botões de condição de pagamento são carregados dinamicamente da tabela <code>TipoPagamento</code> (ativos).
+                Cada botão é colorido e arredondado. Ao clicar, seleciona a condição (fica destacado).
+                A condição selecionada influencia a engine de descontos (componente CondPagamento na hierarquia).
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Configurações Relacionadas</div>
+              <table class="doc-table">
+                <thead><tr><th>Chave</th><th>Descrição</th></tr></thead>
+                <tbody>
+                  <tr><td><code>vendas.multiplos.vendedores</code></td><td>Se true, permite múltiplos vendedores em uma mesma venda (cada item pode ter vendedor diferente)</td></tr>
+                  <tr><td><code>vendas.usar.nr.cesta</code></td><td>Se true, usa número de cesta na venda</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Modelo de Dados</div>
+              <table class="doc-table">
+                <thead><tr><th>Tabela</th><th>Campos Principais</th><th>Escopo</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>PreVenda</strong></td><td>FilialId, ClienteId, ColaboradorId, TipoPagamentoId, ConvenioId, TotalBruto, TotalDesconto, TotalLiquido, TotalItens, Status (Aberta/Finalizada/Cancelada)</td><td>BaseEntity (global, sync)</td></tr>
+                  <tr><td><strong>PreVendaItem</strong></td><td>ProdutoId, ProdutoCodigo, ProdutoNome, Fabricante, PrecoVenda, Quantidade, PercentualDesconto, ValorDesconto, PrecoUnitario, Total, Ordem</td><td>Cascade</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">API Endpoints</div>
+              <div class="cmd-grupo"><div class="cmd-label">Listar pré-vendas</div><code class="cmd">GET /api/vendas?filialId=1</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Obter detalhe</div><code class="cmd">GET /api/vendas/&#123;id&#125;</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Criar</div><code class="cmd">POST /api/vendas</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Atualizar</div><code class="cmd">PUT /api/vendas/&#123;id&#125;</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Finalizar</div><code class="cmd">POST /api/vendas/&#123;id&#125;/finalizar</code></div>
+              <div class="cmd-grupo"><div class="cmd-label">Cancelar</div><code class="cmd">POST /api/vendas/&#123;id&#125;/cancelar</code></div>
             </div>
 
           </div>

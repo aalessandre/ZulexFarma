@@ -169,6 +169,11 @@ export const ErpRoutes: Routes = [
           import('../pre-venda/pre-venda.component').then(m => m.PreVendaComponent),
       },
       {
+        path: 'caixa',
+        loadComponent: () =>
+          import('../caixa/caixa.component').then(m => m.CaixaComponent),
+      },
+      {
         path: 'hierarquia-descontos',
         loadComponent: () =>
           import('../hierarquia-descontos/hierarquia-descontos.component').then(m => m.HierarquiaDescontosComponent),

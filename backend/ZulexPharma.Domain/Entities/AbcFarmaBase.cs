@@ -44,5 +44,5 @@ public class AbcFarmaBase
 
     public decimal PercentualIpi { get; set; }
     public DateTime? DataVigencia { get; set; }
-    public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime AtualizadoEm { get; set; } = Helpers.DataHoraHelper.Agora();
 }

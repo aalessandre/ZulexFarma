@@ -32,5 +32,5 @@ public class SefazNota
     public string? TipoManifestacao { get; set; }
     public bool Importada { get; set; }
     public bool Lancada { get; set; }
-    public DateTime ConsultadaEm { get; set; } = DateTime.UtcNow;
+    public DateTime ConsultadaEm { get; set; } = Helpers.DataHoraHelper.Agora();
 }

@@ -3,6 +3,7 @@ using Serilog;
 using ZulexPharma.Application.DTOs.Fornecedores;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -135,7 +136,7 @@ public class FornecedorService : IFornecedorService
                 .Include(p => p.Fornecedor)
                 .Include(p => p.Contatos)
                 .Include(p => p.Enderecos)
-                .FirstOrDefaultAsync(p => p.CpfCnpj == dto.CpfCnpj.Trim());
+                .FirstOrDefaultAsync(p => p.CpfCnpj == CpfCnpjHelper.SomenteDigitos(dto.CpfCnpj));
 
             Pessoa pessoa;
 
@@ -161,7 +162,7 @@ public class FornecedorService : IFornecedorService
                     Tipo              = tipo,
                     Nome              = Mai(dto.Nome),
                     RazaoSocial       = tipo == "J" ? Mai(dto.RazaoSocial) : null,
-                    CpfCnpj           = dto.CpfCnpj.Trim(),
+                    CpfCnpj           = CpfCnpjHelper.SomenteDigitos(dto.CpfCnpj),
                     InscricaoEstadual = dto.InscricaoEstadual?.Trim().ToUpper(),
                     Rg                = tipo == "F" ? dto.Rg?.Trim().ToUpper() : null,
                     DataNascimento    = tipo == "F" ? ToUtc(dto.DataNascimento) : null,
@@ -251,7 +252,7 @@ public class FornecedorService : IFornecedorService
                 ValidarFormatoCpf(dto.CpfCnpj);
             else
                 ValidarFormatoCnpj(dto.CpfCnpj);
-            ValidarCpfCnpjUnicidade(dto.CpfCnpj, fornecedor.Pessoa.Id);
+            ValidarCpfCnpjUnicidade(CpfCnpjHelper.SomenteDigitos(dto.CpfCnpj), fornecedor.Pessoa.Id);
 
             var anterior = FornecedorParaDict(fornecedor, fornecedor.Pessoa);
 
@@ -260,7 +261,7 @@ public class FornecedorService : IFornecedorService
             pessoa.Tipo              = tipo;
             pessoa.Nome              = Mai(dto.Nome);
             pessoa.RazaoSocial       = tipo == "J" ? Mai(dto.RazaoSocial) : null;
-            pessoa.CpfCnpj           = dto.CpfCnpj.Trim();
+            pessoa.CpfCnpj           = CpfCnpjHelper.SomenteDigitos(dto.CpfCnpj);
             pessoa.InscricaoEstadual = dto.InscricaoEstadual?.Trim().ToUpper();
             pessoa.Rg                = tipo == "F" ? dto.Rg?.Trim().ToUpper() : null;
             pessoa.DataNascimento    = tipo == "F" ? ToUtc(dto.DataNascimento) : null;
@@ -523,7 +524,7 @@ public class FornecedorService : IFornecedorService
 
     private void ValidarCpfCnpjUnicidade(string cpfCnpj, long pessoaIdExcluir)
     {
-        if (_db.Pessoas.Any(p => p.CpfCnpj == cpfCnpj.Trim() && p.Id != pessoaIdExcluir))
+        if (_db.Pessoas.Any(p => p.CpfCnpj == CpfCnpjHelper.SomenteDigitos(cpfCnpj) && p.Id != pessoaIdExcluir))
             throw new ArgumentException("CPF/CNPJ já cadastrado para outra pessoa.");
     }
 

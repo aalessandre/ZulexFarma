@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Text.Json;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 using ZulexPharma.Infrastructure.Services;
 
@@ -261,7 +262,7 @@ public class SyncController : ControllerBase
     {
         try
         {
-            var corte = DateTime.UtcNow.AddDays(-dias);
+            var corte = DataHoraHelper.Agora().AddDays(-dias);
             var removidos = await _db.SyncFila
                 .Where(f => f.Enviado && f.EnviadoEm < corte)
                 .ExecuteDeleteAsync();

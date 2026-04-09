@@ -6,6 +6,7 @@ using ZulexPharma.Application.DTOs.Compras;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Domain.Enums;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -149,7 +150,7 @@ public class CompraService : ICompraService
                 SerieNf = Txt(ide, "serie"),
                 NaturezaOperacao = Txt(ide, "natOp"),
                 DataEmissao = ParseDt(Txt(ide, "dhEmi")),
-                DataEntrada = DateTime.UtcNow,
+                DataEntrada = DataHoraHelper.Agora(),
                 ValorProdutos = Dec(total, "vProd"),
                 ValorSt = Dec(total, "vST"),
                 ValorFcpSt = Dec(total, "vFCPST"),
@@ -785,7 +786,7 @@ public class CompraService : ICompraService
 
             dados.UltimaCompraUnitario = item.ValorUnitario;
             dados.UltimaCompraSt = Math.Round(stUnit, 4);
-            dados.UltimaCompraEm = DateTime.UtcNow;
+            dados.UltimaCompraEm = DataHoraHelper.Agora();
 
             // 3. Custo médio ponderado
             var estoqueAnterior = dados.EstoqueAtual - qtdeTotal;
@@ -833,7 +834,7 @@ public class CompraService : ICompraService
         compra.Status = CompraStatus.Finalizada;
         compra.DuplicatasEntregues = request.DuplicatasEntregues;
         compra.NotaPaga = request.NotaPaga;
-        compra.DataFinalizacao = DateTime.UtcNow;
+        compra.DataFinalizacao = DataHoraHelper.Agora();
 
         // ── Gerar Conta a Pagar ─────────────────────────────────────
         var jaExiste = await _db.ContasPagar.AnyAsync(cp => cp.CompraId == compra.Id);
@@ -854,9 +855,9 @@ public class CompraService : ICompraService
                 Juros = 0,
                 Multa = 0,
                 ValorFinal = compra.ValorNota,
-                DataEmissao = compra.DataEmissao ?? DateTime.UtcNow,
-                DataVencimento = compra.DataEmissao?.AddDays(30) ?? DateTime.UtcNow.AddDays(30),
-                DataPagamento = compra.NotaPaga ? DateTime.UtcNow : null,
+                DataEmissao = compra.DataEmissao ?? DataHoraHelper.Agora(),
+                DataVencimento = compra.DataEmissao?.AddDays(30) ?? DataHoraHelper.Agora().AddDays(30),
+                DataPagamento = compra.NotaPaga ? DataHoraHelper.Agora() : null,
                 NrNotaFiscal = compra.NumeroNf,
                 Status = compra.NotaPaga ? StatusConta.Pago : StatusConta.Aberto,
                 Ativo = true
@@ -951,7 +952,7 @@ public class CompraService : ICompraService
     {
         var pessoaExistente = await _db.Pessoas
             .Include(p => p.Fornecedor)
-            .FirstOrDefaultAsync(p => p.CpfCnpj == cnpj);
+            .FirstOrDefaultAsync(p => p.CpfCnpj == CpfCnpjHelper.SomenteDigitos(cnpj));
 
         if (pessoaExistente?.Fornecedor != null)
             return pessoaExistente.Fornecedor;
@@ -968,7 +969,7 @@ public class CompraService : ICompraService
                 Tipo = "J",
                 Nome = (fantasia ?? nome).Trim().ToUpper(),
                 RazaoSocial = nome.Trim().ToUpper(),
-                CpfCnpj = cnpj,
+                CpfCnpj = CpfCnpjHelper.SomenteDigitos(cnpj),
                 InscricaoEstadual = ie?.Trim().ToUpper()
             };
             _db.Pessoas.Add(pessoa);

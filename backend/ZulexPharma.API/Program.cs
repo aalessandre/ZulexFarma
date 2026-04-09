@@ -116,8 +116,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IClienteService,
                             ZulexPharma.Infrastructure.Services.ClienteService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IHierarquiaDescontoService,
                             ZulexPharma.Infrastructure.Services.HierarquiaDescontoService>();
-builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPreVendaService,
-                            ZulexPharma.Infrastructure.Services.PreVendaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaService,
+                            ZulexPharma.Infrastructure.Services.VendaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISubstanciaService,
                             ZulexPharma.Infrastructure.Services.SubstanciaService>();
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoPrincipal>(

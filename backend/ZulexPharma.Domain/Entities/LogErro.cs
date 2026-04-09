@@ -2,7 +2,7 @@ namespace ZulexPharma.Domain.Entities;
 
 public class LogErro : BaseEntity
 {
-    public DateTime OcorridoEm { get; set; } = DateTime.UtcNow;
+    public DateTime OcorridoEm { get; set; } = Helpers.DataHoraHelper.Agora();
     public string? UsuarioLogin { get; set; }
     public string? Tela { get; set; }
     public string? Funcao { get; set; }

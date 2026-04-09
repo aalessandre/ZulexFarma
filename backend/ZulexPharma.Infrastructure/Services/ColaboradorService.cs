@@ -3,6 +3,7 @@ using Serilog;
 using ZulexPharma.Application.DTOs.Colaboradores;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -159,7 +160,7 @@ public class ColaboradorService : IColaboradorService
                 .Include(p => p.Colaborador)
                 .Include(p => p.Contatos)
                 .Include(p => p.Enderecos)
-                .FirstOrDefaultAsync(p => p.CpfCnpj == dto.Cpf.Trim());
+                .FirstOrDefaultAsync(p => p.CpfCnpj == CpfCnpjHelper.SomenteDigitos(dto.Cpf));
 
             Pessoa pessoa;
 
@@ -183,7 +184,7 @@ public class ColaboradorService : IColaboradorService
                 {
                     Tipo           = "F",
                     Nome           = Mai(dto.Nome),
-                    CpfCnpj        = dto.Cpf.Trim(),
+                    CpfCnpj        = CpfCnpjHelper.SomenteDigitos(dto.Cpf),
                     Rg             = dto.Rg?.Trim().ToUpper(),
                     DataNascimento = ToUtc(dto.DataNascimento),
                     Observacao     = dto.Observacao?.Trim()
@@ -276,14 +277,14 @@ public class ColaboradorService : IColaboradorService
                 ?? throw new KeyNotFoundException($"Colaborador {id} não encontrado.");
 
             ValidarFormatoCpf(dto.Cpf);
-            ValidarCpfUnicidade(dto.Cpf, colaborador.Pessoa.Id);
+            ValidarCpfUnicidade(CpfCnpjHelper.SomenteDigitos(dto.Cpf), colaborador.Pessoa.Id);
 
             var anterior = ColaboradorParaDict(colaborador, colaborador.Pessoa);
 
             // Atualizar Pessoa
             var pessoa = colaborador.Pessoa;
             pessoa.Nome           = Mai(dto.Nome);
-            pessoa.CpfCnpj        = dto.Cpf.Trim();
+            pessoa.CpfCnpj        = CpfCnpjHelper.SomenteDigitos(dto.Cpf);
             pessoa.Rg             = dto.Rg?.Trim().ToUpper();
             pessoa.DataNascimento = ToUtc(dto.DataNascimento);
             pessoa.Observacao     = dto.Observacao?.Trim();
@@ -631,7 +632,7 @@ public class ColaboradorService : IColaboradorService
 
     private void ValidarCpfUnicidade(string cpf, long pessoaIdExcluir)
     {
-        if (_db.Pessoas.Any(p => p.CpfCnpj == cpf.Trim() && p.Id != pessoaIdExcluir))
+        if (_db.Pessoas.Any(p => p.CpfCnpj == CpfCnpjHelper.SomenteDigitos(cpf) && p.Id != pessoaIdExcluir))
             throw new ArgumentException("CPF já cadastrado para outra pessoa.");
     }
 

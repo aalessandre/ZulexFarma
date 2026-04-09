@@ -17,196 +17,300 @@
       @if (carregando()) {
         <div class="loading">Carregando configurações...</div>
       } @else {
-        <!-- SISTEMA -->
-        <div class="form-secao">Sistema</div>
-        <div class="form-grid">
-          <div class="field field-2">
-            <label>NOME DO SISTEMA</label>
-            <input type="text" [value]="getConfig('sistema.nome', 'ZulexPharma')"
-                   (input)="setConfig('sistema.nome', $any($event.target).value)" />
-          </div>
-        </div>
 
-        <!-- SESSÃO -->
-        <div class="form-secao">Controle de Sessão</div>
-        <div class="form-grid">
-          <div class="field">
-            <label>
-              SESSÃO MÁXIMA (MIN)
-              <span class="field-info" title="Tempo máximo que um usuário pode ficar logado, independente de atividade. 0 = sem limite. Pode ser sobrescrito por usuário na aba Acesso do Colaborador."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
-            </label>
-            <input type="number" min="0" [value]="getConfig('sessao.maxima.minutos', '480')"
-                   (input)="setConfig('sessao.maxima.minutos', $any($event.target).value)"
-                   placeholder="0 = sem limite" />
+        <!-- ══ GERAL ══════════════════════════════════════════════ -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'geral'" (click)="toggleAccordion('geral')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            <span>Geral</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'geral' ? '▲' : '▼' }}</span>
           </div>
-          <div class="field">
-            <label>
-              INATIVIDADE (MIN)
-              <span class="field-info" title="Tempo de inatividade (sem interação) para encerrar a sessão automaticamente. 0 = não verifica. Pode ser sobrescrito por usuário na aba Acesso do Colaborador."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
-            </label>
-            <input type="number" min="0" [value]="getConfig('sessao.inatividade.minutos', '10')"
-                   (input)="setConfig('sessao.inatividade.minutos', $any($event.target).value)"
-                   placeholder="0 = sem limite" />
-          </div>
-        </div>
+          @if (accordionAberto() === 'geral') {
+            <div class="cfg-acc-body">
 
-        <!-- PRODUTOS -->
-        <div class="form-secao">Produtos</div>
-        <div class="form-grid">
-          <div class="field field-2">
-            <label>
-              ATUALIZAÇÃO DE PREÇO ENTRE FILIAIS
-              <span class="field-info" title="Define o comportamento ao alterar preço de um produto. 'Perguntar' exibe modal para escolher. 'Todas as filiais' aplica automaticamente. 'Apenas filial atual' não propaga."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
-            </label>
-            <select [value]="getConfig('produto.preco.regra', 'perguntar')"
-                    (change)="setConfig('produto.preco.regra', $any($event.target).value)">
-              <option value="perguntar">Perguntar ao usuário</option>
-              <option value="todas">Aplicar para todas as filiais automaticamente</option>
-              <option value="atual">Apenas filial atual (não propagar)</option>
-            </select>
-          </div>
-        </div>
+              <!-- Sistema -->
+              <div class="cfg-sub-titulo">Sistema</div>
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>NOME DO SISTEMA</label>
+                  <input type="text" [value]="getConfig('sistema.nome', 'ZulexPharma')"
+                         (input)="setConfig('sistema.nome', $any($event.target).value)" />
+                </div>
+              </div>
 
-        <!-- SINCRONISMO -->
-        <div class="form-secao">Sincronismo</div>
-        <div class="form-grid">
-          <div class="field">
-            <label>
-              INTERVALO DE REPLICAÇÃO (seg)
-              <span class="field-info" title="Tempo entre cada ciclo de sincronização. Mínimo 7s, máximo 300s (5min)."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
-            </label>
-            <div class="slider-wrap">
-              <input type="range" min="7" max="300" step="1"
-                     [value]="getConfig('sync.intervalo.segundos', '30')"
-                     (input)="setConfig('sync.intervalo.segundos', $any($event.target).value)" />
-              <span class="slider-valor">{{ formatarIntervalo(+getConfig('sync.intervalo.segundos', '30')) }}</span>
-            </div>
-          </div>
-          <div class="field">
-            <label>
-              TAMANHO DO PACOTE
-              <span class="field-info" title="Quantidade de operações enviadas por ciclo. Mínimo 50, máximo 150."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
-            </label>
-            <div class="slider-wrap">
-              <input type="range" min="50" max="150" step="10"
-                     [value]="getConfig('sync.lote.tamanho', '100')"
-                     (input)="setConfig('sync.lote.tamanho', $any($event.target).value)" />
-              <span class="slider-valor">{{ getConfig('sync.lote.tamanho', '100') }}</span>
-            </div>
-          </div>
-          <div class="field">
-            <label>
-              LIMPEZA DE REGISTROS (dias)
-              <span class="field-info" title="Registros sincronizados são removidos após este período. Mínimo 5, máximo 15."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
-            </label>
-            <div class="slider-wrap">
-              <input type="range" min="5" max="15" step="1"
-                     [value]="getConfig('sync.limpeza.dias', '7')"
-                     (input)="setConfig('sync.limpeza.dias', $any($event.target).value)" />
-              <span class="slider-valor">{{ getConfig('sync.limpeza.dias', '7') }} dias</span>
-            </div>
-          </div>
-        </div>
-        <!-- VENDAS -->
-        <div class="form-secao">Vendas</div>
-        <div class="form-grid">
-          <div class="field field-check">
-            <label class="check-label">
-              <input type="checkbox" [checked]="getConfig('vendas.multiplos.vendedores', 'false') === 'true'"
-                     (change)="setConfig('vendas.multiplos.vendedores', $any($event.target).checked ? 'true' : 'false')" />
-              Múltiplos vendedores em uma venda
-            </label>
-          </div>
-          <div class="field field-check">
-            <label class="check-label">
-              <input type="checkbox" [checked]="getConfig('vendas.usar.nr.cesta', 'false') === 'true'"
-                     (change)="setConfig('vendas.usar.nr.cesta', $any($event.target).checked ? 'true' : 'false')" />
-              Usar Nr de Cesta
-            </label>
-          </div>
-        </div>
+              <!-- Sessão -->
+              <div class="cfg-sub-titulo">Controle de Sessão</div>
+              <div class="cfg-grid">
+                <div class="cfg-field">
+                  <label>SESSÃO MÁXIMA (MIN)
+                    <span class="cfg-info" title="Tempo máximo logado. 0 = sem limite.">i</span>
+                  </label>
+                  <input type="text" [value]="getConfig('sessao.maxima.minutos', '480')"
+                         (input)="setConfig('sessao.maxima.minutos', $any($event.target).value)" />
+                </div>
+                <div class="cfg-field">
+                  <label>INATIVIDADE (MIN)
+                    <span class="cfg-info" title="Tempo de inatividade para encerrar sessão. 0 = não verifica.">i</span>
+                  </label>
+                  <input type="text" [value]="getConfig('sessao.inatividade.minutos', '10')"
+                         (input)="setConfig('sessao.inatividade.minutos', $any($event.target).value)" />
+                </div>
+              </div>
 
-        <!-- PLANO DE CONTAS PADRÃO -->
-        <div class="form-secao">Plano de Contas Padrão</div>
-        <div class="pc-config-grid">
-          @for (item of pcChaves; track item.chave) {
-            <div class="pc-config-item autocomplete-wrap">
-              <label>{{ item.label }}</label>
-              <div class="pc-input-wrap">
-                <input type="text" [value]="getPcNome(item.chave)"
-                       (input)="onPcBuscaInput(item.chave, $any($event.target).value)"
-                       (focus)="pcBuscaAtiva.set(item.chave)"
-                       (blur)="onPcBuscaBlur()"
-                       placeholder="Pesquisar plano de contas..."
-                       autocomplete="off" />
-                @if (getConfig(item.chave)) {
-                  <button class="pc-limpar" (mousedown)="$event.preventDefault(); limparPcConfig(item.chave)" title="Limpar">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
+              <!-- Sincronismo -->
+              <div class="cfg-sub-titulo">Sincronismo</div>
+              <div class="cfg-grid">
+                <div class="cfg-field">
+                  <label>INTERVALO DE REPLICAÇÃO
+                    <span class="cfg-info" title="Tempo entre cada ciclo de sincronização. Mínimo 7s, máximo 300s.">i</span>
+                  </label>
+                  <div class="cfg-slider">
+                    <input type="range" min="7" max="300" step="1"
+                           [value]="getConfig('sync.intervalo.segundos', '30')"
+                           (input)="setConfig('sync.intervalo.segundos', $any($event.target).value)" />
+                    <span class="cfg-slider-val">{{ formatarIntervalo(+getConfig('sync.intervalo.segundos', '30')) }}</span>
+                  </div>
+                </div>
+                <div class="cfg-field">
+                  <label>TAMANHO DO PACOTE
+                    <span class="cfg-info" title="Operações enviadas por ciclo. Mínimo 50, máximo 150.">i</span>
+                  </label>
+                  <div class="cfg-slider">
+                    <input type="range" min="50" max="150" step="10"
+                           [value]="getConfig('sync.lote.tamanho', '100')"
+                           (input)="setConfig('sync.lote.tamanho', $any($event.target).value)" />
+                    <span class="cfg-slider-val">{{ getConfig('sync.lote.tamanho', '100') }}</span>
+                  </div>
+                </div>
+                <div class="cfg-field">
+                  <label>LIMPEZA DE REGISTROS (DIAS)
+                    <span class="cfg-info" title="Registros sincronizados são removidos após este período. Mínimo 5, máximo 15.">i</span>
+                  </label>
+                  <div class="cfg-slider">
+                    <input type="range" min="5" max="15" step="1"
+                           [value]="getConfig('sync.limpeza.dias', '7')"
+                           (input)="setConfig('sync.limpeza.dias', $any($event.target).value)" />
+                    <span class="cfg-slider-val">{{ getConfig('sync.limpeza.dias', '7') }} dias</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Plano de Contas Padrão -->
+              <div class="cfg-sub-titulo">Plano de Contas Padrão</div>
+              <div class="cfg-pc-grid">
+                @for (item of pcChaves; track item.chave) {
+                  <div class="cfg-pc-item">
+                    <label>{{ item.label }}</label>
+                    <div class="cfg-pc-input">
+                      <input type="text" [value]="getPcNome(item.chave)"
+                             (input)="onPcBuscaInput(item.chave, $any($event.target).value)"
+                             (focus)="pcBuscaAtiva.set(item.chave)"
+                             (blur)="onPcBuscaBlur()"
+                             placeholder="Pesquisar plano de contas..." autocomplete="off" />
+                      @if (getConfig(item.chave)) {
+                        <button class="cfg-pc-limpar" (mousedown)="$event.preventDefault(); limparPcConfig(item.chave)" title="Limpar">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                      }
+                    </div>
+                    @if (pcDropdown() && pcBuscaAtiva() === item.chave && pcResultados().length > 0) {
+                      <div class="cfg-dropdown">
+                        @for (pc of pcResultados(); track pc.id) {
+                          <div class="cfg-dropdown-item" (mousedown)="selecionarPcConfig(item.chave, pc)">
+                            <span class="cfg-dropdown-cod">{{ pc.codigoHierarquico }}</span>
+                            <span>{{ pc.descricao }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
                 }
               </div>
-              @if (pcDropdown() && pcBuscaAtiva() === item.chave && pcResultados().length > 0) {
-                <div class="autocomplete-dropdown">
-                  @for (pc of pcResultados(); track pc.id) {
-                    <div class="autocomplete-item" (mousedown)="selecionarPcConfig(item.chave, pc)">
-                      <span class="autocomplete-codigo">{{ pc.codigoHierarquico }}</span>
-                      <span>{{ pc.descricao }}</span>
+
+              <!-- Certificado Digital -->
+              <div class="cfg-sub-titulo">Certificado Digital (A1)</div>
+              <div class="cfg-cert">
+                @if (certificado(); as c) {
+                  <div class="cfg-cert-grid">
+                    <div class="cfg-cert-info"><span>CNPJ</span><strong>{{ c.cnpj }}</strong></div>
+                    <div class="cfg-cert-info"><span>RAZÃO SOCIAL</span><strong>{{ c.razaoSocial }}</strong></div>
+                    <div class="cfg-cert-info"><span>VALIDADE</span>
+                      <strong [style.color]="c.valido ? '#27ae60' : '#e74c3c'">{{ c.validade | date:'dd/MM/yyyy' }}</strong>
                     </div>
-                  }
+                    <div class="cfg-cert-info"><span>STATUS</span>
+                      <strong [style.color]="c.valido ? '#27ae60' : '#e74c3c'">
+                        @if (c.valido) { Válido ({{ c.diasParaVencer }} dias) } @else { EXPIRADO }
+                      </strong>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="cfg-cert-aviso">Nenhum certificado digital configurado para esta filial.</div>
+                }
+                <div class="cfg-cert-upload">
+                  <label class="cfg-cert-btn" [class.disabled]="uploadandoCert()">
+                    <input type="file" accept=".pfx,.p12" (change)="onCertificadoSelected($event)" hidden [disabled]="uploadandoCert()">
+                    @if (uploadandoCert()) { Carregando... } @else {
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      {{ certificado() ? 'Substituir Certificado (.pfx)' : 'Carregar Certificado (.pfx)' }}
+                    }
+                  </label>
                 </div>
-              }
+              </div>
             </div>
           }
         </div>
 
-        <!-- CERTIFICADO DIGITAL -->
-        <div class="form-secao">Certificado Digital (A1)</div>
-        <div class="cert-section">
-          @if (certificado(); as c) {
-            <div class="cert-info-grid">
-              <div class="cert-info">
-                <span>CNPJ</span>
-                <strong>{{ c.cnpj }}</strong>
+        <!-- ══ ESTOQUE ════════════════════════════════════════════ -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'estoque'" (click)="toggleAccordion('estoque')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+            <span>Estoque</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'estoque' ? '▲' : '▼' }}</span>
+          </div>
+          @if (accordionAberto() === 'estoque') {
+            <div class="cfg-acc-body">
+              <div class="cfg-field cfg-field-lg">
+                <label>ATUALIZAÇÃO DE PREÇO ENTRE FILIAIS
+                  <span class="cfg-info" title="Define o comportamento ao alterar preço de um produto entre filiais.">i</span>
+                </label>
+                <select class="cfg-select" [value]="getConfig('produto.preco.regra', 'perguntar')"
+                        (change)="setConfig('produto.preco.regra', $any($event.target).value)">
+                  <option value="perguntar">Perguntar ao usuário</option>
+                  <option value="todas">Aplicar para todas as filiais automaticamente</option>
+                  <option value="atual">Apenas filial atual (não propagar)</option>
+                </select>
               </div>
-              <div class="cert-info">
-                <span>RAZAO SOCIAL</span>
-                <strong>{{ c.razaoSocial }}</strong>
-              </div>
-              <div class="cert-info">
-                <span>VALIDADE</span>
-                <strong [style.color]="c.valido ? '#27ae60' : '#e74c3c'">
-                  {{ c.validade | date:'dd/MM/yyyy' }}
-                </strong>
-              </div>
-              <div class="cert-info">
-                <span>STATUS</span>
-                <strong [style.color]="c.valido ? '#27ae60' : '#e74c3c'">
-                  @if (c.valido) {
-                    Valido ({{ c.diasParaVencer }} dias)
-                  } @else {
-                    EXPIRADO
-                  }
-                </strong>
-              </div>
-            </div>
-          } @else {
-            <div class="cert-aviso">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#856404" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              Nenhum certificado digital configurado para esta filial.
             </div>
           }
+        </div>
 
-          <div class="cert-upload">
-            <label class="cert-upload-btn" [class.disabled]="uploadandoCert()">
-              <input type="file" accept=".pfx,.p12" (change)="onCertificadoSelected($event)" hidden [disabled]="uploadandoCert()">
-              @if (uploadandoCert()) {
-                Carregando...
-              } @else {
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                {{ certificado() ? 'Substituir Certificado (.pfx)' : 'Carregar Certificado (.pfx)' }}
-              }
-            </label>
+        <!-- ══ VENDA ══════════════════════════════════════════════ -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'venda'" (click)="toggleAccordion('venda')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+            <span>Venda</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'venda' ? '▲' : '▼' }}</span>
           </div>
+          @if (accordionAberto() === 'venda') {
+            <div class="cfg-acc-body">
+              <table class="cfg-check-grid">
+                <thead><tr><th>Parâmetro</th><th>Pré-Venda</th><th>Caixa</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="cfg-param-inline" [class.cfg-impl]="implementados.has('venda.promo.multiplas')">Produtos com mais de uma promoção
+                      <select class="cfg-select cfg-select-sm" [value]="getConfig('venda.promo.multiplas', 'exibir')"
+                              (change)="setConfig('venda.promo.multiplas', $any($event.target).value)">
+                        <option value="exibir">Exibir promoções</option>
+                        <option value="menor">Lançar o menor preço</option>
+                      </select>
+                    </td>
+                    <td></td><td></td>
+                  </tr>
+                  <tr>
+                    <td [class.cfg-impl]="implementados.has('venda.multiplos.vendedores')">Múltiplos vendedores</td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('venda.multiplos.vendedores')" (change)="setBool('venda.multiplos.vendedores', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.multiplos.vendedores')" (change)="setBool('caixa.multiplos.vendedores', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                  </tr>
+                  <tr>
+                    <td [class.cfg-impl]="implementados.has('venda.duplicar.linha')">Duplicar linha para mesmo produto</td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('venda.duplicar.linha')" (change)="setBool('venda.duplicar.linha', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.duplicar.linha')" (change)="setBool('caixa.duplicar.linha', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                  </tr>
+                  <tr>
+                    <td [class.cfg-impl]="implementados.has('venda.focar.quantidade')">Focar quantidade ao inserir produto</td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('venda.focar.quantidade')" (change)="setBool('venda.focar.quantidade', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.focar.quantidade')" (change)="setBool('caixa.focar.quantidade', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                  </tr>
+                  <tr>
+                    <td>Imprimir promissória na venda a prazo</td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('venda.imprimir.promissoria')" (change)="setBool('venda.imprimir.promissoria', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.imprimir.promissoria')" (change)="setBool('caixa.imprimir.promissoria', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                  </tr>
+                  <tr>
+                    <td class="cfg-param-inline">Quantidade de vias de entrega
+                      <input type="text" class="cfg-input-sm" [value]="getConfig('venda.vias.entrega', '1')"
+                             (input)="setConfig('venda.vias.entrega', $any($event.target).value)" />
+                    </td>
+                    <td></td><td></td>
+                  </tr>
+                  <tr>
+                    <td [class.cfg-impl]="implementados.has('venda.alterar.preco.promo')">Permitir alterar preço de promoção do cadastro do produto</td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('venda.alterar.preco.promo')" (change)="setBool('venda.alterar.preco.promo', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.alterar.preco.promo')" (change)="setBool('caixa.alterar.preco.promo', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                  </tr>
+                  <tr>
+                    <td [class.cfg-impl]="implementados.has('venda.obrigar.escanear')">Obrigatório escanear produto na pesquisa</td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('venda.obrigar.escanear')" (change)="setBool('venda.obrigar.escanear', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.obrigar.escanear')" (change)="setBool('caixa.obrigar.escanear', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                  </tr>
+                  <tr>
+                    <td>Mostrar sugestão de produtos</td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('venda.sugestao.produtos')" (change)="setBool('venda.sugestao.produtos', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                    <td><label class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.sugestao.produtos')" (change)="setBool('caixa.sugestao.produtos', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></label></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+
+        <!-- ══ CAIXA ══════════════════════════════════════════════ -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'caixa'" (click)="toggleAccordion('caixa')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+            <span>Caixa</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'caixa' ? '▲' : '▼' }}</span>
+          </div>
+          @if (accordionAberto() === 'caixa') {
+            <div class="cfg-acc-body">
+
+              <div class="cfg-check-list">
+                <label class="cfg-toggle-row">
+                  <span class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.cego')" (change)="setBool('caixa.cego', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></span>
+                  Caixa cego
+                </label>
+                <label class="cfg-toggle-row">
+                  <span class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.exigir.conferencia', true)" (change)="setBool('caixa.exigir.conferencia', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></span>
+                  Exigir conferência no caixa
+                </label>
+                <label class="cfg-toggle-row">
+                  <span class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.conferencia.codigo.barras')" (change)="setBool('caixa.conferencia.codigo.barras', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></span>
+                  Conferência somente pelo código de barras
+                </label>
+                <label class="cfg-toggle-row">
+                  <span class="cfg-toggle"><input type="checkbox" [checked]="getBool('caixa.informar.cesta')" (change)="setBool('caixa.informar.cesta', $any($event.target).checked)" /><span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span></span>
+                  <span [class.cfg-impl]="implementados.has('caixa.informar.cesta')">Informar cesta</span>
+                </label>
+              </div>
+
+              <div class="cfg-grid cfg-grid-compact" style="margin-top: 14px">
+                <div class="cfg-field cfg-field-moeda">
+                  <label>VALOR LIMITE PARA AVISO DE SANGRIA</label>
+                  <div class="cfg-moeda-wrap">
+                    <span class="cfg-moeda-prefix">R$</span>
+                    <input type="text" [value]="getConfig('caixa.limite.aviso.sangria', '0,00')"
+                           (input)="setConfig('caixa.limite.aviso.sangria', $any($event.target).value)" placeholder="0,00" />
+                  </div>
+                </div>
+                <div class="cfg-field cfg-field-moeda">
+                  <label>VALOR LIMITE PARA BLOQUEIO DO CAIXA</label>
+                  <div class="cfg-moeda-wrap">
+                    <span class="cfg-moeda-prefix">R$</span>
+                    <input type="text" [value]="getConfig('caixa.limite.bloqueio', '0,00')"
+                           (input)="setConfig('caixa.limite.bloqueio', $any($event.target).value)" placeholder="0,00" />
+                  </div>
+                </div>
+                <div class="cfg-field cfg-field-select">
+                  <label>MODELO DE FECHAMENTO DO CAIXA</label>
+                  <select class="cfg-select" [value]="getConfig('caixa.modelo.fechamento', 'confirmacao_posse')"
+                          (change)="setConfig('caixa.modelo.fechamento', $any($event.target).value)">
+                    <option value="confirmacao_posse">Confirmação de posse</option>
+                    <option value="conferencia_simples">Conferência simples</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          }
         </div>
 
       }

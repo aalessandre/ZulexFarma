@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Text.Json;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
@@ -198,7 +199,7 @@ public class DicionarioDadosController : ControllerBase
             existente.Unico = dto.Unico;
             existente.Obrigatorio = dto.Obrigatorio;
             existente.InstrucaoIA = dto.InstrucaoIA;
-            existente.RevisadoEm = DateTime.UtcNow;
+            existente.RevisadoEm = DataHoraHelper.Agora();
 
             await _db.SaveChangesAsync();
             await AutoExportarJson();
@@ -234,7 +235,7 @@ public class DicionarioDadosController : ControllerBase
             existente.OnDelete = dto.OnDelete;
             existente.OnUpdate = dto.OnUpdate;
             existente.Revisado = dto.Revisado;
-            existente.RevisadoEm = DateTime.UtcNow;
+            existente.RevisadoEm = DataHoraHelper.Agora();
 
             await _db.SaveChangesAsync();
             await AutoExportarJson();
@@ -264,7 +265,7 @@ public class DicionarioDadosController : ControllerBase
             existente.Escopo = dto.Escopo;
             existente.Replica = dto.Replica;
             existente.InstrucaoIA = dto.InstrucaoIA;
-            existente.AtualizadoEm = DateTime.UtcNow;
+            existente.AtualizadoEm = DataHoraHelper.Agora();
 
             await _db.SaveChangesAsync();
             await AutoExportarJson();
@@ -352,7 +353,7 @@ public class DicionarioDadosController : ControllerBase
                     Escopo = t.Escopo,
                     Replica = t.Replica,
                     InstrucaoIA = t.InstrucaoIA,
-                    AtualizadoEm = DateTime.UtcNow
+                    AtualizadoEm = DataHoraHelper.Agora()
                 });
             }
 
@@ -367,7 +368,7 @@ public class DicionarioDadosController : ControllerBase
                     Obrigatorio = c.Obrigatorio,
                     Observacao = c.Observacao,
                     InstrucaoIA = c.InstrucaoIA,
-                    RevisadoEm = DateTime.UtcNow
+                    RevisadoEm = DataHoraHelper.Agora()
                 });
             }
 
@@ -381,7 +382,7 @@ public class DicionarioDadosController : ControllerBase
                     OnDelete = r.OnDelete,
                     OnUpdate = r.OnUpdate,
                     Revisado = r.Revisado,
-                    RevisadoEm = DateTime.UtcNow
+                    RevisadoEm = DataHoraHelper.Agora()
                 });
             }
 
@@ -403,7 +404,7 @@ public class DicionarioDadosController : ControllerBase
 
         return new DicionarioExportacao
         {
-            ExportadoEm = DateTime.UtcNow,
+            ExportadoEm = DataHoraHelper.Agora(),
             Tabelas = tabelas.Select(t => new DdTabela
             {
                 Tabela = t.Tabela, Escopo = t.Escopo, Replica = t.Replica, InstrucaoIA = t.InstrucaoIA

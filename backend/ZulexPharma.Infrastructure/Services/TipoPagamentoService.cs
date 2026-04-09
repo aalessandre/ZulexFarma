@@ -21,7 +21,7 @@ public class TipoPagamentoService : ITipoPagamentoService
     {
         try
         {
-            return await _db.TiposPagamento.OrderBy(t => t.Nome)
+            return await _db.TiposPagamento.OrderBy(t => t.Ordem).ThenBy(t => t.Nome)
                 .Select(t => new TipoPagamentoListDto
                 {
                     Id = t.Id,
@@ -32,6 +32,8 @@ public class TipoPagamentoService : ITipoPagamentoService
                     DescontoMaxSemSenha = t.DescontoMaxSemSenha,
                     DescontoMaxComSenha = t.DescontoMaxComSenha,
                     AceitaPromocao = t.AceitaPromocao,
+                    Ordem = t.Ordem,
+                    PadraoSistema = t.PadraoSistema,
                     Ativo = t.Ativo,
                     CriadoEm = t.CriadoEm
                 })
@@ -53,6 +55,7 @@ public class TipoPagamentoService : ITipoPagamentoService
                 DescontoMaxSemSenha = dto.DescontoMaxSemSenha,
                 DescontoMaxComSenha = dto.DescontoMaxComSenha,
                 AceitaPromocao = dto.AceitaPromocao,
+                Ordem = dto.Ordem,
                 Ativo = dto.Ativo
             };
             _db.TiposPagamento.Add(tp);
@@ -77,12 +80,14 @@ public class TipoPagamentoService : ITipoPagamentoService
             var tp = await _db.TiposPagamento.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Tipo de pagamento {id} não encontrado.");
             var anterior = ParaDict(tp);
+            if (tp.PadraoSistema) throw new ArgumentException("Tipo de pagamento padrão do sistema não pode ser alterado.");
             tp.Nome = dto.Nome.Trim().ToUpper();
             tp.Modalidade = dto.Modalidade;
             tp.DescontoMinimo = dto.DescontoMinimo;
             tp.DescontoMaxSemSenha = dto.DescontoMaxSemSenha;
             tp.DescontoMaxComSenha = dto.DescontoMaxComSenha;
             tp.AceitaPromocao = dto.AceitaPromocao;
+            tp.Ordem = dto.Ordem;
             tp.Ativo = dto.Ativo;
             await _db.SaveChangesAsync();
             var novo = ParaDict(tp);
@@ -98,6 +103,7 @@ public class TipoPagamentoService : ITipoPagamentoService
         {
             var tp = await _db.TiposPagamento.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Tipo de pagamento {id} não encontrado.");
+            if (tp.PadraoSistema) throw new ArgumentException("Tipo de pagamento padrão do sistema não pode ser excluído.");
             var dados = ParaDict(tp);
             _db.TiposPagamento.Remove(tp);
             try

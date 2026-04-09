@@ -2,8 +2,8 @@ namespace ZulexPharma.Domain.Enums;
 
 public enum ComponenteDesconto
 {
-    Promocao = 1,
-    PromocaoProduto = 2,
+    PromocaoFixa = 1,
+    PromocaoProgressiva = 2,
     SecaoEscolhida = 3,
     SecaoDemais = 4,
     PBM = 5,

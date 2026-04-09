@@ -696,6 +696,46 @@
 .sub-secao {
   font-size: var(--erp-fs-sm); font-weight: 700; color: var(--erp-text-muted);
   margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--erp-border);
+  &:first-child { margin-top: 0; }
+}
+
+/* ── Multiselect dropdown ────────────────────────────────────────── */
+.ms-wrap { position: relative; max-width: 400px; }
+.ms-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 36px; padding: 0 12px; border: 1px solid var(--erp-border-input);
+  border-radius: 6px; background: var(--erp-input-bg); cursor: pointer;
+  font-size: var(--erp-fs-sm); color: var(--erp-text);
+  &:hover { border-color: var(--erp-primary); }
+}
+.ms-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.ms-chevron { font-size: 10px; color: var(--erp-text-muted); margin-left: 8px; }
+.ms-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; max-height: 220px;
+  overflow-y: auto; background: var(--erp-surface);
+  border: 1px solid var(--erp-border-input); border-top: none;
+  border-radius: 0 0 6px 6px; box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  z-index: 50;
+}
+.ms-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  font-size: var(--erp-fs-sm); color: var(--erp-text); cursor: pointer;
+  &:hover { background: var(--erp-row-hover); }
+}
+.ms-check {
+  width: 20px; height: 20px; border-radius: 4px; border: 2px solid var(--erp-border-input);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+  &.ms-checked { background: var(--erp-primary, #2196F3); border-color: var(--erp-primary, #2196F3); }
+}
+.ms-vazio { padding: 12px; text-align: center; color: var(--erp-text-muted); font-size: var(--erp-fs-xs); }
+
+.hier-info {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--erp-primary, #2196F3); color: #fff;
+  font-size: 10px; font-weight: 700; cursor: help; margin-left: 4px;
+  vertical-align: middle;
 }
 
 /* ── Autocomplete ─────────────────────────────────────────────────── */

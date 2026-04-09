@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
+using ZulexPharma.Domain.Helpers;
 
 namespace ZulexPharma.API.Controllers;
 
@@ -42,7 +43,7 @@ public class TodoBoardController : ControllerBase
             AtribuidoPara = dto.AtribuidoPara?.Trim(),
             DataLimite = dto.DataLimite,
             DataConclusao = null,
-            CriadoEm = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss")
+            CriadoEm = DataHoraHelper.Agora().ToString("yyyy-MM-ddTHH:mm:ss")
         };
         items.Add(novo);
         Salvar(items);
@@ -66,7 +67,7 @@ public class TodoBoardController : ControllerBase
         item.DataLimite = dto.DataLimite;
 
         if (item.Status == "concluido" && item.DataConclusao == null)
-            item.DataConclusao = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
+            item.DataConclusao = DataHoraHelper.Agora().ToString("yyyy-MM-ddTHH:mm:ss");
         if (item.Status != "concluido")
             item.DataConclusao = null;
 
@@ -93,7 +94,7 @@ public class TodoBoardController : ControllerBase
 
         item.Status = dto.Status ?? item.Status;
         if (item.Status == "concluido" && item.DataConclusao == null)
-            item.DataConclusao = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
+            item.DataConclusao = DataHoraHelper.Agora().ToString("yyyy-MM-ddTHH:mm:ss");
         if (item.Status != "concluido")
             item.DataConclusao = null;
 

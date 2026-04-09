@@ -5,6 +5,7 @@ using System.Text.Json;
 using ZulexPharma.Application.DTOs.Logs;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -26,7 +27,7 @@ public class LogAcaoService : ILogAcaoService
     {
         var log = new LogAcao
         {
-            RealizadoEm       = DateTime.UtcNow,
+            RealizadoEm       = DataHoraHelper.Agora(),
             UsuarioId         = ObterUsuarioId(),
             Tela              = tela,
             Acao              = acao,
@@ -52,8 +53,8 @@ public class LogAcaoService : ILogAcaoService
     public async Task<List<LogAcaoListDto>> ListarPorRegistroAsync(string entidade, long registroId,
         DateTime? dataInicio = null, DateTime? dataFim = null)
     {
-        var inicio = DateTime.SpecifyKind((dataInicio ?? DateTime.UtcNow.AddDays(-30)).Date, DateTimeKind.Utc);
-        var fim    = DateTime.SpecifyKind((dataFim    ?? DateTime.UtcNow).Date.AddDays(1),   DateTimeKind.Utc);
+        var inicio = (dataInicio ?? DataHoraHelper.Agora().AddDays(-30)).Date;
+        var fim    = (dataFim    ?? DataHoraHelper.Agora()).Date.AddDays(1);
 
         var logs = await _db.LogsAcao
             .Include(l => l.Usuario)

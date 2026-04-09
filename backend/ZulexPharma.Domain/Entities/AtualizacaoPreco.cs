@@ -8,7 +8,7 @@ public class AtualizacaoPreco : BaseEntity
     /// <summary>"ABCFARMA" ou "MANUAL"</summary>
     public string Tipo { get; set; } = "ABCFARMA";
 
-    public DateTime DataExecucao { get; set; } = DateTime.UtcNow;
+    public DateTime DataExecucao { get; set; } = Helpers.DataHoraHelper.Agora();
     public long? UsuarioId { get; set; }
     public string? NomeUsuario { get; set; }
 

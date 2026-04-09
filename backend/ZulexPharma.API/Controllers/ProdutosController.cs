@@ -5,6 +5,7 @@ using Serilog;
 using ZulexPharma.Application.DTOs.Produtos;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
@@ -175,6 +176,39 @@ public class ProdutosController : ControllerBase
                 .Select(d => new { d.ProdutoId, d.ValorVenda, d.CustoMedio, d.EstoqueAtual, d.CurvaAbc })
                 .ToListAsync();
 
+            // Verificar quais produtos têm promoção ativa
+            var agora = DataHoraHelper.Agora();
+            var diaAtual = (int)Math.Pow(2, (int)agora.DayOfWeek);
+
+            // Debug: diagnosticar filtros
+            var debugPromos = await _db.PromocaoProdutos
+                .Include(pp => pp.Promocao).ThenInclude(p => p.Filiais)
+                .Where(pp => prodIds.Contains(pp.ProdutoId) && pp.Promocao.Ativo)
+                .ToListAsync();
+            foreach (var dp in debugPromos)
+            {
+                var p = dp.Promocao;
+                var filiais = string.Join(",", p.Filiais.Select(f => f.FilialId));
+                Log.Information("Promo debug: promoId={Id}, nome={Nome}, inicio={Inicio}, fim={Fim}, diaSemana={Dia}, filiais=[{Filiais}], diaAtualBit={DiaAtual}, dataOk={DataOk}, diaOk={DiaOk}, filialOk={FilialOk}",
+                    p.Id, p.Nome, p.DataHoraInicio, p.DataHoraFim, p.DiaSemana, filiais, diaAtual,
+                    p.DataHoraInicio <= agora && (p.DataHoraFim == null || p.DataHoraFim >= agora),
+                    (p.DiaSemana & diaAtual) != 0,
+                    p.Filiais.Any(f => f.FilialId == filialId));
+            }
+
+            var promoIds = await _db.PromocaoProdutos
+                .Where(pp => prodIds.Contains(pp.ProdutoId)
+                    && pp.Promocao.Ativo
+                    && pp.Promocao.DataHoraInicio <= agora
+                    && (pp.Promocao.DataHoraFim == null || pp.Promocao.DataHoraFim >= agora)
+                    && (pp.Promocao.DiaSemana & diaAtual) != 0
+                    && pp.Promocao.Filiais.Any(f => f.FilialId == filialId))
+                .Select(pp => pp.ProdutoId)
+                .Distinct()
+                .ToListAsync();
+            Log.Information("Buscar produtos promo filtrado: {Count} produtos com promoção", promoIds.Count);
+            var promoSet = new HashSet<long>(promoIds);
+
             var result = produtos.Select(p =>
             {
                 var d = dados.FirstOrDefault(x => x.ProdutoId == p.Id);
@@ -182,7 +216,8 @@ public class ProdutosController : ControllerBase
                 {
                     id = p.Id, codigo = p.Codigo, nome = p.Nome, fabricante = p.fabricante,
                     valorVenda = d?.ValorVenda ?? 0, custoMedio = d?.CustoMedio ?? 0,
-                    estoqueAtual = d?.EstoqueAtual ?? 0, curvaAbc = d?.CurvaAbc ?? ""
+                    estoqueAtual = d?.EstoqueAtual ?? 0, curvaAbc = d?.CurvaAbc ?? "",
+                    temPromocao = promoSet.Contains(p.Id)
                 };
             });
 
