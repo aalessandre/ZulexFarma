@@ -36,6 +36,7 @@ public class VendaDetalheDto
     public string? Observacao { get; set; }
     public DateTime CriadoEm { get; set; }
     public List<VendaItemDto> Itens { get; set; } = new();
+    public List<VendaPagamentoDto> Pagamentos { get; set; } = new();
 }
 
 public class VendaFormDto
@@ -50,6 +51,25 @@ public class VendaFormDto
     public int? Origem { get; set; }
     public string? Observacao { get; set; }
     public List<VendaItemFormDto> Itens { get; set; } = new();
+    public List<VendaPagamentoFormDto> Pagamentos { get; set; } = new();
+}
+
+public class VendaPagamentoDto
+{
+    public long Id { get; set; }
+    public long TipoPagamentoId { get; set; }
+    public string TipoPagamentoNome { get; set; } = string.Empty;
+    public decimal Valor { get; set; }
+    public decimal Troco { get; set; }
+    public string? TrocoPara { get; set; }
+}
+
+public class VendaPagamentoFormDto
+{
+    public long TipoPagamentoId { get; set; }
+    public decimal Valor { get; set; }
+    public decimal Troco { get; set; }
+    public string? TrocoPara { get; set; }
 }
 
 public class VendaItemDto
@@ -60,7 +80,7 @@ public class VendaItemDto
     public string ProdutoNome { get; set; } = string.Empty;
     public string? Fabricante { get; set; }
     public decimal PrecoVenda { get; set; }
-    public decimal Quantidade { get; set; }
+    public int Quantidade { get; set; }
     public decimal PercentualDesconto { get; set; }
     public decimal PercentualPromocao { get; set; }
     public decimal ValorDesconto { get; set; }
@@ -79,7 +99,7 @@ public class VendaItemFormDto
     public string ProdutoNome { get; set; } = string.Empty;
     public string? Fabricante { get; set; }
     public decimal PrecoVenda { get; set; }
-    public decimal Quantidade { get; set; } = 1;
+    public int Quantidade { get; set; } = 1;
     public decimal PercentualDesconto { get; set; }
     public decimal PercentualPromocao { get; set; }
     public decimal ValorDesconto { get; set; }

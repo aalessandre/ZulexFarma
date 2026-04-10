@@ -25,6 +25,7 @@ public class ProdutoDetalheDto
     public short Fracao { get; set; }
     public bool Ativo { get; set; }
     public bool Eliminado { get; set; }
+    public bool PermitirConferenciaDigitando { get; set; }
     public DateTime CriadoEm { get; set; }
 
     // FKs
@@ -61,6 +62,7 @@ public class ProdutoFormDto
     public short Fracao { get; set; } = 1;
     public bool Ativo { get; set; } = true;
     public bool Eliminado { get; set; }
+    public bool PermitirConferenciaDigitando { get; set; }
 
     public long? FabricanteId { get; set; }
     public long? GrupoPrincipalId { get; set; }

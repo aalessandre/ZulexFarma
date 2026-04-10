@@ -9,6 +9,7 @@ public class Produto : BaseEntity
     public string Lista { get; set; } = "Indefinida";
     public short Fracao { get; set; } = 1;
     public bool Eliminado { get; set; }
+    public bool PermitirConferenciaDigitando { get; set; }
 
     // FKs
     public long? FabricanteId { get; set; }

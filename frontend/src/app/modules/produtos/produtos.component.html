@@ -303,6 +303,9 @@
           <div class="prod-field prod-field-check">
             <label class="check-label"><input type="checkbox" [checked]="produtoForm().ativo" (change)="updateProdutoForm('ativo', $any($event.target).checked)" /><span>Ativo</span></label>
           </div>
+          <div class="prod-field prod-field-check">
+            <label class="check-label"><input type="checkbox" [checked]="produtoForm().permitirConferenciaDigitando" (change)="updateProdutoForm('permitirConferenciaDigitando', $any($event.target).checked)" /><span>Permitir conferência digitando</span></label>
+          </div>
         </div>
 
         <div class="prod-section">Classificação</div>

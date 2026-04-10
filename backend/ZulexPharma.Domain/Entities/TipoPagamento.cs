@@ -13,4 +13,8 @@ public class TipoPagamento : BaseEntity
     public int Ordem { get; set; }
     /// <summary>Se true, é padrão do sistema e não pode ser editado/excluído pelo usuário.</summary>
     public bool PadraoSistema { get; set; }
+
+    /// <summary>Plano de contas associado a este tipo de pagamento.</summary>
+    public long? PlanoContaId { get; set; }
+    public PlanoConta? PlanoConta { get; set; }
 }

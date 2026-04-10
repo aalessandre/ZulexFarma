@@ -17,7 +17,7 @@ public class VendaService : IVendaService
 
     public VendaService(AppDbContext db, ILogAcaoService log) { _db = db; _log = log; }
 
-    public async Task<List<VendaListDto>> ListarAsync(long? filialId = null)
+    public async Task<List<VendaListDto>> ListarAsync(long? filialId = null, string? status = null)
     {
         try
         {
@@ -28,6 +28,9 @@ public class VendaService : IVendaService
                 .AsQueryable();
 
             if (filialId.HasValue) query = query.Where(v => v.FilialId == filialId);
+            if (status == "aberta") query = query.Where(v => v.Status == VendaStatus.Aberta);
+            else if (status == "finalizada") query = query.Where(v => v.Status == VendaStatus.Finalizada);
+            else if (status == "cancelada") query = query.Where(v => v.Status == VendaStatus.Cancelada);
 
             return await query.OrderByDescending(v => v.CriadoEm)
                 .Select(v => new VendaListDto
@@ -53,6 +56,7 @@ public class VendaService : IVendaService
                 .Include(x => x.Cliente).ThenInclude(c => c!.Pessoa)
                 .Include(x => x.Colaborador).ThenInclude(c => c!.Pessoa)
                 .Include(x => x.Itens).ThenInclude(i => i.Descontos)
+                .Include(x => x.Pagamentos).ThenInclude(p => p.TipoPagamento)
                 .FirstOrDefaultAsync(x => x.Id == id);
             if (v == null) return null;
 
@@ -90,6 +94,12 @@ public class VendaService : IVendaService
                             LiberadoPorId = dd.LiberadoPorId
                         }).ToList()
                     };
+                }).ToList(),
+                Pagamentos = v.Pagamentos.Select(p => new VendaPagamentoDto
+                {
+                    Id = p.Id, TipoPagamentoId = p.TipoPagamentoId,
+                    TipoPagamentoNome = p.TipoPagamento?.Nome ?? "",
+                    Valor = p.Valor, Troco = p.Troco, TrocoPara = p.TrocoPara
                 }).ToList()
             };
         }
@@ -118,6 +128,9 @@ public class VendaService : IVendaService
             foreach (var item in dto.Itens)
                 venda.Itens.Add(MapearItem(item, ordem++));
 
+            foreach (var pag in dto.Pagamentos.Where(p => p.Valor > 0))
+                venda.Pagamentos.Add(new VendaPagamento { TipoPagamentoId = pag.TipoPagamentoId, Valor = pag.Valor, Troco = pag.Troco, TrocoPara = pag.TrocoPara });
+
             RecalcularTotais(venda);
             _db.Set<Venda>().Add(venda);
             await _db.SaveChangesAsync();
@@ -134,6 +147,7 @@ public class VendaService : IVendaService
         {
             var venda = await _db.Set<Venda>()
                 .Include(v => v.Itens).ThenInclude(i => i.Descontos)
+                .Include(v => v.Pagamentos)
                 .FirstOrDefaultAsync(v => v.Id == id)
                 ?? throw new KeyNotFoundException($"Venda {id} não encontrada.");
 
@@ -152,9 +166,12 @@ public class VendaService : IVendaService
 
             foreach (var item in venda.Itens) _db.Set<VendaItemDesconto>().RemoveRange(item.Descontos);
             _db.Set<VendaItem>().RemoveRange(venda.Itens);
+            _db.Set<VendaPagamento>().RemoveRange(venda.Pagamentos);
             int ordem = 1;
             foreach (var item in dto.Itens)
                 venda.Itens.Add(MapearItem(item, ordem++));
+            foreach (var pag in dto.Pagamentos.Where(p => p.Valor > 0))
+                venda.Pagamentos.Add(new VendaPagamento { TipoPagamentoId = pag.TipoPagamentoId, Valor = pag.Valor, Troco = pag.Troco, TrocoPara = pag.TrocoPara });
 
             RecalcularTotais(venda);
             await _db.SaveChangesAsync();
@@ -167,10 +184,48 @@ public class VendaService : IVendaService
     {
         try
         {
-            var venda = await _db.Set<Venda>().FindAsync(id)
+            var venda = await _db.Set<Venda>()
+                .Include(v => v.Pagamentos).ThenInclude(p => p.TipoPagamento)
+                .Include(v => v.Cliente)
+                .FirstOrDefaultAsync(v => v.Id == id)
                 ?? throw new KeyNotFoundException($"Venda {id} não encontrada.");
             if (venda.Status != VendaStatus.Aberta) throw new ArgumentException("Venda não está aberta.");
             venda.Status = VendaStatus.Finalizada;
+
+            // Gerar Contas a Receber para cada pagamento
+            var agora = Domain.Helpers.DataHoraHelper.Agora();
+            foreach (var pag in venda.Pagamentos)
+            {
+                var modalidade = pag.TipoPagamento?.Modalidade;
+                var planoContaId = pag.TipoPagamento?.PlanoContaId;
+                var valorLiquido = pag.Valor - pag.Troco;
+
+                // Dinheiro e PIX: já recebido na hora
+                var jaRecebido = modalidade == Domain.Enums.ModalidadePagamento.VendaVista
+                              || modalidade == Domain.Enums.ModalidadePagamento.VendaPix;
+
+                var cr = new ContaReceber
+                {
+                    FilialId = venda.FilialId,
+                    VendaId = venda.Id,
+                    VendaPagamentoId = pag.Id,
+                    ClienteId = venda.ClienteId,
+                    TipoPagamentoId = pag.TipoPagamentoId,
+                    PlanoContaId = planoContaId,
+                    Descricao = $"Venda #{venda.Codigo ?? venda.Id.ToString()} - {pag.TipoPagamento?.Nome ?? ""}",
+                    Valor = pag.Valor,
+                    ValorLiquido = valorLiquido > 0 ? valorLiquido : pag.Valor,
+                    DataEmissao = agora,
+                    DataVencimento = agora.Date,
+                    NumParcela = 1,
+                    TotalParcelas = 1,
+                    Status = jaRecebido ? Domain.Enums.StatusContaReceber.Recebida : Domain.Enums.StatusContaReceber.Aberta,
+                    DataRecebimento = jaRecebido ? agora : null,
+                    ValorRecebido = jaRecebido ? valorLiquido : 0
+                };
+                _db.ContasReceber.Add(cr);
+            }
+
             await _db.SaveChangesAsync();
             await _log.RegistrarAsync(TELA, "FINALIZAÇÃO", ENTIDADE, id);
         }

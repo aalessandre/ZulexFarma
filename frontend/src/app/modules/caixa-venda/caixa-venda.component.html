@@ -15,7 +15,7 @@
   <!-- HEADER -->
   <div class="pv-header">
 
-    <!-- Filial + Cliente -->
+    <!-- Filial + Cesta + Cliente -->
     <div class="pv-field-row">
       <label class="pv-label">FILIAL</label>
       <select class="pv-filial-select" [value]="filialId()" (change)="filialId.set(+$any($event.target).value)">
@@ -23,6 +23,12 @@
           <option [value]="f.id">{{ f.nome }}</option>
         }
       </select>
+      <label class="pv-label">CESTA</label>
+      <input type="text" class="cx-cesta-input" maxlength="24" [value]="cestaNumero()" (input)="cestaNumero.set($any($event.target).value)" (keydown.enter)="buscarPorCesta()" placeholder="Nº Cesta" />
+    </div>
+
+    <!-- Cliente + Vendedor -->
+    <div class="pv-field-row">
       <label class="pv-label">CLIENTE</label>
       <div class="cg-wrap">
         <input #inputCliente type="text" class="pv-input-full" placeholder="Código, CPF/CNPJ, nome, matrícula ou cartão..."
@@ -84,24 +90,6 @@
           </div>
         }
       </div>
-    </div>
-
-    <!-- Payment type buttons -->
-    <div class="pv-pagamentos">
-      @for (tp of tiposPagamento(); track tp.id; let i = $index) {
-        <button class="pv-btn-pagamento"
-                [class.pv-btn-pagamento-ativo]="tipoPagamentoId() === tp.id"
-                [style.background-color]="corPagamento(i)"
-                (click)="selecionarPagamento(tp.id)">
-          {{ tp.nome }}
-        </button>
-      }
-    </div>
-
-    <!-- Vendedor + Produto (+ tarja edição) -->
-    <div class="pv-edit-row" [class.pv-edit-row-ativo]="editando()">
-    <div class="pv-edit-campos">
-    <div class="pv-field-row">
       <label class="pv-label">VENDEDOR</label>
       <div class="cg-wrap">
         <input #inputVendedor type="text" class="pv-input-full" placeholder="Código ou nome do vendedor..."
@@ -141,7 +129,21 @@
       </div>
     </div>
 
-    <!-- Produto (ComboGrid) -->
+    <!-- Payment type buttons -->
+    <div class="pv-pagamentos">
+      @for (tp of tiposPagamento(); track tp.id; let i = $index) {
+        <button class="pv-btn-pagamento"
+                [class.pv-btn-pagamento-ativo]="tipoPagamentoId() === tp.id"
+                [style.background-color]="corPagamento(i)"
+                (click)="selecionarPagamento(tp.id)">
+          {{ tp.nome }}
+        </button>
+      }
+    </div>
+
+    <!-- Produto (+ tarja edição) -->
+    <div class="pv-edit-row" [class.pv-edit-row-ativo]="editando()">
+    <div class="pv-edit-campos">
     <div class="pv-field-row">
       <label class="pv-label">PRODUTO</label>
       <div class="cg-wrap">
@@ -190,22 +192,26 @@
       </div>
     </div>
     </div><!-- /pv-edit-campos -->
+    </div><!-- /pv-edit-row -->
     @if (editando()) {
-      <div class="pv-edit-tarja">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        <span class="pv-edit-tarja-txt">Editando Pré-Venda {{ preVendaId() }}</span>
-        <div class="pv-edit-tarja-row">
-          @if (cestaNumero()) {
-            <span class="pv-edit-tarja-cesta">Cesta: {{ cestaNumero() }}</span>
-          }
-          <button class="pv-edit-tarja-btn" (click)="cancelarAlteracao()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Cancelar Edição
-          </button>
-        </div>
+      <div class="cx-tarja-bar" [class.cx-tarja-conferencia]="modoConferencia()">
+        @if (modoConferencia()) {
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span class="cx-tarja-txt">Conferência</span>
+        } @else {
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span class="cx-tarja-txt">Finalizando Pré-Venda {{ preVendaId() }}</span>
+        }
+        @if (cestaNumero()) {
+          <span class="cx-tarja-cesta">Cesta: {{ cestaNumero() }}</span>
+        }
+        <div style="flex:1"></div>
+        <button class="cx-tarja-btn-cancelar" (click)="cancelarAlteracao()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          {{ modoConferencia() ? 'Cancelar Conferência' : 'Cancelar' }}
+        </button>
       </div>
     }
-    </div><!-- /pv-edit-row -->
   </div>
 
   <!-- GRID -->
@@ -271,7 +277,14 @@
               <tr [class.selecionado]="itensSelecionadoIdx() === rowIdx"
                   (click)="selecionarItem(rowIdx)">
                 <td class="td-arrow">
-                  @if (itensSelecionadoIdx() === rowIdx) {
+                  @if (modoConferencia()) {
+                    @switch (statusConferencia(item)) {
+                      @case ('abaixo') { <span class="cx-conf-icon cx-conf-abaixo" title="Quantidade abaixo">⬇</span> }
+                      @case ('igual') { <span class="cx-conf-icon cx-conf-igual" title="Conferido OK">✓</span> }
+                      @case ('acima') { <span class="cx-conf-icon cx-conf-acima" title="Quantidade acima">⬆</span> }
+                      @case ('adicionado') { <span class="cx-conf-icon cx-conf-adicionado" title="Adicionado no caixa">+</span> }
+                    }
+                  } @else if (itensSelecionadoIdx() === rowIdx) {
                     <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span>
                   }
                 </td>
@@ -576,25 +589,52 @@
     </div>
   }
 
-  <!-- ══ Modal Número da Cesta ═════════════════════════════════════ -->
-  @if (modalCesta()) {
-    <div class="pv-modal-overlay" (click)="cancelarCesta()">
-      <div class="pv-modal-cesta" (click)="$event.stopPropagation()">
-        <div class="pv-modal-cesta-header">
-          <h3>Número da Cesta</h3>
-          <button class="pv-modal-promo-fechar" (click)="cancelarCesta()">&times;</button>
+
+  <!-- ══ Modal Desdobramento de Pagamento ══════════════════════════ -->
+  @if (modalPagamento()) {
+    <div class="pv-modal-overlay" (click)="cancelarPagamento()">
+      <div class="cx-modal-pagamento" (click)="$event.stopPropagation()">
+        <div class="cx-modal-pag-header">
+          <h3>Pagamento</h3>
+          <span class="cx-modal-pag-total-header">Total da Venda: <strong>R$ {{ totalLiquido().toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</strong></span>
+          <button class="pv-modal-promo-fechar" (click)="cancelarPagamento()">&times;</button>
         </div>
-        <div class="pv-modal-cesta-body">
-          <p>Informe o número da cesta para esta pré-venda:</p>
-          <input type="text" class="pv-modal-cesta-input" maxlength="24"
-                 [value]="cestaNumero()"
-                 (input)="cestaNumero.set($any($event.target).value)"
-                 (keydown.enter)="confirmarCesta()"
-                 placeholder="Número da cesta" autofocus />
+        <div class="cx-modal-pag-body">
+          @for (item of pagamentoValores(); track item.tipoPagamentoId) {
+            <div class="cx-pag-row">
+              <label class="cx-pag-label">{{ item.nome }}</label>
+              <div class="cx-pag-input-wrap">
+                <span class="cx-pag-prefix">R$</span>
+                <input type="text" class="cx-pag-input"
+                       [value]="item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })"
+                       (blur)="atualizarValorPagamento(item.tipoPagamentoId, $any($event.target).value)"
+                       (keydown.enter)="$any($event.target).blur()" />
+              </div>
+              @if (item.modalidade === 1 && dinheiroTrocoFalta(); as dtf) {
+                @if (dtf.tipo === 'troco') {
+                  <span class="cx-pag-troco">Troco: R$ {{ dtf.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+                } @else if (dtf.tipo === 'falta') {
+                  <span class="cx-pag-falta">Falta: R$ {{ dtf.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+                }
+              }
+            </div>
+          }
         </div>
-        <div class="pv-modal-cesta-footer">
-          <button class="pv-promo-btn-cancelar" (click)="cancelarCesta()">Cancelar</button>
-          <button class="pv-promo-btn-aplicar" (click)="confirmarCesta()" [disabled]="!cestaNumero().trim()">Confirmar</button>
+        <div class="cx-modal-pag-footer">
+          <div class="cx-pag-resumo">
+            <span>Total informado: <strong>R$ {{ pagamentoTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</strong></span>
+            @if (pagamentoTrocoFalta().tipo === 'troco') {
+              <span class="cx-pag-troco-grande">Troco: R$ {{ pagamentoTrocoFalta().valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+            } @else if (pagamentoTrocoFalta().tipo === 'falta') {
+              <span class="cx-pag-falta-grande">Falta: R$ {{ pagamentoTrocoFalta().valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+            } @else {
+              <span class="cx-pag-ok">Valor exato</span>
+            }
+          </div>
+          <div class="cx-pag-btns">
+            <button class="pv-promo-btn-cancelar" (click)="cancelarPagamento()">Cancelar</button>
+            <button class="pv-promo-btn-aplicar" (click)="confirmarPagamento()">Finalizar Venda</button>
+          </div>
         </div>
       </div>
     </div>
@@ -659,6 +699,32 @@
         </div>
         <div class="pv-modal-promo-footer">
           <button class="pv-promo-btn-cancelar" (click)="fecharModalPromoProgressiva()">Não aplicar promoção</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ══════════ Modal DANFE NFC-e ══════════ -->
+  @if (modalDanfe()) {
+    <div class="pv-modal-overlay" (click)="fecharDanfe()">
+      <div class="pv-modal-danfe" (click)="$event.stopPropagation()">
+        <div class="pv-modal-danfe-header">
+          <h3>DANFE NFC-e</h3>
+          <button class="pv-modal-promo-fechar" (click)="fecharDanfe()">&times;</button>
+        </div>
+        <div class="pv-modal-danfe-body">
+          <iframe id="danfe-iframe" [src]="danfeUrl() | safe" frameborder="0"></iframe>
+        </div>
+        <div class="pv-modal-danfe-footer">
+          <button class="btn-danfe-whatsapp" (click)="compartilharWhatsapp()" disabled title="Em breve">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            WhatsApp
+          </button>
+          <button class="btn-danfe-imprimir" (click)="imprimirDanfe()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir
+          </button>
+          <button class="btn-danfe-ok" (click)="fecharDanfe()">OK</button>
         </div>
       </div>
     </div>

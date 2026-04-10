@@ -879,6 +879,97 @@
         }
       </section>
 
+      <!-- MIGRATIONS -->
+      <section class="help-secao">
+        <div class="secao-header compras" [class.aberto]="isAberta('migrations')" (click)="toggleSecao('migrations')" style="background:#c0392b">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Migrations - REGRAS OBRIGATÓRIAS</span>
+        </div>
+        @if (isAberta('migrations')) {
+          <div class="secao-corpo">
+            <div style="background:#fdedee;border:2px solid #e74c3c;border-radius:8px;padding:16px;margin-bottom:16px">
+              <h3 style="color:#c0392b;margin:0 0 8px">INCIDENTE - 10/04/2026</h3>
+              <p>
+                Ao remover migrations já aplicadas no banco (<code>dotnet ef migrations remove</code>) e criar uma nova migration consolidada,
+                o EF Core gerou uma migration que <strong>DROPOU E RECRIOU</strong> as tabelas Vendas e VendaItens,
+                causando <strong>perda total dos dados de vendas</strong> no banco.
+              </p>
+              <p>
+                <strong>Causa raiz:</strong> ao remover migrations, o snapshot do EF Core reverte para o estado anterior.
+                Quando a nova migration é criada, o EF compara o modelo atual com o snapshot revertido e gera DROP + CREATE
+                para as tabelas que "não existiam" no snapshot antigo.
+              </p>
+            </div>
+
+            <h3>Regras Obrigatórias</h3>
+            <table class="help-tabela">
+              <thead><tr><th>Regra</th><th>Motivo</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>NUNCA remover migrations já aplicadas no banco</strong></td>
+                  <td>Remove o snapshot, causando DROP + CREATE na próxima migration. Perda de dados.</td>
+                </tr>
+                <tr>
+                  <td><strong>Sempre criar migrations incrementais</strong></td>
+                  <td>Cada mudança no modelo = uma nova migration. Nunca consolidar migrations existentes.</td>
+                </tr>
+                <tr>
+                  <td><strong>Revisar o conteúdo da migration ANTES de aplicar</strong></td>
+                  <td>Abrir o arquivo .cs gerado e verificar se contém DROP TABLE. Se tiver, NÃO aplicar.</td>
+                </tr>
+                <tr>
+                  <td><strong>Só usar <code>migrations remove</code> para migrations NÃO aplicadas</strong></td>
+                  <td>Se a migration ainda não foi aplicada no banco (não rodou <code>MigrateAsync</code>), pode remover com segurança.</td>
+                </tr>
+                <tr>
+                  <td><strong>Em produção: backup ANTES de qualquer migration</strong></td>
+                  <td>Mesmo seguindo as regras, sempre fazer backup antes de aplicar migrations em produção.</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>Fluxo Seguro</h3>
+            <table class="help-tabela">
+              <thead><tr><th>Situação</th><th>O que fazer</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>Preciso adicionar um campo novo</td>
+                  <td><code>dotnet ef migrations add NomeDaMigration</code> — cria migration incremental</td>
+                </tr>
+                <tr>
+                  <td>A migration gerada tem erro</td>
+                  <td><code>dotnet ef migrations remove</code> — só se NÃO foi aplicada ainda</td>
+                </tr>
+                <tr>
+                  <td>Erro "PendingModelChangesWarning"</td>
+                  <td>Criar nova migration. NUNCA remover as existentes para "resolver".</td>
+                </tr>
+                <tr>
+                  <td>Muitas migrations acumuladas</td>
+                  <td>Deixar. Não consolidar. O EF lida bem com centenas de migrations.</td>
+                </tr>
+                <tr>
+                  <td>Migration aplicada com problema</td>
+                  <td>Criar migration reversa (nova migration que desfaz). NUNCA remover.</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>Comando de Verificação</h3>
+            <p>Antes de aplicar, sempre verificar o conteúdo:</p>
+            <pre style="background:#2d2d2d;color:#f8f8f2;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto">
+# Listar migrations pendentes
+dotnet ef migrations list --project ZulexPharma.Infrastructure --startup-project ZulexPharma.API
+
+# Verificar se a migration gerada contém DROP TABLE
+# Abrir o arquivo .cs da migration e procurar por:
+#   migrationBuilder.DropTable
+#   migrationBuilder.DropColumn (verificar se é intencional)
+# Se contiver DROP TABLE inesperado → NÃO APLICAR → investigar</pre>
+          </div>
+        }
+      </section>
+
       <!-- COMBOGRID -->
       <section class="help-secao">
         <div class="secao-header compras" [class.aberto]="isAberta('combogrid')" (click)="toggleSecao('combogrid')">
@@ -1374,6 +1465,114 @@ para cada item da hierarquia (ordenado por Ordem):
               <div class="cmd-grupo"><div class="cmd-label">Finalizar</div><code class="cmd">POST /api/vendas/&#123;id&#125;/finalizar</code></div>
               <div class="cmd-grupo"><div class="cmd-label">Cancelar</div><code class="cmd">POST /api/vendas/&#123;id&#125;/cancelar</code></div>
             </div>
+
+          </div>
+        }
+      </section>
+
+      <!-- FISCAL / NFC-e -->
+      <section class="help-secao">
+        <div class="secao-header fiscal" [class.aberto]="isAberta('fiscal')" (click)="toggleSecao('fiscal')" style="background:#1e8449">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span>Fiscal / NFC-e</span>
+        </div>
+        @if (isAberta('fiscal')) {
+          <div class="secao-corpo">
+
+            <div class="doc-titulo">Visão geral</div>
+            <p class="doc-texto">O módulo fiscal emite NFC-e (Nota Fiscal de Consumidor Eletrônica) modelo 65 layout 4.00 diretamente para a SEFAZ. A implementação é manual (XML montado via StringBuilder), sem bibliotecas externas. O XML é assinado digitalmente com certificado A1 (PFX) e transmitido via SOAP.</p>
+
+            <div class="doc-titulo">Fluxo de emissão</div>
+            <div class="doc-lista">
+              <div class="doc-item">1. Venda finalizada → <code>POST /api/vendas/&#123;id&#125;/finalizar</code></div>
+              <div class="doc-item">2. Emissão NFC-e → <code>POST /api/nfce/emitir/&#123;vendaId&#125;</code></div>
+              <div class="doc-item">3. NfceService monta XML, assina (RSA-SHA1), envia SOAP à SEFAZ</div>
+              <div class="doc-item">4. Resposta processada → protNFe/infProt/cStat (100=Autorizada)</div>
+              <div class="doc-item">5. NFC-e salva no banco (XmlEnvio + XmlRetorno + protocolo)</div>
+              <div class="doc-item">6. DANFE exibido em modal com botões Imprimir / WhatsApp / OK</div>
+            </div>
+
+            <div class="doc-titulo">Configurações necessárias (Configurações > Fiscal)</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>fiscal.regime.tributario</b> — 1=Simples Nacional, 2=SN Excesso, 3=Regime Normal</div>
+              <div class="doc-item"><b>fiscal.ambiente</b> — 1=Produção, 2=Homologação</div>
+              <div class="doc-item"><b>fiscal.nfce.csc</b> — Código de Segurança do Contribuinte (obtido na SEFAZ)</div>
+              <div class="doc-item"><b>fiscal.nfce.csc.id</b> — ID numérico do CSC</div>
+              <div class="doc-item"><b>fiscal.nfce.serie</b> — Série da NFC-e (default 1)</div>
+              <div class="doc-item"><b>fiscal.nfce.numero.atual</b> — Último número emitido (auto-incrementa)</div>
+            </div>
+
+            <div class="doc-titulo">Pré-requisitos</div>
+            <div class="doc-lista">
+              <div class="doc-item">Certificado digital A1 (.pfx) cadastrado em Configurações > Certificado Digital</div>
+              <div class="doc-item">Código IBGE do Município preenchido na Filial</div>
+              <div class="doc-item">CSC e ID do CSC obtidos no portal da SEFAZ do estado</div>
+              <div class="doc-item">Produtos com NCM, CFOP e CSOSN/CST cadastrados (aba Fiscal do produto)</div>
+            </div>
+
+            <div class="doc-titulo">Estrutura do XML NFC-e</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>ide</b> — Identificação (UF, série, número, data, ambiente, modelo 65)</div>
+              <div class="doc-item"><b>emit</b> — Emitente (CNPJ, razão social, endereço, IE, CRT)</div>
+              <div class="doc-item"><b>dest</b> — Destinatário (opcional, CPF/CNPJ do cliente)</div>
+              <div class="doc-item"><b>det</b> — Itens (produto, NCM, CFOP, ICMS, PIS, COFINS, vTotTrib)</div>
+              <div class="doc-item"><b>total/ICMSTot</b> — Totais (vProd, vDesc, vNF, vTotTrib)</div>
+              <div class="doc-item"><b>transp</b> — Transporte (modFrete=9 sem frete)</div>
+              <div class="doc-item"><b>pag</b> — Pagamentos (vPag = vNF + vTroco)</div>
+              <div class="doc-item"><b>infRespTec</b> — Responsável técnico (obrigatório PR)</div>
+              <div class="doc-item"><b>infNFeSupl</b> — QR Code + URL consulta (inserido antes da Signature)</div>
+            </div>
+
+            <div class="doc-titulo">Regras críticas aprendidas</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Decimais:</b> Sempre usar CultureInfo.InvariantCulture (ponto, não vírgula)</div>
+              <div class="doc-item"><b>CSOSN:</b> TrimStart('0') — SEFAZ espera "102" não "0102"</div>
+              <div class="doc-item"><b>PIS/COFINS:</b> Tag depende do CST (PISAliq para 01/02, PISNT para 04-09, PISOutr para demais)</div>
+              <div class="doc-item"><b>vTotTrib:</b> Primeiro elemento dentro de &lt;imposto&gt;, antes de &lt;ICMS&gt;</div>
+              <div class="doc-item"><b>vPag:</b> Soma(vPag) deve ser = vNF + vTroco (regra SEFAZ)</div>
+              <div class="doc-item"><b>vTroco:</b> Sempre presente, mesmo quando 0.00</div>
+              <div class="doc-item"><b>infNFeSupl:</b> Inserir antes da tag &lt;Signature xmlns=...&gt;, não dentro</div>
+              <div class="doc-item"><b>QR Code PR:</b> v3 formato http://www.fazenda.pr.gov.br/nfce/qrcode?p=CHAVE|3|AMBIENTE</div>
+              <div class="doc-item"><b>SOAP:</b> Envelope sem whitespace/indentação</div>
+              <div class="doc-item"><b>NCM:</b> Campo é CodigoNcm (não Codigo) na entidade Ncm</div>
+              <div class="doc-item"><b>Retorno:</b> Ler protNFe/infProt/cStat (status da nota), não cStat do lote</div>
+            </div>
+
+            <div class="doc-titulo">DANFE NFC-e</div>
+            <div class="doc-lista">
+              <div class="doc-item">Endpoint: <code>GET /api/nfce/danfe/&#123;nfceId&#125;</code> (AllowAnonymous)</div>
+              <div class="doc-item">HTML estilizado para impressora térmica 80mm</div>
+              <div class="doc-item">Exibido em modal no caixa após autorização (iframe + SafePipe)</div>
+              <div class="doc-item">Botões: Imprimir (iframe.contentWindow.print), WhatsApp (futuro), OK</div>
+              <div class="doc-item">Inclui: cabeçalho empresa, itens, desconto por produto, totais, tributos IBPT, pagamentos, QR Code, chave de acesso, protocolo</div>
+              <div class="doc-item">Banner "SEM VALOR FISCAL - HOMOLOGAÇÃO" quando ambiente=2</div>
+            </div>
+
+            <div class="doc-titulo">IBPTax (Lei 12.741/2012)</div>
+            <div class="doc-lista">
+              <div class="doc-item">Tabela de alíquotas aproximadas de tributos por NCM e UF</div>
+              <div class="doc-item">CSV gratuito baixado em <b>deolhonoimposto.ibpt.org.br</b></div>
+              <div class="doc-item">Importação: <code>POST /api/ibpt/importar</code> (FormData: arquivo + uf)</div>
+              <div class="doc-item">Status: <code>GET /api/ibpt/status</code> e <code>GET /api/ibpt/vigencia</code></div>
+              <div class="doc-item">Tela de gestão: Fiscal > Tabela IBPTax</div>
+              <div class="doc-item">Background service verifica vigência a cada 24h e loga warning se expirada</div>
+              <div class="doc-item">Cálculo: vTotTrib = valor_liquido × (aliqNacional + aliqEstadual + aliqMunicipal) / 100</div>
+              <div class="doc-item">Atualização: semestral (IBPT publica nova versão a cada 6 meses)</div>
+            </div>
+
+            <div class="doc-titulo">Entidades</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Nfce</b> — FilialId, VendaId, Numero, Serie, ChaveAcesso (44 dig), Protocolo, Ambiente, CodigoStatus, MotivoStatus, XmlEnvio, XmlRetorno, ValorTotal</div>
+              <div class="doc-item"><b>IbptTax</b> — Ncm, Ex, Tipo, Descricao, AliqNacional, AliqImportado, AliqEstadual, AliqMunicipal, VigenciaInicio, VigenciaFim, Versao, Uf</div>
+              <div class="doc-item"><b>CertificadoDigital</b> — FilialId, PfxBase64, Senha, Validade, Emitente, Serial</div>
+            </div>
+
+            <div class="doc-titulo">API Endpoints</div>
+            <div class="cmd-grupo"><div class="cmd-label">Emitir NFC-e</div><code class="cmd">POST /api/nfce/emitir/&#123;vendaId&#125;</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">DANFE HTML</div><code class="cmd">GET /api/nfce/danfe/&#123;nfceId&#125;</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">Importar IBPTax</div><code class="cmd">POST /api/ibpt/importar</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">Status IBPTax</div><code class="cmd">GET /api/ibpt/status</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">Vigência IBPTax</div><code class="cmd">GET /api/ibpt/vigencia</code></div>
 
           </div>
         }

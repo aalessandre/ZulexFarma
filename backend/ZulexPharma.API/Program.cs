@@ -118,6 +118,10 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IHierarquiaDescont
                             ZulexPharma.Infrastructure.Services.HierarquiaDescontoService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaService,
                             ZulexPharma.Infrastructure.Services.VendaService>();
+builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.NfceService>();
+builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.IbptService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAdquirenteService,
+                            ZulexPharma.Infrastructure.Services.AdquirenteService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISubstanciaService,
                             ZulexPharma.Infrastructure.Services.SubstanciaService>();
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoPrincipal>(
@@ -153,6 +157,7 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISefazService,
 
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();
+builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.IbptBackgroundService>();
 
 
 var app = builder.Build();

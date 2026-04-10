@@ -62,6 +62,13 @@
   background-repeat: no-repeat; background-position: right 6px center;
   &:focus { border-color: var(--erp-blue); }
 }
+.cx-cesta-input {
+  width: 150px; height: 34px; padding: 0 10px; border: 1px solid var(--erp-border-input);
+  border-radius: 4px; font-size: var(--erp-fs-sm); font-weight: 700; color: var(--erp-text);
+  background: var(--erp-surface); outline: none; flex-shrink: 0; text-align: center;
+  letter-spacing: 0.5px;
+  &:focus { border-color: var(--erp-blue); }
+}
 .pv-label {
   font-size: var(--erp-fs-sm);
   font-weight: 700;
@@ -349,6 +356,86 @@
 }
 
 .pv-vendedor-cor { font-weight: 700; }
+
+/* ── Ícones de conferência ───────────────────────────────────────── */
+.cx-conf-icon { font-size: 14px; font-weight: 900; display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 4px; }
+/* ── Tarja horizontal (conferência/finalização) ──────────────────── */
+.cx-tarja-bar {
+  display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+  background: linear-gradient(135deg, #b71c1c, #e53935); color: #fff;
+  border-radius: 8px; margin: 4px 0;
+  svg { flex-shrink: 0; }
+}
+/* ══ Modal Desdobramento de Pagamento ════════════════════════════ */
+.cx-modal-pagamento {
+  background: var(--erp-surface); border-radius: 14px; width: 520px; max-width: 94vw;
+  box-shadow: 0 20px 56px rgba(0,0,0,0.3); overflow: hidden;
+  animation: promoSlideIn 0.2s ease-out;
+}
+.cx-modal-pag-header {
+  display: flex; align-items: center; gap: 12px; padding: 14px 24px;
+  background: var(--erp-primary, #2196F3); color: #fff;
+  h3 { margin: 0; font-size: 16px; font-weight: 700; }
+}
+.cx-modal-pag-total-header {
+  margin-left: auto; margin-right: 40px; font-size: 14px;
+  strong { font-size: 18px; }
+}
+.cx-modal-pag-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+.cx-pag-row { display: flex; align-items: center; gap: 12px; }
+.cx-pag-label {
+  width: 120px; flex-shrink: 0; font-size: 14px; font-weight: 700; color: var(--erp-text);
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.cx-pag-input-wrap {
+  display: flex; align-items: center; border: 2px solid var(--erp-border-input);
+  border-radius: 8px; overflow: hidden; background: var(--erp-input-bg); flex: 0 0 180px;
+  &:focus-within { border-color: var(--erp-primary); }
+}
+.cx-pag-prefix {
+  padding: 0 10px; font-size: 14px; font-weight: 700; color: var(--erp-text-muted);
+  background: var(--erp-grid-head); height: 42px; display: flex; align-items: center;
+  border-right: 1px solid var(--erp-border-input);
+}
+.cx-pag-input {
+  width: 100%; height: 42px; padding: 0 12px; border: none; outline: none;
+  font-size: 18px; font-weight: 700; color: var(--erp-text); text-align: right; background: transparent;
+}
+.cx-pag-troco { font-size: 16px; font-weight: 800; color: #27ae60; }
+.cx-pag-falta { font-size: 16px; font-weight: 800; color: #e74c3c; }
+.cx-modal-pag-footer {
+  padding: 16px 24px; border-top: 2px solid var(--erp-border); background: var(--erp-bg);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.cx-pag-resumo {
+  display: flex; align-items: center; gap: 16px; font-size: 14px; color: var(--erp-text-sec);
+  strong { font-size: 16px; color: var(--erp-text); }
+}
+.cx-pag-troco-grande { font-size: 24px; font-weight: 900; color: #27ae60; }
+.cx-pag-falta-grande { font-size: 24px; font-weight: 900; color: #e74c3c; }
+.cx-pag-ok { font-size: 18px; font-weight: 700; color: #27ae60; }
+.cx-pag-btns { display: flex; justify-content: flex-end; gap: 10px; }
+
+.cx-tarja-conferencia {
+  background: linear-gradient(135deg, #1b5e20, #43A047) !important;
+}
+.cx-tarja-txt { font-size: 14px; font-weight: 700; }
+.cx-tarja-cesta {
+  font-size: 16px; font-weight: 900; letter-spacing: 1px;
+  background: rgba(255,255,255,0.18); padding: 3px 14px; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.cx-tarja-btn-cancelar {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 16px; border: 2px solid rgba(255,255,255,0.5); border-radius: 6px;
+  background: rgba(255,255,255,0.12); color: #fff; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s;
+  &:hover { background: rgba(255,255,255,0.25); }
+}
+.cx-conf-abaixo { color: #fff; background: #f39c12; }
+.cx-conf-igual { color: #fff; background: #27ae60; }
+.cx-conf-acima { color: #fff; background: #e74c3c; }
+.cx-conf-adicionado { color: #fff; background: #2196F3; }
 td[data-campo="percentualDesconto"] {
   &, & * { color: #E53935 !important; font-weight: 700 !important; font-size: 15px !important; }
   .pv-cell-input { color: #E53935 !important; font-size: 15px !important; font-weight: 700 !important; }
@@ -931,4 +1018,48 @@ td[data-campo="percentualDesconto"] {
   background: #fff; color: #7f8c8d; font-size: 13px;
   font-weight: 600; cursor: pointer; transition: all 0.12s;
   &:hover { background: #f8f9fa; border-color: #bdc3c7; color: #2c3e50; }
+}
+
+/* ── Modal DANFE NFC-e ───────────────────────────────── */
+.pv-modal-danfe {
+  background: #fff; border-radius: 12px; width: 520px; max-height: 92vh;
+  display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  animation: modalSlideIn 0.2s ease-out;
+}
+.pv-modal-danfe-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid #e9ecef;
+  h3 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin: 0; }
+}
+.pv-modal-danfe-body {
+  flex: 1; overflow: hidden;
+  iframe {
+    width: 100%; height: 650px; border: none; background: #fff;
+  }
+}
+.pv-modal-danfe-footer {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px; border-top: 1px solid #e9ecef;
+  justify-content: flex-end;
+}
+.btn-danfe-whatsapp {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid #25D366; border-radius: 8px;
+  background: #fff; color: #25D366; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.12s;
+  &:hover:not(:disabled) { background: #25D366; color: #fff; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+.btn-danfe-imprimir {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid #2196F3; border-radius: 8px;
+  background: #fff; color: #2196F3; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.12s;
+  &:hover { background: #2196F3; color: #fff; }
+}
+.btn-danfe-ok {
+  padding: 8px 24px; border: none; border-radius: 8px;
+  background: #2196F3; color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.12s;
+  &:hover { background: #1976D2; }
 }

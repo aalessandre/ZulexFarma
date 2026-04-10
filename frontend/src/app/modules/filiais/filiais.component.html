@@ -273,6 +273,13 @@
             @if (erroCampo('uf')) { <span class="field-erro">{{ erroCampo('uf') }}</span> }
           </div>
 
+          <div class="field">
+            <label>CÓD. IBGE MUNICÍPIO</label>
+            <input type="text" [value]="filialForm().codigoIbgeMunicipio ?? ''"
+                   (input)="updateForm('codigoIbgeMunicipio', $any($event.target).value)" maxlength="7"
+                   placeholder="7 dígitos" />
+          </div>
+
         </div>
 
         <!-- CONTATO -->

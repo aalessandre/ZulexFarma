@@ -1,4 +1,4 @@
-import { Component, signal, computed, OnInit, OnDestroy, HostListener, ElementRef, ViewChild } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -20,12 +20,30 @@ interface CaixaInfo {
 interface VendaPendente {
   id: number;
   codigo?: string;
-  clienteNome?: string;
   nrCesta?: string;
+  colaboradorNome?: string;
+  clienteNome?: string;
+  tipoPagamentoNome?: string;
   totalLiquido: number;
   totalItens: number;
   criadoEm: string;
 }
+
+interface ColunaDef {
+  campo: string; label: string; largura: number; minLargura: number; padrao: boolean;
+}
+interface ColunaEstado extends ColunaDef { visivel: boolean; }
+
+const PEND_COLUNAS: ColunaDef[] = [
+  { campo: 'codigo',            label: 'CÓDIGO',     largura: 80,  minLargura: 60,  padrao: true },
+  { campo: 'nrCesta',           label: 'CESTA',      largura: 80,  minLargura: 60,  padrao: true },
+  { campo: 'colaboradorNome',   label: 'VENDEDOR',   largura: 140, minLargura: 80,  padrao: true },
+  { campo: 'clienteNome',       label: 'CLIENTE',    largura: 200, minLargura: 100, padrao: true },
+  { campo: 'totalItens',        label: 'ITENS',      largura: 60,  minLargura: 50,  padrao: true },
+  { campo: 'totalLiquido',      label: 'TOTAL',      largura: 100, minLargura: 70,  padrao: true },
+  { campo: 'criadoEm',          label: 'DATA/HORA',  largura: 140, minLargura: 100, padrao: true },
+  { campo: 'tipoPagamentoNome', label: 'PAGAMENTO',  largura: 110, minLargura: 80,  padrao: true },
+];
 
 interface VendaRealizada {
   id: number;
@@ -81,10 +99,18 @@ export class CaixaComponent implements OnInit, OnDestroy {
   colaboradorNomeLogado = signal('');
   dataHoraAbertura = signal('');
 
-  // ── Pendentes ──────────────────────────────────────────────────
+  // ── Pendentes (grid padrão ERP) ─────────────────────────────────
+  private readonly STORAGE_PEND = 'zulex_colunas_caixa_pendentes';
   pendentes = signal<VendaPendente[]>([]);
   pendentesLoading = signal(false);
   cestaBusca = signal('');
+  pendColunas = signal<ColunaEstado[]>(this.carregarColunasPend());
+  pendColunasVisiveis = computed(() => this.pendColunas().filter(c => c.visivel));
+  pendPainelColunas = signal(false);
+  pendSortColuna = signal('');
+  pendSortDir = signal<'asc' | 'desc'>('asc');
+  private pendDragIdx: number | null = null;
+  private pendResizeState: { campo: string; startX: number; startW: number } | null = null;
 
   // ── Vendas realizadas ──────────────────────────────────────────
   vendasRealizadas = signal<VendaRealizada[]>([]);
@@ -211,6 +237,16 @@ export class CaixaComponent implements OnInit, OnDestroy {
 
   pendentesModal() { this.modal.aviso('Em Desenvolvimento', 'As vendas pendentes serão implementadas em breve no caixa.'); }
 
+  enviarParaCheckout(venda: VendaPendente) {
+    // Trocar para o painel Vender e Checkout e emitir evento com a venda
+    this.painelAtivo.set('vender');
+    // Usar setTimeout para garantir que o componente caixa-venda já renderizou
+    setTimeout(() => {
+      const evt = new CustomEvent('carregar-prevenda', { detail: { vendaId: venda.id, nrCesta: venda.nrCesta } });
+      window.dispatchEvent(evt);
+    }, 200);
+  }
+
   // ── Operações (placeholder) ────────────────────────────────────
   sangria() { this.modal.aviso('Em Desenvolvimento', 'A funcionalidade de sangria será implementada em breve.'); }
   suprimento() { this.modal.aviso('Em Desenvolvimento', 'A funcionalidade de suprimento será implementada em breve.'); }
@@ -252,4 +288,93 @@ export class CaixaComponent implements OnInit, OnDestroy {
   formatarMoeda(valor: number): string {
     return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
+
+  // ── Grid pendentes: padrão ERP ─────────────────────────────────
+  private carregarColunasPend(): ColunaEstado[] {
+    try {
+      const json = localStorage.getItem(this.STORAGE_PEND);
+      if (json) {
+        const saved: ColunaEstado[] = JSON.parse(json);
+        return PEND_COLUNAS.map(def => {
+          const s = saved.find(c => c.campo === def.campo);
+          return { ...def, visivel: s ? s.visivel : def.padrao, largura: s?.largura ?? def.largura };
+        });
+      }
+    } catch {}
+    return PEND_COLUNAS.map(c => ({ ...c, visivel: c.padrao }));
+  }
+
+  private salvarColunasPend() {
+    localStorage.setItem(this.STORAGE_PEND, JSON.stringify(this.pendColunas()));
+  }
+
+  pendOrdenar(campo: string) {
+    if (this.pendSortColuna() === campo) this.pendSortDir.set(this.pendSortDir() === 'asc' ? 'desc' : 'asc');
+    else { this.pendSortColuna.set(campo); this.pendSortDir.set('asc'); }
+  }
+
+  pendSortIcon(campo: string): string {
+    if (this.pendSortColuna() !== campo) return '⇅';
+    return this.pendSortDir() === 'asc' ? '▲' : '▼';
+  }
+
+  pendSorted(): VendaPendente[] {
+    const col = this.pendSortColuna(); const dir = this.pendSortDir();
+    const lista = this.pendentes();
+    if (!col) return lista;
+    return [...lista].sort((a, b) => {
+      const va = (a as any)[col] ?? '';
+      const vb = (b as any)[col] ?? '';
+      const cmp = typeof va === 'number' ? va - (vb as number) : String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base' });
+      return dir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  pendCellValue(item: VendaPendente, campo: string): string {
+    const v = (item as any)[campo];
+    if (v === null || v === undefined) return '—';
+    if (campo === 'criadoEm') return this.formatarData(v);
+    if (campo === 'totalLiquido') return this.formatarMoeda(v);
+    if (campo === 'clienteNome' && !v) return 'Consumidor';
+    return String(v);
+  }
+
+  pendToggleColuna(campo: string) {
+    this.pendColunas.update(cols => cols.map(c => c.campo === campo ? { ...c, visivel: !c.visivel } : c));
+    this.salvarColunasPend();
+  }
+
+  pendRestaurarColunas() {
+    this.pendColunas.set(PEND_COLUNAS.map(c => ({ ...c, visivel: c.padrao })));
+    this.salvarColunasPend();
+  }
+
+  pendIniciarResize(e: MouseEvent, campo: string, largura: number) {
+    e.stopPropagation(); e.preventDefault();
+    this.pendResizeState = { campo, startX: e.clientX, startW: largura };
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onPendResizeMove(e: MouseEvent) {
+    if (!this.pendResizeState) return;
+    const delta = e.clientX - this.pendResizeState.startX;
+    const def = PEND_COLUNAS.find(c => c.campo === this.pendResizeState!.campo);
+    const min = def?.minLargura ?? 50;
+    const novaLargura = Math.max(min, this.pendResizeState.startW + delta);
+    this.pendColunas.update(cols => cols.map(c => c.campo === this.pendResizeState!.campo ? { ...c, largura: novaLargura } : c));
+  }
+
+  @HostListener('document:mouseup')
+  onPendResizeEnd() {
+    if (this.pendResizeState) { this.salvarColunasPend(); this.pendResizeState = null; document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+  }
+
+  pendDragStart(idx: number) { this.pendDragIdx = idx; }
+  pendDragOver(e: DragEvent, idx: number) {
+    e.preventDefault();
+    if (this.pendDragIdx === null || this.pendDragIdx === idx) return;
+    this.pendColunas.update(cols => { const arr = [...cols]; const [m] = arr.splice(this.pendDragIdx!, 1); arr.splice(idx, 0, m); this.pendDragIdx = idx; return arr; });
+  }
+  pendDrop() { this.pendDragIdx = null; this.salvarColunasPend(); }
 }

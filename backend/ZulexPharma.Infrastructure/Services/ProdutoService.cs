@@ -97,6 +97,7 @@ public class ProdutoService : IProdutoService
             Fracao = dto.Fracao > 0 ? dto.Fracao : (short)1,
             Ativo = dto.Ativo,
             Eliminado = dto.Eliminado,
+            PermitirConferenciaDigitando = dto.PermitirConferenciaDigitando,
             FabricanteId = dto.FabricanteId,
             GrupoPrincipalId = dto.GrupoPrincipalId,
             GrupoProdutoId = dto.GrupoProdutoId,
@@ -164,6 +165,7 @@ public class ProdutoService : IProdutoService
         p.Fracao = dto.Fracao > 0 ? dto.Fracao : (short)1;
         p.Ativo = dto.Ativo;
         p.Eliminado = dto.Eliminado;
+        p.PermitirConferenciaDigitando = dto.PermitirConferenciaDigitando;
         p.FabricanteId = dto.FabricanteId;
         p.GrupoPrincipalId = dto.GrupoPrincipalId;
         p.GrupoProdutoId = dto.GrupoProdutoId;
@@ -657,7 +659,8 @@ public class ProdutoService : IProdutoService
         Id = p.Id, Nome = p.Nome, CodigoBarras = p.CodigoBarras,
         QtdeEmbalagem = p.QtdeEmbalagem, PrecoFp = p.PrecoFp,
         Lista = p.Lista, Fracao = p.Fracao, Ativo = p.Ativo,
-        Eliminado = p.Eliminado, CriadoEm = p.CriadoEm,
+        Eliminado = p.Eliminado, PermitirConferenciaDigitando = p.PermitirConferenciaDigitando,
+        CriadoEm = p.CriadoEm,
         FabricanteId = p.FabricanteId,
         GrupoPrincipalId = p.GrupoPrincipalId,
         GrupoProdutoId = p.GrupoProdutoId,

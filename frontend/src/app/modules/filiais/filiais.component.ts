@@ -36,6 +36,7 @@ interface Filial {
   bairro: string;
   cidade: string;
   uf: string;
+  codigoIbgeMunicipio?: string;
   telefone: string;
   email: string;
   aliquotaIcms: number;

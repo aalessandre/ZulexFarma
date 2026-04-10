@@ -17,9 +17,9 @@ public class VendasController : ControllerBase
     public VendasController(IVendaService service) { _service = service; }
 
     [HttpGet]
-    public async Task<IActionResult> Listar([FromQuery] long? filialId = null)
+    public async Task<IActionResult> Listar([FromQuery] long? filialId = null, [FromQuery] string? status = null)
     {
-        try { return Ok(new { success = true, data = await _service.ListarAsync(filialId) }); }
+        try { return Ok(new { success = true, data = await _service.ListarAsync(filialId, status) }); }
         catch (Exception ex) { Log.Error(ex, "Erro em VendasController.Listar"); return StatusCode(500, new { success = false, message = "Erro ao listar vendas." }); }
     }
 

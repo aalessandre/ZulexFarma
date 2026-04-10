@@ -189,26 +189,26 @@
         <div class="form-grid">
           <div class="field field-2">
             <label>NÍVEL *</label>
-            <select class="select-campo" [value]="form().nivel" (change)="updNivel(+$any($event.target).value)">
-              <option [value]="1">Grupo</option>
-              <option [value]="2">SubGrupo</option>
-              <option [value]="3">Plano de Contas</option>
+            <select class="select-campo" [ngModel]="form().nivel" (ngModelChange)="updNivel($event)">
+              <option [ngValue]="1">Grupo</option>
+              <option [ngValue]="2">SubGrupo</option>
+              <option [ngValue]="3">Plano de Contas</option>
             </select>
           </div>
           <div class="field field-2">
             <label>NATUREZA *</label>
-            <select class="select-campo" [value]="form().natureza" (change)="upd('natureza', +$any($event.target).value)">
-              <option [value]="1">Crédito</option>
-              <option [value]="2">Débito</option>
+            <select class="select-campo" [ngModel]="form().natureza" (ngModelChange)="upd('natureza', $event)">
+              <option [ngValue]="1">Crédito</option>
+              <option [ngValue]="2">Débito</option>
             </select>
           </div>
           @if (form().nivel !== 1) {
             <div class="field field-3" [class.field-invalido]="erroCampo('contaPaiId')">
               <label>CONTA PAI *</label>
-              <select class="select-campo" [value]="form().contaPaiId ?? ''" (change)="upd('contaPaiId', +$any($event.target).value || null)">
-                <option value="">-- Selecione --</option>
+              <select class="select-campo" [ngModel]="form().contaPaiId" (ngModelChange)="upd('contaPaiId', $event)">
+                <option [ngValue]="null">-- Selecione --</option>
                 @for (pai of contasPaiDisponiveis(); track pai.id) {
-                  <option [value]="pai.id">{{ pai.codigoHierarquico }} - {{ pai.descricao }}</option>
+                  <option [ngValue]="pai.id">{{ pai.codigoHierarquico }} - {{ pai.descricao }}</option>
                 }
               </select>
               @if (erroCampo('contaPaiId')) { <span class="field-erro">{{ erroCampo('contaPaiId') }}</span> }

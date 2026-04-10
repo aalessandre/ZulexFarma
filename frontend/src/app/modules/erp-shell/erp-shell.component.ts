@@ -99,6 +99,7 @@ export class ErpShellComponent {
         { label: 'Promoção Progressiva', sigla: 'PP', iconKey: 'dollar', rota: '/erp/promocao-progressiva' },
         { label: 'Contas a Pagar',   sigla: 'CP', iconKey: 'dollar',    rota: '/erp/contas-pagar' },
         { label: 'Contas a Receber', sigla: 'CR', iconKey: 'dollar',    rota: '/erp/contas-receber' },
+        { label: 'Adquirentes',     sigla: 'AQ', iconKey: 'dollar',    rota: '/erp/adquirentes' },
       ]
     },
     {

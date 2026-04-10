@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
+import { SafePipe } from '../../core/pipes/safe.pipe';
 
 interface ItemDesconto {
   tipo: number; // 1=Desconto, 2=Promocao
@@ -36,6 +37,10 @@ interface PreVendaItem {
   descontos: ItemDesconto[];
   colaboradorId?: number;
   temPromocao?: boolean;
+  // Conferência
+  quantidadePrevenda?: number;
+  origemItem?: 'prevenda' | 'adicionado';
+  permitirConferenciaDigitando?: boolean;
 }
 
 interface HierarquiaInfo {
@@ -70,6 +75,8 @@ interface TipoPagBtn {
   nome: string;
   ordem: number;
   padraoSistema: boolean;
+  planoContaId?: number;
+  modalidade?: number;
 }
 
 interface ConvenioLookup {
@@ -146,7 +153,7 @@ const CORES_PAGAMENTO = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336', 
 @Component({
   selector: 'app-caixa-venda',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SafePipe],
   templateUrl: './caixa-venda.component.html',
   styleUrl: './caixa-venda.component.scss'
 })
@@ -169,11 +176,44 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   cfgAlterarPrecoPromo = signal(false);
   cfgObrigarEscanear = signal(false);
   cfgPromoMultiplas = signal<'exibir' | 'menor'>('exibir');
+  cfgExigirConferencia = signal(true); // padrão true até carregar config
+  cfgConferenciaSoBarras = signal(false);
+  private configsCarregadas = signal(false);
+
+  // ── Conferência ─────────────────────────────────────────────────
+  modoConferencia = signal(false);
+  private carregarPrevendaListener: any = null;
   cfgInformarCesta = signal(false);
 
   // ── Modal cesta ─────────────────────────────────────────────────
   modalCesta = signal(false);
   cestaNumero = signal('');
+
+  // ── Modal DANFE NFC-e ───────────────────────────────────────────
+  modalDanfe = signal(false);
+  danfeUrl = signal('');
+
+  abrirDanfe(nfceId: number) {
+    this.danfeUrl.set(`${this.apiUrl}/nfce/danfe/${nfceId}`);
+    this.modalDanfe.set(true);
+  }
+
+  fecharDanfe() {
+    this.modalDanfe.set(false);
+    this.danfeUrl.set('');
+    this.resetTudo();
+  }
+
+  imprimirDanfe() {
+    const iframe = document.getElementById('danfe-iframe') as HTMLIFrameElement;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.print();
+    }
+  }
+
+  compartilharWhatsapp() {
+    // TODO: implementar módulo WhatsApp futuramente
+  }
 
   // ── Modal pendentes ─────────────────────────────────────────────
   readonly STORAGE_PEND_VENDAS = 'zulex_colunas_pend_vendas';
@@ -225,6 +265,10 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
 
   // ── Modais de promoção ───────────────────────────────────────────
   modalPromoProgressiva = signal(false);
+
+  // ── Modal desdobramento de pagamento ────────────────────────────
+  modalPagamento = signal(false);
+  pagamentoValores = signal<{ tipoPagamentoId: number; nome: string; valor: number; modalidade: number }[]>([]);
   promoProgressivaAtual = signal<PromocaoProduto | null>(null);
   promoProgressivaItemIdx = signal(-1);
   modalPromoFixas = signal(false);
@@ -345,6 +389,9 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.restaurarEstado();
     this.buscarHierarquia();
     this.focarCliente();
+    // Listener para receber pré-venda do painel de pendentes
+    this.carregarPrevendaListener = (e: CustomEvent) => this.carregarPrevendaNoCheckout(e.detail.vendaId, e.detail.nrCesta);
+    window.addEventListener('carregar-prevenda', this.carregarPrevendaListener);
   }
 
   private carregarFiliais() {
@@ -372,12 +419,16 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         this.cfgObrigarEscanear.set(map['caixa.obrigar.escanear'] === 'true');
         this.cfgPromoMultiplas.set((map['caixa.promo.multiplas'] ?? map['venda.promo.multiplas'] ?? 'exibir') as 'exibir' | 'menor');
         this.cfgInformarCesta.set(map['caixa.informar.cesta'] === 'true');
+        this.cfgExigirConferencia.set(map['caixa.exigir.conferencia'] !== 'false'); // padrão true
+        this.cfgConferenciaSoBarras.set(map['caixa.conferencia.codigo.barras'] === 'true');
+        this.configsCarregadas.set(true);
       }
     });
   }
 
   ngOnDestroy() {
     if (!this.saindo) this.salvarEstado();
+    if (this.carregarPrevendaListener) window.removeEventListener('carregar-prevenda', this.carregarPrevendaListener);
   }
 
   // ── Persistência de estado (múltiplas abas) ────────────────────
@@ -584,6 +635,29 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // ── Modo conferência: bipar incrementa quantidade ──────────────
+    if (this.modoConferencia()) {
+      const idxExist = this.itens().findIndex(i => i.produtoId === p.id);
+      if (idxExist >= 0) {
+        this.itens.update(lista => {
+          const arr = [...lista];
+          const item = { ...arr[idxExist] };
+          item.quantidade += 1;
+          item.valorDesconto = Math.round(item.precoVenda * item.quantidade * (item.percentualDesconto + item.percentualPromocao) / 100 * 100) / 100;
+          item.total = Math.round(item.precoUnitario * item.quantidade * 100) / 100;
+          arr[idxExist] = item;
+          return arr;
+        });
+        this.itensSelecionadoIdx.set(idxExist);
+        this.produtoBusca.set('');
+        this.produtoResultados.set([]);
+        this.produtoDropdown.set(false);
+        setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
+        return;
+      }
+      // Produto novo (não veio da pré-venda) — adicionar como 'adicionado'
+    }
+
     // ── Múltiplos vendedores: validar se vendedor mudou ──────────
     const vendedorAtualId = this.colaboradorId()!;
     const vendedorAtualNome = this.colaboradorNome() || '';
@@ -637,7 +711,10 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       vendedor: vendedorAtualNome,
       colaboradorId: vendedorAtualId ?? undefined,
       unidade: p.unidade,
-      descontos: []
+      descontos: [],
+      origemItem: this.modoConferencia() ? 'adicionado' : undefined,
+      quantidadePrevenda: 0,
+      permitirConferenciaDigitando: (p as any).permitirConferenciaDigitando ?? false
     };
     this.itens.update(lista => [...lista, novoItem]);
     const idx = this.itens().length - 1;
@@ -797,6 +874,105 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     if (idx < 0 || idx >= itens.length) return 0;
     const item = itens[idx];
     return Math.round(item.precoVenda * (1 - faixa.percentualDesconto / 100) * 100) / 100;
+  }
+
+  // ── Carregar pré-venda no checkout (com ou sem conferência) ─────
+  carregarPrevendaNoCheckout(vendaId: number, nrCesta?: string) {
+    // Esperar configs carregarem se ainda não vieram
+    if (!this.configsCarregadas()) {
+      setTimeout(() => this.carregarPrevendaNoCheckout(vendaId, nrCesta), 300);
+      return;
+    }
+    this.http.get<any>(`${this.apiUrl}/vendas/${vendaId}`).subscribe({
+      next: r => {
+        const d = r.data;
+        if (!d) return;
+        this.preVendaId.set(d.id);
+        this.clienteId.set(d.clienteId);
+        this.clienteNome.set(d.clienteNome ?? '');
+        this.clienteBusca.set(d.clienteNome ?? '');
+        this.colaboradorId.set(d.colaboradorId);
+        this.colaboradorNome.set(d.colaboradorNome ?? '');
+        this.colaboradorBusca.set(d.colaboradorNome ?? '');
+        this.tipoPagamentoId.set(d.tipoPagamentoId);
+        this.convenioIdCliente.set(d.convenioId);
+        this.cestaNumero.set(d.nrCesta ?? nrCesta ?? '');
+
+        const exigirConf = this.cfgExigirConferencia();
+        const itens: PreVendaItem[] = (d.itens ?? []).map((i: any) => ({
+          produtoId: i.produtoId,
+          produtoCodigo: i.produtoCodigo,
+          produtoNome: i.produtoNome,
+          fabricante: i.fabricante ?? '',
+          precoVenda: i.precoVenda,
+          quantidade: exigirConf ? 0 : i.quantidade,
+          percentualDesconto: i.percentualDesconto,
+          percentualPromocao: i.percentualPromocao ?? 0,
+          valorDesconto: exigirConf ? 0 : i.valorDesconto,
+          precoUnitario: i.precoUnitario,
+          total: exigirConf ? 0 : i.total,
+          estoqueAtual: i.estoqueAtual ?? 0,
+          vendedor: d.colaboradorNome ?? '',
+          colaboradorId: d.colaboradorId ?? undefined,
+          descontos: (i.descontos ?? []).map((dd: any) => ({
+            tipo: dd.tipo, percentual: dd.percentual,
+            origem: dd.origem, regra: dd.regra,
+            origemId: dd.origemId, liberadoPorId: dd.liberadoPorId
+          })),
+          temPromocao: (i.percentualPromocao ?? 0) > 0,
+          quantidadePrevenda: i.quantidade,
+          origemItem: 'prevenda' as const,
+          permitirConferenciaDigitando: false
+        }));
+        this.itens.set(itens);
+        this.modoConferencia.set(exigirConf);
+        this.buscarHierarquia();
+        this.focarProduto();
+      }
+    });
+  }
+
+  // Status de conferência do item
+  statusConferencia(item: PreVendaItem): 'abaixo' | 'igual' | 'acima' | 'adicionado' | null {
+    if (!this.modoConferencia()) return null;
+    if (item.origemItem === 'adicionado') return 'adicionado';
+    const prev = item.quantidadePrevenda ?? 0;
+    if (item.quantidade < prev) return 'abaixo';
+    if (item.quantidade === prev) return 'igual';
+    return 'acima';
+  }
+
+  // Validação antes de finalizar no modo conferência
+  validarConferencia(): boolean {
+    if (!this.modoConferencia()) return true;
+    const itens = this.itens();
+    const abaixo = itens.filter(i => i.origemItem === 'prevenda' && i.quantidade < (i.quantidadePrevenda ?? 0));
+    if (abaixo.length > 0) {
+      const nomes = abaixo.map(i => `${i.produtoNome} (${i.quantidade}/${i.quantidadePrevenda})`).join('\n');
+      this.modal.erro('Conferência Incompleta', `Os seguintes produtos estão com quantidade abaixo da pré-venda:\n\n${nomes}\n\nFinalize a conferência antes de continuar.`);
+      return false;
+    }
+    const acima = itens.filter(i => i.origemItem === 'prevenda' && i.quantidade > (i.quantidadePrevenda ?? 0));
+    if (acima.length > 0) {
+      // Será tratado com confirmação no finalizar
+    }
+    return true;
+  }
+
+  // Buscar pré-venda por nº da cesta
+  buscarPorCesta() {
+    const nr = this.cestaNumero().trim();
+    if (!nr) return;
+    this.http.get<any>(`${this.apiUrl}/vendas`, { params: { filialId: this.filialId().toString() } }).subscribe({
+      next: r => {
+        const lista = (r.data ?? []).filter((v: any) => v.status === 1 && v.nrCesta === nr);
+        if (lista.length === 0) {
+          this.modal.aviso('Cesta não encontrada', `Nenhuma pré-venda em aberto encontrada com a cesta "${nr}".`);
+        } else {
+          this.carregarPrevendaNoCheckout(lista[0].id, nr);
+        }
+      }
+    });
   }
 
   private focarVendedor() {
@@ -1165,6 +1341,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       const total = item.percentualDesconto + (item.percentualPromocao || 0);
       return this.formatarNumero(total);
     }
+    if (campo === 'quantidade') return String(Math.floor(item.quantidade));
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
     if (typeof v === 'number') return this.formatarNumero(v);
@@ -1191,22 +1368,26 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     if (item.temPromocao && !this.cfgAlterarPrecoPromo()) {
       if (['precoVenda', 'percentualDesconto', 'precoUnitario', 'total'].includes(campo)) return false;
     }
+    // Modo conferência + somente barras: bloqueia quantidade (exceto produtos com flag)
+    if (this.modoConferencia() && this.cfgConferenciaSoBarras() && campo === 'quantidade') {
+      if (!item.permitirConferenciaDigitando) return false;
+    }
     return true;
   }
 
   onCellKeydown(e: KeyboardEvent, idx: number, campo: string) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
+    // Aplicar o valor atual antes de navegar
+    this.onCellEdit(idx, campo, e);
     const ordem = ['quantidade', 'percentualDesconto', 'precoUnitario', 'total'];
     const posAtual = ordem.indexOf(campo);
     if (posAtual >= 0 && posAtual < ordem.length - 1) {
-      // Próxima coluna na mesma linha
       const prox = ordem[posAtual + 1];
       const row = (e.target as HTMLElement).closest('tr');
       const nextInput = row?.querySelector(`td[data-campo="${prox}"] input`) as HTMLInputElement;
       if (nextInput) { nextInput.focus(); nextInput.select(); }
     } else {
-      // Última coluna ou não encontrado — volta ao campo produto
       setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
     }
   }
@@ -1219,7 +1400,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.itens.update(lista => {
       const arr = [...lista];
       const item = { ...arr[idx] };
-      (item as any)[campo] = num;
+      (item as any)[campo] = campo === 'quantidade' ? Math.floor(num) : num;
       this.recalcularItem(item, campo);
 
       // Validar desconto máximo da hierarquia
@@ -1289,6 +1470,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   }
 
   getEditValue(item: PreVendaItem, campo: string): string {
+    if (campo === 'quantidade') return String(Math.floor(item.quantidade));
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
     if (typeof v === 'number') return this.formatarNumero(v);
@@ -1335,6 +1517,11 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     return this.preVendaId() !== null;
   }
 
+  labelTarja(): string {
+    if (this.modoConferencia()) return 'Conferência';
+    return this.preVendaId() ? 'Finalizando Pré-Venda' : '';
+  }
+
   eliminar() {
     const idx = this.itensSelecionadoIdx();
     if (idx === null) return;
@@ -1361,30 +1548,96 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Informar cesta (se habilitado)
-    if (this.cfgInformarCesta()) {
-      if (!this.cestaNumero()) {
-        this.modalCesta.set(true);
+    // Validar plano de contas no tipo de pagamento
+    const tipoPag = this.tiposPagamento().find(t => t.id === this.tipoPagamentoId());
+    if (tipoPag && !tipoPag.planoContaId) {
+      await this.modal.erro('Plano de Contas', `O tipo de pagamento "${tipoPag.nome}" não possui plano de contas configurado. Acesse o cadastro de Tipos de Pagamento e configure o plano de contas.`);
+      return;
+    }
+
+    // Validar conferência
+    if (this.modoConferencia()) {
+      const itens = this.itens();
+      const abaixo = itens.filter(i => i.origemItem === 'prevenda' && i.quantidade < (i.quantidadePrevenda ?? 0));
+      if (abaixo.length > 0) {
+        const nomes = abaixo.map(i => `• ${i.produtoNome} (conferido: ${i.quantidade} / esperado: ${i.quantidadePrevenda})`).join('\n');
+        await this.modal.erro('Conferência Incompleta', `Produtos com quantidade abaixo da pré-venda:\n\n${nomes}\n\nFinalize a conferência de todos os produtos.`);
         return;
+      }
+      const acima = itens.filter(i => i.origemItem === 'prevenda' && i.quantidade > (i.quantidadePrevenda ?? 0));
+      if (acima.length > 0) {
+        const nomes = acima.map(i => `• ${i.produtoNome} (conferido: ${i.quantidade} / esperado: ${i.quantidadePrevenda})`).join('\n');
+        const resultado = await this.modal.confirmar('Quantidade Acima', `Os seguintes produtos têm quantidade acima da pré-venda:\n\n${nomes}\n\nDeseja continuar?`, 'Sim, continuar', 'Cancelar');
+        if (!resultado.confirmado) return;
       }
     }
 
-    this.executarFinalizacao();
+    // Abrir modal de desdobramento de pagamento
+    this.abrirModalPagamento();
   }
 
-  confirmarCesta() {
-    const nr = this.cestaNumero().trim();
-    if (this.cfgInformarCesta() && !nr) {
-      this.modal.aviso('Cesta Obrigatória', 'Informe o número da cesta para finalizar a pré-venda.');
+  abrirModalPagamento() {
+    const tipos = this.tiposPagamento();
+    this.pagamentoValores.set(tipos.map(t => ({
+      tipoPagamentoId: t.id,
+      nome: t.nome,
+      valor: 0,
+      modalidade: (t as any).modalidade ?? 0
+    })));
+    // Se já tem tipo selecionado, pré-preencher com o total
+    const total = this.totalLiquido();
+    const selecionado = this.tipoPagamentoId();
+    if (selecionado) {
+      this.pagamentoValores.update(vals => vals.map(v =>
+        v.tipoPagamentoId === selecionado ? { ...v, valor: total } : v
+      ));
+    }
+    this.modalPagamento.set(true);
+  }
+
+  pagamentoTotal(): number {
+    return this.pagamentoValores().reduce((s, v) => s + v.valor, 0);
+  }
+
+  pagamentoTrocoFalta(): { tipo: 'troco' | 'falta' | 'ok'; valor: number } {
+    const total = this.totalLiquido();
+    const pago = this.pagamentoTotal();
+    if (Math.abs(pago - total) < 0.01) return { tipo: 'ok', valor: 0 };
+    if (pago > total) return { tipo: 'troco', valor: Math.round((pago - total) * 100) / 100 };
+    return { tipo: 'falta', valor: Math.round((total - pago) * 100) / 100 };
+  }
+
+  // Verifica troco/falta para campos à vista (modalidade 1 = Venda à Vista)
+  dinheiroTrocoFalta(): { tipo: 'troco' | 'falta' | 'ok'; valor: number } | null {
+    const dinheiroItem = this.pagamentoValores().find(v => v.modalidade === 1);
+    if (!dinheiroItem || dinheiroItem.valor === 0) return null;
+    const total = this.totalLiquido();
+    const outrosValores = this.pagamentoValores().filter(v => v.modalidade !== 1).reduce((s, v) => s + v.valor, 0);
+    const restante = total - outrosValores;
+    if (dinheiroItem.valor > restante) return { tipo: 'troco', valor: Math.round((dinheiroItem.valor - restante) * 100) / 100 };
+    if (dinheiroItem.valor < restante) return { tipo: 'falta', valor: Math.round((restante - dinheiroItem.valor) * 100) / 100 };
+    return { tipo: 'ok', valor: 0 };
+  }
+
+  atualizarValorPagamento(tipoPagamentoId: number, valor: string) {
+    const num = parseFloat(valor.replace(',', '.')) || 0;
+    this.pagamentoValores.update(vals => vals.map(v =>
+      v.tipoPagamentoId === tipoPagamentoId ? { ...v, valor: Math.round(num * 100) / 100 } : v
+    ));
+  }
+
+  confirmarPagamento() {
+    const tf = this.pagamentoTrocoFalta();
+    if (tf.tipo === 'falta') {
+      this.modal.aviso('Valor Insuficiente', `Falta R$ ${tf.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para completar o pagamento.`);
       return;
     }
-    this.modalCesta.set(false);
+    this.modalPagamento.set(false);
     this.executarFinalizacao();
   }
 
-  cancelarCesta() {
-    this.modalCesta.set(false);
-    this.focarCliente();
+  cancelarPagamento() {
+    this.modalPagamento.set(false);
   }
 
   private executarFinalizacao() {
@@ -1412,36 +1665,71 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         precoUnitario: i.precoUnitario,
         total: i.total,
         descontos: i.descontos
-      }))
+      })),
+      pagamentos: this.pagamentoValores().filter(p => p.valor > 0).map(p => {
+        const tf = this.dinheiroTrocoFalta();
+        return {
+          tipoPagamentoId: p.tipoPagamentoId,
+          valor: p.valor,
+          troco: (p.modalidade === 1 && tf?.tipo === 'troco') ? tf.valor : 0,
+          trocoPara: (p.modalidade === 1 && tf?.tipo === 'troco') ? 'Dinheiro' : null
+        };
+      })
     };
 
+    // Salvar (criar ou atualizar)
     const salvar$ = this.preVendaId()
       ? this.http.put<any>(`${this.apiUrl}/vendas/${this.preVendaId()}`, body)
       : this.http.post<any>(`${this.apiUrl}/vendas`, body);
 
     salvar$.subscribe({
       next: (r: any) => {
-        this.salvando.set(false);
         const id = this.preVendaId() ?? r.data?.id;
         if (!id) {
-          this.modal.erro('Erro', 'Erro ao salvar pré-venda.');
+          this.salvando.set(false);
+          this.modal.erro('Erro', 'Erro ao salvar venda.');
           return;
         }
-        this.preVendaId.set(id);
-        this.modal.sucesso('Salvo', 'Pré-venda salva com sucesso.');
-        this.resetTudo();
+        // Finalizar (marcar status = Finalizada)
+        this.http.post<any>(`${this.apiUrl}/vendas/${id}/finalizar`, {}).subscribe({
+          next: () => {
+            this.modoConferencia.set(false);
+            // Emitir NFC-e
+            this.http.post<any>(`${this.apiUrl}/nfce/emitir/${id}`, {}).subscribe({
+              next: (nfceRes: any) => {
+                this.salvando.set(false);
+                if (nfceRes.success && nfceRes.data?.autorizada) {
+                  // Abrir DANFE na modal (resetTudo será chamado ao fechar)
+                  const nfceId = nfceRes.data.nfceId;
+                  if (nfceId) {
+                    this.abrirDanfe(nfceId);
+                  } else {
+                    this.resetTudo();
+                  }
+                } else {
+                  const motivo = nfceRes.data?.motivoStatus ?? nfceRes.message ?? 'Erro desconhecido';
+                  this.modal.aviso('Venda Finalizada — NFC-e Pendente', `A venda foi finalizada, mas a NFC-e não foi autorizada:\n\n${motivo}\n\nVocê poderá reemitir posteriormente.`);
+                  this.resetTudo();
+                }
+              },
+              error: (nfceErr: any) => {
+                this.salvando.set(false);
+                const msg = nfceErr?.error?.message || 'Erro ao emitir NFC-e';
+                this.modal.aviso('Venda Finalizada — NFC-e com Erro', `A venda foi finalizada com sucesso, mas houve erro na emissão da NFC-e:\n\n${msg}\n\nVocê poderá reemitir posteriormente.`);
+                this.resetTudo();
+              }
+            });
+          },
+          error: () => {
+            this.salvando.set(false);
+            this.modal.erro('Erro', 'Erro ao finalizar venda.');
+          }
+        });
       },
       error: (err: any) => {
         this.salvando.set(false);
-        const msg = err?.error?.message || 'Erro ao salvar pré-venda.';
-        // Se erro de cesta duplicada, reabrir modal para informar outra
-        if (msg.includes('cesta')) {
-          this.modal.aviso('Cesta em Uso', msg);
-          this.cestaNumero.set('');
-          this.modalCesta.set(true);
-        } else {
-          this.modal.erro('Erro', msg);
-        }
+        const msg = err?.error?.message || 'Erro ao salvar venda.';
+        this.modal.erro('Erro', msg);
       }
     });
   }
@@ -1660,7 +1948,6 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   sairDaTela() {
     // Fechar todas as modais abertas antes de sair
     this.modalPendentes.set(false);
-    this.modalCesta.set(false);
     this.modalPromoFixas.set(false);
     this.modalPromoProgressiva.set(false);
     this.clienteDropdown.set(false);
@@ -1704,8 +1991,8 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onDocumentKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
+      if (this.modalPagamento()) { this.cancelarPagamento(); return; }
       if (this.modalPendentes()) { this.fecharPendentes(); return; }
-      if (this.modalCesta()) { this.cancelarCesta(); return; }
       if (this.modalPromoFixas()) { this.fecharModalPromoFixas(); return; }
       if (this.modalPromoProgressiva()) { this.fecharModalPromoProgressiva(); return; }
     }

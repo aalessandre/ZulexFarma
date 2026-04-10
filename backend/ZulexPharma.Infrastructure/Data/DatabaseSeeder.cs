@@ -28,6 +28,21 @@ public static class DatabaseSeeder
               )
         ");
 
+        // Seed dados fiscais para produtos que não têm (homologação)
+        // Corrigir CSOSN 0102 → 102 (registros antigos)
+        await context.Database.ExecuteSqlRawAsync(@"UPDATE ""ProdutosFiscal"" SET ""Csosn"" = '102' WHERE ""Csosn"" = '0102'");
+
+        // CFOP 5102 = venda mercadoria, CSOSN 102 = Simples Nacional tributada, Origem 0 = Nacional
+        // PIS/COFINS CST 49 = Outras operações de saída, IPI CST 99 = Outras saídas
+        await context.Database.ExecuteSqlRawAsync(@"
+            INSERT INTO ""ProdutosFiscal"" (""ProdutoId"", ""FilialId"", ""Cfop"", ""OrigemMercadoria"", ""CstIcms"", ""Csosn"", ""AliquotaIcms"", ""CstPis"", ""AliquotaPis"", ""CstCofins"", ""AliquotaCofins"", ""CstIpi"", ""AliquotaIpi"", ""Ativo"", ""CriadoEm"", ""SyncGuid"")
+            SELECT p.""Id"", 1, '5102', '0', NULL, '102', 0, '49', 0, '49', 0, '99', 0, true, NOW(), gen_random_uuid()
+            FROM ""Produtos"" p
+            WHERE NOT EXISTS (
+                SELECT 1 FROM ""ProdutosFiscal"" pf WHERE pf.""ProdutoId"" = p.""Id"" AND pf.""FilialId"" = 1
+            )
+        ");
+
         // Configurar sequences para a faixa de IDs da filial
         if (filialCodigo > 0)
             await ConfigurarSequences(context, filialCodigo);

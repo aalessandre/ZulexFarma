@@ -14,6 +14,7 @@ public class FilialListDto
     public string Bairro { get; set; } = string.Empty;
     public string Cidade { get; set; } = string.Empty;
     public string Uf { get; set; } = string.Empty;
+    public string? CodigoIbgeMunicipio { get; set; }
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public decimal AliquotaIcms { get; set; }
@@ -34,6 +35,7 @@ public class FilialFormDto
     public string Bairro { get; set; } = string.Empty;
     public string Cidade { get; set; } = string.Empty;
     public string Uf { get; set; } = string.Empty;
+    public string? CodigoIbgeMunicipio { get; set; }
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public decimal AliquotaIcms { get; set; }

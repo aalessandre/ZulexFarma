@@ -19,6 +19,13 @@ const TILES: TileItem[] = [
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`,
     rota: '/erp/icms-uf'
   },
+  {
+    label: 'Tabela IBPTax',
+    sigla: 'IB',
+    iconKey: 'percent',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
+    rota: '/erp/ibptax'
+  },
 ];
 
 @Component({

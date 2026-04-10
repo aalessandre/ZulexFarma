@@ -41,6 +41,7 @@ public class FilialService : IFilialService
                     Bairro           = f.Bairro,
                     Cidade           = f.Cidade,
                     Uf               = f.Uf,
+                    CodigoIbgeMunicipio = f.CodigoIbgeMunicipio,
                     Telefone         = f.Telefone,
                     Email            = f.Email,
                     AliquotaIcms     = f.AliquotaIcms,
@@ -75,6 +76,7 @@ public class FilialService : IFilialService
                 Bairro            = Mai(dto.Bairro),
                 Cidade            = Mai(dto.Cidade),
                 Uf                = dto.Uf.Trim().ToUpper(),
+                CodigoIbgeMunicipio = dto.CodigoIbgeMunicipio?.Trim(),
                 Telefone          = dto.Telefone.Trim(),
                 Email             = dto.Email.Trim().ToLower(),
                 AliquotaIcms      = dto.AliquotaIcms,
@@ -118,6 +120,7 @@ public class FilialService : IFilialService
             filial.Bairro            = Mai(dto.Bairro);
             filial.Cidade            = Mai(dto.Cidade);
             filial.Uf                = dto.Uf.Trim().ToUpper();
+            filial.CodigoIbgeMunicipio = dto.CodigoIbgeMunicipio?.Trim();
             filial.Telefone          = dto.Telefone.Trim();
             filial.Email             = dto.Email.Trim().ToLower();
             filial.AliquotaIcms      = dto.AliquotaIcms;
@@ -251,6 +254,7 @@ public class FilialService : IFilialService
         Bairro           = f.Bairro,
         Cidade           = f.Cidade,
         Uf               = f.Uf,
+        CodigoIbgeMunicipio = f.CodigoIbgeMunicipio,
         Telefone         = f.Telefone,
         Email            = f.Email,
         AliquotaIcms     = f.AliquotaIcms,

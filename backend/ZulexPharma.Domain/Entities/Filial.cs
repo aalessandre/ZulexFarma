@@ -13,6 +13,8 @@ public class Filial : BaseEntity
     public string Bairro { get; set; } = string.Empty;
     public string Cidade { get; set; } = string.Empty;
     public string Uf { get; set; } = string.Empty;
+    /// <summary>Código IBGE do município (7 dígitos, obrigatório para NFC-e).</summary>
+    public string? CodigoIbgeMunicipio { get; set; }
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
 

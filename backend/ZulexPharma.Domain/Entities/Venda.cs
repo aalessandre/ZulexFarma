@@ -34,4 +34,5 @@ public class Venda : BaseEntity
 
     // ── Navigation ─────────────────────────────────────────────
     public ICollection<VendaItem> Itens { get; set; } = new List<VendaItem>();
+    public ICollection<VendaPagamento> Pagamentos { get; set; } = new List<VendaPagamento>();
 }

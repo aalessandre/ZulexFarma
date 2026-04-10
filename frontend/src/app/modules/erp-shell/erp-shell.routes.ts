@@ -139,6 +139,11 @@ export const ErpRoutes: Routes = [
           import('../icms-uf/icms-uf.component').then(m => m.IcmsUfComponent),
       },
       {
+        path: 'ibptax',
+        loadComponent: () =>
+          import('../ibptax/ibptax.component').then(m => m.IbptaxComponent),
+      },
+      {
         path: 'atualizacao-precos',
         loadComponent: () =>
           import('../atualizacao-precos/atualizacao-precos.component').then(m => m.AtualizacaoPrecosComponent),
@@ -177,6 +182,16 @@ export const ErpRoutes: Routes = [
         path: 'hierarquia-descontos',
         loadComponent: () =>
           import('../hierarquia-descontos/hierarquia-descontos.component').then(m => m.HierarquiaDescontosComponent),
+      },
+      {
+        path: 'adquirentes',
+        loadComponent: () =>
+          import('../adquirentes/adquirentes.component').then(m => m.AdquirentesComponent),
+      },
+      {
+        path: 'contas-receber',
+        loadComponent: () =>
+          import('../contas-receber/contas-receber.component').then(m => m.ContasReceberComponent),
       },
       {
         path: 'tipos-pagamento',

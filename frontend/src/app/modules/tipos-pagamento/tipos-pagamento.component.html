@@ -94,12 +94,12 @@
           </div>
           <div class="field field-2">
             <label>MODALIDADE *</label>
-            <select class="select-campo" [value]="form().modalidade" (change)="upd('modalidade', +$any($event.target).value)">
-              <option [value]="1">Venda à Vista</option>
-              <option [value]="2">Venda Cartão</option>
-              <option [value]="3">Venda PIX</option>
-              <option [value]="4">Venda a Prazo</option>
-              <option [value]="5">Voucher</option>
+            <select class="select-campo" [ngModel]="form().modalidade" (ngModelChange)="upd('modalidade', $event)">
+              <option [ngValue]="1">Venda à Vista</option>
+              <option [ngValue]="2">Venda Cartão</option>
+              <option [ngValue]="3">Venda PIX</option>
+              <option [ngValue]="4">Venda a Prazo</option>
+              <option [ngValue]="5">Voucher</option>
               <option [value]="6">Outros</option>
             </select>
           </div>
@@ -125,6 +125,30 @@
 
         <div class="form-secao">Opções</div>
         <div class="form-grid">
+          <div class="field field-2">
+            <label>PLANO DE CONTAS</label>
+            <div class="pc-input-wrap">
+              <input type="text" [value]="form().planoContaDescricao ?? ''"
+                     (input)="onPcBuscaInput($any($event.target).value)"
+                     (blur)="pcDropdown.set(false)"
+                     placeholder="Pesquisar plano de contas..." autocomplete="off" />
+              @if (form().planoContaId) {
+                <button class="pc-limpar" (mousedown)="$event.preventDefault(); upd('planoContaId', null); upd('planoContaDescricao', '')" title="Limpar">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              }
+            </div>
+            @if (pcDropdown() && pcResultados().length > 0) {
+              <div class="autocomplete-dropdown">
+                @for (pc of pcResultados(); track pc.id) {
+                  <div class="autocomplete-item" (mousedown)="selecionarPc(pc)">
+                    <span class="autocomplete-codigo">{{ pc.codigoHierarquico }}</span>
+                    <span>{{ pc.descricao }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
           <div class="field field-check">
             <label class="check-label">
               <input type="checkbox" [checked]="form().aceitaPromocao" (change)="upd('aceitaPromocao', $any($event.target).checked)" />

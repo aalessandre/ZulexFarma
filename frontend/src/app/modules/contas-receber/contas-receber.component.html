@@ -1,0 +1,236 @@
+<div class="tela-erp">
+
+  <!-- SIDEBAR ESQUERDA -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar ativo" (click)="carregar()">
+      <span>Procurar</span>
+      <span class="sidebar-sub">Atualizar lista</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <!-- AREA PRINCIPAL -->
+  <div class="tela-main">
+
+    <!-- FILTROS -->
+    <div class="lista-header">
+      <div class="lista-filtro">
+        <label>PROCURAR POR</label>
+        <div class="input-busca-wrap">
+          <input class="input-busca" type="text" placeholder="Descricao, cliente..."
+                 [value]="busca()" (input)="busca.set($any($event.target).value)" />
+          @if (busca()) {
+            <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="lista-filtro">
+        <label>STATUS</label>
+        <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+          <option value="">Todas</option>
+          <option value="aberta">Abertas</option>
+          <option value="recebida">Recebidas</option>
+          <option value="cancelada">Canceladas</option>
+          <option value="vencida">Vencidas</option>
+        </select>
+      </div>
+
+      <div class="lista-filtro">
+        <label>TIPO PAGAMENTO</label>
+        <select class="select-status" [value]="filtroTipoPagamento()" (change)="filtroTipoPagamento.set($any($event.target).value)">
+          <option value="">Todos</option>
+          <option value="cartao">Cartao</option>
+          <option value="pix">PIX</option>
+          <option value="prazo">Prazo</option>
+          <option value="vista">A Vista</option>
+          <option value="voucher">Voucher</option>
+        </select>
+      </div>
+
+      <div class="lista-filtro">
+        <label>DATA INICIO</label>
+        <input class="input-data" type="date" [value]="filtroDataInicio()" (change)="filtroDataInicio.set($any($event.target).value)" />
+      </div>
+
+      <div class="lista-filtro">
+        <label>DATA FIM</label>
+        <input class="input-data" type="date" [value]="filtroDataFim()" (change)="filtroDataFim.set($any($event.target).value)" />
+      </div>
+
+      <button class="btn-buscar" (click)="carregar()" [disabled]="carregando()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        {{ carregando() ? 'Buscando...' : 'Buscar' }}
+      </button>
+
+      <div class="col-picker-wrap">
+        <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          Colunas
+        </button>
+        @if (painelColunas()) {
+          <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+          <div class="col-picker-painel">
+            <div class="col-picker-header">
+              <span>Personalizar Colunas</span>
+              <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrao</button>
+            </div>
+            <div class="col-picker-lista">
+              @for (col of colunas(); track col.campo) {
+                <label class="col-picker-item">
+                  <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                  <span>{{ col.label }}</span>
+                  @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- GRID -->
+    <div class="grid-wrapper">
+      <table class="erp-grid">
+        <thead>
+          <tr>
+            <th class="th-arrow"></th>
+            @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize"
+                  [style.width.px]="col.largura"
+                  [style.min-width.px]="col.minLargura"
+                  [class.th-right]="isValorColumn(col.campo)"
+                  (click)="ordenar(col.campo)"
+                  draggable="true"
+                  (dragstart)="onDragStartCol(i)"
+                  (dragover)="onDragOverCol($event, i)"
+                  (drop)="onDropCol()">
+                {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                <div class="resize-handle"
+                     (mousedown)="iniciarResize($event, col.campo, col.largura)"
+                     (click)="$event.stopPropagation()"></div>
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @if (carregando()) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+          } @else if (contasFiltradas().length === 0) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum registro encontrado.</td></tr>
+          } @else {
+            @for (c of contasFiltradas(); track c.id) {
+              <tr [class.selecionado]="contaSelecionada()?.id === c.id"
+                  (click)="selecionar(c)">
+                <td class="td-arrow">
+                  @if (contaSelecionada()?.id === c.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }
+                </td>
+                @for (col of colunasVisiveis(); track col.campo) {
+                  <td [class.td-right]="isValorColumn(col.campo)">
+                    @if (col.campo === 'status') {
+                      <span class="status-badge" [class]="statusClass(c.status, c.vencimento)">
+                        {{ statusLabel(c.status, c.vencimento) }}
+                      </span>
+                    } @else {
+                      {{ getCellValue(c, col.campo) }}
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- RODAPE -->
+    <div class="grid-rodape">
+      <span>Registro(s): <strong>{{ contasFiltradas().length }}</strong></span>
+    </div>
+
+    <!-- TOOLBAR -->
+    <footer class="tela-toolbar">
+      <button class="tb-btn tb-receber" [disabled]="!podeReceber() || processando()" (click)="abrirModalReceber()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Receber
+      </button>
+      <button class="tb-btn tb-cancelar-conta" [disabled]="!podeCancelar() || processando()" (click)="cancelarConta()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+        Cancelar
+      </button>
+    </footer>
+
+  </div>
+</div>
+
+<!-- MODAL RECEBER -->
+@if (modalReceber()) {
+  <div class="modal-overlay" (click)="fecharModalReceber()">
+    <div class="modal-receber-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-receber-header">
+        <div class="modal-receber-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Registrar Recebimento
+        </div>
+        <button class="modal-receber-fechar" (click)="fecharModalReceber()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-receber-body">
+        <div class="modal-info-conta">
+          <span class="modal-info-label">Conta:</span>
+          <span class="modal-info-valor">{{ contaSelecionada()?.descricao }}</span>
+        </div>
+        <div class="modal-info-conta">
+          <span class="modal-info-label">Cliente:</span>
+          <span class="modal-info-valor">{{ contaSelecionada()?.cliente }}</span>
+        </div>
+        <div class="modal-info-conta">
+          <span class="modal-info-label">Valor original:</span>
+          <span class="modal-info-valor">{{ getCellValue(contaSelecionada()!, 'valor') }}</span>
+        </div>
+
+        <div class="modal-campo">
+          <label>VALOR RECEBIDO</label>
+          <input type="text" [value]="modalValorRecebido()" (input)="modalValorRecebido.set($any($event.target).value)" />
+        </div>
+
+        <div class="modal-campo">
+          <label>CONTA BANCARIA</label>
+          <input type="text" [value]="modalContaBancaria()" (input)="modalContaBancaria.set($any($event.target).value)" placeholder="Informe a conta bancaria" />
+        </div>
+      </div>
+
+      <div class="modal-receber-footer">
+        <button class="modal-btn modal-btn-confirmar" [disabled]="processando()" (click)="confirmarRecebimento()">
+          {{ processando() ? 'Processando...' : 'Confirmar Recebimento' }}
+        </button>
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharModalReceber()">Cancelar</button>
+      </div>
+
+    </div>
+  </div>
+}

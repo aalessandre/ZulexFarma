@@ -313,6 +313,66 @@
           }
         </div>
 
+        <!-- ══ FISCAL / NFC-e ═════════════════════════════════════ -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'fiscal'" (click)="toggleAccordion('fiscal')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Fiscal / NFC-e</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'fiscal' ? '▲' : '▼' }}</span>
+          </div>
+          @if (accordionAberto() === 'fiscal') {
+            <div class="cfg-acc-body">
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field cfg-field-select">
+                  <label>REGIME TRIBUTÁRIO</label>
+                  <select class="cfg-select" [value]="getConfig('fiscal.regime.tributario', '1')"
+                          (change)="setConfig('fiscal.regime.tributario', $any($event.target).value)">
+                    <option value="1">Simples Nacional</option>
+                    <option value="2">Simples Nacional - Excesso de Sublimite</option>
+                    <option value="3">Regime Normal (Lucro Presumido/Real)</option>
+                  </select>
+                </div>
+                <div class="cfg-field cfg-field-select">
+                  <label>AMBIENTE</label>
+                  <select class="cfg-select" [value]="getConfig('fiscal.ambiente', '2')"
+                          (change)="setConfig('fiscal.ambiente', $any($event.target).value)">
+                    <option value="2">Homologação (testes)</option>
+                    <option value="1">Produção</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cfg-sub-titulo" style="margin-top:16px">NFC-e</div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field">
+                  <label>CSC (CÓDIGO DE SEGURANÇA DO CONTRIBUINTE)</label>
+                  <input type="text" [value]="getConfig('fiscal.nfce.csc', '')"
+                         (input)="setConfig('fiscal.nfce.csc', $any($event.target).value)"
+                         placeholder="Token fornecido pela SEFAZ" />
+                </div>
+                <div class="cfg-field" style="max-width:120px">
+                  <label>ID DO CSC</label>
+                  <input type="text" [value]="getConfig('fiscal.nfce.csc.id', '')"
+                         (input)="setConfig('fiscal.nfce.csc.id', $any($event.target).value)"
+                         placeholder="Ex: 1" />
+                </div>
+                <div class="cfg-field" style="max-width:80px">
+                  <label>SÉRIE</label>
+                  <input type="text" [value]="getConfig('fiscal.nfce.serie', '1')"
+                         (input)="setConfig('fiscal.nfce.serie', $any($event.target).value)"
+                         placeholder="1" />
+                </div>
+                <div class="cfg-field" style="max-width:120px">
+                  <label>Nº ATUAL</label>
+                  <input type="text" [value]="getConfig('fiscal.nfce.numero.atual', '0')"
+                         (input)="setConfig('fiscal.nfce.numero.atual', $any($event.target).value)"
+                         placeholder="0" />
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
       }
     </div>
 

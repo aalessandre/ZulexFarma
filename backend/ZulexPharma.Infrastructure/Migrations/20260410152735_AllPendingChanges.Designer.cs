@@ -12,8 +12,8 @@ using ZulexPharma.Infrastructure.Data;
 namespace ZulexPharma.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260408115114_AddCaixaVendaFieldsAndColaboradorItem")]
-    partial class AddCaixaVendaFieldsAndColaboradorItem
+    [Migration("20260410152735_AllPendingChanges")]
+    partial class AllPendingChanges
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -730,6 +730,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<string>("Observacao")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("PermitirAbrirCaixa")
+                        .HasColumnType("boolean");
 
                     b.Property<long>("PessoaId")
                         .HasColumnType("bigint");
@@ -3200,6 +3203,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<bool>("PermitirConferenciaDigitando")
+                        .HasColumnType("boolean");
+
                     b.Property<decimal?>("PrecoFp")
                         .HasColumnType("numeric(10,4)");
 
@@ -4495,6 +4501,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<bool>("PadraoSistema")
                         .HasColumnType("boolean");
 
+                    b.Property<long?>("PlanoContaId")
+                        .HasColumnType("bigint");
+
                     b.Property<Guid>("SyncGuid")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
@@ -4504,6 +4513,8 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("Codigo")
                         .HasFilter("\"Codigo\" IS NOT NULL");
+
+                    b.HasIndex("PlanoContaId");
 
                     b.HasIndex("SyncGuid");
 
@@ -4800,9 +4811,8 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
-                    b.Property<decimal>("Quantidade")
-                        .HasPrecision(18, 3)
-                        .HasColumnType("numeric(18,3)");
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("Total")
                         .HasPrecision(18, 2)
@@ -4867,6 +4877,41 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("VendaItemId");
 
                     b.ToTable("VendaItemDescontos", (string)null);
+                });
+
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.VendaPagamento", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("TipoPagamentoId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("Troco")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("TrocoPara")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<long>("VendaId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TipoPagamentoId");
+
+                    b.HasIndex("VendaId");
+
+                    b.ToTable("VendaPagamentos");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.AtualizacaoPrecoItem", b =>
@@ -5535,6 +5580,15 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Navigation("Promocao");
                 });
 
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.TipoPagamento", b =>
+                {
+                    b.HasOne("ZulexPharma.Domain.Entities.PlanoConta", "PlanoConta")
+                        .WithMany()
+                        .HasForeignKey("PlanoContaId");
+
+                    b.Navigation("PlanoConta");
+                });
+
             modelBuilder.Entity("ZulexPharma.Domain.Entities.Usuario", b =>
                 {
                     b.HasOne("ZulexPharma.Domain.Entities.Colaborador", "Colaborador")
@@ -5671,6 +5725,25 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Navigation("VendaItem");
                 });
 
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.VendaPagamento", b =>
+                {
+                    b.HasOne("ZulexPharma.Domain.Entities.TipoPagamento", "TipoPagamento")
+                        .WithMany()
+                        .HasForeignKey("TipoPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ZulexPharma.Domain.Entities.Venda", "Venda")
+                        .WithMany("Pagamentos")
+                        .HasForeignKey("VendaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TipoPagamento");
+
+                    b.Navigation("Venda");
+                });
+
             modelBuilder.Entity("ZulexPharma.Domain.Entities.AtualizacaoPreco", b =>
                 {
                     b.Navigation("Itens");
@@ -5801,6 +5874,8 @@ namespace ZulexPharma.Infrastructure.Migrations
             modelBuilder.Entity("ZulexPharma.Domain.Entities.Venda", b =>
                 {
                     b.Navigation("Itens");
+
+                    b.Navigation("Pagamentos");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.VendaItem", b =>

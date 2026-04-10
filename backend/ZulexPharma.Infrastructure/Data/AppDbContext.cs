@@ -94,6 +94,14 @@ public class AppDbContext : DbContext
     public DbSet<Venda> Vendas => Set<Venda>();
     public DbSet<VendaItem> VendaItens => Set<VendaItem>();
     public DbSet<VendaItemDesconto> VendaItemDescontos => Set<VendaItemDesconto>();
+    public DbSet<VendaPagamento> VendaPagamentos => Set<VendaPagamento>();
+    public DbSet<Adquirente> Adquirentes => Set<Adquirente>();
+    public DbSet<AdquirenteBandeira> AdquirenteBandeiras => Set<AdquirenteBandeira>();
+    public DbSet<AdquirenteTarifa> AdquirenteTarifas => Set<AdquirenteTarifa>();
+    public DbSet<ContaReceber> ContasReceber => Set<ContaReceber>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
+    public DbSet<Nfce> Nfces => Set<Nfce>();
+    public DbSet<IbptTax> IbptTaxes => Set<IbptTax>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -754,7 +762,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.ProdutoNome).HasMaxLength(300);
             e.Property(x => x.Fabricante).HasMaxLength(200);
             e.Property(x => x.PrecoVenda).HasPrecision(18, 2);
-            e.Property(x => x.Quantidade).HasPrecision(18, 3);
+            // Quantidade é int, não precisa de precision
             e.Property(x => x.PercentualDesconto).HasPrecision(8, 4);
             e.Property(x => x.PercentualPromocao).HasPrecision(8, 4);
             e.Property(x => x.ValorDesconto).HasPrecision(18, 2);
@@ -774,6 +782,109 @@ public class AppDbContext : DbContext
             e.Property(x => x.Regra).HasMaxLength(200).IsRequired();
             e.HasOne(x => x.VendaItem).WithMany(x => x.Descontos).HasForeignKey(x => x.VendaItemId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.LiberadoPor).WithMany().HasForeignKey(x => x.LiberadoPorId).OnDelete(DeleteBehavior.SetNull);
+        });
+        modelBuilder.Entity<VendaPagamento>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Valor).HasPrecision(18, 2);
+            e.Property(x => x.Troco).HasPrecision(18, 2);
+            e.Property(x => x.TrocoPara).HasMaxLength(50);
+            e.HasOne(x => x.Venda).WithMany(x => x.Pagamentos).HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── Adquirente ───────────────────────────────────────────
+        modelBuilder.Entity<Adquirente>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+        });
+        modelBuilder.Entity<AdquirenteBandeira>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Bandeira).HasMaxLength(100).IsRequired();
+            e.HasOne(x => x.Adquirente).WithMany(x => x.Bandeiras).HasForeignKey(x => x.AdquirenteId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<AdquirenteTarifa>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tarifa).HasPrecision(8, 4);
+            e.HasOne(x => x.AdquirenteBandeira).WithMany(x => x.Tarifas).HasForeignKey(x => x.AdquirenteBandeiraId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ContaBancaria).WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── ContaReceber ─────────────────────────────────────────
+        modelBuilder.Entity<ContaReceber>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Descricao).HasMaxLength(500);
+            e.Property(x => x.Valor).HasPrecision(18, 2);
+            e.Property(x => x.ValorLiquido).HasPrecision(18, 2);
+            e.Property(x => x.Tarifa).HasPrecision(8, 4);
+            e.Property(x => x.ValorTarifa).HasPrecision(18, 2);
+            e.Property(x => x.ValorRecebido).HasPrecision(18, 2);
+            e.Property(x => x.ValorJuros).HasPrecision(18, 2);
+            e.Property(x => x.ValorDesconto).HasPrecision(18, 2);
+            e.Property(x => x.NSU).HasMaxLength(50);
+            e.Property(x => x.TxId).HasMaxLength(100);
+            e.Property(x => x.Modalidade).HasMaxLength(50);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Venda).WithMany().HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.VendaPagamento).WithMany().HasForeignKey(x => x.VendaPagamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Pessoa).WithMany().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.PlanoConta).WithMany().HasForeignKey(x => x.PlanoContaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ContaBancaria).WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.AdquirenteBandeira).WithMany().HasForeignKey(x => x.AdquirenteBandeiraId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.AdquirenteTarifa).WithMany().HasForeignKey(x => x.AdquirenteTarifaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Voucher).WithMany().HasForeignKey(x => x.VoucherId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.DataVencimento);
+        });
+
+        // ── Voucher ──────────────────────────────────────────────
+        modelBuilder.Entity<Voucher>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Valor).HasPrecision(18, 2);
+            e.Property(x => x.ValorUtilizado).HasPrecision(18, 2);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.VendaOrigem).WithMany().HasForeignKey(x => x.VendaOrigemId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── NFC-e ─────────────────────────────────────────────────
+        modelBuilder.Entity<Nfce>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ChaveAcesso).HasMaxLength(44);
+            e.Property(x => x.Protocolo).HasMaxLength(20);
+            e.Property(x => x.MotivoStatus).HasMaxLength(500);
+            e.Property(x => x.ValorTotal).HasPrecision(18, 2);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Venda).WithMany().HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.ChaveAcesso).IsUnique();
+            e.HasIndex(x => new { x.FilialId, x.Serie, x.Numero }).IsUnique();
+        });
+
+        // ── IbptTax ───────────────────────────────────────────────
+        modelBuilder.Entity<IbptTax>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Ncm).HasMaxLength(10).IsRequired();
+            e.Property(x => x.Ex).HasMaxLength(5);
+            e.Property(x => x.Descricao).HasMaxLength(500);
+            e.Property(x => x.AliqNacional).HasColumnType("numeric(7,2)");
+            e.Property(x => x.AliqImportado).HasColumnType("numeric(7,2)");
+            e.Property(x => x.AliqEstadual).HasColumnType("numeric(7,2)");
+            e.Property(x => x.AliqMunicipal).HasColumnType("numeric(7,2)");
+            e.Property(x => x.Chave).HasMaxLength(100);
+            e.Property(x => x.Versao).HasMaxLength(20);
+            e.Property(x => x.Fonte).HasMaxLength(30);
+            e.Property(x => x.Uf).HasMaxLength(2);
+            e.HasIndex(x => new { x.Ncm, x.Uf, x.Ex }).HasDatabaseName("IX_IbptTax_Ncm_Uf_Ex");
         });
 
         // ── HierarquiaDesconto ────────────────────────────────────

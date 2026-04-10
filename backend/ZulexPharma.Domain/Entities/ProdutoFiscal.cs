@@ -11,6 +11,7 @@ public class ProdutoFiscal : BaseEntity
     public long? NcmId { get; set; }
     public Ncm? Ncm { get; set; }
 
+    public string? Cfop { get; set; }
     public string? Cest { get; set; }
     public string? OrigemMercadoria { get; set; }
 

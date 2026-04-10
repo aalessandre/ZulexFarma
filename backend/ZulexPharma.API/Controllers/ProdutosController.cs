@@ -128,7 +128,7 @@ public class ProdutosController : ControllerBase
                 .Where(p => dadosIds.Contains(p.Id))
                 .Include(p => p.Fabricante)
                 .OrderBy(p => p.Nome)
-                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "" })
+                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando })
                 .ToListAsync();
 
             var result = produtos.Select(p =>
@@ -166,7 +166,7 @@ public class ProdutosController : ControllerBase
                 ))
                 .OrderBy(p => p.Nome)
                 .Take(limit)
-                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "" })
+                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando })
                 .ToListAsync();
 
             // Buscar dados da filial
@@ -217,7 +217,8 @@ public class ProdutosController : ControllerBase
                     id = p.Id, codigo = p.Codigo, nome = p.Nome, fabricante = p.fabricante,
                     valorVenda = d?.ValorVenda ?? 0, custoMedio = d?.CustoMedio ?? 0,
                     estoqueAtual = d?.EstoqueAtual ?? 0, curvaAbc = d?.CurvaAbc ?? "",
-                    temPromocao = promoSet.Contains(p.Id)
+                    temPromocao = promoSet.Contains(p.Id),
+                    permitirConferenciaDigitando = p.PermitirConferenciaDigitando
                 };
             });
 

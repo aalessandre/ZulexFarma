@@ -1163,6 +1163,7 @@ export class PreVendaComponent implements OnInit, OnDestroy {
       const total = item.percentualDesconto + (item.percentualPromocao || 0);
       return this.formatarNumero(total);
     }
+    if (campo === 'quantidade') return String(Math.floor(item.quantidade));
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
     if (typeof v === 'number') return this.formatarNumero(v);
@@ -1217,7 +1218,7 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     this.itens.update(lista => {
       const arr = [...lista];
       const item = { ...arr[idx] };
-      (item as any)[campo] = num;
+      (item as any)[campo] = campo === 'quantidade' ? Math.floor(num) : num;
       this.recalcularItem(item, campo);
 
       // Validar desconto máximo da hierarquia
@@ -1287,6 +1288,7 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   }
 
   getEditValue(item: PreVendaItem, campo: string): string {
+    if (campo === 'quantidade') return String(Math.floor(item.quantidade));
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
     if (typeof v === 'number') return this.formatarNumero(v);
