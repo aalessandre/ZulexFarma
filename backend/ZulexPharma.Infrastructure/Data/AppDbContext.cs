@@ -83,6 +83,7 @@ public class AppDbContext : DbContext
     public DbSet<ClienteConvenio> ClienteConvenios => Set<ClienteConvenio>();
     public DbSet<ClienteAutorizacao> ClienteAutorizacoes => Set<ClienteAutorizacao>();
     public DbSet<ClienteDesconto> ClienteDescontos => Set<ClienteDesconto>();
+    public DbSet<ClienteBloqueio> ClienteBloqueios => Set<ClienteBloqueio>();
     public DbSet<ClienteUsoContinuo> ClienteUsosContinuos => Set<ClienteUsoContinuo>();
     public DbSet<HierarquiaDesconto> HierarquiaDescontos => Set<HierarquiaDesconto>();
     public DbSet<HierarquiaDescontoItem> HierarquiaDescontoItens => Set<HierarquiaDescontoItem>();
@@ -958,6 +959,13 @@ public class AppDbContext : DbContext
             e.Property(x => x.DescontoMaxSemSenha).HasPrecision(5, 2);
             e.Property(x => x.DescontoMaxComSenha).HasPrecision(5, 2);
             e.HasOne(x => x.Cliente).WithMany(x => x.Descontos).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<ClienteBloqueio>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Cliente).WithMany(x => x.Bloqueios).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ClienteId, x.TipoPagamentoId }).IsUnique();
         });
         modelBuilder.Entity<ClienteUsoContinuo>(e =>
         {

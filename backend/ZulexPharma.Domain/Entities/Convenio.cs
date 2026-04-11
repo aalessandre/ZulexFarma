@@ -20,15 +20,18 @@ public class Convenio : BaseEntity
     // ── Regras ─────────────────────────────────────────────────
     public int QtdeViasCupom { get; set; } = 1;
     public bool Bloqueado { get; set; }
+    public bool PermiteFidelidade { get; set; }
     public bool BloquearVendaParcelada { get; set; }
     public bool BloquearDescontoParcelada { get; set; }
     public bool BloquearComissao { get; set; }
     public bool VenderSomenteComSenha { get; set; }
+    public string? SenhaVenda { get; set; }
     public bool CobrarJurosAtraso { get; set; } = true;
     public int DiasCarenciaBloqueio { get; set; }
 
     // ── Limites ────────────────────────────────────────────────
     public decimal LimiteCredito { get; set; }
+    public decimal DescontoGeral { get; set; }
     public int MaximoParcelas { get; set; } = 1;
 
     // ── Navigation ─────────────────────────────────────────────

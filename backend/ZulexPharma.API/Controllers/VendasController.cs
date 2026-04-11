@@ -17,9 +17,9 @@ public class VendasController : ControllerBase
     public VendasController(IVendaService service) { _service = service; }
 
     [HttpGet]
-    public async Task<IActionResult> Listar([FromQuery] long? filialId = null, [FromQuery] string? status = null)
+    public async Task<IActionResult> Listar([FromQuery] long? filialId = null, [FromQuery] string? status = null, [FromQuery] long? caixaId = null)
     {
-        try { return Ok(new { success = true, data = await _service.ListarAsync(filialId, status) }); }
+        try { return Ok(new { success = true, data = await _service.ListarAsync(filialId, status, caixaId) }); }
         catch (Exception ex) { Log.Error(ex, "Erro em VendasController.Listar"); return StatusCode(500, new { success = false, message = "Erro ao listar vendas." }); }
     }
 
@@ -53,12 +53,20 @@ public class VendasController : ControllerBase
     }
 
     [HttpPost("{id:long}/finalizar")]
-    public async Task<IActionResult> Finalizar(long id)
+    public async Task<IActionResult> Finalizar(long id, [FromBody] FinalizarVendaDto? opcoes = null)
     {
-        try { await _service.FinalizarAsync(id); return Ok(new { success = true }); }
+        try { await _service.FinalizarAsync(id, opcoes); return Ok(new { success = true }); }
         catch (KeyNotFoundException) { return NotFound(new { success = false, message = "Venda não encontrada." }); }
         catch (ArgumentException ex) { return BadRequest(new { success = false, message = ex.Message }); }
         catch (Exception ex) { Log.Error(ex, "Erro em VendasController.Finalizar"); return StatusCode(500, new { success = false, message = "Erro ao finalizar." }); }
+    }
+
+    [HttpPost("validar-prazo")]
+    public async Task<IActionResult> ValidarPrazo([FromBody] ValidarPrazoRequestDto request)
+    {
+        try { return Ok(new { success = true, data = await _service.ValidarVendaPrazoAsync(request) }); }
+        catch (KeyNotFoundException ex) { return NotFound(new { success = false, message = ex.Message }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em VendasController.ValidarPrazo"); return StatusCode(500, new { success = false, message = "Erro ao validar." }); }
     }
 
     [HttpPost("{id:long}/cancelar")]

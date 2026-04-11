@@ -369,7 +369,7 @@
 /* ══ Modal Desdobramento de Pagamento ════════════════════════════ */
 .cx-modal-pagamento {
   background: var(--erp-surface); border-radius: 14px; width: 520px; max-width: 94vw;
-  box-shadow: 0 20px 56px rgba(0,0,0,0.3); overflow: hidden;
+  box-shadow: 0 20px 56px rgba(0,0,0,0.3); overflow: visible;
   animation: promoSlideIn 0.2s ease-out;
 }
 .cx-modal-pag-header {
@@ -382,7 +382,7 @@
   strong { font-size: 18px; }
 }
 .cx-modal-pag-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
-.cx-pag-row { display: flex; align-items: center; gap: 12px; }
+.cx-pag-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .cx-pag-label {
   width: 120px; flex-shrink: 0; font-size: 14px; font-weight: 700; color: var(--erp-text);
   text-transform: uppercase; letter-spacing: 0.3px;
@@ -403,6 +403,16 @@
 }
 .cx-pag-troco { font-size: 16px; font-weight: 800; color: #27ae60; }
 .cx-pag-falta { font-size: 16px; font-weight: 800; color: #e74c3c; }
+.cx-pag-parcelas {
+  display: flex; align-items: center; gap: 8px; margin-left: 132px; width: 100%;
+  label { font-size: 13px; font-weight: 600; color: var(--erp-text-sec); }
+  select {
+    padding: 6px 12px; border: 1px solid var(--erp-border-input); border-radius: 6px;
+    font-size: 13px; font-weight: 600; color: var(--erp-text); background: var(--erp-input-bg);
+    cursor: pointer; outline: none;
+    &:focus { border-color: var(--erp-primary); }
+  }
+}
 .cx-modal-pag-footer {
   padding: 16px 24px; border-top: 2px solid var(--erp-border); background: var(--erp-bg);
   display: flex; flex-direction: column; gap: 12px;
@@ -1018,6 +1028,66 @@ td[data-campo="percentualDesconto"] {
   background: #fff; color: #7f8c8d; font-size: 13px;
   font-weight: 600; cursor: pointer; transition: all 0.12s;
   &:hover { background: #f8f9fa; border-color: #bdc3c7; color: #2c3e50; }
+}
+
+/* ── Overlay emissão NFC-e ────────────────────────────── */
+.nfce-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(10, 10, 30, 0.65); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  animation: nfceOverlayIn 0.3s ease-out;
+}
+@keyframes nfceOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.nfce-overlay-card {
+  background: #fff; border-radius: 16px; padding: 40px 48px;
+  text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  animation: nfceCardIn 0.4s ease-out;
+  min-width: 320px;
+}
+@keyframes nfceCardIn {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.nfce-icon-wrap {
+  position: relative; display: inline-block; margin-bottom: 20px;
+}
+.nfce-icon-doc {
+  animation: nfcePulse 1.8s ease-in-out infinite;
+}
+@keyframes nfcePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}
+.nfce-ring {
+  position: absolute; inset: -10px; border-radius: 50%;
+  border: 3px solid transparent; border-top-color: #2196F3;
+  animation: nfceRingSpin 1.2s linear infinite;
+}
+@keyframes nfceRingSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.nfce-overlay-titulo {
+  font-size: 18px; font-weight: 700; color: #1a1a2e; margin-bottom: 6px;
+}
+.nfce-overlay-sub {
+  font-size: 13px; color: #7f8c8d; line-height: 1.6;
+}
+.nfce-dots {
+  display: flex; justify-content: center; gap: 8px; margin-top: 20px;
+}
+.nfce-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: #2196F3;
+  animation: nfceBounce 1.4s ease-in-out infinite;
+  &:nth-child(2) { animation-delay: 0.2s; }
+  &:nth-child(3) { animation-delay: 0.4s; }
+}
+@keyframes nfceBounce {
+  0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; }
 }
 
 /* ── Modal DANFE NFC-e ───────────────────────────────── */

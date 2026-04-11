@@ -36,13 +36,16 @@ public class ConvenioDetalheDto
     public int MesesParaVencimento { get; set; }
     public int QtdeViasCupom { get; set; }
     public bool Bloqueado { get; set; }
+    public bool PermiteFidelidade { get; set; }
     public bool BloquearVendaParcelada { get; set; }
     public bool BloquearDescontoParcelada { get; set; }
     public bool BloquearComissao { get; set; }
     public bool VenderSomenteComSenha { get; set; }
+    public string? SenhaVenda { get; set; }
     public bool CobrarJurosAtraso { get; set; }
     public int DiasCarenciaBloqueio { get; set; }
     public decimal LimiteCredito { get; set; }
+    public decimal DescontoGeral { get; set; }
     public int MaximoParcelas { get; set; }
     public bool Ativo { get; set; }
     public DateTime CriadoEm { get; set; }
@@ -69,13 +72,16 @@ public class ConvenioFormDto
     public int MesesParaVencimento { get; set; } = 1;
     public int QtdeViasCupom { get; set; } = 1;
     public bool Bloqueado { get; set; }
+    public bool PermiteFidelidade { get; set; }
     public bool BloquearVendaParcelada { get; set; }
     public bool BloquearDescontoParcelada { get; set; }
     public bool BloquearComissao { get; set; }
     public bool VenderSomenteComSenha { get; set; }
+    public string? SenhaVenda { get; set; }
     public bool CobrarJurosAtraso { get; set; } = true;
     public int DiasCarenciaBloqueio { get; set; }
     public decimal LimiteCredito { get; set; }
+    public decimal DescontoGeral { get; set; }
     public int MaximoParcelas { get; set; } = 1;
     public bool Ativo { get; set; } = true;
     public List<ConvenioDescontoDto> Descontos { get; set; } = new();

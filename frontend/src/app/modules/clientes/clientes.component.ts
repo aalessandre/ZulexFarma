@@ -18,7 +18,7 @@ interface Endereco {
   complemento?: string; bairro: string; cidade: string; uf: string; principal: boolean;
 }
 
-interface ConvenioCliente { id?: number; convenioId: number; convenioNome: string; matricula: string; cartao: string; limite: number; }
+interface ConvenioCliente { id?: number; convenioId: number; convenioNome: string; matricula: string; cartao: string; }
 interface AutorizacaoCliente { id?: number; nome: string; }
 interface DescontoCliente {
   id?: number; produtoId?: number; tipoAgrupador?: number; agrupadorId?: number;
@@ -48,7 +48,10 @@ interface ClienteDetalhe extends Cliente {
   prazoPagamento: number; qtdeDias: number; diaFechamento: number; diaVencimento: number; qtdeMeses: number;
   permiteVendaParcelada: boolean; qtdeMaxParcelas: number;
   permiteVendaPrazo: boolean; permiteVendaVista: boolean;
-  calcularJuros: boolean; bloquearComissao: boolean;
+  bloquearDescontoParcelada: boolean; venderSomenteComSenha: boolean;
+  cobrarJurosAtraso: boolean; bloquearComissao: boolean;
+  diasCarenciaBloqueio: number;
+  calcularJuros: boolean;
   pedirSenhaVendaPrazo: boolean; senhaVendaPrazo: string;
   enderecos: Endereco[];
   contatos: Contato[];
@@ -56,7 +59,10 @@ interface ClienteDetalhe extends Cliente {
   autorizacoes: AutorizacaoCliente[];
   descontos: DescontoCliente[];
   usosContinuos: UsoContinuoCliente[];
+  bloqueios: { tipoPagamentoId: number; tipoPagamentoNome: string; }[];
 }
+
+interface TipoPagLookup { id: number; nome: string; }
 
 interface AbaEdicao { cliente: Cliente; form: ClienteDetalhe; isDirty: boolean; }
 interface ColunaEstado extends ColunaDef { visivel: boolean; }
@@ -122,6 +128,11 @@ export class ClientesComponent implements OnInit, OnDestroy {
   accDescontos = signal(false);
   accUsoContinuo = signal(false);
 
+  // Bloqueio condições de pagamento
+  tiposPagamento = signal<TipoPagLookup[]>([]);
+  bloqueioIds = signal<Set<number>>(new Set());
+  Math = Math;
+
   // CPF/CNPJ
   buscandoCnpj = signal(false);
   pessoaEncontrada = signal<any>(null);
@@ -131,8 +142,6 @@ export class ClientesComponent implements OnInit, OnDestroy {
   convAddId = signal(0);
   convAddMatricula = signal('');
   convAddCartao = signal('');
-  convAddLimite = signal(0);
-
   // Autorizacao
   autAddNome = signal('');
 
@@ -181,6 +190,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.carregar();
     this.carregarConveniosLookup();
+    this.carregarTiposPagamento();
   }
 
   ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
@@ -239,6 +249,21 @@ export class ClientesComponent implements OnInit, OnDestroy {
       error: () => {}
     });
   }
+
+  private carregarTiposPagamento() {
+    this.http.get<any>(`${environment.apiUrl}/tipospagamento`).subscribe({
+      next: r => this.tiposPagamento.set(
+        (r.data ?? []).filter((t: any) => t.ativo).map((t: any) => ({ id: t.id, nome: t.nome }))
+      )
+    });
+  }
+
+  toggleBloqueio(tpId: number) {
+    this.bloqueioIds.update(s => { const ns = new Set(s); if (ns.has(tpId)) ns.delete(tpId); else ns.add(tpId); return ns; });
+    this.isDirty.set(true);
+  }
+
+  isBloqueado(tpId: number): boolean { return this.bloqueioIds().has(tpId); }
 
   // ── Dados ─────────────────────────────────────────────────────────
   carregar() {
@@ -414,6 +439,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
         this.abaAtivaId.set(c.id!);
         this.clienteForm.set(this.clonarDetalhe(detalhe));
         this.formOriginal = this.clonarDetalhe(detalhe);
+        this.bloqueioIds.set(new Set((detalhe.bloqueios ?? []).map(b => b.tipoPagamentoId)));
         this.erro.set(''); this.errosCampos.set({});
         this.isDirty.set(false); this.modoEdicao.set(true);
         this.resetAccordions();
@@ -431,6 +457,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.selecionado.set(aba.cliente);
     this.clienteForm.set(this.clonarDetalhe(aba.form));
     this.formOriginal = this.clonarDetalhe(aba.form);
+    this.bloqueioIds.set(new Set((aba.form.bloqueios ?? []).map(b => b.tipoPagamentoId)));
     this.isDirty.set(aba.isDirty);
     this.errosCampos.set({}); this.erro.set('');
     this.modoEdicao.set(true); this.modo.set('form');
@@ -474,11 +501,15 @@ export class ClientesComponent implements OnInit, OnDestroy {
       diaFechamento: f.diaFechamento, diaVencimento: f.diaVencimento, qtdeMeses: f.qtdeMeses,
       permiteVendaParcelada: f.permiteVendaParcelada, qtdeMaxParcelas: f.qtdeMaxParcelas,
       permiteVendaPrazo: f.permiteVendaPrazo, permiteVendaVista: f.permiteVendaVista,
-      calcularJuros: f.calcularJuros, bloquearComissao: f.bloquearComissao,
+      bloquearDescontoParcelada: f.bloquearDescontoParcelada, venderSomenteComSenha: f.venderSomenteComSenha,
+      cobrarJurosAtraso: f.cobrarJurosAtraso, bloquearComissao: f.bloquearComissao,
+      diasCarenciaBloqueio: f.diasCarenciaBloqueio,
+      calcularJuros: f.calcularJuros,
       pedirSenhaVendaPrazo: f.pedirSenhaVendaPrazo, senhaVendaPrazo: f.senhaVendaPrazo,
       enderecos: f.enderecos, contatos: f.contatos,
       convenios: f.convenios, autorizacoes: f.autorizacoes,
-      descontos: f.descontos, usosContinuos: f.usosContinuos
+      descontos: f.descontos, usosContinuos: f.usosContinuos,
+      bloqueioTipoPagamentoIds: Array.from(this.bloqueioIds())
     };
 
     const headers = this.headerLiberacao();
@@ -750,10 +781,10 @@ export class ClientesComponent implements OnInit, OnDestroy {
       ...f,
       convenios: [...f.convenios, {
         convenioId: convId, convenioNome: conv.pessoaNome,
-        matricula: this.convAddMatricula(), cartao: this.convAddCartao(), limite: this.convAddLimite()
+        matricula: this.convAddMatricula(), cartao: this.convAddCartao()
       }]
     }));
-    this.convAddId.set(0); this.convAddMatricula.set(''); this.convAddCartao.set(''); this.convAddLimite.set(0);
+    this.convAddId.set(0); this.convAddMatricula.set(''); this.convAddCartao.set('');
     this.isDirty.set(true);
   }
 
@@ -1135,10 +1166,15 @@ export class ClientesComponent implements OnInit, OnDestroy {
       qtdeMaxParcelas: data.qtdeMaxParcelas ?? 3,
       permiteVendaPrazo: data.permiteVendaPrazo ?? true,
       permiteVendaVista: data.permiteVendaVista ?? true,
-      calcularJuros: data.calcularJuros ?? false,
+      bloquearDescontoParcelada: data.bloquearDescontoParcelada ?? false,
+      venderSomenteComSenha: data.venderSomenteComSenha ?? false,
+      cobrarJurosAtraso: data.cobrarJurosAtraso ?? true,
       bloquearComissao: data.bloquearComissao ?? false,
+      diasCarenciaBloqueio: data.diasCarenciaBloqueio ?? 0,
+      calcularJuros: data.calcularJuros ?? false,
       pedirSenhaVendaPrazo: data.pedirSenhaVendaPrazo ?? false,
-      senhaVendaPrazo: data.senhaVendaPrazo ?? ''
+      senhaVendaPrazo: data.senhaVendaPrazo ?? '',
+      bloqueios: data.bloqueios ?? []
     };
   }
 
@@ -1148,17 +1184,20 @@ export class ClientesComponent implements OnInit, OnDestroy {
       rg: '', dataNascimento: '', observacao: '', aviso: '',
       bloqueado: false, ativo: true,
       limiteCredito: 0, descontoGeral: 0, permiteFidelidade: true,
-      prazoPagamento: 1, qtdeDias: 30, diaFechamento: 1, diaVencimento: 10, qtdeMeses: 1,
+      prazoPagamento: 2, qtdeDias: 30, diaFechamento: 1, diaVencimento: 10, qtdeMeses: 1,
       permiteVendaParcelada: true, qtdeMaxParcelas: 3,
       permiteVendaPrazo: true, permiteVendaVista: true,
-      calcularJuros: false, bloquearComissao: false,
+      bloquearDescontoParcelada: false, venderSomenteComSenha: false,
+      cobrarJurosAtraso: true, bloquearComissao: false,
+      diasCarenciaBloqueio: 0, calcularJuros: false,
       pedirSenhaVendaPrazo: false, senhaVendaPrazo: '',
       enderecos: [{ tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
       contatos: [],
       convenios: [],
       autorizacoes: [],
       descontos: [],
-      usosContinuos: []
+      usosContinuos: [],
+      bloqueios: []
     };
   }
 
@@ -1170,7 +1209,8 @@ export class ClientesComponent implements OnInit, OnDestroy {
       convenios: d.convenios.map(c => ({ ...c })),
       autorizacoes: d.autorizacoes.map(a => ({ ...a })),
       descontos: d.descontos.map(d => ({ ...d })),
-      usosContinuos: d.usosContinuos.map(u => ({ ...u }))
+      usosContinuos: d.usosContinuos.map(u => ({ ...u })),
+      bloqueios: (d.bloqueios ?? []).map(b => ({ ...b }))
     };
   }
 

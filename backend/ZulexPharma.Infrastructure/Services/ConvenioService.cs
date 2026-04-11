@@ -74,13 +74,16 @@ public class ConvenioService : IConvenioService
                 MesesParaVencimento = c.MesesParaVencimento,
                 QtdeViasCupom = c.QtdeViasCupom,
                 Bloqueado = c.Bloqueado,
+                PermiteFidelidade = c.PermiteFidelidade,
                 BloquearVendaParcelada = c.BloquearVendaParcelada,
                 BloquearDescontoParcelada = c.BloquearDescontoParcelada,
                 BloquearComissao = c.BloquearComissao,
                 VenderSomenteComSenha = c.VenderSomenteComSenha,
+                SenhaVenda = c.SenhaVenda,
                 CobrarJurosAtraso = c.CobrarJurosAtraso,
                 DiasCarenciaBloqueio = c.DiasCarenciaBloqueio,
                 LimiteCredito = c.LimiteCredito,
+                DescontoGeral = c.DescontoGeral,
                 MaximoParcelas = c.MaximoParcelas,
                 Ativo = c.Ativo,
                 CriadoEm = c.CriadoEm,
@@ -122,13 +125,16 @@ public class ConvenioService : IConvenioService
                 MesesParaVencimento = dto.MesesParaVencimento,
                 QtdeViasCupom = Math.Clamp(dto.QtdeViasCupom, 1, 2),
                 Bloqueado = dto.Bloqueado,
+                PermiteFidelidade = dto.PermiteFidelidade,
                 BloquearVendaParcelada = dto.BloquearVendaParcelada,
                 BloquearDescontoParcelada = dto.BloquearDescontoParcelada,
                 BloquearComissao = dto.BloquearComissao,
                 VenderSomenteComSenha = dto.VenderSomenteComSenha,
+                SenhaVenda = dto.SenhaVenda,
                 CobrarJurosAtraso = dto.CobrarJurosAtraso,
                 DiasCarenciaBloqueio = dto.DiasCarenciaBloqueio,
                 LimiteCredito = dto.LimiteCredito,
+                DescontoGeral = dto.DescontoGeral,
                 MaximoParcelas = Math.Max(1, dto.MaximoParcelas),
                 Ativo = dto.Ativo
             };
@@ -195,13 +201,16 @@ public class ConvenioService : IConvenioService
             conv.MesesParaVencimento = dto.MesesParaVencimento;
             conv.QtdeViasCupom = Math.Clamp(dto.QtdeViasCupom, 1, 2);
             conv.Bloqueado = dto.Bloqueado;
+            conv.PermiteFidelidade = dto.PermiteFidelidade;
             conv.BloquearVendaParcelada = dto.BloquearVendaParcelada;
             conv.BloquearDescontoParcelada = dto.BloquearDescontoParcelada;
             conv.BloquearComissao = dto.BloquearComissao;
             conv.VenderSomenteComSenha = dto.VenderSomenteComSenha;
+            conv.SenhaVenda = dto.SenhaVenda;
             conv.CobrarJurosAtraso = dto.CobrarJurosAtraso;
             conv.DiasCarenciaBloqueio = dto.DiasCarenciaBloqueio;
             conv.LimiteCredito = dto.LimiteCredito;
+            conv.DescontoGeral = dto.DescontoGeral;
             conv.MaximoParcelas = Math.Max(1, dto.MaximoParcelas);
             conv.Ativo = dto.Ativo;
 

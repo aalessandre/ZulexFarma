@@ -25,9 +25,9 @@ interface ConvenioDetalhe {
   pessoaRazaoSocial?: string; pessoaIeRg?: string;
   aviso?: string; observacao?: string;
   modoFechamento: number; diasCorridos?: number; diaFechamento?: number; diaVencimento?: number; mesesParaVencimento: number;
-  qtdeViasCupom: number; bloqueado: boolean; bloquearVendaParcelada: boolean; bloquearDescontoParcelada: boolean;
-  bloquearComissao: boolean; venderSomenteComSenha: boolean; cobrarJurosAtraso: boolean; diasCarenciaBloqueio: number;
-  limiteCredito: number; maximoParcelas: number; ativo: boolean; criadoEm: string;
+  qtdeViasCupom: number; bloqueado: boolean; permiteFidelidade: boolean; bloquearVendaParcelada: boolean; bloquearDescontoParcelada: boolean;
+  bloquearComissao: boolean; venderSomenteComSenha: boolean; senhaVenda: string; cobrarJurosAtraso: boolean; diasCarenciaBloqueio: number;
+  limiteCredito: number; descontoGeral: number; maximoParcelas: number; ativo: boolean; criadoEm: string;
   descontos: DescontoItem[]; bloqueios: BloqueioItem[];
 }
 
@@ -38,9 +38,9 @@ interface ConvenioForm {
   pessoaId: number; tipo: string; cpfCnpj: string; nome: string; razaoSocial: string; inscricaoEstadual: string; rg: string;
   aviso: string; observacao: string;
   modoFechamento: number; diasCorridos: number; diaFechamento: number; diaVencimento: number; mesesParaVencimento: number;
-  qtdeViasCupom: number; bloqueado: boolean; bloquearVendaParcelada: boolean; bloquearDescontoParcelada: boolean;
-  bloquearComissao: boolean; venderSomenteComSenha: boolean; cobrarJurosAtraso: boolean; diasCarenciaBloqueio: number;
-  limiteCredito: number; maximoParcelas: number; ativo: boolean;
+  qtdeViasCupom: number; bloqueado: boolean; permiteFidelidade: boolean; bloquearVendaParcelada: boolean; bloquearDescontoParcelada: boolean;
+  bloquearComissao: boolean; venderSomenteComSenha: boolean; senhaVenda: string; cobrarJurosAtraso: boolean; diasCarenciaBloqueio: number;
+  limiteCredito: number; descontoGeral: number; maximoParcelas: number; ativo: boolean;
 }
 
 interface ColunaDef { campo: string; label: string; largura: number; minLargura: number; padrao: boolean; }
@@ -103,11 +103,12 @@ export class ConveniosComponent implements OnInit, OnDestroy {
   descSemSenha = signal(0);
   descComSenha = signal(0);
 
+  Math = Math;
+
   // Accordions
   accGeral = signal(true);
   accEnderecos = signal(false);
   accContatos = signal(false);
-  accLimites = signal(false);
   accDescontos = signal(false);
 
   // Colunas
@@ -296,7 +297,7 @@ export class ConveniosComponent implements OnInit, OnDestroy {
     this.form.set(this.novoForm()); this.descontos.set([]); this.bloqueioIds.set(new Set());
     this.pessoaEncontrada.set(null);
     this.modoEdicao.set(false); this.isDirty.set(false); this.erro.set(''); this.errosCampos.set({});
-    this.accGeral.set(true); this.accEnderecos.set(false); this.accContatos.set(false); this.accLimites.set(false); this.accDescontos.set(false);
+    this.accGeral.set(true); this.accEnderecos.set(false); this.accContatos.set(false); this.accDescontos.set(false);
     this.modo.set('form');
   }
 
@@ -317,11 +318,11 @@ export class ConveniosComponent implements OnInit, OnDestroy {
           modoFechamento: d.modoFechamento, diasCorridos: d.diasCorridos ?? 30,
           diaFechamento: d.diaFechamento ?? 1, diaVencimento: d.diaVencimento ?? 10,
           mesesParaVencimento: d.mesesParaVencimento, qtdeViasCupom: d.qtdeViasCupom,
-          bloqueado: d.bloqueado, bloquearVendaParcelada: d.bloquearVendaParcelada,
+          bloqueado: d.bloqueado, permiteFidelidade: d.permiteFidelidade ?? false, bloquearVendaParcelada: d.bloquearVendaParcelada,
           bloquearDescontoParcelada: d.bloquearDescontoParcelada, bloquearComissao: d.bloquearComissao,
-          venderSomenteComSenha: d.venderSomenteComSenha, cobrarJurosAtraso: d.cobrarJurosAtraso,
+          venderSomenteComSenha: d.venderSomenteComSenha, senhaVenda: d.senhaVenda ?? '', cobrarJurosAtraso: d.cobrarJurosAtraso,
           diasCarenciaBloqueio: d.diasCarenciaBloqueio, limiteCredito: d.limiteCredito,
-          maximoParcelas: d.maximoParcelas, ativo: d.ativo
+          descontoGeral: d.descontoGeral ?? 0, maximoParcelas: d.maximoParcelas, ativo: d.ativo
         });
         this.pessoaEncontrada.set(null);
         this.descontos.set(d.descontos);
@@ -427,7 +428,7 @@ export class ConveniosComponent implements OnInit, OnDestroy {
   acaoCss(acao: string): string { const map: Record<string, string> = { 'CRIAÇÃO': 'log-badge badge-criacao', 'ALTERAÇÃO': 'log-badge badge-alteracao', 'EXCLUSÃO': 'log-badge badge-exclusao', 'DESATIVAÇÃO': 'log-badge badge-desativacao' }; return map[acao] ?? 'log-badge'; }
 
   private novoForm(): ConvenioForm {
-    return { pessoaId: 0, tipo: 'J', cpfCnpj: '', nome: '', razaoSocial: '', inscricaoEstadual: '', rg: '', aviso: '', observacao: '', modoFechamento: 1, diasCorridos: 30, diaFechamento: 1, diaVencimento: 10, mesesParaVencimento: 1, qtdeViasCupom: 1, bloqueado: false, bloquearVendaParcelada: false, bloquearDescontoParcelada: false, bloquearComissao: false, venderSomenteComSenha: false, cobrarJurosAtraso: true, diasCarenciaBloqueio: 0, limiteCredito: 0, maximoParcelas: 1, ativo: true };
+    return { pessoaId: 0, tipo: 'J', cpfCnpj: '', nome: '', razaoSocial: '', inscricaoEstadual: '', rg: '', aviso: '', observacao: '', modoFechamento: 2, diasCorridos: 30, diaFechamento: 1, diaVencimento: 10, mesesParaVencimento: 1, qtdeViasCupom: 1, bloqueado: false, permiteFidelidade: false, bloquearVendaParcelada: false, bloquearDescontoParcelada: false, bloquearComissao: false, venderSomenteComSenha: false, senhaVenda: '', cobrarJurosAtraso: true, diasCarenciaBloqueio: 0, limiteCredito: 0, descontoGeral: 0, maximoParcelas: 1, ativo: true };
   }
   private clonar<T>(obj: T): T { return JSON.parse(JSON.stringify(obj)); }
 }

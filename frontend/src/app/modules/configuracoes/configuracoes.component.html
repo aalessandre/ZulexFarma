@@ -342,6 +342,26 @@
                 </div>
               </div>
 
+              <div class="cfg-sub-titulo" style="margin-top:16px">IBPTax (Lei 12.741/2012)</div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field">
+                  <label>TOKEN IBPTAX
+                    <span class="cfg-info" title="Token obtido em deolhonoimposto.ibpt.org.br ao cadastrar a empresa.">i</span>
+                  </label>
+                  <input type="text" [value]="getConfig('ibpt.token', '')"
+                         (input)="setConfig('ibpt.token', $any($event.target).value)"
+                         placeholder="Token da API IBPT" />
+                </div>
+                <div class="cfg-field">
+                  <label>CNPJ IBPTAX
+                    <span class="cfg-info" title="CNPJ da empresa cadastrada no IBPT.">i</span>
+                  </label>
+                  <input type="text" [value]="getConfig('ibpt.cnpj', '')"
+                         (input)="setConfig('ibpt.cnpj', $any($event.target).value)"
+                         placeholder="00.000.000/0000-00" />
+                </div>
+              </div>
+
               <div class="cfg-sub-titulo" style="margin-top:16px">NFC-e</div>
               <div class="cfg-grid cfg-grid-compact">
                 <div class="cfg-field">

@@ -56,6 +56,7 @@ public class ClienteService : IClienteService
                 .Include(x => x.Convenios).ThenInclude(cv => cv.Convenio).ThenInclude(cv => cv.Pessoa)
                 .Include(x => x.Autorizacoes)
                 .Include(x => x.Descontos)
+                .Include(x => x.Bloqueios).ThenInclude(b => b.TipoPagamento)
                 .Include(x => x.UsosContinuos).ThenInclude(u => u.Produto)
                 .FirstOrDefaultAsync(x => x.Id == id);
             if (c == null) return null;
@@ -72,7 +73,12 @@ public class ClienteService : IClienteService
                 QtdeMeses = c.QtdeMeses, PermiteVendaParcelada = c.PermiteVendaParcelada,
                 QtdeMaxParcelas = c.QtdeMaxParcelas, PermiteVendaPrazo = c.PermiteVendaPrazo,
                 PermiteVendaVista = c.PermiteVendaVista, Bloqueado = c.Bloqueado,
-                CalcularJuros = c.CalcularJuros, BloquearComissao = c.BloquearComissao,
+                BloquearDescontoParcelada = c.BloquearDescontoParcelada,
+                VenderSomenteComSenha = c.VenderSomenteComSenha,
+                CobrarJurosAtraso = c.CobrarJurosAtraso,
+                BloquearComissao = c.BloquearComissao,
+                DiasCarenciaBloqueio = c.DiasCarenciaBloqueio,
+                CalcularJuros = c.CalcularJuros,
                 PedirSenhaVendaPrazo = c.PedirSenhaVendaPrazo, SenhaVendaPrazo = c.SenhaVendaPrazo,
                 Aviso = c.Aviso, Observacao = c.Observacao, Ativo = c.Ativo, CriadoEm = c.CriadoEm,
                 Enderecos = c.Pessoa.Enderecos.Select(e => new EnderecoDto
@@ -87,7 +93,7 @@ public class ClienteService : IClienteService
                 Convenios = c.Convenios.Select(cv => new ClienteConvenioDto
                 {
                     Id = cv.Id, ConvenioId = cv.ConvenioId, ConvenioNome = cv.Convenio?.Pessoa?.Nome,
-                    Matricula = cv.Matricula, Cartao = cv.Cartao, Limite = cv.Limite
+                    Matricula = cv.Matricula, Cartao = cv.Cartao
                 }).ToList(),
                 Autorizacoes = c.Autorizacoes.Select(a => new ClienteAutorizacaoDto { Id = a.Id, Nome = a.Nome }).ToList(),
                 Descontos = c.Descontos.Select(d => new ClienteDescontoDto
@@ -104,6 +110,11 @@ public class ClienteService : IClienteService
                     UltimaCompra = u.UltimaCompra?.ToString("yyyy-MM-dd"),
                     ProximaCompra = u.ProximaCompra?.ToString("yyyy-MM-dd"),
                     ColaboradorNome = u.ColaboradorNome
+                }).ToList(),
+                Bloqueios = c.Bloqueios.Select(b => new ClienteBloqueioDto
+                {
+                    TipoPagamentoId = b.TipoPagamentoId,
+                    TipoPagamentoNome = b.TipoPagamento?.Nome ?? ""
                 }).ToList()
             };
         }
@@ -143,6 +154,7 @@ public class ClienteService : IClienteService
                 .Include(c => c.Pessoa).ThenInclude(p => p.Contatos)
                 .Include(c => c.Convenios).Include(c => c.Autorizacoes)
                 .Include(c => c.Descontos).Include(c => c.UsosContinuos)
+                .Include(c => c.Bloqueios)
                 .FirstOrDefaultAsync(c => c.Id == id)
                 ?? throw new KeyNotFoundException($"Cliente {id} não encontrado.");
 
@@ -169,15 +181,18 @@ public class ClienteService : IClienteService
             _db.Set<ClienteAutorizacao>().RemoveRange(cli.Autorizacoes);
             _db.Set<ClienteDesconto>().RemoveRange(cli.Descontos);
             _db.Set<ClienteUsoContinuo>().RemoveRange(cli.UsosContinuos);
+            _db.Set<ClienteBloqueio>().RemoveRange(cli.Bloqueios);
 
             foreach (var cv in dto.Convenios)
-                cli.Convenios.Add(new ClienteConvenio { ConvenioId = cv.ConvenioId, Matricula = cv.Matricula, Cartao = cv.Cartao, Limite = cv.Limite });
+                cli.Convenios.Add(new ClienteConvenio { ConvenioId = cv.ConvenioId, Matricula = cv.Matricula, Cartao = cv.Cartao });
             foreach (var a in dto.Autorizacoes)
                 cli.Autorizacoes.Add(new ClienteAutorizacao { Nome = a.Nome.Trim().ToUpper() });
             foreach (var d in dto.Descontos)
                 cli.Descontos.Add(new ClienteDesconto { ProdutoId = d.ProdutoId, TipoAgrupador = d.TipoAgrupador, AgrupadorId = d.AgrupadorId, AgrupadorOuProdutoNome = d.AgrupadorOuProdutoNome, DescontoMaxSemSenha = d.DescontoMaxSemSenha, DescontoMaxComSenha = d.DescontoMaxComSenha });
             foreach (var u in dto.UsosContinuos)
                 cli.UsosContinuos.Add(new ClienteUsoContinuo { ProdutoId = u.ProdutoId, Fabricante = u.Fabricante, Apresentacao = u.Apresentacao, QtdeAoDia = u.QtdeAoDia, UltimaCompra = string.IsNullOrEmpty(u.UltimaCompra) ? null : DateTime.Parse(u.UltimaCompra), ProximaCompra = string.IsNullOrEmpty(u.ProximaCompra) ? null : DateTime.Parse(u.ProximaCompra), ColaboradorNome = u.ColaboradorNome });
+            foreach (var tpId in dto.BloqueioTipoPagamentoIds.Distinct())
+                cli.Bloqueios.Add(new ClienteBloqueio { TipoPagamentoId = tpId });
 
             await _db.SaveChangesAsync();
             var novo = ParaDict(cli, pessoa);
@@ -250,10 +265,11 @@ public class ClienteService : IClienteService
     {
         var cli = new Cliente();
         AtualizarCamposCliente(cli, dto);
-        foreach (var cv in dto.Convenios) cli.Convenios.Add(new ClienteConvenio { ConvenioId = cv.ConvenioId, Matricula = cv.Matricula, Cartao = cv.Cartao, Limite = cv.Limite });
+        foreach (var cv in dto.Convenios) cli.Convenios.Add(new ClienteConvenio { ConvenioId = cv.ConvenioId, Matricula = cv.Matricula, Cartao = cv.Cartao });
         foreach (var a in dto.Autorizacoes) cli.Autorizacoes.Add(new ClienteAutorizacao { Nome = a.Nome.Trim().ToUpper() });
         foreach (var d in dto.Descontos) cli.Descontos.Add(new ClienteDesconto { ProdutoId = d.ProdutoId, TipoAgrupador = d.TipoAgrupador, AgrupadorId = d.AgrupadorId, AgrupadorOuProdutoNome = d.AgrupadorOuProdutoNome, DescontoMaxSemSenha = d.DescontoMaxSemSenha, DescontoMaxComSenha = d.DescontoMaxComSenha });
         foreach (var u in dto.UsosContinuos) cli.UsosContinuos.Add(new ClienteUsoContinuo { ProdutoId = u.ProdutoId, Fabricante = u.Fabricante, Apresentacao = u.Apresentacao, QtdeAoDia = u.QtdeAoDia, UltimaCompra = string.IsNullOrEmpty(u.UltimaCompra) ? null : DateTime.Parse(u.UltimaCompra), ProximaCompra = string.IsNullOrEmpty(u.ProximaCompra) ? null : DateTime.Parse(u.ProximaCompra), ColaboradorNome = u.ColaboradorNome });
+        foreach (var tpId in dto.BloqueioTipoPagamentoIds) cli.Bloqueios.Add(new ClienteBloqueio { TipoPagamentoId = tpId });
         return cli;
     }
 
@@ -267,8 +283,11 @@ public class ClienteService : IClienteService
         cli.QtdeMeses = dto.PrazoPagamento == ModoFechamento.PorFechamento ? dto.QtdeMeses : null;
         cli.PermiteVendaParcelada = dto.PermiteVendaParcelada; cli.QtdeMaxParcelas = Math.Max(1, dto.QtdeMaxParcelas);
         cli.PermiteVendaPrazo = dto.PermiteVendaPrazo; cli.PermiteVendaVista = dto.PermiteVendaVista;
-        cli.Bloqueado = dto.Bloqueado; cli.CalcularJuros = dto.CalcularJuros;
-        cli.BloquearComissao = dto.BloquearComissao; cli.PedirSenhaVendaPrazo = dto.PedirSenhaVendaPrazo;
+        cli.Bloqueado = dto.Bloqueado; cli.BloquearDescontoParcelada = dto.BloquearDescontoParcelada;
+        cli.VenderSomenteComSenha = dto.VenderSomenteComSenha; cli.CobrarJurosAtraso = dto.CobrarJurosAtraso;
+        cli.BloquearComissao = dto.BloquearComissao; cli.DiasCarenciaBloqueio = dto.DiasCarenciaBloqueio;
+        cli.CalcularJuros = dto.CalcularJuros;
+        cli.PedirSenhaVendaPrazo = dto.PedirSenhaVendaPrazo;
         cli.SenhaVendaPrazo = dto.SenhaVendaPrazo; cli.Aviso = dto.Aviso?.Trim();
         cli.Observacao = dto.Observacao?.Trim(); cli.Ativo = dto.Ativo;
     }

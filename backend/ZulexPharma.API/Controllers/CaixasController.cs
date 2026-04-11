@@ -18,6 +18,28 @@ public class CaixasController : ControllerBase
 
     public CaixasController(AppDbContext db) => _db = db;
 
+    /// <summary>Lista caixas da filial do usuário (abertos e fechados recentes).</summary>
+    [HttpGet]
+    public async Task<IActionResult> Listar()
+    {
+        try
+        {
+            var usuarioId = long.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+            var usuario = await _db.Usuarios.FindAsync(usuarioId);
+            if (usuario == null) return BadRequest(new { success = false, message = "Usuário não encontrado." });
+
+            var caixas = await _db.Caixas
+                .Include(c => c.Colaborador).ThenInclude(c => c.Pessoa)
+                .Where(c => c.FilialId == usuario.FilialId)
+                .OrderByDescending(c => c.DataAbertura)
+                .Take(50)
+                .ToListAsync();
+
+            return Ok(new { success = true, data = caixas.Select(MapearCaixa).ToList() });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em CaixasController.Listar"); return StatusCode(500, new { success = false, message = "Erro ao listar caixas." }); }
+    }
+
     /// <summary>Retorna o caixa aberto do usuário logado (se houver).</summary>
     [HttpGet("aberto")]
     public async Task<IActionResult> ObterAberto()

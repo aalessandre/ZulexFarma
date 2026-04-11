@@ -44,8 +44,12 @@ public class ClienteDetalheDto
     public bool PermiteVendaPrazo { get; set; }
     public bool PermiteVendaVista { get; set; }
     public bool Bloqueado { get; set; }
-    public bool CalcularJuros { get; set; }
+    public bool BloquearDescontoParcelada { get; set; }
+    public bool VenderSomenteComSenha { get; set; }
+    public bool CobrarJurosAtraso { get; set; }
     public bool BloquearComissao { get; set; }
+    public int DiasCarenciaBloqueio { get; set; }
+    public bool CalcularJuros { get; set; }
     public bool PedirSenhaVendaPrazo { get; set; }
     public string? SenhaVendaPrazo { get; set; }
     public string? Aviso { get; set; }
@@ -59,6 +63,7 @@ public class ClienteDetalheDto
     public List<ClienteAutorizacaoDto> Autorizacoes { get; set; } = new();
     public List<ClienteDescontoDto> Descontos { get; set; } = new();
     public List<ClienteUsoContinuoDto> UsosContinuos { get; set; } = new();
+    public List<ClienteBloqueioDto> Bloqueios { get; set; } = new();
 }
 
 public class ClienteFormDto
@@ -85,8 +90,12 @@ public class ClienteFormDto
     public bool PermiteVendaPrazo { get; set; }
     public bool PermiteVendaVista { get; set; } = true;
     public bool Bloqueado { get; set; }
-    public bool CalcularJuros { get; set; } = true;
+    public bool BloquearDescontoParcelada { get; set; }
+    public bool VenderSomenteComSenha { get; set; }
+    public bool CobrarJurosAtraso { get; set; } = true;
     public bool BloquearComissao { get; set; }
+    public int DiasCarenciaBloqueio { get; set; }
+    public bool CalcularJuros { get; set; } = true;
     public bool PedirSenhaVendaPrazo { get; set; }
     public string? SenhaVendaPrazo { get; set; }
     public string? Aviso { get; set; }
@@ -99,6 +108,7 @@ public class ClienteFormDto
     public List<ClienteAutorizacaoDto> Autorizacoes { get; set; } = new();
     public List<ClienteDescontoDto> Descontos { get; set; } = new();
     public List<ClienteUsoContinuoDto> UsosContinuos { get; set; } = new();
+    public List<long> BloqueioTipoPagamentoIds { get; set; } = new();
 }
 
 public class EnderecoDto
@@ -131,7 +141,6 @@ public class ClienteConvenioDto
     public string? ConvenioNome { get; set; }
     public string? Matricula { get; set; }
     public string? Cartao { get; set; }
-    public decimal Limite { get; set; }
 }
 
 public class ClienteAutorizacaoDto
@@ -164,4 +173,10 @@ public class ClienteUsoContinuoDto
     public string? UltimaCompra { get; set; }
     public string? ProximaCompra { get; set; }
     public string? ColaboradorNome { get; set; }
+}
+
+public class ClienteBloqueioDto
+{
+    public long TipoPagamentoId { get; set; }
+    public string TipoPagamentoNome { get; set; } = string.Empty;
 }

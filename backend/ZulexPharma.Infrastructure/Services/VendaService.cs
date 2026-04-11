@@ -17,7 +17,7 @@ public class VendaService : IVendaService
 
     public VendaService(AppDbContext db, ILogAcaoService log) { _db = db; _log = log; }
 
-    public async Task<List<VendaListDto>> ListarAsync(long? filialId = null, string? status = null)
+    public async Task<List<VendaListDto>> ListarAsync(long? filialId = null, string? status = null, long? caixaId = null)
     {
         try
         {
@@ -28,6 +28,7 @@ public class VendaService : IVendaService
                 .AsQueryable();
 
             if (filialId.HasValue) query = query.Where(v => v.FilialId == filialId);
+            if (caixaId.HasValue) query = query.Where(v => v.CaixaId == caixaId);
             if (status == "aberta") query = query.Where(v => v.Status == VendaStatus.Aberta);
             else if (status == "finalizada") query = query.Where(v => v.Status == VendaStatus.Finalizada);
             else if (status == "cancelada") query = query.Where(v => v.Status == VendaStatus.Cancelada);
@@ -39,9 +40,12 @@ public class VendaService : IVendaService
                     ClienteNome = v.Cliente != null ? v.Cliente.Pessoa.Nome : null,
                     ColaboradorNome = v.Colaborador != null ? v.Colaborador.Pessoa.Nome : null,
                     TipoPagamentoNome = v.TipoPagamento != null ? v.TipoPagamento.Nome : null,
+                    ConvenioNome = v.ConvenioId != null ? _db.Set<Convenio>().Where(c => c.Id == v.ConvenioId).Select(c => c.Pessoa.Nome).FirstOrDefault() : null,
+                    TotalBruto = v.TotalBruto, TotalDesconto = v.TotalDesconto,
                     TotalLiquido = v.TotalLiquido, TotalItens = v.TotalItens,
                     Status = v.Status, StatusDescricao = StatusTexto(v.Status),
-                    CriadoEm = v.CriadoEm
+                    CriadoEm = v.CriadoEm,
+                    DataPreVenda = v.DataPreVenda, DataFinalizacao = v.DataFinalizacao, DataEmissaoCupom = v.DataEmissaoCupom
                 })
                 .ToListAsync();
         }
@@ -75,6 +79,7 @@ public class VendaService : IVendaService
                 TotalBruto = v.TotalBruto, TotalDesconto = v.TotalDesconto,
                 TotalLiquido = v.TotalLiquido, TotalItens = v.TotalItens,
                 Status = v.Status, Observacao = v.Observacao, CriadoEm = v.CriadoEm,
+                DataPreVenda = v.DataPreVenda, DataFinalizacao = v.DataFinalizacao, DataEmissaoCupom = v.DataEmissaoCupom,
                 Itens = v.Itens.OrderBy(i => i.Ordem).Select(i =>
                 {
                     var d = dados.FirstOrDefault(x => x.ProdutoId == i.ProdutoId);
@@ -180,7 +185,69 @@ public class VendaService : IVendaService
         catch (Exception ex) when (ex is not KeyNotFoundException and not ArgumentException) { Log.Error(ex, "Erro em VendaService.AtualizarAsync | Id: {Id}", id); throw; }
     }
 
-    public async Task FinalizarAsync(long id)
+    public async Task<VendaPrazoValidacaoDto> ValidarVendaPrazoAsync(ValidarPrazoRequestDto request)
+    {
+        var result = new VendaPrazoValidacaoDto();
+        var cliente = await _db.Set<Cliente>()
+            .Include(c => c.Bloqueios)
+            .FirstOrDefaultAsync(c => c.Id == request.ClienteId);
+        if (cliente == null) throw new KeyNotFoundException("Cliente não encontrado.");
+
+        Convenio? convenio = null;
+        if (request.ConvenioId.HasValue)
+            convenio = await _db.Set<Convenio>()
+                .Include(c => c.Bloqueios)
+                .FirstOrDefaultAsync(c => c.Id == request.ConvenioId);
+
+        // 1. Bloqueado
+        if (cliente.Bloqueado) { result.ClienteBloqueado = true; result.MensagemBloqueio = "Cliente está bloqueado."; }
+        if (convenio?.Bloqueado == true) { result.ConvenioBloqueado = true; result.MensagemBloqueio = "Convênio está bloqueado."; }
+
+        // 2. Tipo pagamento bloqueado
+        var tpBloqueadoCliente = cliente.Bloqueios.Any(b => b.TipoPagamentoId == request.TipoPagamentoId);
+        var tpBloqueadoConvenio = convenio?.Bloqueios.Any(b => b.TipoPagamentoId == request.TipoPagamentoId) ?? false;
+        if (tpBloqueadoCliente || tpBloqueadoConvenio)
+        {
+            result.TipoPagamentoBloqueado = true;
+            result.MensagemTipoBloqueado = tpBloqueadoCliente
+                ? "Condição de pagamento bloqueada para este cliente."
+                : "Condição de pagamento bloqueada para este convênio.";
+        }
+
+        // 3. Limite de crédito
+        var limite = cliente.LimiteCredito > 0 ? cliente.LimiteCredito : convenio?.LimiteCredito ?? 0;
+        result.LimiteCredito = limite;
+        if (limite > 0)
+        {
+            var saldoUtilizado = await _db.ContasReceber
+                .Include(cr => cr.TipoPagamento)
+                .Where(cr => cr.ClienteId == request.ClienteId
+                    && cr.Status == StatusContaReceber.Aberta
+                    && cr.TipoPagamento != null && cr.TipoPagamento.Modalidade == ModalidadePagamento.VendaPrazo)
+                .SumAsync(cr => cr.ValorLiquido);
+            result.SaldoUtilizado = saldoUtilizado;
+            result.SaldoDisponivel = limite - saldoUtilizado;
+            result.ExcedeLimite = (saldoUtilizado + request.ValorVenda) > limite;
+        }
+
+        // 4. Parcelamento
+        var permiteParcelada = cliente.PermiteVendaParcelada && !(convenio?.BloquearVendaParcelada ?? false);
+        var maxParcelas = permiteParcelada
+            ? Math.Min(cliente.QtdeMaxParcelas, convenio?.MaximoParcelas ?? int.MaxValue)
+            : 1;
+        result.PermiteParcelada = permiteParcelada;
+        result.MaxParcelas = Math.Max(1, maxParcelas);
+
+        // 5. Bloquear desconto
+        result.BloquearDescontoParcelada = cliente.BloquearDescontoParcelada || (convenio?.BloquearDescontoParcelada ?? false);
+
+        // 6. Exige senha
+        result.ExigeSenha = cliente.VenderSomenteComSenha || (convenio?.VenderSomenteComSenha ?? false);
+
+        return result;
+    }
+
+    public async Task FinalizarAsync(long id, FinalizarVendaDto? opcoes = null)
     {
         try
         {
@@ -190,40 +257,149 @@ public class VendaService : IVendaService
                 .FirstOrDefaultAsync(v => v.Id == id)
                 ?? throw new KeyNotFoundException($"Venda {id} não encontrada.");
             if (venda.Status != VendaStatus.Aberta) throw new ArgumentException("Venda não está aberta.");
-            venda.Status = VendaStatus.Finalizada;
 
-            // Gerar Contas a Receber para cada pagamento
             var agora = Domain.Helpers.DataHoraHelper.Agora();
+            var temPrazo = venda.Pagamentos.Any(p => p.TipoPagamento?.Modalidade == ModalidadePagamento.VendaPrazo);
+
+            // ── Validações de venda a prazo ────────────────────────
+            Cliente? cliente = null;
+            Convenio? convenio = null;
+
+            if (temPrazo)
+            {
+                if (!venda.ClienteId.HasValue)
+                    throw new ArgumentException("Cliente obrigatório para venda a prazo.");
+
+                cliente = await _db.Set<Cliente>()
+                    .Include(c => c.Bloqueios)
+                    .FirstOrDefaultAsync(c => c.Id == venda.ClienteId);
+                if (cliente == null) throw new ArgumentException("Cliente não encontrado.");
+
+                if (venda.ConvenioId.HasValue)
+                    convenio = await _db.Set<Convenio>()
+                        .Include(c => c.Bloqueios)
+                        .FirstOrDefaultAsync(c => c.Id == venda.ConvenioId);
+
+                // Bloqueado
+                if (cliente.Bloqueado) throw new ArgumentException("Cliente está bloqueado.");
+                if (convenio?.Bloqueado == true) throw new ArgumentException("Convênio está bloqueado.");
+
+                // Tipo pagamento bloqueado
+                foreach (var pag in venda.Pagamentos.Where(p => p.TipoPagamento?.Modalidade == ModalidadePagamento.VendaPrazo))
+                {
+                    if (cliente.Bloqueios.Any(b => b.TipoPagamentoId == pag.TipoPagamentoId))
+                        throw new ArgumentException("Condição de pagamento bloqueada para este cliente.");
+                    if (convenio?.Bloqueios.Any(b => b.TipoPagamentoId == pag.TipoPagamentoId) == true)
+                        throw new ArgumentException("Condição de pagamento bloqueada para este convênio.");
+                }
+
+                // Limite de crédito
+                var limite = cliente.LimiteCredito > 0 ? cliente.LimiteCredito : convenio?.LimiteCredito ?? 0;
+                if (limite > 0)
+                {
+                    var valorPrazo = venda.Pagamentos
+                        .Where(p => p.TipoPagamento?.Modalidade == ModalidadePagamento.VendaPrazo)
+                        .Sum(p => p.Valor - p.Troco);
+                    var saldoUtilizado = await _db.ContasReceber
+                        .Include(cr => cr.TipoPagamento)
+                        .Where(cr => cr.ClienteId == venda.ClienteId
+                            && cr.Status == StatusContaReceber.Aberta
+                            && cr.TipoPagamento != null && cr.TipoPagamento.Modalidade == ModalidadePagamento.VendaPrazo)
+                        .SumAsync(cr => cr.ValorLiquido);
+                    if ((saldoUtilizado + valorPrazo) > limite)
+                    {
+                        // Verificar token de liberação
+                        if (string.IsNullOrWhiteSpace(opcoes?.TokenLiberacaoCredito))
+                            throw new ArgumentException($"Limite de crédito excedido. Limite: {limite:N2}, Utilizado: {saldoUtilizado:N2}. Requer liberação.");
+                        // Token válido (já validado no frontend via auth/liberar)
+                    }
+                }
+
+                // Senha do cliente
+                var exigeSenha = cliente.VenderSomenteComSenha || (convenio?.VenderSomenteComSenha ?? false);
+                if (exigeSenha)
+                {
+                    var senhaEsperada = !string.IsNullOrEmpty(cliente.SenhaVendaPrazo) ? cliente.SenhaVendaPrazo : convenio?.SenhaVenda;
+                    if (string.IsNullOrWhiteSpace(opcoes?.SenhaCliente) || opcoes.SenhaCliente != senhaEsperada)
+                        throw new ArgumentException("Senha do cliente inválida.");
+                }
+            }
+
+            // ── Finalizar e gerar contas a receber ─────────────────
+            venda.Status = VendaStatus.Finalizada;
+            venda.DataFinalizacao = agora;
+
             foreach (var pag in venda.Pagamentos)
             {
                 var modalidade = pag.TipoPagamento?.Modalidade;
                 var planoContaId = pag.TipoPagamento?.PlanoContaId;
                 var valorLiquido = pag.Valor - pag.Troco;
+                var jaRecebido = modalidade == ModalidadePagamento.VendaVista
+                              || modalidade == ModalidadePagamento.VendaPix;
 
-                // Dinheiro e PIX: já recebido na hora
-                var jaRecebido = modalidade == Domain.Enums.ModalidadePagamento.VendaVista
-                              || modalidade == Domain.Enums.ModalidadePagamento.VendaPix;
-
-                var cr = new ContaReceber
+                if (modalidade == ModalidadePagamento.VendaPrazo && cliente != null)
                 {
-                    FilialId = venda.FilialId,
-                    VendaId = venda.Id,
-                    VendaPagamentoId = pag.Id,
-                    ClienteId = venda.ClienteId,
-                    TipoPagamentoId = pag.TipoPagamentoId,
-                    PlanoContaId = planoContaId,
-                    Descricao = $"Venda #{venda.Codigo ?? venda.Id.ToString()} - {pag.TipoPagamento?.Nome ?? ""}",
-                    Valor = pag.Valor,
-                    ValorLiquido = valorLiquido > 0 ? valorLiquido : pag.Valor,
-                    DataEmissao = agora,
-                    DataVencimento = agora.Date,
-                    NumParcela = 1,
-                    TotalParcelas = 1,
-                    Status = jaRecebido ? Domain.Enums.StatusContaReceber.Recebida : Domain.Enums.StatusContaReceber.Aberta,
-                    DataRecebimento = jaRecebido ? agora : null,
-                    ValorRecebido = jaRecebido ? valorLiquido : 0
-                };
-                _db.ContasReceber.Add(cr);
+                    // Gerar parcelas com vencimento calculado
+                    var numParcelas = Math.Max(1, opcoes?.NumeroParcelas ?? 1);
+
+                    // Hierarquia: usar modo do cliente; se DiasCorridos sem QtdeDias configurado, cai no convênio
+                    var modo = cliente.PrazoPagamento;
+                    int? qtdeDias = cliente.QtdeDias;
+                    int? diaFech = cliente.DiaFechamento;
+                    int? diaVenc = cliente.DiaVencimento;
+                    int? qtdeMeses = cliente.QtdeMeses;
+
+                    // Se o cliente não tem parâmetros configurados, usar do convênio
+                    if (convenio != null)
+                    {
+                        if (modo == ModoFechamento.DiasCorridos && qtdeDias == null && convenio.ModoFechamento == ModoFechamento.PorFechamento)
+                            modo = convenio.ModoFechamento;
+                        qtdeDias ??= convenio.DiasCorridos;
+                        diaFech ??= convenio.DiaFechamento;
+                        diaVenc ??= convenio.DiaVencimento;
+                        qtdeMeses ??= convenio.MesesParaVencimento;
+                    }
+
+                    var datas = Domain.Helpers.VencimentoHelper.CalcularVencimentoParcelas(
+                        modo, agora, qtdeDias, diaFech, diaVenc, qtdeMeses, numParcelas);
+
+                    var valorParcela = Math.Round(valorLiquido / numParcelas, 2);
+                    var valorResto = valorLiquido - (valorParcela * (numParcelas - 1)); // última parcela ajusta centavos
+
+                    for (int i = 0; i < numParcelas; i++)
+                    {
+                        var vlr = (i == numParcelas - 1) ? valorResto : valorParcela;
+                        _db.ContasReceber.Add(new ContaReceber
+                        {
+                            FilialId = venda.FilialId, VendaId = venda.Id, VendaPagamentoId = pag.Id,
+                            ClienteId = venda.ClienteId, TipoPagamentoId = pag.TipoPagamentoId,
+                            PlanoContaId = planoContaId,
+                            Descricao = numParcelas > 1
+                                ? $"Venda #{venda.Codigo ?? venda.Id.ToString()} - {pag.TipoPagamento?.Nome ?? ""} ({i + 1}/{numParcelas})"
+                                : $"Venda #{venda.Codigo ?? venda.Id.ToString()} - {pag.TipoPagamento?.Nome ?? ""}",
+                            Valor = vlr, ValorLiquido = vlr,
+                            DataEmissao = agora, DataVencimento = datas[i],
+                            NumParcela = i + 1, TotalParcelas = numParcelas,
+                            Status = StatusContaReceber.Aberta
+                        });
+                    }
+                }
+                else
+                {
+                    _db.ContasReceber.Add(new ContaReceber
+                    {
+                        FilialId = venda.FilialId, VendaId = venda.Id, VendaPagamentoId = pag.Id,
+                        ClienteId = venda.ClienteId, TipoPagamentoId = pag.TipoPagamentoId,
+                        PlanoContaId = planoContaId,
+                        Descricao = $"Venda #{venda.Codigo ?? venda.Id.ToString()} - {pag.TipoPagamento?.Nome ?? ""}",
+                        Valor = pag.Valor, ValorLiquido = valorLiquido > 0 ? valorLiquido : pag.Valor,
+                        DataEmissao = agora, DataVencimento = agora.Date,
+                        NumParcela = 1, TotalParcelas = 1,
+                        Status = jaRecebido ? StatusContaReceber.Recebida : StatusContaReceber.Aberta,
+                        DataRecebimento = jaRecebido ? agora : null,
+                        ValorRecebido = jaRecebido ? valorLiquido : 0
+                    });
+                }
             }
 
             await _db.SaveChangesAsync();

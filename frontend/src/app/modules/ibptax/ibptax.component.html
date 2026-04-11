@@ -6,10 +6,6 @@
       <span class="ibpt-subtitle">Lei 12.741/2012 — Transparência Fiscal</span>
     </div>
     <div class="ibpt-header-right">
-      <button class="btn-site" (click)="abrirSiteIbpt()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        Acessar site IBPT
-      </button>
       <button class="btn-sair" (click)="sairDaTela()">Sair</button>
     </div>
   </div>
@@ -20,7 +16,7 @@
     <div class="ibpt-card">
       <div class="ibpt-card-header">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        <span>Tabela Importada</span>
+        <span>Status da Tabela</span>
       </div>
       @if (loading()) {
         <div class="ibpt-card-loading">Carregando...</div>
@@ -29,8 +25,8 @@
           <div class="ibpt-empty-icon">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#bdc3c7" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>
-          <p>Nenhuma tabela importada</p>
-          <span>Faça o download no site do IBPT e importe o CSV abaixo.</span>
+          <p>Nenhuma tabela sincronizada</p>
+          <span>Configure o Token e CNPJ em Configurações > Fiscal e clique em "Atualizar Agora".</span>
         </div>
       } @else {
         <div class="ibpt-card-info">
@@ -47,7 +43,7 @@
             <span class="ibpt-info-value">{{ status()!.totalRegistros | number }}</span>
           </div>
           <div class="ibpt-info-row">
-            <span class="ibpt-info-label">Importado em</span>
+            <span class="ibpt-info-label">Última sincronização</span>
             <span class="ibpt-info-value">{{ formatarData(status()!.dataImportacao) }}</span>
           </div>
           <div class="ibpt-info-row">
@@ -69,53 +65,47 @@
       }
     </div>
 
-    <!-- Card importação -->
+    <!-- Card sincronização -->
     <div class="ibpt-card">
       <div class="ibpt-card-header">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <span>Importar / Atualizar</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        <span>Sincronização via API</span>
       </div>
-      <div class="ibpt-card-import">
-        <div class="ibpt-import-steps">
-          <div class="ibpt-step">
-            <span class="ibpt-step-num">1</span>
-            <div class="ibpt-step-text">
-              <strong>Baixar CSV</strong>
-              <p>Acesse <a href="https://deolhonoimposto.ibpt.org.br/" target="_blank">deolhonoimposto.ibpt.org.br</a>, cadastre-se gratuitamente e baixe a tabela IBPTax para sua UF.</p>
+      <div class="ibpt-card-sync">
+        <p class="ibpt-sync-desc">Atualiza automaticamente consultando a API do IBPT para todos os NCMs cadastrados no sistema.</p>
+
+        <button class="btn-sync" [disabled]="sincronizando()" (click)="sincronizar()">
+          @if (sincronizando()) {
+            <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
+            Sincronizando...
+          } @else {
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            Atualizar Agora
+          }
+        </button>
+
+        @if (mensagem()) {
+          <div class="ibpt-msg" [class.ibpt-msg-erro]="mensagemErro()">{{ mensagem() }}</div>
+        }
+
+        @if (vigencia()) {
+          <div class="ibpt-timestamps">
+            <div class="ibpt-ts-row">
+              <span>Última verificação automática:</span>
+              <strong>{{ formatarData(vigencia()!.ultimaVerificacao) }}</strong>
             </div>
-          </div>
-          <div class="ibpt-step">
-            <span class="ibpt-step-num">2</span>
-            <div class="ibpt-step-text">
-              <strong>Selecionar UF</strong>
-              <div class="ibpt-uf-select">
-                <select [ngModel]="ufSelecionada()" (ngModelChange)="ufSelecionada.set($event)">
-                  @for (uf of ufs; track uf) {
-                    <option [value]="uf">{{ uf }}</option>
-                  }
-                </select>
+            @if (vigencia()!.ultimaSincronizacao) {
+              <div class="ibpt-ts-row">
+                <span>Última sincronização automática:</span>
+                <strong>{{ formatarData(vigencia()!.ultimaSincronizacao) }}</strong>
               </div>
-            </div>
+            }
           </div>
-          <div class="ibpt-step">
-            <span class="ibpt-step-num">3</span>
-            <div class="ibpt-step-text">
-              <strong>Importar CSV</strong>
-              <p>Selecione o arquivo CSV baixado do IBPT.</p>
-              <div class="ibpt-upload-area">
-                <label class="btn-upload" [class.uploading]="importando()">
-                  @if (importando()) {
-                    <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
-                    Importando...
-                  } @else {
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Selecionar arquivo CSV
-                  }
-                  <input type="file" accept=".csv" (change)="importarCsv($event)" [disabled]="importando()" hidden />
-                </label>
-              </div>
-            </div>
-          </div>
+        }
+
+        <div class="ibpt-auto-info">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>A sincronização automática ocorre a cada 24h quando a tabela está expirada ou prestes a expirar (30 dias).</span>
         </div>
       </div>
     </div>
@@ -126,8 +116,9 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
     <div>
       <strong>O que é o IBPTax?</strong>
-      <p>A Lei 12.741/2012 obriga que os documentos fiscais (NFC-e, NF-e) informem ao consumidor o valor aproximado dos tributos embutidos no preço. O IBPT disponibiliza gratuitamente a tabela IBPTax com as alíquotas aproximadas por NCM e UF. A tabela é atualizada semestralmente.</p>
-      <p>Após importar, o sistema calcula automaticamente o <strong>vTotTrib</strong> (valor total aproximado de tributos) em cada NFC-e emitida e exibe no DANFE.</p>
+      <p>A Lei 12.741/2012 obriga que os documentos fiscais (NFC-e, NF-e) informem ao consumidor o valor aproximado dos tributos embutidos no preço. O IBPT disponibiliza a tabela IBPTax com as alíquotas aproximadas por NCM e UF.</p>
+      <p>Após sincronizar, o sistema calcula automaticamente o <strong>vTotTrib</strong> em cada NFC-e emitida.</p>
+      <p><strong>Configuração:</strong> Acesse Configurações > Fiscal e preencha o Token e CNPJ obtidos em <a href="https://deolhonoimposto.ibpt.org.br/" target="_blank">deolhonoimposto.ibpt.org.br</a>.</p>
     </div>
   </div>
 </div>

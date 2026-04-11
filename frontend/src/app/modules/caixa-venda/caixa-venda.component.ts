@@ -6,7 +6,10 @@ import { environment } from '../../../environments/environment';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
+import { ModalSenhaService } from '../../core/services/modal-senha.service';
+import { ModalSenhaComponent } from '../../core/components/modal-senha.component';
 import { SafePipe } from '../../core/pipes/safe.pipe';
+import { firstValueFrom } from 'rxjs';
 
 interface ItemDesconto {
   tipo: number; // 1=Desconto, 2=Promocao
@@ -153,7 +156,7 @@ const CORES_PAGAMENTO = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336', 
 @Component({
   selector: 'app-caixa-venda',
   standalone: true,
-  imports: [CommonModule, FormsModule, SafePipe],
+  imports: [CommonModule, FormsModule, SafePipe, ModalSenhaComponent],
   templateUrl: './caixa-venda.component.html',
   styleUrl: './caixa-venda.component.scss'
 })
@@ -188,6 +191,9 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   // ── Modal cesta ─────────────────────────────────────────────────
   modalCesta = signal(false);
   cestaNumero = signal('');
+
+  // ── Emissão NFC-e (overlay) ─────────────────────────────────────
+  emitindoNfce = signal(false);
 
   // ── Modal DANFE NFC-e ───────────────────────────────────────────
   modalDanfe = signal(false);
@@ -312,6 +318,14 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   tipoPagamentoId = signal<number | null>(null);
   tiposPagamento = signal<TipoPagBtn[]>([]);
 
+  // ── Venda a prazo ───────────────────────────────────────────────
+  private tokenLiberacaoCredito: string | null = null;
+  private senhaClientePrazo: string | null = null;
+  prazoPermiteParcelada = signal(false);
+  prazoMaxParcelas = signal(1);
+  prazoNumeroParcelas = signal(1);
+  parcelasOpcoes = computed(() => Array.from({ length: this.prazoMaxParcelas() }, (_, i) => i + 1));
+
   // ── Hierarquia de desconto ──────────────────────────────────────
   hierarquiaAtiva = signal<HierarquiaInfo | null>(null);
   convenioIdCliente = signal<number | null>(null);
@@ -379,7 +393,8 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private tabService: TabService,
     private auth: AuthService,
-    private modal: ModalService
+    private modal: ModalService,
+    public modalSenha: ModalSenhaService
   ) {}
 
   ngOnInit() {
@@ -530,11 +545,102 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     return CORES_PAGAMENTO[idx % CORES_PAGAMENTO.length];
   }
 
-  selecionarPagamento(id: number) {
-    if (this.tipoPagamentoId() === id) return; // Não permitir desselecionar
+  async selecionarPagamento(id: number) {
+    if (this.tipoPagamentoId() === id) return;
+    const tipo = this.tiposPagamento().find(t => t.id === id);
+    if (!tipo) return;
+
+    // Se modalidade = VendaPrazo (4), validar antes
+    if ((tipo as any).modalidade === 4) {
+      if (!this.clienteId()) {
+        await this.modal.aviso('Cliente Obrigatório', 'Para venda a prazo, é necessário selecionar um cliente.');
+        return;
+      }
+      const ok = await this.validarVendaPrazo(id);
+      if (!ok) return;
+    } else {
+      // Limpando estado de prazo ao trocar para outra condição
+      this.tokenLiberacaoCredito = null;
+      this.senhaClientePrazo = null;
+      this.prazoPermiteParcelada.set(false);
+      this.prazoMaxParcelas.set(1);
+      this.prazoNumeroParcelas.set(1);
+    }
+
     this.tipoPagamentoId.set(id);
-    // Recalcular descontos de todos os itens com a nova condição
     this.recalcularDescontosTodosItens();
+  }
+
+  private async validarVendaPrazo(tipoPagamentoId: number): Promise<boolean> {
+    try {
+      const r = await firstValueFrom(this.http.post<any>(`${this.apiUrl}/vendas/validar-prazo`, {
+        clienteId: this.clienteId(),
+        convenioId: this.convenioIdCliente(),
+        tipoPagamentoId,
+        valorVenda: this.totalLiquido()
+      }));
+      const v = r.data;
+
+      // 1. Bloqueado
+      if (v.clienteBloqueado || v.convenioBloqueado) {
+        await this.modal.erro('Bloqueado', v.mensagemBloqueio || 'Cliente ou convênio bloqueado.');
+        return false;
+      }
+
+      // 2. Tipo pagamento bloqueado
+      if (v.tipoPagamentoBloqueado) {
+        await this.modal.erro('Condição Bloqueada', v.mensagemTipoBloqueado || 'Condição de pagamento bloqueada.');
+        return false;
+      }
+
+      // 3. Limite de crédito excedido → pedir liberação supervisor
+      if (v.excedeLimite) {
+        const perm = await this.modal.permissao('venda', 'prazo-excede-limite');
+        if (!perm.confirmado) return false;
+        this.tokenLiberacaoCredito = perm.tokenLiberacao ?? null;
+      } else {
+        this.tokenLiberacaoCredito = null;
+      }
+
+      // 4. Bloquear desconto parcelada → zerar descontos manuais
+      if (v.bloquearDescontoParcelada) {
+        this.itens.update(lista => lista.map(item => {
+          const valorBruto = item.precoVenda * item.quantidade;
+          const valorPromo = valorBruto * item.percentualPromocao / 100;
+          const precoUnit = item.precoVenda * (1 - item.percentualPromocao / 100);
+          return {
+            ...item,
+            percentualDesconto: 0,
+            valorDesconto: Math.round(valorPromo * 100) / 100,
+            precoUnitario: Math.round(precoUnit * 100) / 100,
+            total: Math.round(precoUnit * item.quantidade * 100) / 100
+          };
+        }));
+      }
+
+      // 5. Exige senha do cliente
+      if (v.exigeSenha) {
+        const senha = await this.modalSenha.pedirSenha(
+          'Senha do Cliente',
+          'Parâmetro: Vender Somente com Senha'
+        );
+        if (!senha) return false;
+        this.senhaClientePrazo = senha;
+      } else {
+        this.senhaClientePrazo = null;
+      }
+
+      // Guardar info de parcelamento
+      this.prazoPermiteParcelada.set(v.permiteParcelada);
+      this.prazoMaxParcelas.set(v.maxParcelas || 1);
+      this.prazoNumeroParcelas.set(1);
+
+      return true;
+    } catch (err: any) {
+      const msg = err?.error?.message || 'Erro ao validar venda a prazo.';
+      await this.modal.erro('Erro', msg);
+      return false;
+    }
   }
 
   private recalcularDescontosTodosItens() {
@@ -1691,12 +1797,18 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
           return;
         }
         // Finalizar (marcar status = Finalizada)
-        this.http.post<any>(`${this.apiUrl}/vendas/${id}/finalizar`, {}).subscribe({
+        const finalizarBody: any = {};
+        if (this.senhaClientePrazo) finalizarBody.senhaCliente = this.senhaClientePrazo;
+        if (this.tokenLiberacaoCredito) finalizarBody.tokenLiberacaoCredito = this.tokenLiberacaoCredito;
+        if (this.prazoNumeroParcelas() > 1) finalizarBody.numeroParcelas = this.prazoNumeroParcelas();
+        this.http.post<any>(`${this.apiUrl}/vendas/${id}/finalizar`, finalizarBody).subscribe({
           next: () => {
             this.modoConferencia.set(false);
             // Emitir NFC-e
+            this.emitindoNfce.set(true);
             this.http.post<any>(`${this.apiUrl}/nfce/emitir/${id}`, {}).subscribe({
               next: (nfceRes: any) => {
+                this.emitindoNfce.set(false);
                 this.salvando.set(false);
                 if (nfceRes.success && nfceRes.data?.autorizada) {
                   // Abrir DANFE na modal (resetTudo será chamado ao fechar)
@@ -1713,6 +1825,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
                 }
               },
               error: (nfceErr: any) => {
+                this.emitindoNfce.set(false);
                 this.salvando.set(false);
                 const msg = nfceErr?.error?.message || 'Erro ao emitir NFC-e';
                 this.modal.aviso('Venda Finalizada — NFC-e com Erro', `A venda foi finalizada com sucesso, mas houve erro na emissão da NFC-e:\n\n${msg}\n\nVocê poderá reemitir posteriormente.`);

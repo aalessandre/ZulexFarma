@@ -19,8 +19,10 @@ interface IbptVigencia {
   tabelaExpirada: boolean;
   vigenciaFim: string | null;
   ultimaVerificacao: string | null;
+  ultimaSincronizacao: string | null;
   versaoAtual: string | null;
   totalRegistros: number;
+  sincronizando: boolean;
 }
 
 @Component({
@@ -36,11 +38,9 @@ export class IbptaxComponent implements OnInit {
   status = signal<IbptStatus | null>(null);
   vigencia = signal<IbptVigencia | null>(null);
   loading = signal(false);
-  importando = signal(false);
-  ufSelecionada = signal('PR');
-  mensagemImport = signal('');
-
-  ufs = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'];
+  sincronizando = signal(false);
+  mensagem = signal('');
+  mensagemErro = signal(false);
 
   constructor(
     private http: HttpClient,
@@ -66,44 +66,27 @@ export class IbptaxComponent implements OnInit {
     });
   }
 
-  importarCsv(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (!input.files?.length) return;
+  sincronizar() {
+    this.sincronizando.set(true);
+    this.mensagem.set('');
+    this.mensagemErro.set(false);
 
-    const file = input.files[0];
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      this.modal.aviso('Arquivo inválido', 'Selecione um arquivo CSV do IBPTax.');
-      input.value = '';
-      return;
-    }
-
-    this.importando.set(true);
-    this.mensagemImport.set('');
-
-    const formData = new FormData();
-    formData.append('arquivo', file);
-    formData.append('uf', this.ufSelecionada());
-
-    this.http.post<any>(`${this.apiUrl}/importar`, formData).subscribe({
+    this.http.post<any>(`${this.apiUrl}/sincronizar`, {}).subscribe({
       next: r => {
-        this.importando.set(false);
-        this.mensagemImport.set(r.message);
-        this.modal.sucesso('IBPTax Importado', r.message);
+        this.sincronizando.set(false);
+        this.mensagem.set(r.message);
+        this.mensagemErro.set(false);
+        this.modal.sucesso('IBPTax Atualizado', r.message);
         this.carregarStatus();
-        input.value = '';
       },
       error: err => {
-        this.importando.set(false);
-        const msg = err?.error?.message || 'Erro ao importar CSV.';
-        this.mensagemImport.set(msg);
-        this.modal.erro('Erro na Importação', msg);
-        input.value = '';
+        this.sincronizando.set(false);
+        const msg = err?.error?.message || 'Erro ao sincronizar.';
+        this.mensagem.set(msg);
+        this.mensagemErro.set(true);
+        this.modal.erro('Erro na Sincronização', msg);
       }
     });
-  }
-
-  abrirSiteIbpt() {
-    window.open('https://deolhonoimposto.ibpt.org.br/', '_blank');
   }
 
   formatarData(d: string | null): string {

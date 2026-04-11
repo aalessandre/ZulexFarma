@@ -119,6 +119,7 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IHierarquiaDescont
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaService,
                             ZulexPharma.Infrastructure.Services.VendaService>();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.NfceService>();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.IbptService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAdquirenteService,
                             ZulexPharma.Infrastructure.Services.AdquirenteService>();

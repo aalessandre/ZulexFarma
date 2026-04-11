@@ -3,17 +3,20 @@
   <!-- ══ BARRA SUPERIOR ══════════════════════════════════════════ -->
   <div class="cx-topbar">
     <div class="cx-topbar-info">
-      @if (caixaAberto()) {
-        <div class="cx-info-item">
-          <span class="cx-info-label">CAIXA</span>
+      <div class="cx-info-item">
+        <span class="cx-info-label">CAIXA</span>
+        @if (caixasDisponiveis().length > 0) {
+          <select class="cx-caixa-dropdown" [ngModel]="caixaSelecionadoId()" (ngModelChange)="trocarCaixa($event)">
+            @for (cx of caixasDisponiveis(); track cx.id) {
+              <option [ngValue]="cx.id">Nº {{ cx.codigo ?? cx.id }} | {{ formatarData(cx.dataAbertura) }} | {{ cx.colaboradorNome }} | {{ cx.status === 1 ? 'Aberto' : 'Fechado' }}</option>
+            }
+          </select>
+        } @else if (caixaAberto()) {
           <span class="cx-info-value">Nº {{ caixaAberto()!.codigo ?? caixaAberto()!.id }} | {{ formatarData(caixaAberto()!.dataAbertura) }} | {{ caixaAberto()!.colaboradorNome }}</span>
-        </div>
-      } @else {
-        <div class="cx-info-item">
-          <span class="cx-info-label">CAIXA</span>
+        } @else {
           <span class="cx-info-value cx-fechado">Nenhum caixa aberto</span>
-        </div>
-      }
+        }
+      </div>
     </div>
     <div class="cx-topbar-acoes">
       @if (caixaAberto()) {
@@ -184,28 +187,111 @@
       <!-- Painel: Vendas Realizadas -->
       @if (painelAtivo() === 'vendas') {
         <div class="cx-painel">
-          <div class="cx-painel-header"><h3>Vendas Realizadas</h3></div>
+          <div class="cx-painel-header">
+            <h3>Vendas Realizadas</h3>
+            <span class="cx-vr-count">{{ vendasRealizadas().length }} venda(s)</span>
+            <!-- Col picker master -->
+            <div class="col-picker-wrap">
+              <button class="btn-colunas" (click)="vrPainelColunas.update(v => !v)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Colunas
+              </button>
+              @if (vrPainelColunas()) {
+                <div class="col-picker-overlay" (click)="vrPainelColunas.set(false)"></div>
+                <div class="col-picker-painel">
+                  <div class="col-picker-header">
+                    <span>Personalizar Colunas</span>
+                    <button class="col-picker-btn-restaurar" (click)="vrRestaurarColunas()">Restaurar</button>
+                  </div>
+                  <div class="col-picker-lista">
+                    @for (col of vrColunas(); track col.campo) {
+                      <label class="col-picker-item">
+                        <input type="checkbox" [checked]="col.visivel" (change)="vrToggleColuna(col.campo)" />
+                        <span>{{ col.label }}</span>
+                      </label>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
           @if (vendasLoading()) {
             <div class="cx-painel-loading">Carregando...</div>
           } @else if (vendasRealizadas().length === 0) {
             <div class="cx-painel-vazio">Nenhuma venda realizada neste caixa.</div>
           } @else {
-            <table class="cx-grid">
-              <thead>
-                <tr><th>CÓDIGO</th><th>CLIENTE</th><th>ITENS</th><th>TOTAL</th><th>DATA</th></tr>
-              </thead>
-              <tbody>
-                @for (v of vendasRealizadas(); track v.id) {
+            <div class="grid-wrapper">
+              <table class="erp-grid">
+                <thead>
                   <tr>
-                    <td>{{ v.codigo ?? v.id }}</td>
-                    <td>{{ v.clienteNome ?? 'Sem cliente' }}</td>
-                    <td>{{ v.totalItens }}</td>
-                    <td class="cx-valor">{{ formatarMoeda(v.totalLiquido) }}</td>
-                    <td>{{ formatarData(v.criadoEm) }}</td>
+                    <th class="th-arrow"></th>
+                    @for (col of vrColunasVisiveis(); track col.campo; let i = $index) {
+                      <th class="th-sort th-resize"
+                          [style.width.px]="col.largura" [style.min-width.px]="col.minLargura"
+                          (click)="vrOrdenar(col.campo)"
+                          draggable="true" (dragstart)="vrDragStart(i)" (dragover)="vrDragOver($event, i)" (drop)="vrDrop()">
+                        {{ col.label }} <span class="sort-icon">{{ vrSortIcon(col.campo) }}</span>
+                        <div class="resize-handle" (mousedown)="vrIniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+                      </th>
+                    }
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  @for (v of vrSorted(); track v.id) {
+                    <tr [class.tr-selecionada]="vrExpandido() === v.id" (click)="vrExpandir(v)">
+                      <td class="td-arrow">
+                        @if (vrExpandido() === v.id) { <span>▼</span> } @else { <span>▶</span> }
+                      </td>
+                      @for (col of vrColunasVisiveis(); track col.campo) {
+                        <td [class.td-valor]="col.campo === 'totalBruto' || col.campo === 'totalDesconto' || col.campo === 'totalLiquido'">
+                          {{ vrCellValue(v, col.campo) }}
+                        </td>
+                      }
+                    </tr>
+                    <!-- Detail row: itens -->
+                    @if (vrExpandido() === v.id) {
+                      <tr class="tr-detail">
+                        <td [attr.colspan]="vrColunasVisiveis().length + 1">
+                          <div class="vr-detail-container">
+                            @if (vrItensLoading()) {
+                              <div class="cx-painel-loading" style="padding:12px">Carregando itens...</div>
+                            } @else {
+                              <table class="erp-grid erp-grid-compact">
+                                <thead>
+                                  <tr>
+                                    @for (col of vrItensColunasVisiveis(); track col.campo; let i = $index) {
+                                      <th class="th-sort th-resize"
+                                          [style.width.px]="col.largura" [style.min-width.px]="col.minLargura"
+                                          (click)="vrItensOrdenar(col.campo)"
+                                          draggable="true" (dragstart)="vrItensDragStart(i)" (dragover)="vrItensDragOver($event, i)" (drop)="vrItensDrop()">
+                                        {{ col.label }} <span class="sort-icon">{{ vrItensSortIcon(col.campo) }}</span>
+                                        <div class="resize-handle" (mousedown)="vrItensIniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+                                      </th>
+                                    }
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  @for (item of vrItensSorted(); track item.produtoCodigo) {
+                                    <tr>
+                                      @for (col of vrItensColunasVisiveis(); track col.campo) {
+                                        <td [class.td-valor]="col.campo === 'totalBruto' || col.campo === 'totalDesconto' || col.campo === 'total'">
+                                          {{ vrItensCellValue(item, col.campo) }}
+                                        </td>
+                                      }
+                                    </tr>
+                                  }
+                                </tbody>
+                              </table>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  }
+                </tbody>
+              </table>
+            </div>
           }
         </div>
       }

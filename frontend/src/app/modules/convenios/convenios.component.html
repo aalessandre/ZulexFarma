@@ -115,32 +115,48 @@
           <div class="accordion-header" (click)="accGeral.update(v => !v)"><span>Geral</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accGeral() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg></div>
           <div class="accordion-body">
             <div class="form-grid">
+              <div class="field"><label>LIMITE DE CRÉDITO</label><input type="text" [value]="form().limiteCredito" (input)="upd('limiteCredito', +$any($event.target).value)" /></div>
+            </div>
+            <div class="form-grid" style="margin-top:12px">
               <div class="field field-2"><label>MODO DE FECHAMENTO</label>
                 <select class="select-campo" [value]="form().modoFechamento" (change)="upd('modoFechamento', +$any($event.target).value)">
-                  <option [value]="1">Dias Corridos</option><option [value]="2">Por Fechamento</option>
+                  <option [value]="1">Dias Corridos</option><option [value]="2">Fechamento</option>
                 </select>
               </div>
               @if (form().modoFechamento === 1) {
-                <div class="field"><label>DIAS CORRIDOS</label><input type="text" [value]="form().diasCorridos" (input)="upd('diasCorridos', +$any($event.target).value || 0)" /></div>
+                <div class="field"><label>QTDE DIAS</label><input type="text" [value]="form().diasCorridos" (input)="upd('diasCorridos', +$any($event.target).value || 0)" /></div>
               }
               @if (form().modoFechamento === 2) {
-                <div class="field"><label>DIA FECHAMENTO</label><input type="text" [value]="form().diaFechamento" (input)="upd('diaFechamento', +$any($event.target).value || 0)" /></div>
-                <div class="field"><label>DIA VENCIMENTO</label><input type="text" [value]="form().diaVencimento" (input)="upd('diaVencimento', +$any($event.target).value || 0)" /></div>
-                <div class="field"><label>MESES P/ VENCIMENTO</label><input type="text" [value]="form().mesesParaVencimento" (input)="upd('mesesParaVencimento', +$any($event.target).value || 0)" /></div>
+                <div class="field"><label>DIA FECHAMENTO</label><input type="text" [value]="form().diaFechamento" (input)="upd('diaFechamento', Math.min(31, Math.max(1, +$any($event.target).value)))" /></div>
+                <div class="field"><label>DIA VENCIMENTO</label><input type="text" [value]="form().diaVencimento" (input)="upd('diaVencimento', Math.min(31, Math.max(1, +$any($event.target).value)))" /></div>
+                <div class="field"><label>QTDE MESES</label><input type="text" [value]="form().mesesParaVencimento" (input)="upd('mesesParaVencimento', +$any($event.target).value || 1)" /></div>
               }
-            </div>
-            <div class="form-grid" style="margin-top:12px">
-              <div class="field"><label>VIAS DO CUPOM</label><input type="text" [value]="form().qtdeViasCupom" (input)="upd('qtdeViasCupom', +$any($event.target).value || 0)" /></div>
               <div class="field"><label>CARÊNCIA BLOQUEIO (dias)</label><input type="text" [value]="form().diasCarenciaBloqueio" (input)="upd('diasCarenciaBloqueio', +$any($event.target).value || 0)" /></div>
+              <div class="field"><label>VIAS DO CUPOM</label><input type="text" [value]="form().qtdeViasCupom" (input)="upd('qtdeViasCupom', +$any($event.target).value || 0)" /></div>
             </div>
             <div class="form-grid checks-grid" style="margin-top:12px">
               <label class="check-label"><input type="checkbox" [checked]="form().bloqueado" (change)="upd('bloqueado', $any($event.target).checked)" /> Bloqueado</label>
-              <label class="check-label"><input type="checkbox" [checked]="form().bloquearVendaParcelada" (change)="upd('bloquearVendaParcelada', $any($event.target).checked)" /> Bloquear venda parcelada</label>
-              <label class="check-label"><input type="checkbox" [checked]="form().bloquearDescontoParcelada" (change)="upd('bloquearDescontoParcelada', $any($event.target).checked)" /> Bloquear desconto parcelada</label>
-              <label class="check-label"><input type="checkbox" [checked]="form().bloquearComissao" (change)="upd('bloquearComissao', $any($event.target).checked)" /> Bloquear comissão</label>
-              <label class="check-label"><input type="checkbox" [checked]="form().venderSomenteComSenha" (change)="upd('venderSomenteComSenha', $any($event.target).checked)" /> Vender somente com senha</label>
-              <label class="check-label"><input type="checkbox" [checked]="form().cobrarJurosAtraso" (change)="upd('cobrarJurosAtraso', $any($event.target).checked)" /> Cobrar juros em atraso</label>
+              <label class="check-label"><input type="checkbox" [checked]="!form().bloquearVendaParcelada" (change)="upd('bloquearVendaParcelada', !$any($event.target).checked)" /> Permitir Venda Parcelada</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().permiteFidelidade" (change)="upd('permiteFidelidade', $any($event.target).checked)" /> Permite Fidelidade</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().bloquearDescontoParcelada" (change)="upd('bloquearDescontoParcelada', $any($event.target).checked)" /> Bloquear Desconto na Venda Parcelada</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().venderSomenteComSenha" (change)="upd('venderSomenteComSenha', $any($event.target).checked)" /> Vender Somente com Senha</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().cobrarJurosAtraso" (change)="upd('cobrarJurosAtraso', $any($event.target).checked)" /> Cobrar Juros quando Atrasar</label>
+              <label class="check-label"><input type="checkbox" [checked]="form().bloquearComissao" (change)="upd('bloquearComissao', $any($event.target).checked)" /> Bloquear Comissão</label>
             </div>
+            @if (form().venderSomenteComSenha) {
+              <div class="form-grid" style="margin-top:12px">
+                <div class="field">
+                  <label>SENHA VENDA</label>
+                  <input type="password" [value]="form().senhaVenda" (input)="upd('senhaVenda', $any($event.target).value)" maxlength="20" autocomplete="off" />
+                </div>
+              </div>
+            }
+
+            @if (!form().bloquearVendaParcelada) {
+              <div class="form-grid" style="margin-top:12px">
+                <div class="field"><label>QTDE DE PARCELAS (máx. 12)</label><input type="text" [value]="form().maximoParcelas" (input)="upd('maximoParcelas', Math.min(12, Math.max(1, +$any($event.target).value)))" /></div>
+              </div>
+            }
 
             <!-- Bloqueio de condições de pagamento -->
             @if (tiposPagamento().length > 0) {
@@ -151,17 +167,6 @@
                 }
               </div>
             }
-          </div>
-        </div>
-
-        <!-- ACCORDION LIMITES -->
-        <div class="accordion" [class.aberto]="accLimites()">
-          <div class="accordion-header" (click)="accLimites.update(v => !v)"><span>Limites</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accLimites() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg></div>
-          <div class="accordion-body">
-            <div class="form-grid">
-              <div class="field"><label>LIMITE DE CRÉDITO</label><input type="number" [value]="form().limiteCredito" (input)="upd('limiteCredito', +$any($event.target).value)" step="0.01" min="0" /></div>
-              <div class="field"><label>MÁXIMO DE PARCELAS</label><input type="number" [value]="form().maximoParcelas" (input)="upd('maximoParcelas', +$any($event.target).value)" min="1" /></div>
-            </div>
           </div>
         </div>
 

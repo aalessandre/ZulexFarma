@@ -28,6 +28,16 @@ public class Venda : BaseEntity
     public decimal TotalLiquido { get; set; }
     public int TotalItens { get; set; }
 
+    // ── Datas do ciclo de vida ────────────────────────────────
+    /// <summary>Data da pré-venda (quando o registro foi criado). Igual a CriadoEm.</summary>
+    public DateTime DataPreVenda { get; set; } = Helpers.DataHoraHelper.Agora();
+
+    /// <summary>Data em que a venda foi finalizada no caixa.</summary>
+    public DateTime? DataFinalizacao { get; set; }
+
+    /// <summary>Data em que o cupom fiscal (NFC-e) foi emitido.</summary>
+    public DateTime? DataEmissaoCupom { get; set; }
+
     // ── Status ──────────────────────────────────────────────────
     public VendaStatus Status { get; set; } = VendaStatus.Aberta;
     public string? Observacao { get; set; }

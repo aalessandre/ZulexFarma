@@ -49,11 +49,50 @@ interface VendaRealizada {
   id: number;
   codigo?: string;
   clienteNome?: string;
+  colaboradorNome?: string;
+  tipoPagamentoNome?: string;
+  totalBruto: number;
+  totalDesconto: number;
   totalLiquido: number;
   totalItens: number;
   criadoEm: string;
+  dataEmissaoCupom?: string;
+  dataFinalizacao?: string;
   status: number;
+  convenioNome?: string;
 }
+
+interface VendaRealizadaItem {
+  produtoCodigo: string;
+  produtoNome: string;
+  fabricante?: string;
+  quantidade: number;
+  precoVenda: number;
+  valorDesconto: number;
+  total: number;
+}
+
+const VR_COLUNAS: ColunaDef[] = [
+  { campo: 'codigo',            label: 'CÓDIGO',       largura: 80,  minLargura: 60,  padrao: true },
+  { campo: 'dataEmissaoCupom',  label: 'DATA CUPOM',   largura: 140, minLargura: 100, padrao: true },
+  { campo: 'colaboradorNome',   label: 'VENDEDOR',     largura: 140, minLargura: 80,  padrao: true },
+  { campo: 'clienteNome',       label: 'CLIENTE',      largura: 180, minLargura: 100, padrao: true },
+  { campo: 'convenioNome',      label: 'CONVÊNIO',     largura: 120, minLargura: 80,  padrao: false },
+  { campo: 'tipoPagamentoNome', label: 'F. PGTO',      largura: 110, minLargura: 80,  padrao: true },
+  { campo: 'totalBruto',        label: 'TOTAL BRUTO',  largura: 100, minLargura: 70,  padrao: true },
+  { campo: 'totalDesconto',     label: 'TOTAL DESC',   largura: 100, minLargura: 70,  padrao: true },
+  { campo: 'totalLiquido',      label: 'TOTAL LÍQ.',   largura: 100, minLargura: 70,  padrao: true },
+];
+
+const VR_ITENS_COLUNAS: ColunaDef[] = [
+  { campo: 'produtoCodigo', label: 'CÓDIGO',      largura: 80,  minLargura: 60,  padrao: true },
+  { campo: 'produtoNome',   label: 'PRODUTO',     largura: 220, minLargura: 120, padrao: true },
+  { campo: 'fabricante',    label: 'FABRICANTE',  largura: 140, minLargura: 80,  padrao: true },
+  { campo: 'quantidade',    label: 'QTDE',        largura: 60,  minLargura: 40,  padrao: true },
+  { campo: 'totalBruto',    label: 'TOTAL BRUTO', largura: 100, minLargura: 70,  padrao: true },
+  { campo: 'totalDesconto', label: 'TOTAL DESC',  largura: 100, minLargura: 70,  padrao: true },
+  { campo: 'total',         label: 'TOTAL LÍQ.',  largura: 100, minLargura: 70,  padrao: true },
+];
 
 type PainelAtivo = 'vender' | 'pendentes' | 'entregas' | 'valores' | 'vendas' | 'recargas';
 
@@ -112,9 +151,30 @@ export class CaixaComponent implements OnInit, OnDestroy {
   private pendDragIdx: number | null = null;
   private pendResizeState: { campo: string; startX: number; startW: number } | null = null;
 
-  // ── Vendas realizadas ──────────────────────────────────────────
+  // ── Vendas realizadas (grid padrão ERP master-detail) ────────
+  private readonly STORAGE_VR = 'zulex_colunas_caixa_vendas';
+  private readonly STORAGE_VR_ITENS = 'zulex_colunas_caixa_vendas_itens';
+  caixasDisponiveis = signal<CaixaInfo[]>([]);
+  caixaSelecionadoId = signal<number | null>(null);
   vendasRealizadas = signal<VendaRealizada[]>([]);
   vendasLoading = signal(false);
+  vrColunas = signal<ColunaEstado[]>(this.carregarColunasVr());
+  vrColunasVisiveis = computed(() => this.vrColunas().filter(c => c.visivel));
+  vrPainelColunas = signal(false);
+  vrSortColuna = signal('');
+  vrSortDir = signal<'asc' | 'desc'>('asc');
+  private vrDragIdx: number | null = null;
+  private vrResizeState: { campo: string; startX: number; startW: number } | null = null;
+  vrExpandido = signal<number | null>(null);
+  vrItens = signal<VendaRealizadaItem[]>([]);
+  vrItensLoading = signal(false);
+  vrItensColunas = signal<ColunaEstado[]>(this.carregarColunasVrItens());
+  vrItensColunasVisiveis = computed(() => this.vrItensColunas().filter(c => c.visivel));
+  vrItensPainelColunas = signal(false);
+  vrItensSortColuna = signal('');
+  vrItensSortDir = signal<'asc' | 'desc'>('asc');
+  private vrItensDragIdx: number | null = null;
+  private vrItensResizeState: { campo: string; startX: number; startW: number } | null = null;
 
   constructor(
     private http: HttpClient,
@@ -126,6 +186,7 @@ export class CaixaComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.carregarFiliais();
     this.verificarCaixaAberto();
+    this.carregarCaixasDisponiveis();
   }
 
   private carregarFiliais() {
@@ -226,12 +287,41 @@ export class CaixaComponent implements OnInit, OnDestroy {
   }
 
   // ── Vendas realizadas ──────────────────────────────────────────
+  carregarCaixasDisponiveis() {
+    this.http.get<any>(`${this.apiUrl}/caixas`).subscribe({
+      next: r => {
+        const lista: CaixaInfo[] = r.data ?? [];
+        this.caixasDisponiveis.set(lista);
+        // Default: caixa atual aberto, senão o primeiro da lista
+        const atual = this.caixaAberto();
+        if (atual && lista.some(c => c.id === atual.id)) {
+          this.caixaSelecionadoId.set(atual.id);
+        } else if (lista.length > 0) {
+          this.caixaSelecionadoId.set(lista[0].id);
+        }
+        this.carregarVendasRealizadas();
+      }
+    });
+  }
+
+  trocarCaixa(caixaId: number) {
+    this.caixaSelecionadoId.set(caixaId);
+    this.vrExpandido.set(null);
+    this.carregarVendasRealizadas();
+  }
+
   carregarVendasRealizadas() {
-    if (!this.caixaAberto()) return;
+    const cxId = this.caixaSelecionadoId();
+    console.log('[VR] carregarVendasRealizadas caixaId=', cxId);
+    if (!cxId) return;
     this.vendasLoading.set(true);
-    this.http.get<any>(`${this.apiUrl}/vendas`, { params: { caixaId: this.caixaAberto()!.id.toString(), status: 'finalizada' } }).subscribe({
-      next: r => { this.vendasRealizadas.set(r.data ?? []); this.vendasLoading.set(false); },
-      error: () => this.vendasLoading.set(false)
+    this.http.get<any>(`${this.apiUrl}/vendas`, { params: { caixaId: cxId.toString(), status: 'finalizada' } }).subscribe({
+      next: r => {
+        console.log('[VR] vendas recebidas:', r.data?.length ?? 0, r.data);
+        this.vendasRealizadas.set(r.data ?? []);
+        this.vendasLoading.set(false);
+      },
+      error: (err) => { console.error('[VR] erro:', err); this.vendasLoading.set(false); }
     });
   }
 
@@ -356,18 +446,35 @@ export class CaixaComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('document:mousemove', ['$event'])
-  onPendResizeMove(e: MouseEvent) {
-    if (!this.pendResizeState) return;
-    const delta = e.clientX - this.pendResizeState.startX;
-    const def = PEND_COLUNAS.find(c => c.campo === this.pendResizeState!.campo);
-    const min = def?.minLargura ?? 50;
-    const novaLargura = Math.max(min, this.pendResizeState.startW + delta);
-    this.pendColunas.update(cols => cols.map(c => c.campo === this.pendResizeState!.campo ? { ...c, largura: novaLargura } : c));
+  onResizeMove(e: MouseEvent) {
+    if (this.pendResizeState) {
+      const delta = e.clientX - this.pendResizeState.startX;
+      const def = PEND_COLUNAS.find(c => c.campo === this.pendResizeState!.campo);
+      const min = def?.minLargura ?? 50;
+      const novaLargura = Math.max(min, this.pendResizeState.startW + delta);
+      this.pendColunas.update(cols => cols.map(c => c.campo === this.pendResizeState!.campo ? { ...c, largura: novaLargura } : c));
+    }
+    if (this.vrResizeState) {
+      const delta = e.clientX - this.vrResizeState.startX;
+      const def = VR_COLUNAS.find(c => c.campo === this.vrResizeState!.campo);
+      const min = def?.minLargura ?? 50;
+      const novaLargura = Math.max(min, this.vrResizeState.startW + delta);
+      this.vrColunas.update(cols => cols.map(c => c.campo === this.vrResizeState!.campo ? { ...c, largura: novaLargura } : c));
+    }
+    if (this.vrItensResizeState) {
+      const delta = e.clientX - this.vrItensResizeState.startX;
+      const def = VR_ITENS_COLUNAS.find(c => c.campo === this.vrItensResizeState!.campo);
+      const min = def?.minLargura ?? 50;
+      const novaLargura = Math.max(min, this.vrItensResizeState.startW + delta);
+      this.vrItensColunas.update(cols => cols.map(c => c.campo === this.vrItensResizeState!.campo ? { ...c, largura: novaLargura } : c));
+    }
   }
 
   @HostListener('document:mouseup')
-  onPendResizeEnd() {
+  onResizeEnd() {
     if (this.pendResizeState) { this.salvarColunasPend(); this.pendResizeState = null; document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+    if (this.vrResizeState) { this.salvarColunasVr(); this.vrResizeState = null; document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+    if (this.vrItensResizeState) { this.salvarColunasVrItens(); this.vrItensResizeState = null; document.body.style.cursor = ''; document.body.style.userSelect = ''; }
   }
 
   pendDragStart(idx: number) { this.pendDragIdx = idx; }
@@ -377,4 +484,175 @@ export class CaixaComponent implements OnInit, OnDestroy {
     this.pendColunas.update(cols => { const arr = [...cols]; const [m] = arr.splice(this.pendDragIdx!, 1); arr.splice(idx, 0, m); this.pendDragIdx = idx; return arr; });
   }
   pendDrop() { this.pendDragIdx = null; this.salvarColunasPend(); }
+
+  // ── Grid vendas realizadas: padrão ERP ─────────────────────────
+  private carregarColunasVr(): ColunaEstado[] {
+    try {
+      const json = localStorage.getItem(this.STORAGE_VR);
+      if (json) {
+        const saved: ColunaEstado[] = JSON.parse(json);
+        return VR_COLUNAS.map(def => {
+          const s = saved.find(c => c.campo === def.campo);
+          return { ...def, visivel: s ? s.visivel : def.padrao, largura: s?.largura ?? def.largura };
+        });
+      }
+    } catch {}
+    return VR_COLUNAS.map(c => ({ ...c, visivel: c.padrao }));
+  }
+
+  private salvarColunasVr() {
+    localStorage.setItem(this.STORAGE_VR, JSON.stringify(this.vrColunas()));
+  }
+
+  vrOrdenar(campo: string) {
+    if (this.vrSortColuna() === campo) this.vrSortDir.set(this.vrSortDir() === 'asc' ? 'desc' : 'asc');
+    else { this.vrSortColuna.set(campo); this.vrSortDir.set('asc'); }
+  }
+
+  vrSortIcon(campo: string): string {
+    if (this.vrSortColuna() !== campo) return '⇅';
+    return this.vrSortDir() === 'asc' ? '▲' : '▼';
+  }
+
+  vrSorted(): VendaRealizada[] {
+    const col = this.vrSortColuna(); const dir = this.vrSortDir();
+    const lista = this.vendasRealizadas();
+    if (!col) return lista;
+    return [...lista].sort((a, b) => {
+      const va = (a as any)[col] ?? '';
+      const vb = (b as any)[col] ?? '';
+      const cmp = typeof va === 'number' ? va - (vb as number) : String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base' });
+      return dir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  vrCellValue(item: VendaRealizada, campo: string): string {
+    const v = (item as any)[campo];
+    if (v === null || v === undefined) return '—';
+    if (campo === 'dataEmissaoCupom' || campo === 'dataFinalizacao' || campo === 'criadoEm') return this.formatarData(v);
+    if (campo === 'totalBruto' || campo === 'totalDesconto' || campo === 'totalLiquido') return this.formatarMoeda(v);
+    if (campo === 'clienteNome' && !v) return 'Consumidor';
+    return String(v);
+  }
+
+  vrToggleColuna(campo: string) {
+    this.vrColunas.update(cols => cols.map(c => c.campo === campo ? { ...c, visivel: !c.visivel } : c));
+    this.salvarColunasVr();
+  }
+
+  vrRestaurarColunas() {
+    this.vrColunas.set(VR_COLUNAS.map(c => ({ ...c, visivel: c.padrao })));
+    this.salvarColunasVr();
+  }
+
+  vrIniciarResize(e: MouseEvent, campo: string, largura: number) {
+    e.stopPropagation(); e.preventDefault();
+    this.vrResizeState = { campo, startX: e.clientX, startW: largura };
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+  }
+
+  vrDragStart(idx: number) { this.vrDragIdx = idx; }
+  vrDragOver(e: DragEvent, idx: number) {
+    e.preventDefault();
+    if (this.vrDragIdx === null || this.vrDragIdx === idx) return;
+    this.vrColunas.update(cols => { const arr = [...cols]; const [m] = arr.splice(this.vrDragIdx!, 1); arr.splice(idx, 0, m); this.vrDragIdx = idx; return arr; });
+  }
+  vrDrop() { this.vrDragIdx = null; this.salvarColunasVr(); }
+
+  vrExpandir(venda: VendaRealizada) {
+    if (this.vrExpandido() === venda.id) {
+      this.vrExpandido.set(null);
+      return;
+    }
+    this.vrExpandido.set(venda.id);
+    this.vrItensLoading.set(true);
+    this.http.get<any>(`${this.apiUrl}/vendas/${venda.id}`).subscribe({
+      next: r => {
+        const itens = (r.data?.itens ?? []).map((i: any) => ({
+          produtoCodigo: i.produtoCodigo,
+          produtoNome: i.produtoNome,
+          fabricante: i.fabricante,
+          quantidade: i.quantidade,
+          totalBruto: (i.precoVenda ?? 0) * (i.quantidade ?? 1),
+          totalDesconto: i.valorDesconto ?? 0,
+          total: i.total
+        }));
+        this.vrItens.set(itens);
+        this.vrItensLoading.set(false);
+      },
+      error: () => this.vrItensLoading.set(false)
+    });
+  }
+
+  // ── Grid itens vendas realizadas ───────────────────────────────
+  private carregarColunasVrItens(): ColunaEstado[] {
+    try {
+      const json = localStorage.getItem(this.STORAGE_VR_ITENS);
+      if (json) {
+        const saved: ColunaEstado[] = JSON.parse(json);
+        return VR_ITENS_COLUNAS.map(def => {
+          const s = saved.find(c => c.campo === def.campo);
+          return { ...def, visivel: s ? s.visivel : def.padrao, largura: s?.largura ?? def.largura };
+        });
+      }
+    } catch {}
+    return VR_ITENS_COLUNAS.map(c => ({ ...c, visivel: c.padrao }));
+  }
+
+  private salvarColunasVrItens() {
+    localStorage.setItem(this.STORAGE_VR_ITENS, JSON.stringify(this.vrItensColunas()));
+  }
+
+  vrItensOrdenar(campo: string) {
+    if (this.vrItensSortColuna() === campo) this.vrItensSortDir.set(this.vrItensSortDir() === 'asc' ? 'desc' : 'asc');
+    else { this.vrItensSortColuna.set(campo); this.vrItensSortDir.set('asc'); }
+  }
+
+  vrItensSortIcon(campo: string): string {
+    if (this.vrItensSortColuna() !== campo) return '⇅';
+    return this.vrItensSortDir() === 'asc' ? '▲' : '▼';
+  }
+
+  vrItensSorted(): VendaRealizadaItem[] {
+    const col = this.vrItensSortColuna(); const dir = this.vrItensSortDir();
+    const lista = this.vrItens();
+    if (!col) return lista;
+    return [...lista].sort((a, b) => {
+      const va = (a as any)[col] ?? '';
+      const vb = (b as any)[col] ?? '';
+      const cmp = typeof va === 'number' ? va - (vb as number) : String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base' });
+      return dir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  vrItensCellValue(item: VendaRealizadaItem, campo: string): string {
+    const v = (item as any)[campo];
+    if (v === null || v === undefined) return '—';
+    if (campo === 'totalBruto' || campo === 'totalDesconto' || campo === 'total') return this.formatarMoeda(v);
+    return String(v);
+  }
+
+  vrItensToggleColuna(campo: string) {
+    this.vrItensColunas.update(cols => cols.map(c => c.campo === campo ? { ...c, visivel: !c.visivel } : c));
+    this.salvarColunasVrItens();
+  }
+
+  vrItensRestaurarColunas() {
+    this.vrItensColunas.set(VR_ITENS_COLUNAS.map(c => ({ ...c, visivel: c.padrao })));
+    this.salvarColunasVrItens();
+  }
+
+  vrItensIniciarResize(e: MouseEvent, campo: string, largura: number) {
+    e.stopPropagation(); e.preventDefault();
+    this.vrItensResizeState = { campo, startX: e.clientX, startW: largura };
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+  }
+
+  vrItensDragStart(idx: number) { this.vrItensDragIdx = idx; }
+  vrItensDragOver(e: DragEvent, idx: number) {
+    e.preventDefault();
+    if (this.vrItensDragIdx === null || this.vrItensDragIdx === idx) return;
+    this.vrItensColunas.update(cols => { const arr = [...cols]; const [m] = arr.splice(this.vrItensDragIdx!, 1); arr.splice(idx, 0, m); this.vrItensDragIdx = idx; return arr; });
+  }
+  vrItensDrop() { this.vrItensDragIdx = null; this.salvarColunasVrItens(); }
 }

@@ -272,3 +272,34 @@
   &:hover { opacity: 0.9; }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
+
+/* ══ Vendas Realizadas — grid master-detail ═══════════════════════ */
+.cx-caixa-dropdown {
+  padding: 4px 12px; border: 1px solid var(--erp-border); border-radius: 6px;
+  font-size: var(--erp-fs-sm); font-weight: 600; color: var(--erp-text);
+  background: var(--erp-bg); cursor: pointer; outline: none; min-width: 380px;
+  &:focus { border-color: #2196F3; }
+}
+.cx-vr-count { font-size: 12px; color: #95a5a6; font-weight: 400; margin-left: 8px; }
+
+.tr-selecionada { background: #e3f2fd !important; }
+.tr-detail > td { padding: 0 !important; background: #f8f9fa; }
+
+.vr-detail-container {
+  margin: 0; padding: 8px 12px 12px 36px;
+  border-top: 1px solid #e0e0e0;
+}
+.vr-detail-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+}
+.vr-detail-titulo {
+  font-size: 12px; font-weight: 700; color: #546e7a;
+}
+.btn-colunas-sm {
+  padding: 3px 8px !important; font-size: 11px !important;
+}
+
+.erp-grid-compact {
+  th { font-size: 10px !important; padding: 4px 6px !important; }
+  td { font-size: 11px !important; padding: 3px 6px !important; }
+}

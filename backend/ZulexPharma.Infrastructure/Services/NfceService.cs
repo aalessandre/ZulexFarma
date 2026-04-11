@@ -114,6 +114,10 @@ public class NfceService
         };
         _db.Nfces.Add(nfce);
 
+        // Atualizar data de emissão do cupom na venda
+        if (resultado.Autorizada)
+            venda.DataEmissaoCupom = agora;
+
         var cfgNumero = await _db.Set<Configuracao>().FirstOrDefaultAsync(c => c.Chave == "fiscal.nfce.numero.atual");
         if (cfgNumero != null) cfgNumero.Valor = numero.ToString();
 

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ZulexPharma.Infrastructure.Data;
@@ -11,9 +12,11 @@ using ZulexPharma.Infrastructure.Data;
 namespace ZulexPharma.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260411140013_PendingModelSync")]
+    partial class PendingModelSync
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1810,9 +1813,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<int>("QtdeViasCupom")
                         .HasColumnType("integer");
-
-                    b.Property<string>("SenhaVenda")
-                        .HasColumnType("text");
 
                     b.Property<Guid>("SyncGuid")
                         .ValueGeneratedOnAdd()

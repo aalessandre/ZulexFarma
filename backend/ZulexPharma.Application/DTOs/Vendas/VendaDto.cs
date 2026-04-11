@@ -10,11 +10,17 @@ public class VendaListDto
     public string? ClienteNome { get; set; }
     public string? ColaboradorNome { get; set; }
     public string? TipoPagamentoNome { get; set; }
+    public string? ConvenioNome { get; set; }
+    public decimal TotalBruto { get; set; }
+    public decimal TotalDesconto { get; set; }
     public decimal TotalLiquido { get; set; }
     public int TotalItens { get; set; }
     public VendaStatus Status { get; set; }
     public string StatusDescricao { get; set; } = string.Empty;
     public DateTime CriadoEm { get; set; }
+    public DateTime DataPreVenda { get; set; }
+    public DateTime? DataFinalizacao { get; set; }
+    public DateTime? DataEmissaoCupom { get; set; }
 }
 
 public class VendaDetalheDto
@@ -35,6 +41,9 @@ public class VendaDetalheDto
     public VendaStatus Status { get; set; }
     public string? Observacao { get; set; }
     public DateTime CriadoEm { get; set; }
+    public DateTime DataPreVenda { get; set; }
+    public DateTime? DataFinalizacao { get; set; }
+    public DateTime? DataEmissaoCupom { get; set; }
     public List<VendaItemDto> Itens { get; set; } = new();
     public List<VendaPagamentoDto> Pagamentos { get; set; } = new();
 }
