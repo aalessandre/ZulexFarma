@@ -703,6 +703,13 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.isDirty.set(true);
   }
 
+  buscarCepEnderecoManual(idx: number) {
+    const end = this.clienteForm().enderecos[idx];
+    if (!end) return;
+    const digits = (end.cep ?? '').replace(/\D/g, '');
+    if (digits.length === 8) this.buscarCepEndereco(digits, idx);
+  }
+
   onCepEnderecoInput(event: Event, idx: number) {
     const input = event.target as HTMLInputElement;
     const mascarado = this.mascaraCep(input.value);
@@ -758,14 +765,29 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.isDirty.set(true);
   }
 
+  formatarContatoValor(ct: any): string {
+    if (!ct.valor) return '';
+    if (ct.tipo === 'TELEFONE' || ct.tipo === 'CELULAR' || ct.tipo === 'WHATSAPP') {
+      return this.mascaraTelefone(ct.valor);
+    }
+    return ct.valor;
+  }
+
   onContatoValorInput(event: Event, idx: number) {
     const input = event.target as HTMLInputElement;
     const tipo = this.clienteForm().contatos[idx].tipo;
     let mascarado = input.value;
     if (tipo === 'TELEFONE' || tipo === 'CELULAR' || tipo === 'WHATSAPP') {
+      const antes = input.value.length;
+      const cursorAntes = input.selectionStart ?? 0;
       mascarado = this.mascaraTelefone(input.value);
+      input.value = mascarado;
+      const diff = mascarado.length - antes;
+      const pos = cursorAntes + diff;
+      input.setSelectionRange(pos, pos);
+    } else {
+      input.value = mascarado;
     }
-    input.value = mascarado;
     this.updateContato(idx, 'valor', mascarado);
   }
 
@@ -1065,6 +1087,13 @@ export class ClientesComponent implements OnInit, OnDestroy {
     }
   }
 
+  formatarCpfCnpj(valor: string, tipo: string): string {
+    if (!valor) return '';
+    const d = valor.replace(/\D/g, '');
+    if (tipo === 'F') return this.mascaraCpf(d);
+    return this.mascaraCnpj(d);
+  }
+
   mascaraCpf(v: string): string {
     const d = v.replace(/\D/g, '').slice(0, 11);
     if (d.length <= 3)  return d;
@@ -1129,6 +1158,13 @@ export class ClientesComponent implements OnInit, OnDestroy {
 
   erroCampo(campo: string): string { return this.errosCampos()[campo] ?? ''; }
   hasEnderecoErrors(): boolean { return Object.keys(this.errosCampos()).some(k => k.startsWith('end_')); }
+
+  campoAlterado(campo: string): boolean {
+    if (!this.formOriginal || !this.modoEdicao()) return false;
+    const atual = (this.clienteForm() as any)[campo];
+    const original = (this.formOriginal as any)[campo];
+    return (atual ?? '') !== (original ?? '');
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────
   private resetAccordions() {

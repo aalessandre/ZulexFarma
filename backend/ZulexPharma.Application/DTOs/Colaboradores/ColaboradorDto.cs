@@ -28,6 +28,7 @@ public class ColaboradorDetalheDto
     public string Cpf             { get; set; } = string.Empty;
     public string? Rg             { get; set; }
     public DateTime? DataNascimento { get; set; }
+    public string? Genero         { get; set; }
     public string? Cargo          { get; set; }
     public DateTime? DataAdmissao { get; set; }
     public decimal? Salario       { get; set; }
@@ -52,6 +53,7 @@ public class ColaboradorFormDto
     public DateTime? DataNascimento { get; set; }
 
     // Emprego
+    public string? Genero         { get; set; }
     public string? Cargo          { get; set; }
     public DateTime? DataAdmissao { get; set; }
     public decimal? Salario       { get; set; }

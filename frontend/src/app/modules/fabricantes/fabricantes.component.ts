@@ -13,6 +13,7 @@ interface LogEntry { id: number; realizadoEm: string; acao: string; nomeUsuario:
 
 interface Fabricante {
   id?: number;
+  codigo?: string;
   nome: string;
   ativo: boolean;
   criadoEm?: string;
@@ -39,7 +40,7 @@ interface ColunaEstado extends ColunaDef {
 type Modo = 'lista' | 'form';
 
 const FABRICANTES_COLUNAS: ColunaDef[] = [
-  { campo: 'id', label: 'ID', largura: 60, minLargura: 50, padrao: true },
+  { campo: 'codigo', label: 'Código', largura: 80, minLargura: 60, padrao: true },
   { campo: 'nome', label: 'Nome', largura: 200, minLargura: 100, padrao: true },
   { campo: 'ativo', label: 'Ativo', largura: 60, minLargura: 50, padrao: true },
 ];
@@ -110,10 +111,77 @@ export class FabricantesComponent implements OnInit, OnDestroy {
     return {};
   }
 
-  ngOnInit() { this.carregar(); }
-  ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
+  private readonly TAB_ID = '/erp/fabricantes';
+  private fechamentoConfirmado = false;
 
-  sairDaTela() {
+  ngOnInit() {
+    if (!this.tabService.tabs().find(t => t.id === this.TAB_ID)) {
+      this.tabService.abrirTab({ id: this.TAB_ID, titulo: 'Fabricantes', rota: this.TAB_ID, iconKey: 'box' });
+    }
+    this.carregar();
+    window.addEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.registrarBeforeClose(this.TAB_ID, async () => {
+      if (this.isDirty()) {
+        const r = await this.modal.confirmar('Fechar tela', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+        if (!r.confirmado) return false;
+      }
+      this.fechamentoConfirmado = true;
+      this.abasEdicao.set([]);
+      sessionStorage.removeItem(this.STATE_KEY);
+      return true;
+    });
+  }
+
+  ngOnDestroy() {
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.removerBeforeClose(this.TAB_ID);
+    if (!this.fechamentoConfirmado) this.persistirEstado();
+  }
+
+  private onBeforeUnload = (e: BeforeUnloadEvent) => {
+    this.persistirEstado();
+    if (this.isDirty()) e.preventDefault();
+  };
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent) {
+    if (this.modal.visivel()) return;
+    if (e.ctrlKey && e.key === 's' && this.modo() === 'form') { e.preventDefault(); if (this.isDirty()) this.salvar(); }
+    if (e.key === 'Escape' && this.modo() === 'form') { e.preventDefault(); if (this.isDirty()) this.cancelarEdicao(); else this.fecharForm(); }
+    if (e.key === 'F2' && this.modo() === 'lista') { e.preventDefault(); this.editar(); }
+    if (e.key === 'Enter' && this.modo() === 'lista' && this.fabricanteSelecionado()) {
+      const el = e.target as HTMLElement;
+      if (el?.tagName === 'INPUT' || el?.tagName === 'SELECT' || el?.tagName === 'TEXTAREA') return;
+      e.preventDefault(); this.editar();
+    }
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && this.modo() === 'lista') {
+      const el = e.target as HTMLElement;
+      if (el?.classList?.contains('input-busca')) return;
+      e.preventDefault();
+      const lista = this.fabricantesFiltrados();
+      if (lista.length === 0) return;
+      const atual = this.fabricanteSelecionado();
+      const idx = atual ? lista.findIndex(f => f.id === atual.id) : -1;
+      const novoIdx = e.key === 'ArrowDown' ? Math.min(idx + 1, lista.length - 1) : Math.max(idx - 1, 0);
+      this.selecionar(lista[novoIdx]);
+      setTimeout(() => { const row = document.querySelector('.erp-grid tbody tr.selecionado') as HTMLElement; if (row) row.scrollIntoView({ block: 'nearest' }); });
+    }
+  }
+
+  campoAlterado(campo: string): boolean {
+    if (!this.formOriginal || !this.modoEdicao()) return false;
+    const atual = (this.fabricanteForm() as any)[campo];
+    const original = (this.formOriginal as any)[campo];
+    return (atual ?? '') !== (original ?? '');
+  }
+
+  async sairDaTela() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Sair da tela', 'Você tem alterações não salvas. Deseja realmente sair?', 'Sim, sair', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
+    this.fechamentoConfirmado = true;
+    this.abasEdicao.set([]);
     sessionStorage.removeItem(this.STATE_KEY);
     this.tabService.fecharTabAtiva();
   }
@@ -124,7 +192,7 @@ export class FabricantesComponent implements OnInit, OnDestroy {
     const abas = this.abasEdicao();
     if (abas.length === 0) { sessionStorage.removeItem(this.STATE_KEY); return; }
     sessionStorage.setItem(this.STATE_KEY, JSON.stringify({
-      abasIds: abas.map(a => a.fabricante.id),
+      abas: abas.map(a => ({ fabricante: a.fabricante, form: a.form, isDirty: a.isDirty })),
       abaAtivaId: this.abaAtivaId()
     }));
   }
@@ -135,6 +203,25 @@ export class FabricantesComponent implements OnInit, OnDestroy {
       if (!json) return;
       const state = JSON.parse(json);
       sessionStorage.removeItem(this.STATE_KEY);
+
+      if (state.abas?.length > 0) {
+        for (const a of state.abas) {
+          if (this.abasEdicao().find(x => x.fabricante.id === a.fabricante.id)) continue;
+          const novaAba: AbaEdicao = { fabricante: a.fabricante, form: this.clonar(a.form), isDirty: a.isDirty };
+          this.abasEdicao.update(tabs => [...tabs, novaAba]);
+          if (a.fabricante.id === state.abaAtivaId) {
+            this.fabricanteSelecionado.set(a.fabricante);
+            this.fabricanteForm.set(this.clonar(a.form));
+            this.formOriginal = this.clonar(a.form);
+            this.isDirty.set(a.isDirty);
+            this.abaAtivaId.set(a.fabricante.id);
+            this.modoEdicao.set(a.fabricante.id !== this.NOVO_ID);
+            this.modo.set('form');
+          }
+        }
+        return;
+      }
+
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const f = this.fabricantes().find(x => x.id === id);
@@ -292,15 +379,28 @@ export class FabricantesComponent implements OnInit, OnDestroy {
   }
   onDropCol() { this.dragColIdx = null; this.salvarColunasStorage(); }
 
+  private readonly NOVO_ID = -1;
+  dataHoje = new Date().toLocaleDateString('pt-BR');
+
   // ── CRUD ───────────────────────────────────────────────────────────
   async incluir() {
     if (!await this.verificarPermissao('i')) return;
-    this.fabricanteForm.set(this.novoFabricante());
-    this.formOriginal = this.clonar(this.novoFabricante());
+    this.salvarEstadoAbaAtiva();
+    const jaExiste = this.abasEdicao().find(a => a.fabricante.id === this.NOVO_ID);
+    if (jaExiste) {
+      if (jaExiste.isDirty) { this.ativarAba(this.NOVO_ID); this.modoEdicao.set(false); return; }
+      else { this.abasEdicao.update(tabs => tabs.filter(t => t.fabricante.id !== this.NOVO_ID)); }
+    }
+    const novo = this.novoFabricante();
+    (novo as any).id = this.NOVO_ID;
+    this.fabricanteForm.set(novo);
+    this.formOriginal = this.clonar(novo);
     this.modoEdicao.set(false);
     this.isDirty.set(false);
-    this.erro.set('');
-    this.errosCampos.set({});
+    this.erro.set(''); this.errosCampos.set({});
+    this.abaAtivaId.set(this.NOVO_ID);
+    const novaAba: AbaEdicao = { fabricante: { id: this.NOVO_ID, nome: 'Novo cadastro', ativo: true }, form: this.clonar(novo), isDirty: false };
+    this.abasEdicao.update(tabs => [...tabs, novaAba]);
     this.modo.set('form');
   }
 
@@ -335,13 +435,17 @@ export class FabricantesComponent implements OnInit, OnDestroy {
     this.fabricanteForm.set(this.clonar(aba.form));
     this.formOriginal = this.clonar(aba.form);
     this.isDirty.set(aba.isDirty);
-    this.modoEdicao.set(true);
-    this.erro.set('');
-    this.errosCampos.set({});
+    this.modoEdicao.set(id !== this.NOVO_ID);
+    this.erro.set(''); this.errosCampos.set({});
     this.modo.set('form');
   }
 
-  fecharAba(id: number) {
+  async fecharAba(id: number) {
+    const aba = this.abasEdicao().find(a => a.fabricante.id === id);
+    if (aba?.isDirty) {
+      const r = await this.modal.confirmar('Fechar aba', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     this.abasEdicao.update(abas => abas.filter(a => a.fabricante.id !== id));
     if (this.abaAtivaId() === id) {
       const restantes = this.abasEdicao();
@@ -355,25 +459,38 @@ export class FabricantesComponent implements OnInit, OnDestroy {
   }
 
   fechar() {
+    this.salvarEstadoAbaAtiva();
     this.modo.set('lista');
     this.carregar();
   }
 
-  fecharForm() {
-    if (this.modoEdicao()) {
-      const id = this.abaAtivaId();
-      if (id) this.fecharAba(id);
-      else this.modo.set('lista');
+  async fecharForm() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Fechar cadastro', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
+    const id = this.abaAtivaId();
+    if (id != null) {
+      this.abasEdicao.update(tabs => tabs.filter(t => t.fabricante.id !== id));
+      this.abaAtivaId.set(null);
     } else {
       this.modo.set('lista');
     }
   }
 
-  cancelarEdicao() {
+  async cancelarEdicao() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Cancelar edição', 'Você tem alterações não salvas. Deseja realmente cancelar?', 'Sim, cancelar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
+    const id = this.abaAtivaId();
+    if (id === this.NOVO_ID) {
+      this.abasEdicao.update(tabs => tabs.filter(t => t.fabricante.id !== this.NOVO_ID));
+      this.abaAtivaId.set(null); this.modo.set('lista'); return;
+    }
     if (this.formOriginal) {
       this.fabricanteForm.set(this.clonar(this.formOriginal));
       this.isDirty.set(false);
-      const id = this.abaAtivaId();
       if (id) {
         this.abasEdicao.update(abas =>
           abas.map(a => a.fabricante.id === id ? { ...a, isDirty: false } : a)
@@ -466,6 +583,7 @@ export class FabricantesComponent implements OnInit, OnDestroy {
 
   // ── Form helpers ───────────────────────────────────────────────────
   upd(campo: keyof Fabricante, v: any) {
+    if (typeof v === 'string' && campo !== 'criadoEm') v = v.toUpperCase();
     this.fabricanteForm.update(f => ({ ...f, [campo]: v }));
     this.isDirty.set(true);
     this.atualizarDirtyAba();

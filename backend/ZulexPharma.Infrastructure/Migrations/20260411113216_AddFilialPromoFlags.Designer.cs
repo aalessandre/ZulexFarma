@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ZulexPharma.Infrastructure.Data;
@@ -11,9 +12,11 @@ using ZulexPharma.Infrastructure.Data;
 namespace ZulexPharma.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260411113216_AddFilialPromoFlags")]
+    partial class AddFilialPromoFlags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -566,13 +569,7 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<bool>("BloquearComissao")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("BloquearDescontoParcelada")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("CalcularJuros")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CobrarJurosAtraso")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Codigo")
@@ -589,9 +586,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("DiaVencimento")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("DiasCarenciaBloqueio")
                         .HasColumnType("integer");
 
                     b.Property<long?>("FilialOrigemId")
@@ -644,9 +638,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
-                    b.Property<bool>("VenderSomenteComSenha")
-                        .HasColumnType("boolean");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Codigo")
@@ -681,30 +672,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("ClienteId");
 
                     b.ToTable("ClienteAutorizacoes");
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.ClienteBloqueio", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("ClienteId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("TipoPagamentoId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TipoPagamentoId");
-
-                    b.HasIndex("ClienteId", "TipoPagamentoId")
-                        .IsUnique();
-
-                    b.ToTable("ClienteBloqueios");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.ClienteConvenio", b =>
@@ -1770,9 +1737,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<decimal>("DescontoGeral")
-                        .HasColumnType("numeric");
-
                     b.Property<int?>("DiaFechamento")
                         .HasColumnType("integer");
 
@@ -1805,17 +1769,11 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<bool>("PermiteFidelidade")
-                        .HasColumnType("boolean");
-
                     b.Property<long>("PessoaId")
                         .HasColumnType("bigint");
 
                     b.Property<int>("QtdeViasCupom")
                         .HasColumnType("integer");
-
-                    b.Property<string>("SenhaVenda")
-                        .HasColumnType("text");
 
                     b.Property<Guid>("SyncGuid")
                         .ValueGeneratedOnAdd()
@@ -5179,15 +5137,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<DateTime?>("DataEmissaoCupom")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime?>("DataFinalizacao")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime>("DataPreVenda")
-                        .HasColumnType("timestamp without time zone");
-
                     b.Property<long>("FilialId")
                         .HasColumnType("bigint");
 
@@ -5560,25 +5509,6 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Cliente");
-                });
-
-            modelBuilder.Entity("ZulexPharma.Domain.Entities.ClienteBloqueio", b =>
-                {
-                    b.HasOne("ZulexPharma.Domain.Entities.Cliente", "Cliente")
-                        .WithMany("Bloqueios")
-                        .HasForeignKey("ClienteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ZulexPharma.Domain.Entities.TipoPagamento", "TipoPagamento")
-                        .WithMany()
-                        .HasForeignKey("TipoPagamentoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Cliente");
-
-                    b.Navigation("TipoPagamento");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.ClienteConvenio", b =>
@@ -6488,8 +6418,6 @@ namespace ZulexPharma.Infrastructure.Migrations
             modelBuilder.Entity("ZulexPharma.Domain.Entities.Cliente", b =>
                 {
                     b.Navigation("Autorizacoes");
-
-                    b.Navigation("Bloqueios");
 
                     b.Navigation("Convenios");
 

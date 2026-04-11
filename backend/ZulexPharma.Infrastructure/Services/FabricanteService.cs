@@ -21,7 +21,7 @@ public class FabricanteService : IFabricanteService
         try
         {
             return await _db.Fabricantes.OrderBy(f => f.Nome)
-                .Select(f => new FabricanteListDto { Id = f.Id, Nome = f.Nome, CriadoEm = f.CriadoEm, Ativo = f.Ativo })
+                .Select(f => new FabricanteListDto { Id = f.Id, Codigo = f.Codigo, Nome = f.Nome, CriadoEm = f.CriadoEm, Ativo = f.Ativo })
                 .ToListAsync();
         }
         catch (Exception ex) { Log.Error(ex, "Erro em FabricanteService.ListarAsync"); throw; }
@@ -36,7 +36,7 @@ public class FabricanteService : IFabricanteService
             _db.Fabricantes.Add(fab);
             await _db.SaveChangesAsync();
             await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, fab.Id, novo: ParaDict(fab));
-            return new FabricanteListDto { Id = fab.Id, Nome = fab.Nome, CriadoEm = fab.CriadoEm, Ativo = fab.Ativo };
+            return new FabricanteListDto { Id = fab.Id, Codigo = fab.Codigo, Nome = fab.Nome, CriadoEm = fab.CriadoEm, Ativo = fab.Ativo };
         }
         catch (Exception ex) when (ex is not ArgumentException) { Log.Error(ex, "Erro em FabricanteService.CriarAsync"); throw; }
     }

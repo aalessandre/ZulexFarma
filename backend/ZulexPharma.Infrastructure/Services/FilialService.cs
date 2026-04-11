@@ -45,6 +45,8 @@ public class FilialService : IFilialService
                     Telefone         = f.Telefone,
                     Email            = f.Email,
                     AliquotaIcms     = f.AliquotaIcms,
+                    IncluirPromoFixa = f.IncluirPromoFixa,
+                    IncluirPromoProgressiva = f.IncluirPromoProgressiva,
                     CriadoEm         = f.CriadoEm,
                     Ativo            = f.Ativo
                 })
@@ -80,6 +82,8 @@ public class FilialService : IFilialService
                 Telefone          = dto.Telefone.Trim(),
                 Email             = dto.Email.Trim().ToLower(),
                 AliquotaIcms      = dto.AliquotaIcms,
+                IncluirPromoFixa  = dto.IncluirPromoFixa,
+                IncluirPromoProgressiva = dto.IncluirPromoProgressiva,
                 Ativo             = dto.Ativo
             };
 
@@ -124,6 +128,8 @@ public class FilialService : IFilialService
             filial.Telefone          = dto.Telefone.Trim();
             filial.Email             = dto.Email.Trim().ToLower();
             filial.AliquotaIcms      = dto.AliquotaIcms;
+            filial.IncluirPromoFixa  = dto.IncluirPromoFixa;
+            filial.IncluirPromoProgressiva = dto.IncluirPromoProgressiva;
             filial.Ativo             = dto.Ativo;
 
             await _db.SaveChangesAsync();
@@ -258,6 +264,8 @@ public class FilialService : IFilialService
         Telefone         = f.Telefone,
         Email            = f.Email,
         AliquotaIcms     = f.AliquotaIcms,
+        IncluirPromoFixa = f.IncluirPromoFixa,
+        IncluirPromoProgressiva = f.IncluirPromoProgressiva,
         CriadoEm         = f.CriadoEm,
         Ativo            = f.Ativo
     };

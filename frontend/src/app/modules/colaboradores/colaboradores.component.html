@@ -3,19 +3,31 @@
   <!-- ── SIDEBAR ESQUERDA ─────────────────────────────────────────── -->
   <aside class="tela-sidebar">
     <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()">
-      <span>Procurar</span>
+      <div class="sidebar-item-header">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Procurar</span>
+      </div>
       <span class="sidebar-sub">Consulta</span>
     </div>
     <div class="sidebar-item tile-adicionar" (click)="incluir()">
-      <span>Adicionar</span>
+      <div class="sidebar-item-header">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Adicionar</span>
+      </div>
       <span class="sidebar-sub">Novo cadastro</span>
     </div>
-    <div class="sidebar-item tile-editar" [class.disabled]="!colaboradorSelecionado()" (click)="editar()">
-      <span>Editar</span>
+    <div class="sidebar-item tile-editar" (click)="editar()">
+      <div class="sidebar-item-header">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span>Editar</span>
+      </div>
       <span class="sidebar-sub">Alterar registro</span>
     </div>
     <div class="sidebar-item tile-sair" (click)="sairDaTela()">
-      <span>Sair</span>
+      <div class="sidebar-item-header">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Sair</span>
+      </div>
       <span class="sidebar-sub">Fechar tela</span>
     </div>
 
@@ -26,14 +38,22 @@
              [class.ativo]="abaAtivaId() === aba.colaborador.id && modo() === 'form'"
              (click)="ativarAba(aba.colaborador.id!)">
           <div class="sidebar-aba-topo">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-            <span class="sidebar-aba-id">#{{ aba.colaborador.id }}</span>
+            @if (aba.colaborador.id === -1) {
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span class="sidebar-aba-id">NOVO</span>
+            } @else {
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              <span class="sidebar-aba-id">#{{ aba.colaborador.codigo || aba.colaborador.id }}</span>
+            }
             @if (aba.isDirty) { <span class="sidebar-aba-dirty">●</span> }
           </div>
-          <span class="sidebar-aba-nome">{{ aba.colaborador.nome }}</span>
+          <span class="sidebar-aba-nome">{{ aba.colaborador.id === -1 ? (aba.form.nome || 'Novo cadastro') : (aba.colaborador.nome || 'Sem nome') }}</span>
+          <span class="sidebar-aba-status">{{ aba.colaborador.id === -1 ? (aba.isDirty ? 'Criando' : 'Novo') : (aba.isDirty ? 'Editando' : 'Consultando') }}</span>
           <button class="sidebar-aba-fechar"
                   (click)="$event.stopPropagation(); fecharAba(aba.colaborador.id!)"
                   title="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
@@ -51,8 +71,11 @@
         <div class="lista-filtro">
           <label>PROCURAR POR</label>
           <div class="input-busca-wrap">
-            <input class="input-busca" type="text" placeholder="Digite ao menos 3 caracteres..."
-                   [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            <input class="input-busca" type="text" placeholder="Digite ao menos 2 caracteres..."
+                   [value]="busca()" (input)="busca.set($any($event.target).value)"
+                   (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); confirmarBusca($event)"
+                   (keydown.arrowDown)="$event.preventDefault(); navegarGrid(1)"
+                   (keydown.arrowUp)="$event.preventDefault(); navegarGrid(-1)" />
             @if (busca()) {
               <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -133,7 +156,7 @@
                 <tr [class.selecionado]="colaboradorSelecionado()?.id === c.id"
                     (click)="selecionar(c)" (dblclick)="editar()">
                   <td class="td-arrow">
-                    @if (colaboradorSelecionado()?.id === c.id) { <span>▶</span> }
+                    @if (colaboradorSelecionado()?.id === c.id) { <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg> }
                   </td>
                   @for (col of colunasVisiveis(); track col.campo) {
                     <td>{{ getCellValue(c, col.campo) }}</td>
@@ -153,81 +176,228 @@
     @if (modo() === 'form') {
       <!-- FORMULÁRIO -->
       <div class="form-wrapper">
-        <div class="form-titulo">{{ modoEdicao() ? 'Editar Colaborador' : 'Novo Colaborador' }}</div>
-
-        <!-- CÓDIGO / DATA CADASTRO (somente edição) -->
-        @if (modoEdicao()) {
-          <div class="form-grid form-grid-info">
-            <div class="field">
-              <label>CÓDIGO</label>
-              <input type="text" [value]="colaboradorForm().codigo ?? colaboradorForm().id ?? ''" disabled class="field-disabled" />
-            </div>
-            <div class="field">
-              <label>DATA CADASTRO</label>
-              <input type="text" [value]="colaboradorForm().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" />
-            </div>
-          </div>
-        }
+        <div class="form-titulo-wrap">
+          <div class="form-titulo">{{ modoEdicao() ? (isDirty() ? 'Editando Colaborador' : 'Consulta Colaborador') : 'Novo Colaborador' }}</div>
+          <button class="btn-fechar-form" (click)="fecharForm()" title="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
 
         @if (erro()) {
           <div class="form-erro">{{ erro() }}</div>
         }
 
-        <!-- ── DADOS PESSOAIS ────────────────────────────────────────── -->
-          <div class="form-grid">
-            <div class="field" [class.field-invalido]="erroCampo('cpf')">
-              <label>CPF *</label>
-              <input type="text" [value]="colaboradorForm().cpf"
-                     (input)="onCpfInput($event)" (blur)="onCpfBlur()" maxlength="14" placeholder="000.000.000-00" />
-              @if (erroCampo('cpf')) { <span class="field-erro">{{ erroCampo('cpf') }}</span> }
+        <!-- ── LINHA 1: CÓDIGO, DATA CADASTRO, GÊNERO, CARGO, NASCIMENTO ── -->
+        <div class="form-grid form-grid-linha1">
+            <div class="field-grupo-codigo">
+              <div class="field">
+                <label>CÓDIGO</label>
+                <input type="text" [value]="modoEdicao() ? (colaboradorForm().codigo ?? colaboradorForm().id ?? '') : 'NOVO'" disabled class="field-disabled" style="width:70px" />
+              </div>
+              <div class="field">
+                <label>DATA DE CADASTRO</label>
+                <input type="text" [value]="modoEdicao() ? (colaboradorForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" style="width:140px" />
+              </div>
             </div>
+          <div class="field" [class.field-alterado]="campoAlterado('genero')">
+            <label>GÊNERO</label>
+            <select [value]="colaboradorForm().genero || ''" (change)="updateForm('genero', $any($event.target).value)">
+              <option value="">Selecione...</option>
+              <option value="MASCULINO">Masculino</option>
+              <option value="FEMININO">Feminino</option>
+              <option value="PREFIRO_NAO_DIZER">Prefiro não dizer</option>
+            </select>
+          </div>
+          <div class="field" [class.field-alterado]="campoAlterado('cargo')">
+            <label>FUNÇÃO</label>
+            <input type="text" [value]="colaboradorForm().cargo || ''"
+                   (input)="updateForm('cargo', $any($event.target).value)" maxlength="100" />
+          </div>
+          <div class="field" [class.field-alterado]="campoAlterado('dataNascimento')">
+            <label>NASCIMENTO</label>
+            <input type="date" [value]="colaboradorForm().dataNascimento ? colaboradorForm().dataNascimento!.slice(0,10) : ''"
+                   (input)="updateForm('dataNascimento', $any($event.target).value)" />
+          </div>
+          <div class="field field-check field-check-linha1">
+            <label class="check-label">
+              <input type="checkbox" [checked]="colaboradorForm().ativo"
+                     (change)="updateForm('ativo', $any($event.target).checked)" />
+              <span>Ativo</span>
+            </label>
+          </div>
+        </div>
 
-            <div class="field field-3" [class.field-invalido]="erroCampo('nome')">
-              <label>NOME *</label>
-              <input type="text" [value]="colaboradorForm().nome"
-                     (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
-              @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
-            </div>
-
-            <div class="field">
-              <label>RG</label>
-              <input type="text" [value]="colaboradorForm().rg || ''"
-                     (input)="updateForm('rg', $any($event.target).value)" maxlength="20" />
-            </div>
-
-            <div class="field">
-              <label>DATA NASCIMENTO</label>
-              <input type="date" [value]="colaboradorForm().dataNascimento ? colaboradorForm().dataNascimento!.slice(0,10) : ''"
-                     (input)="updateForm('dataNascimento', $any($event.target).value)" />
-            </div>
+        <!-- ── LINHA 2: NOME, CPF, RG ──────────────────────────────────── -->
+        <div class="form-grid">
+          <div class="field field-3" [class.field-invalido]="erroCampo('nome')" [class.field-alterado]="campoAlterado('nome')">
+            <label>NOME *</label>
+            <input type="text" [value]="colaboradorForm().nome"
+                   (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
+            @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
           </div>
 
-          @if (pessoaEncontrada()) {
-            <div class="form-info-pessoa">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              Pessoa já cadastrada{{ pessoaEncontrada()?.temFornecedor ? ' como Fornecedor' : '' }}. Dados pessoais preenchidos automaticamente.
-            </div>
-          }
+          <div class="field" [class.field-invalido]="erroCampo('cpf')" [class.field-alterado]="campoAlterado('cpf')">
+            <label>CPF *</label>
+            <input type="text" [value]="formatarCpf(colaboradorForm().cpf)"
+                   (input)="onCpfInput($event)" (blur)="onCpfBlur()" maxlength="14" placeholder="000.000.000-00" />
+            @if (erroCampo('cpf')) { <span class="field-erro">{{ erroCampo('cpf') }}</span> }
+          </div>
 
-          <div class="form-grid">
-            <div class="field field-2">
-              <label>CARGO</label>
-              <input type="text" [value]="colaboradorForm().cargo || ''"
-                     (input)="updateForm('cargo', $any($event.target).value)" maxlength="100" />
-            </div>
+          <div class="field" [class.field-alterado]="campoAlterado('rg')">
+            <label>RG</label>
+            <input type="text" [value]="colaboradorForm().rg || ''"
+                   (input)="updateForm('rg', $any($event.target).value)" maxlength="20" />
+          </div>
+        </div>
 
-            <div class="field">
-              <label>DATA ADMISSÃO</label>
-              <input type="date" [value]="colaboradorForm().dataAdmissao ? colaboradorForm().dataAdmissao!.slice(0,10) : ''"
-                     (input)="updateForm('dataAdmissao', $any($event.target).value)" />
-            </div>
+        @if (pessoaEncontrada()) {
+          <div class="form-info-pessoa">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Pessoa já cadastrada{{ pessoaEncontrada()?.temFornecedor ? ' como Fornecedor' : '' }}. Dados pessoais preenchidos automaticamente.
+          </div>
+        }
 
-            <div class="field">
-              <label>SALÁRIO</label>
+        <!-- ── LINHA 3: DATA ADMISSÃO, SALÁRIO ─────────────────────────── -->
+        <div class="form-grid">
+          <div class="field" [class.field-alterado]="campoAlterado('dataAdmissao')">
+            <label>DATA ADMISSÃO</label>
+            <input type="date" [value]="colaboradorForm().dataAdmissao ? colaboradorForm().dataAdmissao!.slice(0,10) : ''"
+                   (input)="updateForm('dataAdmissao', $any($event.target).value)" />
+          </div>
+
+          <div class="field" [class.field-alterado]="campoAlterado('salario')">
+            <label>SALÁRIO</label>
+            <div class="input-icon-wrap">
+              <span class="input-prefixo">R$</span>
               <input type="text" [value]="formatarSalario(colaboradorForm().salario)"
                      (input)="onSalarioInput($event)" placeholder="0,00" />
             </div>
           </div>
+        </div>
+
+        <!-- ── ACESSO AO SISTEMA ──────────────────────────────────────── -->
+        <label style="font-size:var(--erp-fs-sm);font-weight:700;color:var(--erp-text-muted);letter-spacing:0.7px;margin-top:14px;display:block">ACESSO AO SISTEMA</label>
+          <div class="acesso-toggle">
+            <label class="check-label">
+              <input type="checkbox" [checked]="acessoHabilitado()"
+                     (change)="toggleAcesso($any($event.target).checked)" />
+              <span>Este colaborador possui acesso ao sistema</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" [checked]="colaboradorForm().permitirAbrirCaixa"
+                     (change)="updateForm('permitirAbrirCaixa', $any($event.target).checked)" />
+              <span>Permitir abrir caixa</span>
+            </label>
+          </div>
+
+          @if (acessoHabilitado()) {
+            <div class="acesso-layout">
+              <!-- LADO ESQUERDO: Login e Senha -->
+              <div class="acesso-credenciais">
+                <div class="form-secao">Credenciais</div>
+                <div class="form-grid">
+                  <div class="field field-full">
+                    <label>LOGIN *</label>
+                    <input type="text" [value]="colaboradorForm().acesso?.login || ''"
+                           (input)="updateAcesso('login', $any($event.target).value)" maxlength="50"
+                           placeholder="Nome de usuário" />
+                  </div>
+                  <div class="field field-full">
+                    <label>{{ colaboradorForm().acesso?.usuarioId ? 'NOVA SENHA (em branco = manter)' : 'SENHA *' }}</label>
+                    <input type="password" [value]="colaboradorForm().acesso?.senha || ''"
+                           (input)="updateAcesso('senha', $any($event.target).value)" maxlength="100"
+                           [placeholder]="colaboradorForm().acesso?.usuarioId ? '••••••••' : 'Digite a senha'" />
+                  </div>
+                  <div class="field field-full">
+                    <label>FILIAL PADRÃO *</label>
+                    <select (change)="updateAcesso('filialPadraoId', +$any($event.target).value)">
+                      <option value="0" disabled [selected]="!colaboradorForm().acesso?.filialPadraoId">Selecione...</option>
+                      @for (f of filiais(); track f.id) {
+                        <option [value]="f.id" [selected]="f.id === colaboradorForm().acesso?.filialPadraoId">{{ f.nomeFantasia }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+                <div class="sessao-inatividade-row">
+                  <div class="field sessao-field">
+                    <label style="white-space:nowrap;display:flex;align-items:center;gap:4px">
+                      SESSÃO MÁXIMA (MIN)
+                      <span class="field-info" title="Tempo máximo de sessão em minutos. 0 = herda das configurações do sistema."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
+                    </label>
+                    <input type="number" min="0" [value]="colaboradorForm().acesso?.sessaoMaximaMinutos || 0"
+                           (input)="updateAcesso('sessaoMaximaMinutos', +$any($event.target).value)"
+                           placeholder="0 = herda do sistema" />
+                  </div>
+                  <div class="field sessao-field">
+                    <label style="white-space:nowrap;display:flex;align-items:center;gap:4px">
+                      SESSÃO MÍNIMA (MIN)
+                      <span class="field-info" title="Tempo de inatividade em minutos. 0 = herda das configurações do sistema."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
+                    </label>
+                    <input type="number" min="0" [value]="colaboradorForm().acesso?.inatividadeMinutos || 0"
+                           (input)="updateAcesso('inatividadeMinutos', +$any($event.target).value)"
+                           placeholder="0 = herda do sistema" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- LADO DIREITO: Grid Filial x Grupos -->
+              <div class="acesso-filiais">
+                <div class="form-secao">Grupo de Usuários por Filial</div>
+                <table class="acesso-grid">
+                  <thead>
+                    <tr>
+                      <th>Filial</th>
+                      <th>Grupo de Usuários</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (f of filiais(); track f.id) {
+                      <tr [class.sem-acesso]="getGruposFilial(f.id).length === 0">
+                        <td class="acesso-filial-nome">{{ f.nomeFantasia }}</td>
+                        <td class="acesso-grupos-cell">
+                          <div class="multiselect-wrap">
+                            <div class="multiselect-display" (click)="toggleMultiselect(f.id)">
+                              @if (getGruposFilial(f.id).length === 0) {
+                                <span class="multiselect-placeholder">SEM ACESSO</span>
+                              } @else {
+                                @for (g of getGruposFilial(f.id); track g.grupoUsuarioId) {
+                                  <span class="multiselect-tag">{{ getGrupoNome(g.grupoUsuarioId) }}</span>
+                                }
+                              }
+                              <svg class="multiselect-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                            @if (multiSelectAberto() === f.id) {
+                              <div class="multiselect-dropdown" [class.abrir-cima]="devemAbrirCima(f.id)">
+                                @for (g of grupos(); track g.id) {
+                                  <label class="multiselect-option" (click)="$event.stopPropagation()">
+                                    <input type="checkbox"
+                                           [checked]="temGrupoFilial(f.id, g.id)"
+                                           (change)="toggleGrupoFilial(f.id, g.id, $any($event.target).checked)" />
+                                    <span>{{ g.nome }}</span>
+                                  </label>
+                                }
+                              </div>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="field field-check" style="margin-top:12px">
+                  <label class="check-label">
+                    <input type="checkbox" [checked]="colaboradorForm().acesso?.isAdministrador"
+                           (change)="updateAcesso('isAdministrador', $any($event.target).checked)" />
+                    <span>Administrador</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          } @else {
+            <div class="item-vazio">
+              Este colaborador não possui acesso ao sistema. Marque a opção acima para configurar.
+            </div>
+          }
 
         <!-- ══════ ACCORDION ENDEREÇOS ══════ -->
         <div class="accordion" [class.aberto]="accEnderecos()">
@@ -236,16 +406,6 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accEnderecos() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
           </div>
           <div class="accordion-body">
-            <div class="form-secao-toolbar">
-              <span></span>
-              <button class="btn-add-item" (click)="adicionarEndereco()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Adicionar
-              </button>
-            </div>
-
             @if (erroCampo('enderecos')) {
               <div class="form-erro">{{ erroCampo('enderecos') }}</div>
             }
@@ -259,7 +419,7 @@
                            (change)="updateEndereco(i, 'principal', $any($event.target).checked)" />
                     <span>Principal</span>
                   </label>
-                  <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover">
+                  <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover" style="margin-left:auto">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
@@ -275,10 +435,17 @@
 
                   <div class="field" [class.field-invalido]="erroCampo('end_cep_' + i)">
                     <label>CEP *</label>
-                    <div class="input-icon-wrap">
+                    <div class="cep-input-wrap">
                       <input type="text" [value]="end.cep"
-                             (input)="onCepEnderecoInput($event, i)" maxlength="9" placeholder="00000-000" />
-                      @if (buscandoCep()) { <span class="input-spinner">⟳</span> }
+                             (input)="onCepEnderecoInput($event, i)" maxlength="9" placeholder="00000-000"
+                             (blur)="buscarCepEnderecoManual(i)" />
+                      @if (buscandoCep()) {
+                        <span class="input-spinner">⟳</span>
+                      } @else {
+                        <button class="btn-busca-cep" (mousedown)="$event.preventDefault(); buscarCepEnderecoManual(i)" title="Buscar CEP" type="button">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </button>
+                      }
                     </div>
                     @if (erroCampo('end_cep_' + i)) { <span class="field-erro">{{ erroCampo('end_cep_' + i) }}</span> }
                   </div>
@@ -325,11 +492,29 @@
                     @if (erroCampo('end_uf_' + i)) { <span class="field-erro">{{ erroCampo('end_uf_' + i) }}</span> }
                   </div>
                 </div>
+                @if (i === colaboradorForm().enderecos.length - 1) {
+                  <div style="display:flex;justify-content:flex-end;margin-top:8px">
+                    <button class="btn-add-item" (click)="adicionarEndereco()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Adicionar
+                    </button>
+                  </div>
+                }
               </div>
             }
 
             @if (colaboradorForm().enderecos.length === 0) {
-              <div class="item-vazio">Nenhum endereço cadastrado. Clique em "Adicionar" para incluir.</div>
+              <div class="item-vazio" style="display:flex;align-items:flex-end;justify-content:space-between">
+                <span>Nenhum endereço cadastrado.</span>
+                <button class="btn-add-item" (click)="adicionarEndereco()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Adicionar
+                </button>
+              </div>
             }
           </div>
         </div>
@@ -341,18 +526,16 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accContatos() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
           </div>
           <div class="accordion-body">
-            <div class="form-secao-toolbar">
-              <span></span>
-              <button class="btn-add-item" (click)="adicionarContato()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Adicionar
-              </button>
-            </div>
-
             @if (colaboradorForm().contatos.length === 0) {
-              <div class="item-vazio">Nenhum contato cadastrado. Clique em "Adicionar" para incluir.</div>
+              <div class="item-vazio" style="display:flex;align-items:flex-end;justify-content:space-between">
+                <span>Nenhum contato cadastrado.</span>
+                <button class="btn-add-item" (click)="adicionarContato()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Adicionar
+                </button>
+              </div>
             }
 
             @for (ct of colaboradorForm().contatos; track $index; let i = $index) {
@@ -364,7 +547,7 @@
                            (change)="updateContato(i, 'principal', $any($event.target).checked)" />
                     <span>Principal</span>
                   </label>
-                  <button class="btn-remove-item" (click)="removerContato(i)" title="Remover">
+                  <button class="btn-remove-item" (click)="removerContato(i)" title="Remover" style="margin-left:auto">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
@@ -379,8 +562,9 @@
                   </div>
 
                   <div class="field field-2">
-                    <label>VALOR *</label>
-                    <input type="text" [value]="ct.valor"
+                    <label>NÚMERO *</label>
+                    <input type="text" [value]="formatarContatoValor(ct)"
+                           (focus)="$event.target.select()"
                            (input)="onContatoValorInput($event, i)" maxlength="150"
                            [placeholder]="ct.tipo === 'EMAIL' ? 'email@exemplo.com' : '(00) 00000-0000'" />
                   </div>
@@ -392,153 +576,32 @@
                            placeholder="Ex.: Pessoal, Comercial" />
                   </div>
                 </div>
+                @if (i === colaboradorForm().contatos.length - 1) {
+                  <div style="display:flex;justify-content:flex-end;margin-top:8px">
+                    <button class="btn-add-item" (click)="adicionarContato()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Adicionar
+                    </button>
+                  </div>
+                }
               </div>
             }
           </div>
         </div>
 
-        <!-- ══════ ACCORDION ACESSO ══════ -->
-        <div class="accordion" [class.aberto]="accAcesso()">
-          <div class="accordion-header" (click)="accAcesso.update(v => !v)">
-            <span>Acesso ao Sistema</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accAcesso() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
+        <!-- ══════ ACCORDION OBSERVAÇÃO ══════ -->
+        <div class="accordion" [class.aberto]="accObservacao()">
+          <div class="accordion-header" (click)="accObservacao.update(v => !v)">
+            <span>Observação</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline [attr.points]="accObservacao() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
           </div>
           <div class="accordion-body">
-          <div class="acesso-toggle">
-            <label class="check-label">
-              <input type="checkbox" [checked]="acessoHabilitado()"
-                     (change)="toggleAcesso($any($event.target).checked)" />
-              <span>Este colaborador possui acesso ao sistema</span>
-            </label>
-            <label class="check-label">
-              <input type="checkbox" [checked]="colaboradorForm().permitirAbrirCaixa"
-                     (change)="updateForm('permitirAbrirCaixa', $any($event.target).checked)" />
-              <span>Permitir abrir caixa</span>
-            </label>
-          </div>
-
-          @if (acessoHabilitado()) {
-            <div class="acesso-layout">
-              <!-- LADO ESQUERDO: Login e Senha -->
-              <div class="acesso-credenciais">
-                <div class="form-secao">Credenciais</div>
-                <div class="form-grid">
-                  <div class="field field-full">
-                    <label>LOGIN *</label>
-                    <input type="text" [value]="colaboradorForm().acesso?.login || ''"
-                           (input)="updateAcesso('login', $any($event.target).value)" maxlength="50"
-                           placeholder="Nome de usuário" />
-                  </div>
-                  <div class="field field-full">
-                    <label>{{ colaboradorForm().acesso?.usuarioId ? 'NOVA SENHA (em branco = manter)' : 'SENHA *' }}</label>
-                    <input type="password" [value]="colaboradorForm().acesso?.senha || ''"
-                           (input)="updateAcesso('senha', $any($event.target).value)" maxlength="100"
-                           [placeholder]="colaboradorForm().acesso?.usuarioId ? '••••••••' : 'Digite a senha'" />
-                  </div>
-                  <div class="field field-full">
-                    <label>FILIAL PADRÃO *</label>
-                    <select (change)="updateAcesso('filialPadraoId', +$any($event.target).value)">
-                      <option value="0" disabled [selected]="!colaboradorForm().acesso?.filialPadraoId">Selecione...</option>
-                      @for (f of filiais(); track f.id) {
-                        <option [value]="f.id" [selected]="f.id === colaboradorForm().acesso?.filialPadraoId">{{ f.nomeFantasia }}</option>
-                      }
-                    </select>
-                  </div>
-                  <div class="field field-full field-check">
-                    <label class="check-label">
-                      <input type="checkbox" [checked]="colaboradorForm().acesso?.isAdministrador"
-                             (change)="updateAcesso('isAdministrador', $any($event.target).checked)" />
-                      <span>Administrador</span>
-                    </label>
-                  </div>
-                  <div class="field field-full">
-                    <label>
-                      SESSÃO MÁXIMA (MIN)
-                      <span class="field-info" title="Tempo máximo de sessão em minutos. 0 = herda das configurações do sistema."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
-                    </label>
-                    <input type="number" min="0" [value]="colaboradorForm().acesso?.sessaoMaximaMinutos || 0"
-                           (input)="updateAcesso('sessaoMaximaMinutos', +$any($event.target).value)"
-                           placeholder="0 = herda do sistema" />
-                  </div>
-                  <div class="field field-full">
-                    <label>
-                      INATIVIDADE (MIN)
-                      <span class="field-info" title="Tempo de inatividade em minutos. 0 = herda das configurações do sistema."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
-                    </label>
-                    <input type="number" min="0" [value]="colaboradorForm().acesso?.inatividadeMinutos || 0"
-                           (input)="updateAcesso('inatividadeMinutos', +$any($event.target).value)"
-                           placeholder="0 = herda do sistema" />
-                  </div>
-                </div>
-              </div>
-
-              <!-- LADO DIREITO: Grid Filial x Grupos -->
-              <div class="acesso-filiais">
-                <div class="form-secao">Grupo de Usuários por Filial</div>
-                <table class="acesso-grid">
-                  <thead>
-                    <tr>
-                      <th>Filial</th>
-                      <th>Grupo de Usuários</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (f of filiais(); track f.id) {
-                      <tr [class.sem-acesso]="getGruposFilial(f.id).length === 0">
-                        <td class="acesso-filial-nome">{{ f.nomeFantasia }}</td>
-                        <td class="acesso-grupos-cell">
-                          <div class="multiselect-wrap">
-                            <div class="multiselect-display" (click)="toggleMultiselect(f.id)">
-                              @if (getGruposFilial(f.id).length === 0) {
-                                <span class="multiselect-placeholder">SEM ACESSO</span>
-                              } @else {
-                                @for (g of getGruposFilial(f.id); track g.grupoUsuarioId) {
-                                  <span class="multiselect-tag">{{ getGrupoNome(g.grupoUsuarioId) }}</span>
-                                }
-                              }
-                              <svg class="multiselect-arrow" width="12" height="8" viewBox="0 0 12 8"><path fill="currentColor" d="M6 8L0 0h12z"/></svg>
-                            </div>
-                            @if (multiSelectAberto() === f.id) {
-                              <div class="multiselect-dropdown" [class.abrir-cima]="devemAbrirCima(f.id)">
-                                @for (g of grupos(); track g.id) {
-                                  <label class="multiselect-option" (click)="$event.stopPropagation()">
-                                    <input type="checkbox"
-                                           [checked]="temGrupoFilial(f.id, g.id)"
-                                           (change)="toggleGrupoFilial(f.id, g.id, $any($event.target).checked)" />
-                                    <span>{{ g.nome }}</span>
-                                  </label>
-                                }
-                              </div>
-                            }
-                          </div>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
+            <div class="field field-full" [class.field-alterado]="campoAlterado('observacao')">
+              <textarea rows="3" [value]="colaboradorForm().observacao || ''"
+                        (input)="updateForm('observacao', $any($event.target).value)" maxlength="500"></textarea>
             </div>
-          } @else {
-            <div class="item-vazio">
-              Este colaborador não possui acesso ao sistema. Marque a opção acima para configurar.
-            </div>
-          }
-          </div>
-        </div>
-
-        <!-- ── OBSERVAÇÃO / ATIVO ─────────────────────────────────────── -->
-        <div class="form-grid" style="margin-top:14px">
-          <div class="field field-full">
-            <label>OBSERVAÇÃO</label>
-            <textarea rows="3" [value]="colaboradorForm().observacao || ''"
-                      (input)="updateForm('observacao', $any($event.target).value)" maxlength="500"></textarea>
-          </div>
-          <div class="field field-check">
-            <label class="check-label">
-              <input type="checkbox" [checked]="colaboradorForm().ativo"
-                     (change)="updateForm('ativo', $any($event.target).checked)" />
-              <span>Ativo</span>
-            </label>
           </div>
         </div>
       </div>
@@ -564,6 +627,7 @@
         Fechar
       </button>
       @if (modoEdicao()) {
+        <div class="tb-separador"></div>
         <button class="tb-btn tb-log" (click)="abrirLog()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -572,7 +636,6 @@
           </svg>
           Histórico
         </button>
-        <div class="tb-separador"></div>
         <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           Excluir

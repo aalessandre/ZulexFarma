@@ -21,6 +21,12 @@ public class Filial : BaseEntity
     /// <summary>Alíquota de ICMS interna do estado da filial (ex: 19.5 para PR).</summary>
     public decimal AliquotaIcms { get; set; }
 
+    /// <summary>Incluir esta filial nas promoções fixas da matriz.</summary>
+    public bool IncluirPromoFixa { get; set; } = true;
+
+    /// <summary>Incluir esta filial nas promoções progressivas da matriz.</summary>
+    public bool IncluirPromoProgressiva { get; set; } = true;
+
     public ICollection<Usuario> Usuarios { get; set; } = new List<Usuario>();
     public ICollection<UsuarioFilialGrupo> UsuarioFilialGrupos { get; set; } = new List<UsuarioFilialGrupo>();
 }

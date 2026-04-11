@@ -90,6 +90,7 @@ public class ColaboradorService : IColaboradorService
             Cpf            = c.Pessoa.CpfCnpj,
             Rg             = c.Pessoa.Rg,
             DataNascimento = c.Pessoa.DataNascimento,
+            Genero         = c.Genero,
             Cargo          = c.Cargo,
             DataAdmissao   = c.DataAdmissao,
             Salario        = c.Salario,
@@ -237,6 +238,7 @@ public class ColaboradorService : IColaboradorService
             var colaborador = new Colaborador
             {
                 PessoaId    = pessoa.Id,
+                Genero      = dto.Genero?.Trim().ToUpper(),
                 Cargo       = dto.Cargo?.Trim().ToUpper(),
                 DataAdmissao = ToUtc(dto.DataAdmissao),
                 Salario     = dto.Salario,
@@ -294,6 +296,7 @@ public class ColaboradorService : IColaboradorService
             pessoa.Observacao     = dto.Observacao?.Trim();
 
             // Atualizar Colaborador
+            colaborador.Genero      = dto.Genero?.Trim().ToUpper();
             colaborador.Cargo       = dto.Cargo?.Trim().ToUpper();
             colaborador.DataAdmissao = ToUtc(dto.DataAdmissao);
             colaborador.Salario     = dto.Salario;
@@ -391,6 +394,7 @@ public class ColaboradorService : IColaboradorService
             .Select(c => new ColaboradorListDto
             {
                 Id             = c.Id,
+                Codigo         = c.Codigo,
                 Nome           = c.Pessoa.Nome,
                 Cpf            = c.Pessoa.CpfCnpj,
                 Rg             = c.Pessoa.Rg,
@@ -507,8 +511,8 @@ public class ColaboradorService : IColaboradorService
     private async Task CriarOuAtualizarUsuario(Colaborador colaborador, AcessoFormDto acesso, Pessoa pessoa)
     {
         // Validate login length
-        if (acesso.Login.Trim().Length < 6 || acesso.Login.Trim().Length > 24)
-            throw new ArgumentException("O login deve ter entre 6 e 24 caracteres.");
+        if (acesso.Login.Trim().Length < 3 || acesso.Login.Trim().Length > 24)
+            throw new ArgumentException("O login deve ter entre 3 e 24 caracteres.");
 
         // Validate password length (only when creating new or changing password)
         if (!string.IsNullOrWhiteSpace(acesso.Senha))

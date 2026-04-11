@@ -40,23 +40,15 @@
 
 .topbar-brand {
   display: flex;
-  flex-direction: column;
+  align-items: center;
 }
 
-.topbar-brand {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+.brand-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
 }
 
-.brand-name {
-  font-family: 'Poppins', sans-serif;
-  font-size: var(--erp-fs-h2);
-  font-weight: 700;
-  color: #5a7fa8;
-  letter-spacing: 0.5px;
-  line-height: 1;
-}
 
 .brand-separator {
   color: #c0c8d2;
@@ -285,9 +277,10 @@
   &:last-child { border-radius: 0 0 16px 16px; }
 
   &:hover,
-  &.ativo { background: var(--erp-bg); }
+  &.ativo { background: var(--erp-row-selected); border-left: 3px solid var(--erp-blue); }
 
   &.ativo .resultado-seta { opacity: 1; }
+  &.ativo .resultado-label { color: var(--erp-blue); }
 }
 
 .resultado-sigla {
@@ -464,7 +457,7 @@
   overflow-x: hidden;
   transition: width 0.2s ease;
 
-  &.expandido { width: 200px; }
+  &:hover { width: 200px; }
 
   &::-webkit-scrollbar { width: 3px; }
   &::-webkit-scrollbar-thumb { background: var(--erp-border); border-radius: 2px; }
@@ -473,16 +466,25 @@
 .vtab-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  margin: 0 4px;
-  border-radius: 6px;
+  justify-content: center;
+  gap: 0;
+  padding: 8px 0 8px 14.5px;
+  margin: 0;
+  border-radius: 0;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
-  transition: background 0.12s;
+  transition: background 0.12s, padding 0.2s, gap 0.2s;
   border-left: 3px solid transparent;
   min-height: 36px;
+
+  .shell-vtabs:hover & {
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    margin: 0 4px;
+    border-radius: 6px;
+  }
 
   &:hover {
     background: var(--erp-row-hover);
@@ -519,7 +521,7 @@
   opacity: 0;
   transition: opacity 0.15s;
 
-  .shell-vtabs.expandido & { opacity: 1; }
+  .shell-vtabs:hover & { opacity: 1; }
 }
 
 .vtab-close {
@@ -536,8 +538,8 @@
   transition: background 0.12s, color 0.12s, opacity 0.12s;
 
   &:hover { background: #fde8e8; color: #c0392b; }
-  .shell-vtabs.expandido & { opacity: 0.5; }
-  .shell-vtabs.expandido .vtab-item:hover & { opacity: 1; }
+  .shell-vtabs:hover & { opacity: 0.5; }
+  .shell-vtabs:hover .vtab-item:hover & { opacity: 1; }
 }
 
 /* ── Conteudo ──────────────────────────────────────────────────────── */

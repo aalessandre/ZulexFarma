@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, HostListener, signal, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../services/modal.service';
@@ -9,7 +9,7 @@ import { ModalService } from '../services/modal.service';
   imports: [CommonModule, FormsModule],
   template: `
     @if (modal.visivel()) {
-      <div class="modal-overlay" (click)="modal.fechar()">
+      <div class="modal-overlay" (click)="modal.fechar()" (keydown)="onKeydown($event)" tabindex="0" #modalOverlay>
         <div class="modal-box" [class]="'modal-' + modal.config().tipo" (click)="$event.stopPropagation()">
 
           <!-- Ícone -->
@@ -82,10 +82,10 @@ import { ModalService } from '../services/modal.service';
                 <button class="modal-btn modal-btn-ok" (click)="modal.fechar(true)">OK</button>
               }
               @case ('confirmacao') {
-                <button class="modal-btn modal-btn-cancelar" (click)="modal.fechar(false)">
+                <button class="modal-btn modal-btn-cancelar" [class.modal-btn-foco]="focoBotao() === 0" (click)="modal.fechar(false)">
                   {{ modal.config().textoBotaoCancelar || 'Não, cancelar' }}
                 </button>
-                <button class="modal-btn modal-btn-confirmar" (click)="modal.confirmarAcao()">
+                <button class="modal-btn modal-btn-confirmar" [class.modal-btn-foco]="focoBotao() === 1" (click)="modal.confirmarAcao()">
                   {{ modal.config().textoBotaoConfirmar || 'Sim, confirmar' }}
                 </button>
               }
@@ -110,6 +110,7 @@ import { ModalService } from '../services/modal.service';
       z-index: 10000;
       backdrop-filter: blur(2px);
       animation: fadeIn 0.15s ease-out;
+      outline: none;
     }
 
     .modal-box {
@@ -222,6 +223,7 @@ import { ModalService } from '../services/modal.service';
     .modal-btn-cancelar  { background: #f5f6f8; color: var(--erp-text, #2c3e50); border: 1px solid #e0e4eb; }
     .modal-btn-confirmar { background: #e74c3c; color: #fff; }
     .modal-btn-liberar   { background: #e65100; color: #fff; }
+    .modal-btn-foco      { outline: 3px solid var(--erp-blue, #2c5fad); outline-offset: 2px; }
 
     @keyframes fadeIn {
       from { opacity: 0; }
@@ -234,6 +236,49 @@ import { ModalService } from '../services/modal.service';
     }
   `]
 })
-export class ModalGlobalComponent {
+export class ModalGlobalComponent implements AfterViewChecked {
+  focoBotao = signal(0);
+  @ViewChild('modalOverlay') modalOverlay?: ElementRef<HTMLDivElement>;
+
   constructor(public modal: ModalService) {}
+
+  ngAfterViewChecked() {
+    if (this.modal.visivel() && this.modalOverlay) {
+      this.modalOverlay.nativeElement.focus();
+    }
+  }
+
+  onKeydown(e: KeyboardEvent) {
+    if (!this.modal.visivel()) return;
+    const tipo = this.modal.config().tipo;
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      this.modal.fechar(false);
+      this.focoBotao.set(0);
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (tipo === 'confirmacao') {
+        if (this.focoBotao() === 1) this.modal.confirmarAcao();
+        else this.modal.fechar(false);
+      } else if (tipo === 'permissao') {
+        this.modal.liberarPorSenha();
+      } else {
+        this.modal.fechar(true);
+      }
+      this.focoBotao.set(0);
+      return;
+    }
+
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && tipo === 'confirmacao') {
+      e.preventDefault();
+      e.stopPropagation();
+      this.focoBotao.update(v => v === 0 ? 1 : 0);
+    }
+  }
 }
