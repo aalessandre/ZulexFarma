@@ -23,6 +23,8 @@
   flex-shrink: 0;
 }
 
+.sidebar-item-header { display: flex; align-items: center; gap: 6px; }
+
 .sidebar-item {
   display: flex;
   flex-direction: column;

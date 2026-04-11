@@ -1578,6 +1578,112 @@ para cada item da hierarquia (ordenado por Ordem):
         }
       </section>
 
+      <!-- TELA DE COLABORADORES -->
+      <section class="help-secao">
+        <div class="secao-header colaboradores" [class.aberto]="isAberta('colaboradores')" (click)="toggleSecao('colaboradores')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Tela de Colaboradores</span>
+        </div>
+        @if (isAberta('colaboradores')) {
+          <div class="secao-corpo">
+
+            <div class="doc-titulo">Layout do Formulário</div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Linha 1 — Identificação rápida</div>
+              <span class="cmd-obs">CÓDIGO (auto, 70px) | DATA DE CADASTRO (auto, 140px) | GÊNERO (Masculino/Feminino/Prefiro não dizer) | FUNÇÃO | NASCIMENTO | ✓ Ativo</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Linha 2 — Dados pessoais</div>
+              <span class="cmd-obs">NOME * | CPF * | RG — campos obrigatórios marcados com *</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Linha 3 — Emprego</div>
+              <span class="cmd-obs">DATA ADMISSÃO | SALÁRIO (R$ com máscara)</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Acesso ao Sistema</div>
+              <span class="cmd-obs">Checkboxes: "Possui acesso ao sistema" e "Permitir abrir caixa". Se habilitado: Login (mín. 3 caracteres), Senha, Filial Padrão, Sessão Máxima, Sessão Mínima, Grupo de Usuários por Filial, Administrador.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Accordions</div>
+              <span class="cmd-obs">Endereços | Contatos | Observação — iniciam minimizados ao abrir cadastro. Estado preservado ao alternar entre telas.</span>
+            </div>
+
+            <div class="doc-titulo">Campos do Backend</div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Entidade: Colaborador (herda BaseEntity)</div>
+              <span class="cmd-obs">PessoaId, Genero, Cargo, DataAdmissao, Salario, Observacao, PermitirAbrirCaixa. Código gerado automaticamente pelo SequenciaLocal.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Migration do Gênero</div>
+              <code class="cmd">dotnet ef migrations add AddColaboradorGenero --project ZulexPharma.Infrastructure --startup-project ZulexPharma.API</code>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Migration do PermitirAbrirCaixa</div>
+              <code class="cmd">dotnet ef migrations add AddPermitirAbrirCaixa --project ZulexPharma.Infrastructure --startup-project ZulexPharma.API</code>
+            </div>
+
+            <div class="doc-titulo">Atalhos de Teclado</div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Salvar</div>
+              <code class="cmd">Ctrl + S</code>
+              <span class="cmd-obs">Salva o formulário quando há alterações pendentes.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Cancelar / Fechar</div>
+              <code class="cmd">Esc</code>
+              <span class="cmd-obs">Se há alterações: cancela edição. Se não há: fecha o formulário.</span>
+            </div>
+
+            <div class="doc-titulo">Comportamentos UX</div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Persistência de estado</div>
+              <span class="cmd-obs">Ao alternar entre telas (ex: ir para Clientes e voltar), o cadastro aberto é preservado com todas as edições. Estado dos accordions também é mantido. Ao fechar a tela (X ou Fechar), se confirmado, o estado é limpo.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Novo cadastro como aba</div>
+              <span class="cmd-obs">Ao clicar em Adicionar, uma aba "NOVO" é criada na sidebar. Pode alternar entre o novo cadastro e registros existentes sem perder dados.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Indicador visual de campos alterados</div>
+              <span class="cmd-obs">Campos modificados ganham borda laranja e fundo amarelo claro, permitindo revisão visual antes de salvar.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Status na sidebar</div>
+              <span class="cmd-obs">"Consultando" = abriu sem mexer. "Editando" = alterou algum campo. "Novo" = cadastro novo sem preenchimento.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Confirmação ao fechar</div>
+              <span class="cmd-obs">Modal de confirmação ao fechar aba, clicar em Fechar/Cancelar, ou pressionar F5 com edições pendentes.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Validação ao salvar</div>
+              <span class="cmd-obs">Campos obrigatórios não preenchidos: accordion é expandido automaticamente, scroll leva ao campo e foco é aplicado.</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Texto sempre maiúsculo</div>
+              <span class="cmd-obs">Todos os campos de texto são convertidos para maiúsculo automaticamente (visual via CSS + valor real via updateForm).</span>
+            </div>
+
+            <div class="doc-titulo">Grid de Listagem</div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Colunas padrão</div>
+              <span class="cmd-obs">Código | Nome | CPF (com máscara 000.000.000-00) | Função | Telefone (com máscara) | E-mail | Cidade | UF | Ativo</span>
+            </div>
+            <div class="cmd-grupo">
+              <div class="cmd-label">Busca</div>
+              <span class="cmd-obs">Busca por nome, CPF, código, função, cidade e e-mail (mínimo 3 caracteres).</span>
+            </div>
+
+            <div class="doc-titulo">Ícones na Sidebar</div>
+            <div class="cmd-grupo">
+              <span class="cmd-obs">🔍 Procurar | ＋ Adicionar | ✏️ Editar | 🚪 Sair — aplicados globalmente em todas as telas do sistema.</span>
+            </div>
+
+          </div>
+        }
+      </section>
+
     </div>
   </main>
 </div>

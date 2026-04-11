@@ -26,6 +26,8 @@
   overflow-y: auto;
 }
 
+.sidebar-item-header { display: flex; align-items: center; gap: 6px; }
+
 .sidebar-item {
   display: flex;
   flex-direction: column;
@@ -42,7 +44,7 @@
   transition: filter 0.15s, transform 0.08s;
   background: linear-gradient(135deg, #2980b9, #3498db);
 
-  svg { width: 0; height: 0; display: none; }
+  > svg { width: 0; height: 0; display: none; }
   .sidebar-sub { font-size: var(--erp-fs-xs); font-weight: 400; opacity: 0.85; }
 
   &:hover { filter: brightness(1.08); }

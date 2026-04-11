@@ -7,6 +7,8 @@
   width: 180px; background: transparent; display: flex; flex-direction: column;
   padding: 8px; gap: 6px; flex-shrink: 0; overflow-y: auto;
 }
+.sidebar-item-header { display: flex; align-items: center; gap: 6px; }
+
 .sidebar-item {
   display: flex; flex-direction: column; justify-content: center; gap: 2px;
   padding: 14px 16px; color: #fff; cursor: pointer; border-radius: var(--erp-radius-sm);

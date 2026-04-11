@@ -18,7 +18,21 @@
       "Bash(npx ng:*)",
       "Bash(powershell -Command \"Get-Process -Name ''''ZulexPharma.API'''' -ErrorAction SilentlyContinue | Stop-Process -Force\")",
       "Bash(curl -s http://localhost:5000/api/filiais -o /dev/null -w \"%{http_code}\")",
-      "Bash(powershell -Command \"Stop-Process -Id 19184 -Force\")"
+      "Bash(powershell -Command \"Stop-Process -Id 19184 -Force\")",
+      "Bash(git merge:*)",
+      "Bash(grep -r \"new.*Codigo\" backend/ZulexPharma.Infrastructure/Services/*.cs)",
+      "Bash(grep -r \"\\\\.Codigo\\\\s*=\" backend/ZulexPharma.Infrastructure/Services/*.cs)",
+      "Bash(grep -n \"new Cliente\" backend/ZulexPharma.Infrastructure/Services/*.cs)",
+      "Bash(grep -rn \"\\\\.Codigo\\\\s*=\" backend/ZulexPharma.Infrastructure/Services/*.cs)",
+      "Bash(grep -v \"//\")",
+      "Bash(psql -h localhost -U postgres -d zulexpharma_db -c ':*)",
+      "Bash(where psql:*)",
+      "Bash(ls \"C:/Program Files/PostgreSQL\"/*/bin/psql.exe)",
+      "Bash(ls \"C:/Program Files \\(x86\\)/PostgreSQL\"/*/bin/psql.exe)",
+      "Bash('/c/Program Files/PostgreSQL/18/bin/psql.exe' -h localhost -U postgres -d zulexpharma_db -c ':*)",
+      "Bash(PGPASSWORD=internet2010 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d zulexpharma_db)",
+      "Bash(PGPASSWORD=internet2010 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d zulexpharma_db -c \"DELETE FROM \\\\\"__EFMigrationsHistory\\\\\" WHERE \\\\\"MigrationId\\\\\" IN \\('20260410152735_AllPendingChanges','20260410160409_AddCfopAndCodigoIbge','20260410164653_AddAdquirenteContaReceberVoucher','20260410184811_AddNfce','20260410205653_AddIbptTax'\\);\")",
+      "Bash(PGPASSWORD=internet2010 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d zulexpharma_db -f /tmp/migrate.sql)"
     ]
   }
 }

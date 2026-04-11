@@ -20,7 +20,7 @@ interface Endereco {
 
 interface Colaborador {
   id?: number; codigo?: string; nome: string; cpf: string; rg?: string; dataNascimento?: string;
-  cargo?: string; dataAdmissao?: string; salario?: number;
+  genero?: string; cargo?: string; dataAdmissao?: string; salario?: number;
   email?: string; telefone?: string; cidade?: string; uf?: string;
   observacao?: string; ativo: boolean; permitirAbrirCaixa: boolean; criadoEm?: string;
 }
@@ -85,9 +85,10 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   abaFormAtiva = signal<AbaForm>('dados');
 
   // Accordions
-  accEnderecos = signal(true);
-  accContatos  = signal(false);
-  accAcesso    = signal(false);
+  accEnderecos  = signal(false);
+  accContatos   = signal(false);
+  accAcesso     = signal(false);
+  accObservacao = signal(false);
 
   // Modais
   modalLog = signal(false);
@@ -114,7 +115,8 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   pessoaEncontrada = signal<any>(null);
   multiSelectAberto = signal<number | null>(null);
 
-  tiposContato = ['TELEFONE', 'CELULAR', 'EMAIL', 'WHATSAPP', 'OUTRO'];
+  tiposContato = ['CELULAR', 'TELEFONE', 'EMAIL', 'WHATSAPP', 'OUTRO'];
+  dataHoje = new Date().toLocaleDateString('pt-BR');
   tiposEndereco = ['PRINCIPAL', 'ENTREGA', 'COBRANÇA', 'OUTRO'];
 
   private tokenLiberacao: string | null = null;
@@ -137,13 +139,43 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     return {};
   }
 
+  private readonly TAB_ID = '/erp/colaboradores';
+  private fechamentoConfirmado = false;
+
   ngOnInit() {
+    // Garante que a tab está registrada (F5, navegação direta pela URL)
+    if (!this.tabService.tabs().find(t => t.id === this.TAB_ID)) {
+      this.tabService.abrirTab({ id: this.TAB_ID, titulo: 'Colaboradores', rota: this.TAB_ID, iconKey: 'user' });
+    }
     this.carregar();
     this.carregarFiliais();
     this.carregarGrupos();
+    window.addEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.registrarBeforeClose(this.TAB_ID, async () => {
+      if (this.isDirty()) {
+        const r = await this.modal.confirmar('Fechar tela', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+        if (!r.confirmado) return false;
+      }
+      this.fechamentoConfirmado = true;
+      sessionStorage.removeItem(this.STATE_KEY);
+      return true;
+    });
   }
 
-  ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
+  ngOnDestroy() {
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.removerBeforeClose(this.TAB_ID);
+    if (!this.fechamentoConfirmado) {
+      this.persistirEstado();
+    }
+  }
+
+  private onBeforeUnload = (e: BeforeUnloadEvent) => {
+    this.persistirEstado();
+    if (this.isDirty()) {
+      e.preventDefault();
+    }
+  };
 
   sairDaTela() {
     sessionStorage.removeItem(this.STATE_KEY);
@@ -155,8 +187,9 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     const abas = this.abasEdicao();
     if (abas.length === 0) { sessionStorage.removeItem(this.STATE_KEY); return; }
     sessionStorage.setItem(this.STATE_KEY, JSON.stringify({
-      abasIds: abas.map(a => a.colaborador.id),
-      abaAtivaId: this.abaAtivaId()
+      abas: abas.map(a => ({ colaborador: a.colaborador, form: a.form, isDirty: a.isDirty })),
+      abaAtivaId: this.abaAtivaId(),
+      accordions: { enderecos: this.accEnderecos(), contatos: this.accContatos(), acesso: this.accAcesso(), observacao: this.accObservacao() }
     }));
   }
 
@@ -166,6 +199,36 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       if (!json) return;
       const state = JSON.parse(json);
       sessionStorage.removeItem(this.STATE_KEY);
+
+      // Restaurar estado dos accordions
+      if (state.accordions) {
+        this.accEnderecos.set(state.accordions.enderecos ?? false);
+        this.accContatos.set(state.accordions.contatos ?? false);
+        this.accAcesso.set(state.accordions.acesso ?? false);
+        this.accObservacao.set(state.accordions.observacao ?? false);
+      }
+
+      // Formato novo: abas completas com form
+      if (state.abas?.length > 0) {
+        for (const a of state.abas) {
+          if (this.abasEdicao().find(x => x.colaborador.id === a.colaborador.id)) continue;
+          const novaAba: AbaEdicao = { colaborador: a.colaborador, form: this.clonarDetalhe(a.form), isDirty: a.isDirty };
+          this.abasEdicao.update(tabs => [...tabs, novaAba]);
+          if (a.colaborador.id === state.abaAtivaId) {
+            this.colaboradorSelecionado.set(a.colaborador);
+            this.colaboradorForm.set(this.clonarDetalhe(a.form));
+            this.formOriginal = this.clonarDetalhe(a.form);
+            this.acessoHabilitado.set(!!a.form.acesso);
+            this.isDirty.set(a.isDirty);
+            this.abaAtivaId.set(a.colaborador.id);
+            this.modoEdicao.set(true);
+            this.modo.set('form');
+          }
+        }
+        return;
+      }
+
+      // Formato legado: só IDs
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const c = this.colaboradores().find(x => x.id === id);
@@ -182,6 +245,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         const detalhe: ColaboradorDetalhe = {
           ...c,
           codigo: r.data.codigo,
+          genero: r.data.genero ?? '',
           permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
@@ -248,11 +312,12 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     const lista = this.colaboradores().filter(c => {
       if (status === 'ativos'   && !c.ativo) return false;
       if (status === 'inativos' &&  c.ativo) return false;
-      if (termo.length < 3) return true;
+      if (termo.length < 2) return true;
       const termoDigitos = termo.replace(/\D/g, '');
       return (
         this.normalizar(c.nome).includes(termo) ||
         (termoDigitos.length > 0 && c.cpf.replace(/\D/g, '').includes(termoDigitos)) ||
+        this.normalizar(c.codigo ?? '').includes(termo) ||
         this.normalizar(c.cargo ?? '').includes(termo) ||
         this.normalizar(c.cidade ?? '').includes(termo) ||
         this.normalizar(c.email ?? '').includes(termo)
@@ -280,10 +345,45 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     if (campo === 'dataNascimento' && v) return new Date(v).toLocaleDateString('pt-BR');
     if (campo === 'salario' && v != null) return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     if (campo === 'codigo') return v ?? String(c.id ?? '');
+    if (campo === 'cpf' && v) {
+      const d = v.replace(/\D/g, '');
+      if (d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+    }
+    if (campo === 'telefone' && v) {
+      const d = v.replace(/\D/g, '');
+      if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+      if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+    }
     return v ?? '';
   }
 
   selecionar(c: Colaborador) { this.colaboradorSelecionado.set(c); }
+
+  navegarGrid(direcao: number) {
+    const lista = this.colaboradoresFiltrados();
+    if (lista.length === 0) return;
+    const atual = this.colaboradorSelecionado();
+    const idx = atual ? lista.findIndex(c => c.id === atual.id) : -1;
+    const novoIdx = direcao > 0 ? Math.min(idx + 1, lista.length - 1) : Math.max(idx - 1, 0);
+    this.selecionar(lista[novoIdx]);
+    setTimeout(() => {
+      const row = document.querySelector('.erp-grid tbody tr.selecionado') as HTMLElement;
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  confirmarBusca(event: Event) {
+    (event.target as HTMLElement).blur();
+    const lista = this.colaboradoresFiltrados();
+    if (lista.length === 1) {
+      this.selecionar(lista[0]);
+      this.editar();
+    } else if (this.colaboradorSelecionado()) {
+      this.editar();
+    } else if (lista.length > 0) {
+      this.selecionar(lista[0]);
+    }
+  }
   ordenar(coluna: string) {
     if (this.sortColuna() === coluna) {
       this.sortDirecao.update(d => d === 'asc' ? 'desc' : 'asc');
@@ -301,6 +401,45 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.resizeState = { campo, startX: e.clientX, startWidth: largura };
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent) {
+    // Ignorar todos os atalhos quando o modal está aberto
+    if (this.modal.visivel()) return;
+
+    if (e.ctrlKey && e.key === 's' && this.modo() === 'form') {
+      e.preventDefault();
+      if (this.isDirty()) this.salvar();
+    }
+    if (e.key === 'Escape' && this.modo() === 'form') {
+      e.preventDefault();
+      if (this.isDirty()) this.cancelarEdicao();
+      else this.fecharForm();
+    }
+    if (e.key === 'F2' && this.modo() === 'lista') {
+      e.preventDefault();
+      this.editar();
+    }
+    if (e.key === 'Enter' && this.modo() === 'lista' && this.colaboradorSelecionado()) {
+      const el = e.target as HTMLElement;
+      if (el?.tagName === 'INPUT' || el?.tagName === 'SELECT' || el?.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      this.editar();
+    }
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && this.modo() === 'lista') {
+      const el = e.target as HTMLElement;
+      if (el?.classList?.contains('input-busca')) return;
+      e.preventDefault();
+      const lista = this.colaboradoresFiltrados();
+      if (lista.length === 0) return;
+      const atual = this.colaboradorSelecionado();
+      const idx = atual ? lista.findIndex(c => c.id === atual.id) : -1;
+      const novoIdx = e.key === 'ArrowDown' ? Math.min(idx + 1, lista.length - 1) : Math.max(idx - 1, 0);
+      this.selecionar(lista[novoIdx]);
+      const row = document.querySelector('.erp-grid tbody tr.selecionado') as HTMLElement;
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    }
   }
 
   @HostListener('document:mousemove', ['$event'])
@@ -360,16 +499,33 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     localStorage.setItem(this.STORAGE_KEY_COLUNAS, JSON.stringify(estado));
   }
 
+  private readonly NOVO_ID = -1;
+
   // ── CRUD ──────────────────────────────────────────────────────────
   async incluir() {
     if (!await this.verificarPermissao('i')) return;
     this.salvarEstadoAbaAtiva();
+
+    // Se já existe aba de novo cadastro, apenas ativar
+    const jaExiste = this.abasEdicao().find(a => a.colaborador.id === this.NOVO_ID);
+    if (jaExiste) {
+      this.ativarAba(this.NOVO_ID);
+      this.modoEdicao.set(false);
+      return;
+    }
+
     const novo = this.novoColaborador();
+    novo.id = this.NOVO_ID;
     this.colaboradorForm.set(novo);
-    this.formOriginal = { ...novo, enderecos: [...novo.enderecos.map(e => ({ ...e }))], contatos: [...novo.contatos.map(c => ({ ...c }))] };
+    this.formOriginal = this.clonarDetalhe(novo);
     this.erro.set(''); this.errosCampos.set({});
     this.isDirty.set(false); this.modoEdicao.set(false); this.pessoaEncontrada.set(null);
-    this.abaAtivaId.set(null); this.abaFormAtiva.set('dados');
+    this.abaAtivaId.set(this.NOVO_ID); this.abaFormAtiva.set('dados');
+    this.resetAccordions();
+
+    // Registrar como aba
+    const novaAba: AbaEdicao = { colaborador: { id: this.NOVO_ID, nome: 'Novo cadastro', cpf: '', ativo: true, permitirAbrirCaixa: false }, form: this.clonarDetalhe(novo), isDirty: false };
+    this.abasEdicao.update(tabs => [...tabs, novaAba]);
     this.modo.set('form');
   }
 
@@ -390,6 +546,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         const detalhe: ColaboradorDetalhe = {
           ...c,
           codigo: r.data.codigo,
+          genero: r.data.genero ?? '',
           permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
@@ -411,6 +568,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         this.erro.set(''); this.errosCampos.set({});
         this.isDirty.set(false); this.modoEdicao.set(true);
         this.abaFormAtiva.set('dados');
+        this.resetAccordions();
         this.modo.set('form');
       },
       error: () => this.carregando.set(false)
@@ -428,10 +586,16 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.acessoHabilitado.set(!!aba.form.acesso);
     this.isDirty.set(aba.isDirty);
     this.errosCampos.set({}); this.erro.set('');
-    this.modoEdicao.set(true); this.modo.set('form');
+    this.modoEdicao.set(id !== this.NOVO_ID);
+    this.modo.set('form');
   }
 
-  fecharAba(id: number) {
+  async fecharAba(id: number) {
+    const aba = this.abasEdicao().find(a => a.colaborador.id === id);
+    if (aba?.isDirty) {
+      const r = await this.modal.confirmar('Fechar aba', `A aba "${aba.colaborador.nome}" tem alterações não salvas. Deseja realmente fechar?`, 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     const eraAtiva = this.abaAtivaId() === id && this.modo() === 'form';
     this.abasEdicao.update(tabs => tabs.filter(t => t.colaborador.id !== id));
     if (eraAtiva) {
@@ -470,7 +634,8 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     const payload: any = {
       nome: f.nome, cpf: f.cpf, rg: f.rg,
       dataNascimento: f.dataNascimento || null,
-      cargo: f.cargo, dataAdmissao: f.dataAdmissao || null,
+      genero: f.genero || null, cargo: f.cargo,
+      dataAdmissao: f.dataAdmissao || null,
       salario: f.salario, observacao: f.observacao, ativo: f.ativo,
       permitirAbrirCaixa: f.permitirAbrirCaixa,
       enderecos: f.enderecos, contatos: f.contatos,
@@ -482,27 +647,35 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ? this.http.put<any>(`${this.apiUrl}/${f.id}`, payload, { headers })
       : this.http.post<any>(this.apiUrl, payload, { headers });
 
+
     req.subscribe({
       next: (r) => {
         this.salvando.set(false);
         this.carregar();
         if (!this.modoEdicao() && r.data) {
+          // Remover aba "NOVO"
+          this.abasEdicao.update(tabs => tabs.filter(t => t.colaborador.id !== this.NOVO_ID));
           // Recarregar detalhe do novo registro
           this.http.get<any>(`${this.apiUrl}/${r.data.id}`).subscribe({
             next: det => {
               const detalhe: ColaboradorDetalhe = {
                 ...r.data,
+                codigo: det.data.codigo ?? r.data.codigo,
                 enderecos: det.data.enderecos ?? [],
                 contatos: det.data.contatos ?? [],
                 observacao: det.data.observacao,
+                genero: det.data.genero,
                 cargo: det.data.cargo,
                 dataAdmissao: det.data.dataAdmissao,
-                salario: det.data.salario
+                salario: det.data.salario,
+                permitirAbrirCaixa: det.data.permitirAbrirCaixa ?? false,
+                acesso: det.data.acesso ?? null
               };
-              const novaAba: AbaEdicao = { colaborador: { ...r.data }, form: this.clonarDetalhe(detalhe), isDirty: false };
+              const colab = { ...r.data, codigo: detalhe.codigo };
+              const novaAba: AbaEdicao = { colaborador: colab, form: this.clonarDetalhe(detalhe), isDirty: false };
               this.abasEdicao.update(tabs => [...tabs, novaAba]);
               this.abaAtivaId.set(r.data.id);
-              this.colaboradorSelecionado.set(r.data);
+              this.colaboradorSelecionado.set(colab);
               this.colaboradorForm.set(this.clonarDetalhe(detalhe));
               this.formOriginal = this.clonarDetalhe(detalhe);
               this.modoEdicao.set(true);
@@ -543,7 +716,11 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     });
   }
 
-  cancelarEdicao() {
+  async cancelarEdicao() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Cancelar edição', 'Você tem alterações não salvas. Deseja realmente cancelar?', 'Sim, cancelar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     if (this.formOriginal) this.colaboradorForm.set(this.clonarDetalhe(this.formOriginal));
     this.isDirty.set(false); this.erro.set(''); this.errosCampos.set({});
     const id = this.abaAtivaId();
@@ -554,7 +731,11 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     }
   }
 
-  fecharForm() {
+  async fecharForm() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Fechar cadastro', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     const id = this.abaAtivaId();
     if (this.modoEdicao() && id != null) {
       this.abasEdicao.update(tabs => tabs.filter(t => t.colaborador.id !== id));
@@ -563,7 +744,11 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.modo.set('lista');
   }
 
-  fechar() { this.salvarEstadoAbaAtiva(); this.modo.set('lista'); this.carregar(); }
+  fechar() {
+    this.salvarEstadoAbaAtiva();
+    this.modo.set('lista');
+    this.carregar();
+  }
 
   // ── Excluir ───────────────────────────────────────────────────────
   async excluir() {
@@ -641,8 +826,11 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
 
   // ── Formulário ────────────────────────────────────────────────────
   updateForm(campo: string, valor: any) {
+    if (typeof valor === 'string' && campo !== 'dataNascimento' && campo !== 'dataAdmissao') {
+      valor = valor.toUpperCase();
+    }
     this.colaboradorForm.update(f => ({ ...f, [campo]: valor }));
-    this.isDirty.set(true);
+    this.marcarDirty();
     if (this.errosCampos()[campo]) {
       this.errosCampos.update(e => { const n = { ...e }; delete n[campo]; return n; });
     }
@@ -654,7 +842,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       enderecos: [...f.enderecos, { tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: f.enderecos.length === 0 }]
     }));
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   removerEndereco(idx: number) {
@@ -662,7 +850,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       enderecos: f.enderecos.filter((_, i) => i !== idx)
     }));
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   updateEndereco(idx: number, campo: string, valor: any) {
@@ -670,7 +858,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       enderecos: f.enderecos.map((e, i) => i === idx ? { ...e, [campo]: valor } : e)
     }));
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   onCepEnderecoInput(event: Event, idx: number) {
@@ -709,7 +897,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       contatos: [...f.contatos, { tipo: 'CELULAR', valor: '', principal: f.contatos.length === 0 }]
     }));
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   removerContato(idx: number) {
@@ -717,7 +905,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       contatos: f.contatos.filter((_, i) => i !== idx)
     }));
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   updateContato(idx: number, campo: string, valor: any) {
@@ -725,7 +913,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       contatos: f.contatos.map((c, i) => i === idx ? { ...c, [campo]: valor } : c)
     }));
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   onContatoValorInput(event: Event, idx: number) {
@@ -748,7 +936,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         acesso: { login: '', senha: '', isAdministrador: false, sessaoMaximaMinutos: 0, inatividadeMinutos: 0, filialPadraoId: 0, filialGrupos: [] }
       }));
     }
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   updateAcesso(campo: string, valor: any) {
@@ -756,7 +944,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       acesso: f.acesso ? { ...f.acesso, [campo]: valor } : null
     }));
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   getGruposFilial(filialId: number): FilialGrupoItem[] {
@@ -806,7 +994,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       }
       return { ...f, acesso: { ...f.acesso, filialGrupos: fgs } };
     });
-    this.isDirty.set(true);
+    this.marcarDirty();
   }
 
   // ── Máscaras ──────────────────────────────────────────────────────
@@ -934,9 +1122,15 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.errosCampos.set(erros);
     if (Object.keys(erros).length > 0) {
       this.erro.set('Preencha todos os campos obrigatórios.');
-      if (erros['enderecos'] || Object.keys(erros).some(k => k.startsWith('end_'))) {
-        this.abaFormAtiva.set('endereco');
+      // Expandir accordion e focar no primeiro campo com erro
+      const primeiroCampo = Object.keys(erros)[0];
+      if (primeiroCampo.startsWith('end_') || primeiroCampo === 'enderecos') {
+        this.accEnderecos.set(true);
       }
+      setTimeout(() => {
+        const el = document.querySelector('.field-invalido input, .field-invalido select, .field-invalido textarea') as HTMLElement;
+        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+      }, 100);
       return false;
     }
     this.erro.set('');
@@ -944,17 +1138,41 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   }
 
   erroCampo(campo: string): string { return this.errosCampos()[campo] ?? ''; }
+
+  campoAlterado(campo: string): boolean {
+    if (!this.formOriginal || !this.modoEdicao()) return false;
+    const atual = (this.colaboradorForm() as any)[campo];
+    const original = (this.formOriginal as any)[campo];
+    return (atual ?? '') !== (original ?? '');
+  }
   hasEnderecoErrors(): boolean { return Object.keys(this.errosCampos()).some(k => k.startsWith('end_')); }
 
   // ── Helpers ───────────────────────────────────────────────────────
   private novoColaborador(): ColaboradorDetalhe {
     return {
-      nome: '', cpf: '', rg: '', dataNascimento: '', cargo: '', dataAdmissao: '',
+      nome: '', cpf: '', rg: '', dataNascimento: '', genero: '', cargo: '', dataAdmissao: '',
       salario: undefined, observacao: '', ativo: true, permitirAbrirCaixa: false,
       enderecos: [{ tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
       contatos: [],
       acesso: null
     };
+  }
+
+  private marcarDirty() {
+    this.isDirty.set(true);
+    const id = this.abaAtivaId();
+    if (id != null) {
+      this.abasEdicao.update(tabs =>
+        tabs.map(t => t.colaborador.id === id ? { ...t, isDirty: true } : t)
+      );
+    }
+  }
+
+  private resetAccordions() {
+    this.accEnderecos.set(false);
+    this.accContatos.set(false);
+    this.accAcesso.set(false);
+    this.accObservacao.set(false);
   }
 
   private clonarDetalhe(d: ColaboradorDetalhe): ColaboradorDetalhe {
