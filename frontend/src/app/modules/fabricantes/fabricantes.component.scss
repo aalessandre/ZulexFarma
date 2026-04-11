@@ -369,6 +369,11 @@
   border-radius: 16px;
   border: 1px solid #e8ecf1;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+
+  input[type="text"], input[type="password"], input[type="number"], textarea, select {
+    text-transform: uppercase;
+    &::placeholder { text-transform: none; }
+  }
 }
 
 .form-erro {
@@ -392,17 +397,35 @@
   border-bottom: 1px solid var(--erp-border);
 }
 
-.form-titulo {
-  font-size: var(--erp-fs-h2);
-  font-weight: 700;
-  color: var(--erp-primary);
+.form-titulo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 2px solid var(--erp-border);
+}
+
+.form-titulo {
+  font-size: var(--erp-fs-h2); font-weight: 700; color: var(--erp-primary);
+  display: flex; align-items: center; gap: 10px;
+}
+
+.btn-fechar-form {
+  background: none;
+  border: 1px solid var(--erp-border);
+  border-radius: 6px;
+  color: var(--erp-text-muted);
+  cursor: pointer;
+  padding: 4px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+
+  &:hover { background: #fde8e8; color: #c0392b; border-color: #ef9a9a; }
 }
+
 
 .form-grid {
   display: flex;
@@ -438,6 +461,10 @@
     outline: none;
     background: var(--erp-input-bg);
     &:focus { border-color: var(--erp-blue); background: var(--erp-surface); }
+  }
+
+  &.field-alterado {
+    input, select, textarea { border-color: #f0ad4e; background: #fffdf5; }
   }
 
   &.field-invalido {
@@ -806,11 +833,11 @@
   border-left: 3px solid transparent;
   border-radius: var(--erp-radius-sm);
   color: var(--erp-text-muted);
-  background: var(--erp-bg);
-  transition: background 0.12s, color 0.12s;
+  background: #e8ecf1; border: 1px solid var(--erp-border);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
 
-  &:hover { background: var(--erp-row-hover); color: var(--erp-text); }
-  &.ativo  { background: var(--erp-row-selected); color: var(--erp-blue); border-left-color: var(--erp-blue); }
+  &:hover { background: #dce3ec; color: var(--erp-text); }
+  &.ativo  { background: var(--erp-row-selected); color: var(--erp-blue); border-left-color: var(--erp-blue); border-color: var(--erp-blue); }
 }
 
 .sidebar-aba-topo {
@@ -841,6 +868,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--erp-text);
+}
+
+.sidebar-aba-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--erp-text-muted);
+  letter-spacing: 0.3px;
 }
 
 .sidebar-aba-fechar {

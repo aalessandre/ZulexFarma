@@ -672,6 +672,13 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.isDirty.set(true);
   }
 
+  buscarCepEnderecoManual(idx: number) {
+    const end = this.clienteForm().enderecos[idx];
+    if (!end) return;
+    const digits = (end.cep ?? '').replace(/\D/g, '');
+    if (digits.length === 8) this.buscarCepEndereco(digits, idx);
+  }
+
   onCepEnderecoInput(event: Event, idx: number) {
     const input = event.target as HTMLInputElement;
     const mascarado = this.mascaraCep(input.value);
@@ -1034,6 +1041,13 @@ export class ClientesComponent implements OnInit, OnDestroy {
     }
   }
 
+  formatarCpfCnpj(valor: string, tipo: string): string {
+    if (!valor) return '';
+    const d = valor.replace(/\D/g, '');
+    if (tipo === 'F') return this.mascaraCpf(d);
+    return this.mascaraCnpj(d);
+  }
+
   mascaraCpf(v: string): string {
     const d = v.replace(/\D/g, '').slice(0, 11);
     if (d.length <= 3)  return d;
@@ -1098,6 +1112,13 @@ export class ClientesComponent implements OnInit, OnDestroy {
 
   erroCampo(campo: string): string { return this.errosCampos()[campo] ?? ''; }
   hasEnderecoErrors(): boolean { return Object.keys(this.errosCampos()).some(k => k.startsWith('end_')); }
+
+  campoAlterado(campo: string): boolean {
+    if (!this.formOriginal || !this.modoEdicao()) return false;
+    const atual = (this.clienteForm() as any)[campo];
+    const original = (this.formOriginal as any)[campo];
+    return (atual ?? '') !== (original ?? '');
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────
   private resetAccordions() {

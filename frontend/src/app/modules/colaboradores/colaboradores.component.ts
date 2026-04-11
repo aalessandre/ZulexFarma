@@ -157,6 +157,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         if (!r.confirmado) return false;
       }
       this.fechamentoConfirmado = true;
+      this.abasEdicao.set([]);
       sessionStorage.removeItem(this.STATE_KEY);
       return true;
     });
@@ -861,6 +862,13 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.marcarDirty();
   }
 
+  buscarCepEnderecoManual(idx: number) {
+    const end = this.colaboradorForm().enderecos[idx];
+    if (!end) return;
+    const digits = (end.cep ?? '').replace(/\D/g, '');
+    if (digits.length === 8) this.buscarCepEndereco(digits, idx);
+  }
+
   onCepEnderecoInput(event: Event, idx: number) {
     const input = event.target as HTMLInputElement;
     const mascarado = this.mascaraCep(input.value);
@@ -1066,6 +1074,11 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       },
       error: () => this.pessoaEncontrada.set(null)
     });
+  }
+
+  formatarCpf(valor: string): string {
+    if (!valor) return '';
+    return this.mascaraCpf(valor.replace(/\D/g, ''));
   }
 
   private mascaraCpf(v: string): string {

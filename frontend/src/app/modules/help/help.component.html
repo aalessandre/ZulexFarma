@@ -1684,6 +1684,50 @@ para cada item da hierarquia (ordenado por Ordem):
         }
       </section>
 
+      <!-- CHECKLIST PADRONIZAÇÃO -->
+      <section class="help-secao">
+        <div class="secao-header checklist" [class.aberto]="isAberta('checklist')" (click)="toggleSecao('checklist')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span>Checklist Padronização de Telas</span>
+        </div>
+        @if (isAberta('checklist')) {
+          <div class="secao-corpo">
+            <div class="doc-titulo">1. Sidebar Esquerda</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Ícones: Lupa (Procurar), + (Adicionar), Lápis (Editar), Porta+seta (Sair) via .sidebar-item-header. Botão Editar sem disabled. Balões abas: fundo #e8ecf1, status Consultando/Editando/Criando/Novo. Aba NOVO com NOVO_ID=-1.</span></div>
+
+            <div class="doc-titulo">2. Cabeçalho Formulário</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Título dinâmico (Consulta/Editando/Novo). Botão X canto superior direito. CÓDIGO 70px + DATA DE CADASTRO 140px sem hora em .field-grupo-codigo. Checkbox Ativo ao lado.</span></div>
+
+            <div class="doc-titulo">3. Campos</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Texto maiúsculo (CSS+JS). Campos alterados: borda laranja #f0ad4e. Máscaras: CPF, CNPJ, Telefone. Chevron SVG nos selects. Input number com borda.</span></div>
+
+            <div class="doc-titulo">4. Accordions</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Iniciam fechados. Estado preservado entre telas. Padding: header 8px, body 8px 16px. Botão Adicionar no último item. Observação por último.</span></div>
+
+            <div class="doc-titulo">5. CEP</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Busca auto 8 dígitos + lupa manual + busca no blur. Preenche Rua, Bairro, Cidade, UF, IBGE, ICMS%.</span></div>
+
+            <div class="doc-titulo">6. Atalhos</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Ctrl+S salvar, Esc cancelar/fechar, F2 editar, Enter abrir, ↑↓ navegar. Modal: ←→ botões, Enter confirmar, Esc fechar.</span></div>
+
+            <div class="doc-titulo">7. Persistência</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Auto-registro tab ngOnInit. beforeClose handler. beforeunload. SessionStorage completo. fechamentoConfirmado flag.</span></div>
+
+            <div class="doc-titulo">8. Confirmações</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Fechar/Cancelar/Aba X/Sair/Tab X: modal se dirty. Excluir: sempre. Novo cancelado: remove aba.</span></div>
+
+            <div class="doc-titulo">9. Grid</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Chevron SVG. CPF/CNPJ/Telefone mascarados. Texto maiúsculo. Coluna Código (não ID). Busca 2+ caracteres.</span></div>
+
+            <div class="doc-titulo">10. Novo Cadastro</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Aba NOVO_ID=-1. Persiste entre telas. Remove ao salvar/cancelar. Sem edições: recria limpa. Com edições: ativa existente.</span></div>
+
+            <div class="doc-titulo">Telas Padronizadas</div>
+            <div class="cmd-grupo"><span class="cmd-obs">✅ Colaboradores | ✅ Filiais | ✅ Fornecedores | ✅ Fabricantes | 🟡 Clientes (parcial)</span></div>
+          </div>
+        }
+      </section>
+
     </div>
   </main>
 </div>

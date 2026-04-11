@@ -40,6 +40,8 @@ interface Filial {
   telefone: string;
   email: string;
   aliquotaIcms: number;
+  incluirPromoFixa: boolean;
+  incluirPromoProgressiva: boolean;
   ativo: boolean;
   criadoEm?: string;
 }
@@ -133,16 +135,91 @@ export class FiliaisComponent implements OnInit, OnDestroy {
 
   private primeiroCarregamento = true;
 
+  private readonly TAB_ID = '/erp/filiais';
+  private fechamentoConfirmado = false;
+
   ngOnInit() {
+    if (!this.tabService.tabs().find(t => t.id === this.TAB_ID)) {
+      this.tabService.abrirTab({ id: this.TAB_ID, titulo: 'Filiais', rota: this.TAB_ID, iconKey: 'building' });
+    }
     this.carregar();
     this.http.get<any>(`${environment.apiUrl}/icms-uf`).subscribe({
       next: r => this.icmsUfOptions.set((r.data ?? []).filter((x: any) => x.ativo))
     });
+    window.addEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.registrarBeforeClose(this.TAB_ID, async () => {
+      if (this.isDirty()) {
+        const r = await this.modal.confirmar('Fechar tela', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+        if (!r.confirmado) return false;
+      }
+      this.fechamentoConfirmado = true;
+      this.abasEdicao.set([]);
+      sessionStorage.removeItem(this.STATE_KEY);
+      return true;
+    });
   }
 
-  ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
+  ngOnDestroy() {
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.removerBeforeClose(this.TAB_ID);
+    if (!this.fechamentoConfirmado) this.persistirEstado();
+  }
 
-  sairDaTela() {
+  private onBeforeUnload = (e: BeforeUnloadEvent) => {
+    this.persistirEstado();
+    if (this.isDirty()) e.preventDefault();
+  };
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent) {
+    if (this.modal.visivel()) return;
+    if (e.ctrlKey && e.key === 's' && this.modo() === 'form') {
+      e.preventDefault();
+      if (this.isDirty()) this.salvar();
+    }
+    if (e.key === 'Escape' && this.modo() === 'form') {
+      e.preventDefault();
+      if (this.isDirty()) this.cancelarEdicao();
+      else this.fecharForm();
+    }
+    if (e.key === 'F2' && this.modo() === 'lista') {
+      e.preventDefault();
+      this.editar();
+    }
+    if (e.key === 'Enter' && this.modo() === 'lista' && this.filialSelecionada()) {
+      const el = e.target as HTMLElement;
+      if (el?.tagName === 'INPUT' || el?.tagName === 'SELECT' || el?.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      this.editar();
+    }
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && this.modo() === 'lista') {
+      const el = e.target as HTMLElement;
+      if (el?.classList?.contains('input-busca')) return;
+      e.preventDefault();
+      const lista = this.filiaisFiltradas();
+      if (lista.length === 0) return;
+      const atual = this.filialSelecionada();
+      const idx = atual ? lista.findIndex(f => f.id === atual.id) : -1;
+      const novoIdx = e.key === 'ArrowDown' ? Math.min(idx + 1, lista.length - 1) : Math.max(idx - 1, 0);
+      this.selecionar(lista[novoIdx]);
+      setTimeout(() => { const row = document.querySelector('.erp-grid tbody tr.selecionado') as HTMLElement; if (row) row.scrollIntoView({ block: 'nearest' }); });
+    }
+  }
+
+  campoAlterado(campo: string): boolean {
+    if (!this.formOriginal || !this.modoEdicao()) return false;
+    const atual = (this.filialForm() as any)[campo];
+    const original = (this.formOriginal as any)[campo];
+    return (atual ?? '') !== (original ?? '');
+  }
+
+  async sairDaTela() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Sair da tela', 'Você tem alterações não salvas. Deseja realmente sair?', 'Sim, sair', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
+    this.fechamentoConfirmado = true;
+    this.abasEdicao.set([]);
     sessionStorage.removeItem(this.STATE_KEY);
     this.tabService.fecharTabAtiva();
   }
@@ -152,7 +229,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     const abas = this.abasEdicao();
     if (abas.length === 0) { sessionStorage.removeItem(this.STATE_KEY); return; }
     sessionStorage.setItem(this.STATE_KEY, JSON.stringify({
-      abasIds: abas.map(a => a.filial.id),
+      abas: abas.map(a => ({ filial: a.filial, form: a.form, isDirty: a.isDirty })),
       abaAtivaId: this.abaAtivaId()
     }));
   }
@@ -163,6 +240,27 @@ export class FiliaisComponent implements OnInit, OnDestroy {
       if (!json) return;
       const state = JSON.parse(json);
       sessionStorage.removeItem(this.STATE_KEY);
+
+      // Formato novo: abas completas com form
+      if (state.abas?.length > 0) {
+        for (const a of state.abas) {
+          if (this.abasEdicao().find(x => x.filial.id === a.filial.id)) continue;
+          const novaAba: AbaEdicao = { filial: a.filial, form: { ...a.form }, isDirty: a.isDirty };
+          this.abasEdicao.update(tabs => [...tabs, novaAba]);
+          if (a.filial.id === state.abaAtivaId) {
+            this.filialSelecionada.set(a.filial);
+            this.filialForm.set({ ...a.form });
+            this.formOriginal = { ...a.form };
+            this.isDirty.set(a.isDirty);
+            this.abaAtivaId.set(a.filial.id);
+            this.modoEdicao.set(a.filial.id !== this.NOVO_ID);
+            this.modo.set('form');
+          }
+        }
+        return;
+      }
+
+      // Formato legado: só IDs
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const f = this.filiais().find(x => x.id === id);
@@ -247,6 +345,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   getCellValue(f: Filial, campo: string): string {
     const v = (f as any)[campo];
     if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
+    if (typeof v === 'string') return v.toUpperCase();
     return v ?? '';
   }
 
@@ -343,17 +442,30 @@ export class FiliaisComponent implements OnInit, OnDestroy {
 
   // ── CRUD ──────────────────────────────────────────────────────────
 
+  private readonly NOVO_ID = -1;
+  dataHoje = new Date().toLocaleDateString('pt-BR');
+
   async incluir() {
     if (!await this.verificarPermissao('i')) return;
     this.salvarEstadoAbaAtiva();
+    const jaExiste = this.abasEdicao().find(a => a.filial.id === this.NOVO_ID);
+    if (jaExiste) {
+      if (jaExiste.isDirty) {
+        this.ativarAba(this.NOVO_ID); this.modoEdicao.set(false); return;
+      } else {
+        // Aba NOVO sem edições — remover e criar nova
+        this.abasEdicao.update(tabs => tabs.filter(t => t.filial.id !== this.NOVO_ID));
+      }
+    }
     const nova = this.novaFilial();
+    (nova as any).id = this.NOVO_ID;
     this.filialForm.set(nova);
     this.formOriginal = { ...nova };
-    this.erro.set('');
-    this.errosCampos.set({});
-    this.isDirty.set(false);
-    this.modoEdicao.set(false);
-    this.abaAtivaId.set(null);
+    this.erro.set(''); this.errosCampos.set({});
+    this.isDirty.set(false); this.modoEdicao.set(false);
+    this.abaAtivaId.set(this.NOVO_ID);
+    const novaAba: AbaEdicao = { filial: { ...nova, id: this.NOVO_ID, nomeFilial: 'Novo cadastro' } as any, form: { ...nova } as any, isDirty: false };
+    this.abasEdicao.update(tabs => [...tabs, novaAba]);
     this.modo.set('form');
   }
 
@@ -385,15 +497,20 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     if (!aba) return;
     this.filialSelecionada.set(aba.filial);
     this.filialForm.set({ ...aba.form });
-    this.formOriginal = { ...aba.filial };
+    this.formOriginal = { ...aba.form };
     this.isDirty.set(aba.isDirty);
     this.errosCampos.set({});
     this.erro.set('');
-    this.modoEdicao.set(true);
+    this.modoEdicao.set(id !== this.NOVO_ID);
     this.modo.set('form');
   }
 
-  fecharAba(id: number) {
+  async fecharAba(id: number) {
+    const aba = this.abasEdicao().find(a => a.filial.id === id);
+    if (aba?.isDirty) {
+      const r = await this.modal.confirmar('Fechar aba', `Você tem alterações não salvas. Deseja realmente fechar?`, 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     const eraAtiva = this.abaAtivaId() === id && this.modo() === 'form';
     this.abasEdicao.update(tabs => tabs.filter(t => t.filial.id !== id));
     if (eraAtiva) {
@@ -425,15 +542,18 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     this.salvando.set(true);
 
     const headers = this.headerLiberacao();
+    const payload = { ...f };
+    if (!this.modoEdicao()) delete (payload as any).id;
     const req = this.modoEdicao()
-      ? this.http.put<any>(`${this.apiUrl}/${f.id}`, f, { headers })
-      : this.http.post<any>(this.apiUrl, f, { headers });
+      ? this.http.put<any>(`${this.apiUrl}/${f.id}`, payload, { headers })
+      : this.http.post<any>(this.apiUrl, payload, { headers });
 
     req.subscribe({
       next: (r) => {
         this.salvando.set(false);
         this.carregar();
         if (!this.modoEdicao() && r.data) {
+          this.abasEdicao.update(tabs => tabs.filter(t => t.filial.id !== this.NOVO_ID));
           const novaAba: AbaEdicao = { filial: { ...r.data }, form: { ...r.data }, isDirty: false };
           this.abasEdicao.update(tabs => [...tabs, novaAba]);
           this.abaAtivaId.set(r.data.id);
@@ -461,12 +581,22 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     });
   }
 
-  cancelarEdicao() {
+  async cancelarEdicao() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Cancelar edição', 'Você tem alterações não salvas. Deseja realmente cancelar?', 'Sim, cancelar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
+    const id = this.abaAtivaId();
+    if (id === this.NOVO_ID) {
+      this.abasEdicao.update(tabs => tabs.filter(t => t.filial.id !== this.NOVO_ID));
+      this.abaAtivaId.set(null);
+      this.modo.set('lista');
+      return;
+    }
     if (this.formOriginal) this.filialForm.set({ ...this.formOriginal });
     this.isDirty.set(false);
     this.erro.set('');
     this.errosCampos.set({});
-    const id = this.abaAtivaId();
     if (id != null) {
       this.abasEdicao.update(tabs =>
         tabs.map(t => t.filial.id === id ? { ...t, form: { ...this.formOriginal! }, isDirty: false } : t)
@@ -474,9 +604,13 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     }
   }
 
-  fecharForm() {
+  async fecharForm() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Fechar cadastro', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     const id = this.abaAtivaId();
-    if (this.modoEdicao() && id != null) {
+    if (id != null) {
       this.abasEdicao.update(tabs => tabs.filter(t => t.filial.id !== id));
       this.abaAtivaId.set(null);
     }
@@ -571,10 +705,20 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   // ── Formulário ────────────────────────────────────────────────────
 
   updateForm(campo: keyof Filial, valor: any) {
+    if (typeof valor === 'string' && campo !== 'criadoEm') valor = valor.toUpperCase();
     this.filialForm.update(f => ({ ...f, [campo]: valor }));
     this.isDirty.set(true);
+    const id = this.abaAtivaId();
+    if (id != null) this.abasEdicao.update(tabs => tabs.map(t => t.filial.id === id ? { ...t, isDirty: true } : t));
     if (this.errosCampos()[campo]) {
       this.errosCampos.update(e => { const n = { ...e }; delete n[campo]; return n; });
+    }
+  }
+
+  onApelidoBlur() {
+    const f = this.filialForm();
+    if (!f.nomeFilial?.trim() && f.nomeFantasia?.trim()) {
+      this.updateForm('nomeFilial', f.nomeFantasia);
     }
   }
 
@@ -601,6 +745,11 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     if (digits.length === 8) this.buscarCep(digits);
   }
 
+  formatarCnpj(valor: string): string {
+    if (!valor) return '';
+    return this.mascaraCnpj(valor.replace(/\D/g, ''));
+  }
+
   private mascaraCnpj(v: string): string {
     const d = v.replace(/\D/g, '').slice(0, 14);
     if (d.length <= 2)  return d;
@@ -624,19 +773,32 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     return `${d.slice(0,5)}-${d.slice(5)}`;
   }
 
+  buscarCepManual() {
+    const digits = (this.filialForm().cep ?? '').replace(/\D/g, '');
+    if (digits.length === 8) this.buscarCep(digits);
+  }
+
   private buscarCep(cep: string) {
     this.buscandoCep.set(true);
     this.http.get<any>(`https://viacep.com.br/ws/${cep}/json/`).subscribe({
       next: (r) => {
         this.buscandoCep.set(false);
         if (r.erro) return;
+        // Buscar ICMS pela UF retornada
+        const uf = r.uf ?? '';
+        const icmsUf = this.icmsUfOptions().find(x => x.uf === uf);
         this.filialForm.update(f => ({
           ...f,
-          rua:    r.logradouro ?? f.rua,
-          bairro: r.bairro     ?? f.bairro,
-          cidade: r.localidade ?? f.cidade,
-          uf:     r.uf         ?? f.uf
+          rua:    (r.logradouro ?? f.rua).toUpperCase(),
+          bairro: (r.bairro     ?? f.bairro).toUpperCase(),
+          cidade: (r.localidade ?? f.cidade).toUpperCase(),
+          uf:     (uf || f.uf).toUpperCase(),
+          codigoIbgeMunicipio: r.ibge ?? f.codigoIbgeMunicipio,
+          aliquotaIcms: icmsUf ? icmsUf.aliquotaInterna : f.aliquotaIcms
         }));
+        this.isDirty.set(true);
+        const id = this.abaAtivaId();
+        if (id != null) this.abasEdicao.update(tabs => tabs.map(t => t.filial.id === id ? { ...t, isDirty: true } : t));
       },
       error: () => this.buscandoCep.set(false)
     });
@@ -674,7 +836,8 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     return {
       nomeFilial: '', razaoSocial: '', nomeFantasia: '', cnpj: '',
       inscricaoEstadual: '', cep: '', rua: '', numero: '', bairro: '',
-      cidade: '', uf: '', telefone: '', email: '', aliquotaIcms: 0, ativo: true
+      cidade: '', uf: '', telefone: '', email: '', aliquotaIcms: 0,
+      incluirPromoFixa: true, incluirPromoProgressiva: true, ativo: true
     };
   }
 

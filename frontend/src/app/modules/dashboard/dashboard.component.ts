@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, HostListener, ElementRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -124,8 +124,19 @@ export class DashboardComponent {
     public tabService: TabService,
     public settings: ErpSettingsService,
     private router: Router,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private elRef: ElementRef
   ) {}
+
+  @HostListener('wheel', ['$event'])
+  onWheel(e: WheelEvent) {
+    const dashMain = this.elRef.nativeElement.querySelector('.dash-main') as HTMLElement;
+    if (!dashMain) return;
+    if (dashMain.scrollWidth > dashMain.clientWidth) {
+      e.preventDefault();
+      dashMain.scrollLeft += e.deltaY;
+    }
+  }
 
   getIcon(key: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(ICONS[key] ?? ICONS['gear']);

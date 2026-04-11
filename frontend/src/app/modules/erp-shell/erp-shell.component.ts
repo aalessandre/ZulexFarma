@@ -247,7 +247,7 @@ export class ErpShellComponent {
 
   onBuscaInput(valor: string) {
     this.buscaGlobal.set(valor);
-    this.indiceBusca.set(-1);
+    this.indiceBusca.set(0);
   }
 
   onBuscaKeydown(e: KeyboardEvent) {
@@ -259,6 +259,8 @@ export class ErpShellComponent {
       e.preventDefault();
       this.indiceBusca.update(i => Math.max(i - 1, -1));
     } else if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
       const idx = this.indiceBusca();
       const results = this.resultadosBusca();
       const alvo = idx >= 0 ? results[idx] : results[0];

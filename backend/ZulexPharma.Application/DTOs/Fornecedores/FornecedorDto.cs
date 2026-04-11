@@ -4,6 +4,7 @@ namespace ZulexPharma.Application.DTOs.Fornecedores;
 public class FornecedorListDto
 {
     public long   Id               { get; set; }
+    public string? Codigo          { get; set; }
     public string Tipo             { get; set; } = "J";
     public string Nome             { get; set; } = string.Empty;
     public string? RazaoSocial     { get; set; }
@@ -21,6 +22,7 @@ public class FornecedorListDto
 public class FornecedorDetalheDto
 {
     public long   Id               { get; set; }
+    public string? Codigo          { get; set; }
     public string Tipo             { get; set; } = "J";
     public string Nome             { get; set; } = string.Empty;
     public string? RazaoSocial     { get; set; }

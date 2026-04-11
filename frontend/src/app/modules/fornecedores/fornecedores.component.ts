@@ -19,7 +19,7 @@ interface Endereco {
 }
 
 interface Fornecedor {
-  id?: number; tipo: string; nome: string; razaoSocial?: string; cpfCnpj: string;
+  id?: number; codigo?: string; tipo: string; nome: string; razaoSocial?: string; apelido?: string; cpfCnpj: string;
   inscricaoEstadual?: string; rg?: string;
   email?: string; telefone?: string; cidade?: string; uf?: string;
   ativo: boolean; criadoEm?: string;
@@ -69,6 +69,11 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
 
   abaFormAtiva = signal<AbaForm>('dados');
 
+  // Accordions
+  accEnderecos = signal(false);
+  accContatos = signal(false);
+  accObservacao = signal(false);
+
   // Modais
   modalLog = signal(false);
   logRegistros = signal<LogEntry[]>([]);
@@ -110,13 +115,77 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     return {};
   }
 
+  private readonly TAB_ID = '/erp/fornecedores';
+  private fechamentoConfirmado = false;
+
   ngOnInit() {
+    if (!this.tabService.tabs().find(t => t.id === this.TAB_ID)) {
+      this.tabService.abrirTab({ id: this.TAB_ID, titulo: 'Fornecedores', rota: this.TAB_ID, iconKey: 'truck' });
+    }
     this.carregar();
+    window.addEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.registrarBeforeClose(this.TAB_ID, async () => {
+      if (this.isDirty()) {
+        const r = await this.modal.confirmar('Fechar tela', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+        if (!r.confirmado) return false;
+      }
+      this.fechamentoConfirmado = true;
+      this.abasEdicao.set([]);
+      sessionStorage.removeItem(this.STATE_KEY);
+      return true;
+    });
   }
 
-  ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
+  ngOnDestroy() {
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.removerBeforeClose(this.TAB_ID);
+    if (!this.fechamentoConfirmado) this.persistirEstado();
+  }
 
-  sairDaTela() {
+  private onBeforeUnload = (e: BeforeUnloadEvent) => {
+    this.persistirEstado();
+    if (this.isDirty()) e.preventDefault();
+  };
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent) {
+    if (this.modal.visivel()) return;
+    if (e.ctrlKey && e.key === 's' && this.modo() === 'form') { e.preventDefault(); if (this.isDirty()) this.salvar(); }
+    if (e.key === 'Escape' && this.modo() === 'form') { e.preventDefault(); if (this.isDirty()) this.cancelarEdicao(); else this.fecharForm(); }
+    if (e.key === 'F2' && this.modo() === 'lista') { e.preventDefault(); this.editar(); }
+    if (e.key === 'Enter' && this.modo() === 'lista' && this.fornecedorSelecionado()) {
+      const el = e.target as HTMLElement;
+      if (el?.tagName === 'INPUT' || el?.tagName === 'SELECT' || el?.tagName === 'TEXTAREA') return;
+      e.preventDefault(); this.editar();
+    }
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && this.modo() === 'lista') {
+      const el = e.target as HTMLElement;
+      if (el?.classList?.contains('input-busca')) return;
+      e.preventDefault();
+      const lista = this.fornecedoresFiltrados();
+      if (lista.length === 0) return;
+      const atual = this.fornecedorSelecionado();
+      const idx = atual ? lista.findIndex(f => f.id === atual.id) : -1;
+      const novoIdx = e.key === 'ArrowDown' ? Math.min(idx + 1, lista.length - 1) : Math.max(idx - 1, 0);
+      this.selecionar(lista[novoIdx]);
+      setTimeout(() => { const row = document.querySelector('.erp-grid tbody tr.selecionado') as HTMLElement; if (row) row.scrollIntoView({ block: 'nearest' }); });
+    }
+  }
+
+  campoAlterado(campo: string): boolean {
+    if (!this.formOriginal || !this.modoEdicao()) return false;
+    const atual = (this.fornecedorForm() as any)[campo];
+    const original = (this.formOriginal as any)[campo];
+    return (atual ?? '') !== (original ?? '');
+  }
+
+  async sairDaTela() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Sair da tela', 'Você tem alterações não salvas. Deseja realmente sair?', 'Sim, sair', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
+    this.fechamentoConfirmado = true;
+    this.abasEdicao.set([]);
     sessionStorage.removeItem(this.STATE_KEY);
     this.tabService.fecharTabAtiva();
   }
@@ -126,7 +195,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     const abas = this.abasEdicao();
     if (abas.length === 0) { sessionStorage.removeItem(this.STATE_KEY); return; }
     sessionStorage.setItem(this.STATE_KEY, JSON.stringify({
-      abasIds: abas.map(a => a.fornecedor.id),
+      abas: abas.map(a => ({ fornecedor: a.fornecedor, form: a.form, isDirty: a.isDirty })),
       abaAtivaId: this.abaAtivaId()
     }));
   }
@@ -137,6 +206,25 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
       if (!json) return;
       const state = JSON.parse(json);
       sessionStorage.removeItem(this.STATE_KEY);
+
+      if (state.abas?.length > 0) {
+        for (const a of state.abas) {
+          if (this.abasEdicao().find(x => x.fornecedor.id === a.fornecedor.id)) continue;
+          const novaAba: AbaEdicao = { fornecedor: a.fornecedor, form: this.clonarDetalhe(a.form), isDirty: a.isDirty };
+          this.abasEdicao.update(tabs => [...tabs, novaAba]);
+          if (a.fornecedor.id === state.abaAtivaId) {
+            this.fornecedorSelecionado.set(a.fornecedor);
+            this.fornecedorForm.set(this.clonarDetalhe(a.form));
+            this.formOriginal = this.clonarDetalhe(a.form);
+            this.isDirty.set(a.isDirty);
+            this.abaAtivaId.set(a.fornecedor.id);
+            this.modoEdicao.set(a.fornecedor.id !== this.NOVO_ID);
+            this.modo.set('form');
+          }
+        }
+        return;
+      }
+
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const f = this.fornecedores().find(x => x.id === id);
@@ -152,6 +240,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
         if (this.abasEdicao().find(a => a.fornecedor.id === f.id)) return;
         const detalhe: FornecedorDetalhe = {
           ...f,
+          codigo: r.data.codigo,
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
           observacao: r.data.observacao,
@@ -313,15 +402,26 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   }
 
   // ── CRUD ──────────────────────────────────────────────────────────
+  private readonly NOVO_ID = -1;
+  dataHoje = new Date().toLocaleDateString('pt-BR');
+
   async incluir() {
     if (!await this.verificarPermissao('i')) return;
     this.salvarEstadoAbaAtiva();
+    const jaExiste = this.abasEdicao().find(a => a.fornecedor.id === this.NOVO_ID);
+    if (jaExiste) {
+      if (jaExiste.isDirty) { this.ativarAba(this.NOVO_ID); this.modoEdicao.set(false); return; }
+      else { this.abasEdicao.update(tabs => tabs.filter(t => t.fornecedor.id !== this.NOVO_ID)); }
+    }
     const novo = this.novoFornecedor();
+    (novo as any).id = this.NOVO_ID;
     this.fornecedorForm.set(novo);
-    this.formOriginal = { ...novo, enderecos: [...novo.enderecos.map(e => ({ ...e }))], contatos: [...novo.contatos.map(c => ({ ...c }))] };
+    this.formOriginal = this.clonarDetalhe(novo);
     this.erro.set(''); this.errosCampos.set({});
     this.isDirty.set(false); this.modoEdicao.set(false); this.pessoaEncontrada.set(null);
-    this.abaAtivaId.set(null); this.abaFormAtiva.set('dados');
+    this.abaAtivaId.set(this.NOVO_ID); this.abaFormAtiva.set('dados');
+    const novaAba: AbaEdicao = { fornecedor: { id: this.NOVO_ID, tipo: 'J', nome: 'Novo cadastro', cpfCnpj: '', ativo: true } as any, form: this.clonarDetalhe(novo), isDirty: false };
+    this.abasEdicao.update(tabs => [...tabs, novaAba]);
     this.modo.set('form');
   }
 
@@ -338,6 +438,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
         this.carregando.set(false);
         const detalhe: FornecedorDetalhe = {
           ...f,
+          codigo: r.data.codigo,
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
           observacao: r.data.observacao,
@@ -371,10 +472,15 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     this.formOriginal = this.clonarDetalhe(aba.form);
     this.isDirty.set(aba.isDirty);
     this.errosCampos.set({}); this.erro.set('');
-    this.modoEdicao.set(true); this.modo.set('form');
+    this.modoEdicao.set(id !== this.NOVO_ID); this.modo.set('form');
   }
 
-  fecharAba(id: number) {
+  async fecharAba(id: number) {
+    const aba = this.abasEdicao().find(a => a.fornecedor.id === id);
+    if (aba?.isDirty) {
+      const r = await this.modal.confirmar('Fechar aba', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     const eraAtiva = this.abaAtivaId() === id && this.modo() === 'form';
     this.abasEdicao.update(tabs => tabs.filter(t => t.fornecedor.id !== id));
     if (eraAtiva) {
@@ -419,6 +525,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
         this.salvando.set(false);
         this.carregar();
         if (!this.modoEdicao() && r.data) {
+          this.abasEdicao.update(tabs => tabs.filter(t => t.fornecedor.id !== this.NOVO_ID));
           this.http.get<any>(`${this.apiUrl}/${r.data.id}`).subscribe({
             next: det => {
               const detalhe: FornecedorDetalhe = {
@@ -475,10 +582,18 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     });
   }
 
-  cancelarEdicao() {
+  async cancelarEdicao() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Cancelar edição', 'Você tem alterações não salvas. Deseja realmente cancelar?', 'Sim, cancelar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
+    const id = this.abaAtivaId();
+    if (id === this.NOVO_ID) {
+      this.abasEdicao.update(tabs => tabs.filter(t => t.fornecedor.id !== this.NOVO_ID));
+      this.abaAtivaId.set(null); this.modo.set('lista'); return;
+    }
     if (this.formOriginal) this.fornecedorForm.set(this.clonarDetalhe(this.formOriginal));
     this.isDirty.set(false); this.erro.set(''); this.errosCampos.set({});
-    const id = this.abaAtivaId();
     if (id != null) {
       this.abasEdicao.update(tabs =>
         tabs.map(t => t.fornecedor.id === id ? { ...t, form: this.clonarDetalhe(this.formOriginal!), isDirty: false } : t)
@@ -486,9 +601,13 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     }
   }
 
-  fecharForm() {
+  async fecharForm() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Fechar cadastro', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     const id = this.abaAtivaId();
-    if (this.modoEdicao() && id != null) {
+    if (id != null) {
       this.abasEdicao.update(tabs => tabs.filter(t => t.fornecedor.id !== id));
       this.abaAtivaId.set(null);
     }
@@ -573,10 +692,27 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
 
   // ── Formulario ────────────────────────────────────────────────────
   updateForm(campo: string, valor: any) {
+    if (typeof valor === 'string' && campo !== 'dataNascimento' && campo !== 'criadoEm') valor = valor.toUpperCase();
     this.fornecedorForm.update(f => ({ ...f, [campo]: valor }));
     this.isDirty.set(true);
+    const id = this.abaAtivaId();
+    if (id != null) this.abasEdicao.update(tabs => tabs.map(t => t.fornecedor.id === id ? { ...t, isDirty: true } : t));
     if (this.errosCampos()[campo]) {
       this.errosCampos.update(e => { const n = { ...e }; delete n[campo]; return n; });
+    }
+  }
+
+  onApelidoBlur() {
+    const f = this.fornecedorForm();
+    if (!f.apelido?.trim() && f.nome?.trim()) {
+      this.updateForm('apelido', f.nome);
+    }
+  }
+
+  onApelidoPFBlur() {
+    const f = this.fornecedorForm();
+    if (!f.apelido?.trim() && f.nome?.trim()) {
+      this.updateForm('apelido', f.nome);
     }
   }
 
@@ -616,6 +752,13 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
       enderecos: f.enderecos.map((e, i) => i === idx ? { ...e, [campo]: valor } : e)
     }));
     this.isDirty.set(true);
+  }
+
+  buscarCepEnderecoManual(idx: number) {
+    const end = this.fornecedorForm().enderecos[idx];
+    if (!end) return;
+    const digits = (end.cep ?? '').replace(/\D/g, '');
+    if (digits.length === 8) this.buscarCepEndereco(digits, idx);
   }
 
   onCepEnderecoInput(event: Event, idx: number) {
@@ -818,6 +961,17 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
         }));
       }
     }
+  }
+
+  formatarCpfCnpj(valor: string, tipo: string): string {
+    if (!valor) return '';
+    const d = valor.replace(/\D/g, '');
+    if (tipo === 'F') return this.mascaraCpf(d);
+    return this.mascaraCnpj(d);
+  }
+
+  formatarIeRg(valor?: string): string {
+    return valor ?? '';
   }
 
   private mascaraCpf(v: string): string {

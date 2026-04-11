@@ -285,9 +285,10 @@
   &:last-child { border-radius: 0 0 16px 16px; }
 
   &:hover,
-  &.ativo { background: var(--erp-bg); }
+  &.ativo { background: var(--erp-row-selected); border-left: 3px solid var(--erp-blue); }
 
   &.ativo .resultado-seta { opacity: 1; }
+  &.ativo .resultado-label { color: var(--erp-blue); }
 }
 
 .resultado-sigla {

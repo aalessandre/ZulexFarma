@@ -34,6 +34,7 @@ public class FornecedorService : IFornecedorService
                 .Select(f => new FornecedorListDto
                 {
                     Id                = f.Id,
+                    Codigo            = f.Codigo,
                     Tipo              = f.Pessoa.Tipo,
                     Nome              = f.Pessoa.Nome,
                     RazaoSocial       = f.Pessoa.RazaoSocial,
@@ -81,6 +82,7 @@ public class FornecedorService : IFornecedorService
         return new FornecedorDetalheDto
         {
             Id                = f.Id,
+                    Codigo            = f.Codigo,
             Tipo              = f.Pessoa.Tipo,
             Nome              = f.Pessoa.Nome,
             RazaoSocial       = f.Pessoa.RazaoSocial,
@@ -351,6 +353,7 @@ public class FornecedorService : IFornecedorService
             .Select(f => new FornecedorListDto
             {
                 Id                = f.Id,
+                    Codigo            = f.Codigo,
                 Tipo              = f.Pessoa.Tipo,
                 Nome              = f.Pessoa.Nome,
                 RazaoSocial       = f.Pessoa.RazaoSocial,
