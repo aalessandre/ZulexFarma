@@ -924,14 +924,29 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.marcarDirty();
   }
 
+  formatarContatoValor(ct: any): string {
+    if (!ct.valor) return '';
+    if (ct.tipo === 'TELEFONE' || ct.tipo === 'CELULAR' || ct.tipo === 'WHATSAPP') {
+      return this.mascaraTelefone(ct.valor);
+    }
+    return ct.valor;
+  }
+
   onContatoValorInput(event: Event, idx: number) {
     const input = event.target as HTMLInputElement;
     const tipo = this.colaboradorForm().contatos[idx].tipo;
     let mascarado = input.value;
     if (tipo === 'TELEFONE' || tipo === 'CELULAR' || tipo === 'WHATSAPP') {
+      const antes = input.value.length;
+      const cursorAntes = input.selectionStart ?? 0;
       mascarado = this.mascaraTelefone(input.value);
+      input.value = mascarado;
+      const diff = mascarado.length - antes;
+      const pos = cursorAntes + diff;
+      input.setSelectionRange(pos, pos);
+    } else {
+      input.value = mascarado;
     }
-    input.value = mascarado;
     this.updateContato(idx, 'valor', mascarado);
   }
 

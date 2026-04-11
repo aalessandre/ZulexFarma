@@ -118,6 +118,7 @@ export class ErpShellComponent {
         { label: 'Contas Bancarias', sigla: 'CB', iconKey: 'log',       rota: '/erp/contas-bancarias' },
         { label: 'Tipos de Pagamento', sigla: 'TP', iconKey: 'log',   rota: '/erp/tipos-pagamento' },
         { label: 'Convenios',        sigla: 'CV', iconKey: 'users',    rota: '/erp/convenios' },
+        { label: 'Outros',           sigla: 'OT', iconKey: 'grid',     rota: '/erp/outros-cadastros' },
       ]
     },
     {
@@ -292,6 +293,12 @@ export class ErpShellComponent {
       e.preventDefault();
       this.inputBuscaRef?.nativeElement.focus();
       this.buscaFocada.set(true);
+    }
+    if (e.key === 'Escape' && !this.buscaFocada()) {
+      const tabAtiva = this.tabService.tabAtiva();
+      if (tabAtiva) {
+        this.tabService.fecharTab(tabAtiva);
+      }
     }
   }
 

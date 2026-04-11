@@ -1728,6 +1728,50 @@ para cada item da hierarquia (ordenado por Ordem):
         }
       </section>
 
+      <!-- ALTERAÇÕES GLOBAIS -->
+      <section class="help-secao">
+        <div class="secao-header backend" [class.aberto]="isAberta('globais')" (click)="toggleSecao('globais')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          <span>Alteracoes Globais (Sessao 11/04/2026)</span>
+        </div>
+        @if (isAberta('globais')) {
+          <div class="secao-corpo">
+            <div class="doc-titulo">Logo</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Logo substituida por imagem PNG (logo-light.png / logo-dark.png). Troca automatica por tema via settings.tema(). Arquivos em assets/images/logos/. Botao home oculto na tela inicial (estaHome signal).</span></div>
+
+            <div class="doc-titulo">Tema Escuro</div>
+            <div class="cmd-grupo"><span class="cmd-obs">--erp-primary ajustado de #1c3058 para #6ea8e6 no tema escuro para legibilidade de titulos. Dashboard .bloco-titulo usa var(--erp-text-muted) em vez de rgba branco fixo.</span></div>
+
+            <div class="doc-titulo">Painel de Abas (vtabs direita)</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Expansao trocada de signal para :hover CSS puro. Letra centralizada no modo minimizado (padding-left: 14.5px). Transicao suave ao expandir.</span></div>
+
+            <div class="doc-titulo">Atalho ESC Global</div>
+            <div class="cmd-grupo"><span class="cmd-obs">ESC fecha a tab ativa no erp-shell (onGlobalKeydown). Funciona em qualquer tela exceto quando busca esta focada.</span></div>
+
+            <div class="doc-titulo">Botao Cassi</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Estilo padronizado com topbar-icon: color var(--erp-text-muted), hover var(--erp-text).</span></div>
+
+            <div class="doc-titulo">Contatos (Accordion)</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Label VALOR trocado para NUMERO em Colaboradores, Clientes e Fornecedores. Valor exibido com mascara (formatarContatoValor). Focus seleciona todo texto. Cursor mantido na posicao correta durante digitacao.</span></div>
+
+            <div class="doc-titulo">Filiais - Topbar</div>
+            <div class="cmd-grupo"><span class="cmd-obs">AuthService.atualizarNomeFilial(): atualiza nomeFilial no signal e localStorage ao salvar filial do usuario logado. Topbar reflete alteracao imediatamente.</span></div>
+
+            <div class="doc-titulo">Fornecedores</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Grid: coluna ID trocada por Codigo. CPF/CNPJ e Telefone mascarados na grid. Botao Opcoes na toolbar com dropdown: Unificar por documento, Unificar por nome, Unificar manualmente (stubs). Toolbar reordenada: separador + Opcoes + Historico + Excluir.</span></div>
+
+            <div class="doc-titulo">Fabricantes</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Layout padronizado: field-grupo-codigo com Codigo 70px + Data Cadastro 140px + Ativo. Codigo mapeado no DTO e Service (BaseEntity.Codigo). Grid usa coluna codigo. Sidebar aba mostra codigo.</span></div>
+
+            <div class="doc-titulo">Outros Cadastros</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Icones SVG melhorados (NCM, Locais, Plano de Contas, Contas Bancarias, Tipos Pagamento). Baloes com borda-left azul, sombra, icone 50x50 com SVG 20x20. Siglas removidas. Tile adicionado a busca global do shell.</span></div>
+
+            <div class="doc-titulo">Toolbar (Filiais + Fabricantes)</div>
+            <div class="cmd-grupo"><span class="cmd-obs">Historico movido para esquerda do Excluir (sem separador entre eles). Separador antes do grupo Historico+Excluir.</span></div>
+          </div>
+        }
+      </section>
+
     </div>
   </main>
 </div>

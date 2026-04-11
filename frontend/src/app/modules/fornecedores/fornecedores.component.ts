@@ -54,6 +54,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   carregando = signal(false);
   salvando = signal(false);
   excluindo = signal(false);
+  menuOpcoesAberto = signal(false);
   buscandoCep = signal(false);
   busca = signal('');
   filtroStatus = signal<'ativos' | 'inativos' | 'todos'>('ativos');
@@ -146,6 +147,13 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     this.persistirEstado();
     if (this.isDirty()) e.preventDefault();
   };
+
+  @HostListener('document:click', ['$event'])
+  onDocClick(e: MouseEvent) {
+    if (this.menuOpcoesAberto() && !(e.target as HTMLElement).closest('.tb-opcoes-wrap')) {
+      this.menuOpcoesAberto.set(false);
+    }
+  }
 
   @HostListener('document:keydown', ['$event'])
   onKeydown(e: KeyboardEvent) {
@@ -321,6 +329,8 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     const v = (f as any)[campo];
     if (typeof v === 'boolean') return v ? 'Sim' : 'Nao';
     if (campo === 'tipo') return v === 'F' ? 'PF' : 'PJ';
+    if (campo === 'cpfCnpj') return this.formatarCpfCnpj(v, (f as any).tipo);
+    if (campo === 'telefone') return this.mascaraTelefone(v ?? '');
     return v ?? '';
   }
 
@@ -616,6 +626,19 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
 
   fechar() { this.salvarEstadoAbaAtiva(); this.modo.set('lista'); this.carregar(); }
 
+  // ── Opções: Unificar ──────────────────────────────────────────────
+  unificarPorDocumento() {
+    // TODO: implementar lógica
+  }
+
+  unificarPorNome() {
+    // TODO: implementar lógica
+  }
+
+  unificarManualmente() {
+    // TODO: implementar lógica
+  }
+
   // ── Excluir ───────────────────────────────────────────────────────
   async excluir() {
     const f = this.fornecedorSelecionado();
@@ -816,14 +839,29 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     this.isDirty.set(true);
   }
 
+  formatarContatoValor(ct: any): string {
+    if (!ct.valor) return '';
+    if (ct.tipo === 'TELEFONE' || ct.tipo === 'CELULAR' || ct.tipo === 'WHATSAPP') {
+      return this.mascaraTelefone(ct.valor);
+    }
+    return ct.valor;
+  }
+
   onContatoValorInput(event: Event, idx: number) {
     const input = event.target as HTMLInputElement;
     const tipo = this.fornecedorForm().contatos[idx].tipo;
     let mascarado = input.value;
     if (tipo === 'TELEFONE' || tipo === 'CELULAR' || tipo === 'WHATSAPP') {
+      const antes = input.value.length;
+      const cursorAntes = input.selectionStart ?? 0;
       mascarado = this.mascaraTelefone(input.value);
+      input.value = mascarado;
+      const diff = mascarado.length - antes;
+      const pos = cursorAntes + diff;
+      input.setSelectionRange(pos, pos);
+    } else {
+      input.value = mascarado;
     }
-    input.value = mascarado;
     this.updateContato(idx, 'valor', mascarado);
   }
 

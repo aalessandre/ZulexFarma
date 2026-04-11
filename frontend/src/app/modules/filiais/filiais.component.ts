@@ -573,6 +573,11 @@ export class FiliaisComponent implements OnInit, OnDestroy {
         }
         this.isDirty.set(false);
         this.errosCampos.set({});
+        // Atualiza nome da filial na topbar se for a filial do usuário logado
+        const usuario = this.auth.usuarioLogado();
+        if (usuario && String(f.id) === String(usuario.filialId) && f.nomeFilial) {
+          this.auth.atualizarNomeFilial(f.nomeFilial);
+        }
       },
       error: (e) => {
         this.salvando.set(false);

@@ -141,6 +141,14 @@ export class AuthService {
     this.router.navigate(['/authentication/login']);
   }
 
+  atualizarNomeFilial(nome: string): void {
+    const usuario = this.usuarioLogado();
+    if (!usuario) return;
+    const atualizado = { ...usuario, nomeFilial: nome };
+    this.usuarioLogado.set(atualizado);
+    localStorage.setItem(this.USER_KEY, JSON.stringify(atualizado));
+  }
+
   getToken(): string | null {
     return localStorage.getItem(this.TOKEN_KEY);
   }

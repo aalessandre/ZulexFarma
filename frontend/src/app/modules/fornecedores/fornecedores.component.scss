@@ -860,6 +860,7 @@
   &.tb-salvar   { background: #27ae60; color: #fff; }
   &.tb-cancelar { background: #7f8c8d; color: #fff; }
   &.tb-fechar   { background: #546e7a; color: #fff; }
+  &.tb-opcoes   { background: #2980b9; color: #fff; }
   &.tb-log      { background: #8e44ad; color: #fff; }
 }
 
@@ -1183,6 +1184,52 @@
   transition: background 0.12s, color 0.12s;
 
   &:hover { background: #fde8e8; color: #c0392b; }
+}
+
+/* ── Botão Opções (dropdown) ──────────────────────────────────────── */
+.tb-opcoes-wrap {
+  position: relative;
+}
+
+
+.tb-opcoes-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 8px 0;
+  z-index: 100;
+}
+
+.tb-opcoes-titulo {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--erp-text-muted);
+  letter-spacing: 0.5px;
+  padding: 6px 14px 4px;
+}
+
+.tb-opcoes-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  font-size: var(--erp-fs-sm);
+  color: var(--erp-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+
+  &:hover { background: var(--erp-row-hover); }
+
+  svg { color: var(--erp-text-muted); flex-shrink: 0; }
 }
 
 /* ── Info tooltip icon ────────────────────────────────────────────── */

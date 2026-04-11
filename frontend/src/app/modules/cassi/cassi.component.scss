@@ -5,14 +5,15 @@
   background: transparent;
   border: none;
   border-radius: 8px;
+  color: var(--erp-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
 
-  &:hover { background: var(--erp-bg, #f5f6fa); }
-  &.ativo { background: rgba(102, 126, 234, 0.12); }
+  &:hover { background: var(--erp-bg); color: var(--erp-text); }
+  &.ativo { background: rgba(102, 126, 234, 0.12); color: var(--erp-text); }
 }
 
 // ─── Overlay ─────────────────────────────────────────────────────

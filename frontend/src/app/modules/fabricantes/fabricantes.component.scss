@@ -427,6 +427,15 @@
 }
 
 
+.field-grupo-codigo {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 8px;
+  align-items: flex-start;
+
+  .field { min-width: 0; }
+}
+
 .form-grid {
   display: flex;
   flex-wrap: wrap;

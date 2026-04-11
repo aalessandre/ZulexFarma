@@ -7,7 +7,7 @@ export interface ColunaDef {
 }
 
 export const FORNECEDORES_COLUNAS: ColunaDef[] = [
-  { campo: 'id',        label: 'ID',            largura: 60,  minLargura: 50,  padrao: true },
+  { campo: 'codigo',    label: 'Código',         largura: 100, minLargura: 70,  padrao: true },
   { campo: 'nome',       label: 'Nome/Fantasia', largura: 220, minLargura: 120, padrao: true },
   { campo: 'razaoSocial', label: 'Razao Social', largura: 220, minLargura: 120, padrao: false },
   { campo: 'tipo',       label: 'Tipo',          largura: 50,  minLargura: 40,  padrao: true },

@@ -28,46 +28,47 @@
 
 .outros-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  max-width: 900px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+  max-width: 1100px;
 }
 
 .outros-tile {
-  display: flex; align-items: center; gap: 14px;
-  padding: 18px 20px;
+  display: flex; align-items: center; gap: 16px;
+  padding: 22px 24px;
   background: var(--erp-surface, #fff);
-  border: 1px solid #e8ecf1;
-  border-radius: 12px;
+  border: 1px solid var(--erp-border, #e0e4ea);
+  border-left: 4px solid var(--erp-blue, #2980b9);
+  border-radius: 14px;
   cursor: pointer;
-  transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: transform 0.12s, box-shadow 0.18s, border-color 0.18s;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-    border-color: #e65100;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    border-left-color: #1a6da8;
+
+    .outros-tile-icon { transform: scale(1.05); }
   }
   &:active { transform: translateY(0); }
 }
 
 .outros-tile-icon {
-  width: 40px; height: 40px;
-  background: linear-gradient(135deg, #e65100, #ff8f00);
-  border-radius: 10px;
+  width: 50px; height: 50px;
+  background: linear-gradient(135deg, var(--erp-blue, #2980b9), #3498db);
+  border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  svg { width: 22px; height: 22px; stroke: #fff; }
+  transition: transform 0.15s;
+  ::ng-deep svg { width: 20px; height: 20px; stroke: #fff; }
 }
 
 .outros-tile-info {
   display: flex; flex-direction: column;
 }
 
-.outros-tile-sigla {
-  font-size: 11px; font-weight: 700; color: #e65100;
-  letter-spacing: 0.5px; text-transform: uppercase;
-}
-
 .outros-tile-label {
   font-size: 15px; font-weight: 600; color: var(--erp-text, #2c3e50);
+  line-height: 1.3;
 }

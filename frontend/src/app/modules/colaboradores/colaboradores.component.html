@@ -562,8 +562,9 @@
                   </div>
 
                   <div class="field field-2">
-                    <label>VALOR *</label>
-                    <input type="text" [value]="ct.valor"
+                    <label>NÚMERO *</label>
+                    <input type="text" [value]="formatarContatoValor(ct)"
+                           (focus)="$event.target.select()"
                            (input)="onContatoValorInput($event, i)" maxlength="150"
                            [placeholder]="ct.tipo === 'EMAIL' ? 'email@exemplo.com' : '(00) 00000-0000'" />
                   </div>
