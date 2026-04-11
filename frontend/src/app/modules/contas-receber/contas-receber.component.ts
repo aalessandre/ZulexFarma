@@ -10,22 +10,22 @@ import { ModalService } from '../../core/services/modal.service';
 interface ContaReceber {
   id: number;
   descricao: string;
-  cliente: string;
-  tipoPagamento: string;
+  clienteNome: string;
+  tipoPagamentoNome: string;
   modalidade: string;
   valor: number;
   valorLiquido: number;
-  tarifaPercentual: number;
-  parcela: number;
+  tarifa: number;
+  numParcela: number;
   totalParcelas: number;
   dataEmissao: string;
-  vencimento: string;
-  recebimento: string | null;
+  dataVencimento: string;
+  dataRecebimento: string | null;
   valorRecebido: number | null;
   status: string;
   nsu: string;
-  bandeira: string;
-  adquirente: string;
+  bandeiraNome: string;
+  adquirenteNome: string;
 }
 
 interface ColunaDef {
@@ -43,21 +43,21 @@ interface ColunaEstado extends ColunaDef {
 const CONTAS_RECEBER_COLUNAS: ColunaDef[] = [
   { campo: 'id',                label: 'Codigo',        largura: 70,  minLargura: 50,  padrao: true },
   { campo: 'descricao',         label: 'Descricao',     largura: 200, minLargura: 100, padrao: true },
-  { campo: 'cliente',           label: 'Cliente',        largura: 180, minLargura: 100, padrao: true },
-  { campo: 'tipoPagamento',     label: 'Tipo Pagamento', largura: 120, minLargura: 80,  padrao: true },
+  { campo: 'clienteNome',       label: 'Cliente',        largura: 180, minLargura: 100, padrao: true },
+  { campo: 'tipoPagamentoNome', label: 'Tipo Pagamento', largura: 120, minLargura: 80,  padrao: true },
   { campo: 'modalidade',        label: 'Modalidade',     largura: 110, minLargura: 80,  padrao: false },
   { campo: 'valor',             label: 'Valor',          largura: 100, minLargura: 70,  padrao: true },
   { campo: 'valorLiquido',      label: 'Valor Liquido',  largura: 110, minLargura: 70,  padrao: true },
-  { campo: 'tarifaPercentual',  label: 'Tarifa %',       largura: 80,  minLargura: 60,  padrao: false },
-  { campo: 'parcela',           label: 'Parcela',        largura: 70,  minLargura: 50,  padrao: true },
+  { campo: 'tarifa',  label: 'Tarifa %',       largura: 80,  minLargura: 60,  padrao: false },
+  { campo: 'numParcela',        label: 'Parcela',        largura: 70,  minLargura: 50,  padrao: true },
   { campo: 'dataEmissao',       label: 'Data Emissao',   largura: 110, minLargura: 80,  padrao: true },
-  { campo: 'vencimento',        label: 'Vencimento',     largura: 110, minLargura: 80,  padrao: true },
-  { campo: 'recebimento',       label: 'Recebimento',    largura: 110, minLargura: 80,  padrao: true },
+  { campo: 'dataVencimento',    label: 'Vencimento',     largura: 110, minLargura: 80,  padrao: true },
+  { campo: 'dataRecebimento',   label: 'Recebimento',    largura: 110, minLargura: 80,  padrao: true },
   { campo: 'valorRecebido',     label: 'Valor Recebido', largura: 110, minLargura: 70,  padrao: true },
   { campo: 'status',            label: 'Status',         largura: 100, minLargura: 70,  padrao: true },
   { campo: 'nsu',               label: 'NSU',            largura: 100, minLargura: 60,  padrao: false },
-  { campo: 'bandeira',          label: 'Bandeira',       largura: 100, minLargura: 70,  padrao: false },
-  { campo: 'adquirente',        label: 'Adquirente',     largura: 120, minLargura: 80,  padrao: false },
+  { campo: 'bandeiraNome',      label: 'Bandeira',       largura: 100, minLargura: 70,  padrao: false },
+  { campo: 'adquirenteNome',    label: 'Adquirente',     largura: 120, minLargura: 80,  padrao: false },
 ];
 
 @Component({
@@ -83,7 +83,7 @@ export class ContasReceberComponent implements OnInit, OnDestroy {
   filtroDataFim = signal('');
 
   // Sort
-  sortColuna = signal<string>('vencimento');
+  sortColuna = signal<string>('dataVencimento');
   sortDirecao = signal<'asc' | 'desc'>('desc');
 
   // Colunas
@@ -177,20 +177,20 @@ export class ContasReceberComponent implements OnInit, OnDestroy {
     if (campo === 'valor' || campo === 'valorLiquido' || campo === 'valorRecebido') {
       return this.formatarMoeda(v);
     }
-    if (campo === 'tarifaPercentual') {
+    if (campo === 'tarifa') {
       return typeof v === 'number' ? v.toFixed(2) + '%' : '';
     }
-    if (campo === 'parcela') {
-      return `${conta.parcela}/${conta.totalParcelas}`;
+    if (campo === 'numParcela') {
+      return `${conta.numParcela}/${conta.totalParcelas}`;
     }
-    if (campo === 'dataEmissao' || campo === 'vencimento' || campo === 'recebimento') {
+    if (campo === 'dataEmissao' || campo === 'dataVencimento' || campo === 'dataRecebimento') {
       return this.formatarData(v);
     }
     return String(v);
   }
 
   isValorColumn(campo: string): boolean {
-    return campo === 'valor' || campo === 'valorLiquido' || campo === 'valorRecebido' || campo === 'tarifaPercentual';
+    return campo === 'valor' || campo === 'valorLiquido' || campo === 'valorRecebido' || campo === 'tarifa';
   }
 
   statusClass(status: string, vencimento?: string): string {

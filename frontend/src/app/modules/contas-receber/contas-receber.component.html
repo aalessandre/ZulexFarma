@@ -141,8 +141,8 @@
                 @for (col of colunasVisiveis(); track col.campo) {
                   <td [class.td-right]="isValorColumn(col.campo)">
                     @if (col.campo === 'status') {
-                      <span class="status-badge" [class]="statusClass(c.status, c.vencimento)">
-                        {{ statusLabel(c.status, c.vencimento) }}
+                      <span class="status-badge" [class]="statusClass(c.status, c.dataVencimento)">
+                        {{ statusLabel(c.status, c.dataVencimento) }}
                       </span>
                     } @else {
                       {{ getCellValue(c, col.campo) }}
@@ -206,7 +206,7 @@
         </div>
         <div class="modal-info-conta">
           <span class="modal-info-label">Cliente:</span>
-          <span class="modal-info-valor">{{ contaSelecionada()?.cliente }}</span>
+          <span class="modal-info-valor">{{ contaSelecionada()?.clienteNome }}</span>
         </div>
         <div class="modal-info-conta">
           <span class="modal-info-label">Valor original:</span>
