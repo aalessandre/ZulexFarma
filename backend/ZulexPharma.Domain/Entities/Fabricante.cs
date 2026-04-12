@@ -6,4 +6,7 @@ namespace ZulexPharma.Domain.Entities;
 public class Fabricante : BaseEntity
 {
     public string Nome { get; set; } = string.Empty;
+    public decimal DescontoMinimo { get; set; } = 0;
+    public decimal DescontoMaximo { get; set; } = 0;
+    public decimal DescontoMaximoComSenha { get; set; } = 0;
 }

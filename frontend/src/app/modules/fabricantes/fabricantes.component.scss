@@ -155,7 +155,6 @@
 }
 
 .erp-grid {
-  width: 100%;
   border-collapse: collapse;
   font-size: var(--erp-fs-body);
 
@@ -180,6 +179,8 @@
     border-bottom: 1px solid var(--erp-border);
     color: var(--erp-text);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   tbody tr {

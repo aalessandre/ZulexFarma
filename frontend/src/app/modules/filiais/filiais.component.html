@@ -167,7 +167,7 @@
     @if (modo() === 'form') {
       <!-- FORMULÁRIO -->
       <div class="form-wrapper">
-        <div class="form-titulo-wrap"><div class="form-titulo">{{ modoEdicao() ? (isDirty() ? 'Editando Filial' : 'Consulta Filial') : 'Nova Filial' }}</div><button class="btn-fechar-form" (click)="fecharForm()" title="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+        <div class="form-titulo-wrap"><div class="form-titulo">{{ modoEdicao() ? (isDirty() ? 'Editando Filial' : 'Consulta Filial') : (isDirty() ? 'Criando Filial' : 'Nova Filial') }}</div><button class="btn-fechar-form" (click)="fecharForm()" title="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
 
         @if (erro()) {
           <div class="form-erro">{{ erro() }}</div>
@@ -194,6 +194,14 @@
         <!-- IDENTIFICAÇÃO -->
         <div class="form-secao">Identificação</div>
         <div class="form-grid">
+          <div class="field" [class.field-invalido]="erroCampo('cnpj')" [class.field-alterado]="campoAlterado('cnpj')" style="flex:0.5">
+            <label>CNPJ *</label>
+            <input type="text" [value]="formatarCnpj(filialForm().cnpj)"
+                   (input)="onCnpjInput($event)" maxlength="18"
+                   placeholder="00.000.000/0000-00" />
+            @if (erroCampo('cnpj')) { <span class="field-erro">{{ erroCampo('cnpj') }}</span> }
+          </div>
+
           <div class="field field-2" [class.field-invalido]="erroCampo('razaoSocial')" [class.field-alterado]="campoAlterado('razaoSocial')">
             <label>RAZÃO SOCIAL *</label>
             <input type="text" [value]="filialForm().razaoSocial"
@@ -216,14 +224,6 @@
                    (input)="updateForm('nomeFilial', $any($event.target).value)" maxlength="100"
                    (blur)="onApelidoBlur()" />
             @if (erroCampo('nomeFilial')) { <span class="field-erro">{{ erroCampo('nomeFilial') }}</span> }
-          </div>
-
-          <div class="field" [class.field-invalido]="erroCampo('cnpj')" [class.field-alterado]="campoAlterado('cnpj')" style="flex:0.5">
-            <label>CNPJ *</label>
-            <input type="text" [value]="formatarCnpj(filialForm().cnpj)"
-                   (input)="onCnpjInput($event)" maxlength="18"
-                   placeholder="00.000.000/0000-00" />
-            @if (erroCampo('cnpj')) { <span class="field-erro">{{ erroCampo('cnpj') }}</span> }
           </div>
 
           <div class="field" style="flex:0.5">

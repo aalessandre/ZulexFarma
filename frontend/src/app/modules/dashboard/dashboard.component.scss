@@ -49,6 +49,8 @@
   padding: 40px 16px;
   min-height: 0;
   transition: background 0.3s;
+  display: flex;
+  justify-content: center;
 }
 
 .tiles-area {
@@ -56,8 +58,6 @@
   gap: 24px;
   flex-wrap: nowrap;
   align-items: flex-start;
-  min-width: fit-content;
-  margin: 0 auto;
 }
 
 .bloco {
@@ -106,9 +106,10 @@
   }
 
   &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-    &::after { background: rgba(255,255,255,0.08); }
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    filter: brightness(1.15);
+    &::after { background: rgba(255,255,255,0.12); }
   }
 
   &:active { transform: scale(0.96); }

@@ -222,7 +222,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
             this.acessoHabilitado.set(!!a.form.acesso);
             this.isDirty.set(a.isDirty);
             this.abaAtivaId.set(a.colaborador.id);
-            this.modoEdicao.set(true);
+            this.modoEdicao.set(a.colaborador.id !== this.NOVO_ID);
             this.modo.set('form');
           }
         }

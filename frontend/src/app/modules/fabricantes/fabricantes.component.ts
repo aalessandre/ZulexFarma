@@ -17,6 +17,9 @@ interface Fabricante {
   nome: string;
   ativo: boolean;
   criadoEm?: string;
+  descontoMinimo: number;
+  descontoMaximo: number;
+  descontoMaximoComSenha: number;
 }
 
 interface AbaEdicao {
@@ -40,8 +43,8 @@ interface ColunaEstado extends ColunaDef {
 type Modo = 'lista' | 'form';
 
 const FABRICANTES_COLUNAS: ColunaDef[] = [
-  { campo: 'codigo', label: 'Código', largura: 80, minLargura: 60, padrao: true },
-  { campo: 'nome', label: 'Nome', largura: 200, minLargura: 100, padrao: true },
+  { campo: 'codigo', label: 'Código', largura: 100, minLargura: 50, padrao: true },
+  { campo: 'nome', label: 'Nome', largura: 300, minLargura: 50, padrao: true },
   { campo: 'ativo', label: 'Ativo', largura: 60, minLargura: 50, padrao: true },
 ];
 
@@ -54,7 +57,7 @@ const FABRICANTES_COLUNAS: ColunaDef[] = [
 })
 export class FabricantesComponent implements OnInit, OnDestroy {
   private readonly STATE_KEY = 'zulex_fabricantes_state';
-  private readonly STORAGE_KEY_COLUNAS = 'zulex_colunas_fabricantes';
+  private readonly STORAGE_KEY_COLUNAS = 'zulex_colunas_fabricantes_v2';
 
   modo = signal<Modo>('lista');
   fabricantes = signal<Fabricante[]>([]);
@@ -399,7 +402,7 @@ export class FabricantesComponent implements OnInit, OnDestroy {
     this.isDirty.set(false);
     this.erro.set(''); this.errosCampos.set({});
     this.abaAtivaId.set(this.NOVO_ID);
-    const novaAba: AbaEdicao = { fabricante: { id: this.NOVO_ID, nome: 'Novo cadastro', ativo: true }, form: this.clonar(novo), isDirty: false };
+    const novaAba: AbaEdicao = { fabricante: { id: this.NOVO_ID, nome: 'Novo cadastro', ativo: true, descontoMinimo: 0, descontoMaximo: 0, descontoMaximoComSenha: 0 }, form: this.clonar(novo), isDirty: false };
     this.abasEdicao.update(tabs => [...tabs, novaAba]);
     this.modo.set('form');
   }
@@ -647,7 +650,7 @@ export class FabricantesComponent implements OnInit, OnDestroy {
 
   // ── Utils ──────────────────────────────────────────────────────────
   private novoFabricante(): Fabricante {
-    return { nome: '', ativo: true };
+    return { nome: '', ativo: true, descontoMinimo: 0, descontoMaximo: 0, descontoMaximoComSenha: 0 };
   }
 
   private clonar<T>(obj: T): T {

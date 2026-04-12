@@ -21,7 +21,7 @@ public class FabricanteService : IFabricanteService
         try
         {
             return await _db.Fabricantes.OrderBy(f => f.Nome)
-                .Select(f => new FabricanteListDto { Id = f.Id, Codigo = f.Codigo, Nome = f.Nome, CriadoEm = f.CriadoEm, Ativo = f.Ativo })
+                .Select(f => new FabricanteListDto { Id = f.Id, Codigo = f.Codigo, Nome = f.Nome, CriadoEm = f.CriadoEm, Ativo = f.Ativo, DescontoMinimo = f.DescontoMinimo, DescontoMaximo = f.DescontoMaximo, DescontoMaximoComSenha = f.DescontoMaximoComSenha })
                 .ToListAsync();
         }
         catch (Exception ex) { Log.Error(ex, "Erro em FabricanteService.ListarAsync"); throw; }
@@ -32,11 +32,11 @@ public class FabricanteService : IFabricanteService
         try
         {
             if (string.IsNullOrWhiteSpace(dto.Nome)) throw new ArgumentException("Nome é obrigatório.");
-            var fab = new Fabricante { Nome = dto.Nome.Trim().ToUpper(), Ativo = dto.Ativo };
+            var fab = new Fabricante { Nome = dto.Nome.Trim().ToUpper(), Ativo = dto.Ativo, DescontoMinimo = dto.DescontoMinimo, DescontoMaximo = dto.DescontoMaximo, DescontoMaximoComSenha = dto.DescontoMaximoComSenha };
             _db.Fabricantes.Add(fab);
             await _db.SaveChangesAsync();
             await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, fab.Id, novo: ParaDict(fab));
-            return new FabricanteListDto { Id = fab.Id, Codigo = fab.Codigo, Nome = fab.Nome, CriadoEm = fab.CriadoEm, Ativo = fab.Ativo };
+            return new FabricanteListDto { Id = fab.Id, Codigo = fab.Codigo, Nome = fab.Nome, CriadoEm = fab.CriadoEm, Ativo = fab.Ativo, DescontoMinimo = fab.DescontoMinimo, DescontoMaximo = fab.DescontoMaximo, DescontoMaximoComSenha = fab.DescontoMaximoComSenha };
         }
         catch (Exception ex) when (ex is not ArgumentException) { Log.Error(ex, "Erro em FabricanteService.CriarAsync"); throw; }
     }
@@ -51,6 +51,9 @@ public class FabricanteService : IFabricanteService
             var anterior = ParaDict(fab);
             fab.Nome = dto.Nome.Trim().ToUpper();
             fab.Ativo = dto.Ativo;
+            fab.DescontoMinimo = dto.DescontoMinimo;
+            fab.DescontoMaximo = dto.DescontoMaximo;
+            fab.DescontoMaximoComSenha = dto.DescontoMaximoComSenha;
             await _db.SaveChangesAsync();
             var novo = ParaDict(fab);
             if (!DictsIguais(anterior, novo))
@@ -85,6 +88,6 @@ public class FabricanteService : IFabricanteService
         catch (Exception ex) when (ex is not KeyNotFoundException) { Log.Error(ex, "Erro em FabricanteService.ExcluirAsync | Id: {Id}", id); throw; }
     }
 
-    private static Dictionary<string, string?> ParaDict(Fabricante f) => new() { ["Nome"] = f.Nome, ["Ativo"] = f.Ativo ? "Sim" : "Não" };
+    private static Dictionary<string, string?> ParaDict(Fabricante f) => new() { ["Nome"] = f.Nome, ["Ativo"] = f.Ativo ? "Sim" : "Não", ["DescontoMinimo"] = f.DescontoMinimo.ToString("F2"), ["DescontoMaximo"] = f.DescontoMaximo.ToString("F2"), ["DescontoMaximoComSenha"] = f.DescontoMaximoComSenha.ToString("F2") };
     private static bool DictsIguais(Dictionary<string, string?> a, Dictionary<string, string?> b) => a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
 }
