@@ -88,7 +88,13 @@ public class PessoasController : ControllerBase
                 dataNascimento = pessoa.DataNascimento,
                 observacao = pessoa.Observacao,
                 temColaborador = pessoa.Colaborador != null,
+                colaboradorId = pessoa.Colaborador?.Id,
+                colaboradorNome = pessoa.Colaborador != null ? pessoa.Nome : null,
+                colaboradorCodigo = pessoa.Colaborador?.Codigo,
                 temFornecedor = pessoa.Fornecedor != null,
+                fornecedorId = pessoa.Fornecedor?.Id,
+                fornecedorNome = pessoa.Fornecedor != null ? (pessoa.RazaoSocial ?? pessoa.Nome) : null,
+                fornecedorCodigo = pessoa.Fornecedor?.Codigo,
                 enderecos = pessoa.Enderecos.Select(e => new
                 {
                     id = e.Id,

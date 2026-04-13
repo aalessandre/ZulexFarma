@@ -9,8 +9,8 @@ public class PessoaEndereco : BaseEntity
     public long PessoaId { get; set; }
     public Pessoa Pessoa { get; set; } = null!;
 
-    /// <summary>Ex.: PRINCIPAL | ENTREGA | COBRANÇA | OUTRO</summary>
-    public string Tipo { get; set; } = "PRINCIPAL";
+    /// <summary>Ex.: CASA | ENTREGA | COBRANÇA | OUTRO</summary>
+    public string Tipo { get; set; } = "CASA";
 
     public string Cep { get; set; } = string.Empty;
     public string Rua { get; set; } = string.Empty;

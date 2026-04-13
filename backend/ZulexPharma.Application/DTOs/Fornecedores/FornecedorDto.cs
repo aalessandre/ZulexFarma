@@ -59,7 +59,7 @@ public class FornecedorFormDto
 public class EnderecoFormDto
 {
     public long?  Id          { get; set; }
-    public string Tipo        { get; set; } = "PRINCIPAL";
+    public string Tipo        { get; set; } = "CASA";
     public string Cep         { get; set; } = string.Empty;
     public string Rua         { get; set; } = string.Empty;
     public string Numero      { get; set; } = string.Empty;

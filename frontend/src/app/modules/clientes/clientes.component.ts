@@ -34,7 +34,7 @@ interface ConvenioLookup { id: number; pessoaNome: string; }
 interface ProdutoLookup { id: number; nome: string; fabricanteNome: string; apresentacao: number; }
 
 interface Cliente {
-  id?: number; tipo: string; nome: string; razaoSocial?: string; cpfCnpj: string;
+  id?: number; codigo?: string; tipo: string; nome: string; razaoSocial?: string; cpfCnpj: string;
   inscricaoEstadual?: string; rg?: string;
   email?: string; telefone?: string; cidade?: string; uf?: string;
   bloqueado: boolean; ativo: boolean; criadoEm?: string;
@@ -78,6 +78,8 @@ type Modo = 'lista' | 'form';
 })
 export class ClientesComponent implements OnInit, OnDestroy {
   private readonly STATE_KEY = 'zulex_clientes_state';
+  private readonly NOVO_ID = -1;
+  dataHoje = new Date().toLocaleDateString('pt-BR');
   modo = signal<Modo>('lista');
   registros = signal<Cliente[]>([]);
   selecionado = signal<Cliente | null>(null);
@@ -107,7 +109,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
   logDataFim    = signal<string>(this.hoje(0));
 
   // Colunas
-  private readonly STORAGE_KEY_COLUNAS = 'zulex_colunas_clientes';
+  private readonly STORAGE_KEY_COLUNAS = 'zulex_colunas_clientes_v3';
   colunas = signal<ColunaEstado[]>(this.carregarColunas());
   colunasVisiveis = computed(() => this.colunas().filter(c => c.visivel));
   painelColunas = signal(false);
@@ -117,7 +119,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
   private apiUrl = `${environment.apiUrl}/clientes`;
 
   tiposContato = ['TELEFONE', 'CELULAR', 'EMAIL', 'WHATSAPP', 'OUTRO'];
-  tiposEndereco = ['PRINCIPAL', 'COBRANCA', 'ENTREGA', 'OUTRO'];
+  tiposEndereco = ['CASA', 'COBRANCA', 'ENTREGA', 'OUTRO'];
 
   // Accordions
   accEnderecos = signal(false);
@@ -168,6 +170,8 @@ export class ClientesComponent implements OnInit, OnDestroy {
   ucColaboradorNome = signal('');
 
   private tokenLiberacao: string | null = null;
+  private readonly TAB_ID = '/erp/clientes';
+  private fechamentoConfirmado = false;
 
   constructor(private http: HttpClient, private tabService: TabService, private auth: AuthService, private modal: ModalService) {}
 
@@ -191,9 +195,33 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.carregar();
     this.carregarConveniosLookup();
     this.carregarTiposPagamento();
+    window.addEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.registrarBeforeClose(this.TAB_ID, async () => {
+      if (this.isDirty()) {
+        const r = await this.modal.confirmar('Fechar tela', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+        if (!r.confirmado) return false;
+      }
+      this.fechamentoConfirmado = true;
+      this.abasEdicao.set([]);
+      sessionStorage.removeItem(this.STATE_KEY);
+      return true;
+    });
   }
 
-  ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
+  ngOnDestroy() {
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+    this.tabService.removerBeforeClose('clientes');
+    if (!this.fechamentoConfirmado) {
+      this.persistirEstado();
+    }
+  }
+
+  private onBeforeUnload = (e: BeforeUnloadEvent) => {
+    this.persistirEstado();
+    if (this.isDirty()) {
+      e.preventDefault();
+    }
+  };
 
   sairDaTela() {
     sessionStorage.removeItem(this.STATE_KEY);
@@ -205,8 +233,14 @@ export class ClientesComponent implements OnInit, OnDestroy {
     const abas = this.abasEdicao();
     if (abas.length === 0) { sessionStorage.removeItem(this.STATE_KEY); return; }
     sessionStorage.setItem(this.STATE_KEY, JSON.stringify({
-      abasIds: abas.map(a => a.cliente.id),
-      abaAtivaId: this.abaAtivaId()
+      abas: abas.map(a => ({ cliente: a.cliente, form: a.form, isDirty: a.isDirty })),
+      abaAtivaId: this.abaAtivaId(),
+      accordions: {
+        enderecos: this.accEnderecos(), contatos: this.accContatos(),
+        convenios: this.accConvenios(), geral: this.accGeral(),
+        autorizacoes: this.accAutorizacoes(), descontos: this.accDescontos(),
+        usoContinuo: this.accUsoContinuo()
+      }
     }));
   }
 
@@ -216,6 +250,39 @@ export class ClientesComponent implements OnInit, OnDestroy {
       if (!json) return;
       const state = JSON.parse(json);
       sessionStorage.removeItem(this.STATE_KEY);
+
+      // Restaurar estado dos accordions
+      if (state.accordions) {
+        this.accEnderecos.set(state.accordions.enderecos ?? false);
+        this.accContatos.set(state.accordions.contatos ?? false);
+        this.accConvenios.set(state.accordions.convenios ?? false);
+        this.accGeral.set(state.accordions.geral ?? false);
+        this.accAutorizacoes.set(state.accordions.autorizacoes ?? false);
+        this.accDescontos.set(state.accordions.descontos ?? false);
+        this.accUsoContinuo.set(state.accordions.usoContinuo ?? false);
+      }
+
+      // Formato novo: abas completas com form
+      if (state.abas?.length > 0) {
+        for (const a of state.abas) {
+          if (this.abasEdicao().find(x => x.cliente.id === a.cliente.id)) continue;
+          const novaAba: AbaEdicao = { cliente: a.cliente, form: this.clonarDetalhe(a.form), isDirty: a.isDirty };
+          this.abasEdicao.update(tabs => [...tabs, novaAba]);
+          if (a.cliente.id === state.abaAtivaId) {
+            this.selecionado.set(a.cliente);
+            this.clienteForm.set(this.clonarDetalhe(a.form));
+            this.formOriginal = this.clonarDetalhe(a.form);
+            this.bloqueioIds.set(new Set((a.form.bloqueios ?? []).map((b: any) => b.tipoPagamentoId)));
+            this.isDirty.set(a.isDirty);
+            this.abaAtivaId.set(a.cliente.id);
+            this.modoEdicao.set(a.cliente.id !== this.NOVO_ID);
+            this.modo.set('form');
+          }
+        }
+        return;
+      }
+
+      // Formato legado: só IDs
       if (state.abasIds?.length > 0) {
         for (const id of state.abasIds) {
           const c = this.registros().find(x => x.id === id);
@@ -327,6 +394,16 @@ export class ClientesComponent implements OnInit, OnDestroy {
     const v = (c as any)[campo];
     if (typeof v === 'boolean') return v ? 'Sim' : 'Nao';
     if (campo === 'tipo') return v === 'F' ? 'PF' : 'PJ';
+    if (campo === 'cpfCnpj' && v) {
+      const d = v.replace(/\D/g, '');
+      if (d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+      if (d.length === 14) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+    }
+    if (campo === 'telefone' && v) {
+      const d = v.replace(/\D/g, '');
+      if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+      if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+    }
     return v ?? '';
   }
 
@@ -348,6 +425,50 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.resizeState = { campo, startX: e.clientX, startWidth: largura };
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent) {
+    if (this.modal.visivel()) return;
+
+    if (e.ctrlKey && e.key === 's' && this.modo() === 'form') {
+      e.preventDefault();
+      if (this.isDirty()) this.salvar();
+    }
+    if (e.key === 'Escape') {
+      if (this.modo() === 'form') {
+        (e as any).__handled = true;
+        if (this.isDirty()) this.cancelarEdicao();
+        else this.fecharAba(this.abaAtivaId()!);
+      } else if (this.abasEdicao().length > 0) {
+        (e as any).__handled = true;
+        const ultima = this.abasEdicao()[this.abasEdicao().length - 1];
+        this.fecharAba(ultima.cliente.id!);
+      }
+    }
+    if (e.key === 'F2' && this.modo() === 'lista') {
+      e.preventDefault();
+      this.editar();
+    }
+    if (e.key === 'Enter' && this.modo() === 'lista' && this.selecionado()) {
+      const el = e.target as HTMLElement;
+      if (el?.tagName === 'INPUT' || el?.tagName === 'SELECT' || el?.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      this.editar();
+    }
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && this.modo() === 'lista') {
+      const el = e.target as HTMLElement;
+      if (el?.classList?.contains('input-busca')) return;
+      e.preventDefault();
+      const lista = this.registrosFiltrados();
+      if (lista.length === 0) return;
+      const atual = this.selecionado();
+      const idx = atual ? lista.findIndex(c => c.id === atual.id) : -1;
+      const novoIdx = e.key === 'ArrowDown' ? Math.min(idx + 1, lista.length - 1) : Math.max(idx - 1, 0);
+      this.selecionar(lista[novoIdx]);
+      const row = document.querySelector('.erp-grid tbody tr.selecionado') as HTMLElement;
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    }
   }
 
   @HostListener('document:mousemove', ['$event'])
@@ -411,13 +532,27 @@ export class ClientesComponent implements OnInit, OnDestroy {
   async incluir() {
     if (!await this.verificarPermissao('i')) return;
     this.salvarEstadoAbaAtiva();
+
+    // Se já existe aba de novo cadastro, apenas ativar
+    const jaExiste = this.abasEdicao().find(a => a.cliente.id === this.NOVO_ID);
+    if (jaExiste) {
+      this.ativarAba(this.NOVO_ID);
+      this.modoEdicao.set(false);
+      return;
+    }
+
     const novo = this.novoCliente();
+    novo.id = this.NOVO_ID;
     this.clienteForm.set(novo);
     this.formOriginal = this.clonarDetalhe(novo);
     this.erro.set(''); this.errosCampos.set({});
     this.isDirty.set(false); this.modoEdicao.set(false); this.pessoaEncontrada.set(null);
-    this.abaAtivaId.set(null);
+    this.abaAtivaId.set(this.NOVO_ID);
     this.resetAccordions();
+
+    // Registrar como aba
+    const novaAba: AbaEdicao = { cliente: { id: this.NOVO_ID, tipo: 'F', nome: 'Novo cadastro', cpfCnpj: '', bloqueado: false, ativo: true }, form: this.clonarDetalhe(novo), isDirty: false };
+    this.abasEdicao.update(tabs => [...tabs, novaAba]);
     this.modo.set('form');
   }
 
@@ -434,7 +569,8 @@ export class ClientesComponent implements OnInit, OnDestroy {
         this.carregando.set(false);
         const detalhe = this.mapDetalhe(c, r.data);
         this.salvarEstadoAbaAtiva();
-        const novaAba: AbaEdicao = { cliente: { ...c }, form: this.clonarDetalhe(detalhe), isDirty: false };
+        const clienteComCodigo = { ...c, codigo: r.data.codigo ?? c.codigo };
+        const novaAba: AbaEdicao = { cliente: clienteComCodigo, form: this.clonarDetalhe(detalhe), isDirty: false };
         this.abasEdicao.update(tabs => [...tabs, novaAba]);
         this.abaAtivaId.set(c.id!);
         this.clienteForm.set(this.clonarDetalhe(detalhe));
@@ -460,10 +596,15 @@ export class ClientesComponent implements OnInit, OnDestroy {
     this.bloqueioIds.set(new Set((aba.form.bloqueios ?? []).map(b => b.tipoPagamentoId)));
     this.isDirty.set(aba.isDirty);
     this.errosCampos.set({}); this.erro.set('');
-    this.modoEdicao.set(true); this.modo.set('form');
+    this.modoEdicao.set(id !== this.NOVO_ID); this.modo.set('form');
   }
 
-  fecharAba(id: number) {
+  async fecharAba(id: number) {
+    const aba = this.abasEdicao().find(a => a.cliente.id === id);
+    if (aba?.isDirty) {
+      const r = await this.modal.confirmar('Fechar aba', `A aba "${aba.cliente.nome}" tem alterações não salvas. Deseja realmente fechar?`, 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     const eraAtiva = this.abaAtivaId() === id && this.modo() === 'form';
     this.abasEdicao.update(tabs => tabs.filter(t => t.cliente.id !== id));
     if (eraAtiva) {
@@ -485,6 +626,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
 
   async salvar() {
     if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
+    this.limparVazios();
     if (!this.validar()) return;
     this.erro.set('');
     const f = this.clienteForm();
@@ -522,13 +664,16 @@ export class ClientesComponent implements OnInit, OnDestroy {
         this.salvando.set(false);
         this.carregar();
         if (!this.modoEdicao() && r.data) {
+          // Remover aba "NOVO"
+          this.abasEdicao.update(tabs => tabs.filter(t => t.cliente.id !== this.NOVO_ID));
           this.http.get<any>(`${this.apiUrl}/${r.data.id}`).subscribe({
             next: det => {
               const detalhe = this.mapDetalhe(r.data, det.data);
-              const novaAba: AbaEdicao = { cliente: { ...r.data }, form: this.clonarDetalhe(detalhe), isDirty: false };
+              const cliente = { ...r.data, codigo: det.data.codigo ?? r.data.codigo };
+              const novaAba: AbaEdicao = { cliente, form: this.clonarDetalhe(detalhe), isDirty: false };
               this.abasEdicao.update(tabs => [...tabs, novaAba]);
               this.abaAtivaId.set(r.data.id);
-              this.selecionado.set(r.data);
+              this.selecionado.set(cliente);
               this.clienteForm.set(this.clonarDetalhe(detalhe));
               this.formOriginal = this.clonarDetalhe(detalhe);
               this.modoEdicao.set(true);
@@ -541,9 +686,10 @@ export class ClientesComponent implements OnInit, OnDestroy {
             this.http.get<any>(`${this.apiUrl}/${id}`).subscribe({
               next: det => {
                 const detalhe = this.mapDetalhe(f, det.data);
+                const clienteAtualizado = { ...f, codigo: det.data.codigo ?? f.codigo };
                 this.abasEdicao.update(tabs =>
                   tabs.map(t => t.cliente.id === id
-                    ? { ...t, cliente: { ...f }, form: this.clonarDetalhe(detalhe), isDirty: false } : t)
+                    ? { ...t, cliente: clienteAtualizado, form: this.clonarDetalhe(detalhe), isDirty: false } : t)
                 );
                 this.clienteForm.set(this.clonarDetalhe(detalhe));
                 this.formOriginal = this.clonarDetalhe(detalhe);
@@ -560,7 +706,11 @@ export class ClientesComponent implements OnInit, OnDestroy {
     });
   }
 
-  cancelarEdicao() {
+  async cancelarEdicao() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Cancelar edição', 'Você tem alterações não salvas. Deseja realmente cancelar?', 'Sim, cancelar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     if (this.formOriginal) this.clienteForm.set(this.clonarDetalhe(this.formOriginal));
     this.isDirty.set(false); this.erro.set(''); this.errosCampos.set({});
     const id = this.abaAtivaId();
@@ -571,9 +721,13 @@ export class ClientesComponent implements OnInit, OnDestroy {
     }
   }
 
-  fecharForm() {
+  async fecharForm() {
+    if (this.isDirty()) {
+      const r = await this.modal.confirmar('Fechar cadastro', 'Você tem alterações não salvas. Deseja realmente fechar?', 'Sim, fechar', 'Não, continuar editando');
+      if (!r.confirmado) return;
+    }
     const id = this.abaAtivaId();
-    if (this.modoEdicao() && id != null) {
+    if (id != null) {
       this.abasEdicao.update(tabs => tabs.filter(t => t.cliente.id !== id));
       this.abaAtivaId.set(null);
     }
@@ -682,7 +836,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
   adicionarEndereco() {
     this.clienteForm.update(f => ({
       ...f,
-      enderecos: [...f.enderecos, { tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: f.enderecos.length === 0 }]
+      enderecos: [...f.enderecos, { tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: f.enderecos.length === 0 }]
     }));
     this.isDirty.set(true);
   }
@@ -692,7 +846,9 @@ export class ClientesComponent implements OnInit, OnDestroy {
       ...f,
       enderecos: f.enderecos.filter((_, i) => i !== idx)
     }));
-    this.isDirty.set(true);
+    this.erro.set('');
+    this.errosCampos.set({});
+    this.verificarDirty();
   }
 
   updateEndereco(idx: number, campo: string, valor: any) {
@@ -754,7 +910,9 @@ export class ClientesComponent implements OnInit, OnDestroy {
       ...f,
       contatos: f.contatos.filter((_, i) => i !== idx)
     }));
-    this.isDirty.set(true);
+    this.erro.set('');
+    this.errosCampos.set({});
+    this.verificarDirty();
   }
 
   updateContato(idx: number, campo: string, valor: any) {
@@ -1177,6 +1335,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
   private mapDetalhe(base: any, data: any): ClienteDetalhe {
     return {
       ...base,
+      codigo: data.codigo ?? base.codigo,
       enderecos: data.enderecos ?? [],
       contatos: data.contatos ?? [],
       convenios: data.convenios ?? [],
@@ -1214,6 +1373,29 @@ export class ClientesComponent implements OnInit, OnDestroy {
     };
   }
 
+  private enderecoVazio(e: Endereco): boolean {
+    return !e.cep?.trim() && !e.rua?.trim() && !e.numero?.trim();
+  }
+
+  private contatoVazio(c: Contato): boolean {
+    return !c.valor?.trim();
+  }
+
+  private limparVazios() {
+    this.clienteForm.update(f => ({
+      ...f,
+      enderecos: f.enderecos.filter(e => !this.enderecoVazio(e)),
+      contatos: f.contatos.filter(c => !this.contatoVazio(c))
+    }));
+  }
+
+  private verificarDirty() {
+    if (!this.formOriginal) { this.isDirty.set(true); return; }
+    const atual = JSON.stringify(this.clienteForm());
+    const original = JSON.stringify(this.formOriginal);
+    this.isDirty.set(atual !== original);
+  }
+
   private novoCliente(): ClienteDetalhe {
     return {
       tipo: 'F', nome: '', razaoSocial: '', cpfCnpj: '', inscricaoEstadual: '',
@@ -1227,7 +1409,7 @@ export class ClientesComponent implements OnInit, OnDestroy {
       cobrarJurosAtraso: true, bloquearComissao: false,
       diasCarenciaBloqueio: 0, calcularJuros: false,
       pedirSenhaVendaPrazo: false, senhaVendaPrazo: '',
-      enderecos: [{ tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
+      enderecos: [{ tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
       contatos: [],
       convenios: [],
       autorizacoes: [],

@@ -29,6 +29,7 @@ public class ClienteService : IClienteService
                 .Select(c => new ClienteListDto
                 {
                     Id = c.Id,
+                    Codigo = c.Codigo,
                     Nome = c.Pessoa.Nome,
                     RazaoSocial = c.Pessoa.RazaoSocial,
                     Tipo = c.Pessoa.Tipo,
@@ -139,7 +140,7 @@ public class ClienteService : IClienteService
             await _db.SaveChangesAsync();
             await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, cli.Id, novo: ParaDict(cli, pessoa));
 
-            return new ClienteListDto { Id = cli.Id, Nome = pessoa.Nome, Tipo = pessoa.Tipo, CpfCnpj = pessoa.CpfCnpj, Ativo = cli.Ativo, CriadoEm = cli.CriadoEm };
+            return new ClienteListDto { Id = cli.Id, Codigo = cli.Codigo, Nome = pessoa.Nome, Tipo = pessoa.Tipo, CpfCnpj = pessoa.CpfCnpj, Ativo = cli.Ativo, CriadoEm = cli.CriadoEm };
         }
         catch (Exception ex) when (ex is not ArgumentException) { Log.Error(ex, "Erro em ClienteService.CriarAsync"); throw; }
     }

@@ -150,7 +150,7 @@ export class FabricantesComponent implements OnInit, OnDestroy {
   onKeydown(e: KeyboardEvent) {
     if (this.modal.visivel()) return;
     if (e.ctrlKey && e.key === 's' && this.modo() === 'form') { e.preventDefault(); if (this.isDirty()) this.salvar(); }
-    if (e.key === 'Escape' && this.modo() === 'form') { e.preventDefault(); if (this.isDirty()) this.cancelarEdicao(); else this.fecharForm(); }
+    if (e.key === 'Escape') { if (this.modo() === 'form') { (e as any).__handled = true; if (this.isDirty()) this.cancelarEdicao(); else this.fecharAba(this.abaAtivaId()!); } else if (this.abasEdicao().length > 0) { (e as any).__handled = true; const u = this.abasEdicao()[this.abasEdicao().length - 1]; this.fecharAba(u.fabricante.id!); } }
     if (e.key === 'F2' && this.modo() === 'lista') { e.preventDefault(); this.editar(); }
     if (e.key === 'Enter' && this.modo() === 'lista' && this.fabricanteSelecionado()) {
       const el = e.target as HTMLElement;

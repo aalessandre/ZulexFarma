@@ -26,14 +26,22 @@
              [class.ativo]="abaAtivaId() === aba.cliente.id && modo() === 'form'"
              (click)="ativarAba(aba.cliente.id!)">
           <div class="sidebar-aba-topo">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-            <span class="sidebar-aba-id">#{{ aba.cliente.id }}</span>
+            @if (aba.cliente.id === -1) {
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span class="sidebar-aba-id">NOVO</span>
+            } @else {
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              <span class="sidebar-aba-id">#{{ aba.cliente.codigo || aba.cliente.id }}</span>
+            }
             @if (aba.isDirty) { <span class="sidebar-aba-dirty">&#x25CF;</span> }
           </div>
-          <span class="sidebar-aba-nome">{{ aba.cliente.nome }}</span>
+          <span class="sidebar-aba-nome">{{ aba.cliente.id === -1 ? (aba.form.nome || 'Novo cadastro') : (aba.cliente.nome || 'Sem nome') }}</span>
+          <span class="sidebar-aba-status">{{ aba.cliente.id === -1 ? (aba.isDirty ? 'Criando' : 'Novo') : (aba.isDirty ? 'Editando' : 'Consultando') }}</span>
           <button class="sidebar-aba-fechar"
                   (click)="$event.stopPropagation(); fecharAba(aba.cliente.id!)"
                   title="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
@@ -155,27 +163,19 @@
       <div class="form-wrapper">
         <div class="form-titulo-wrap"><div class="form-titulo">{{ modoEdicao() ? (isDirty() ? 'Editando Cliente' : 'Consulta Cliente') : (isDirty() ? 'Criando Cliente' : 'Novo Cliente') }}</div><button class="btn-fechar-form" (click)="fecharForm()" title="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
 
-        <!-- CODIGO / DATA CADASTRO (somente edicao) -->
-        @if (modoEdicao()) {
-          <div class="form-grid form-grid-info">
-            <div class="field">
-              <label>CODIGO</label>
-              <input type="text" [value]="clienteForm().id" disabled class="field-disabled" />
-            </div>
-            <div class="field">
-              <label>DATA CADASTRO</label>
-              <input type="text" [value]="clienteForm().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" />
-            </div>
-          </div>
-        }
-
         @if (erro()) {
           <div class="form-erro">{{ erro() }}</div>
         }
 
-        <!-- ── TIPO DE PESSOA ──────────────────────────────────────── -->
-        <div class="form-secao">Tipo de Pessoa</div>
-        <div class="form-grid">
+        <div class="field-grupo-codigo">
+          <div class="field">
+            <label>CÓDIGO</label>
+            <input type="text" [value]="modoEdicao() ? (clienteForm().codigo || clienteForm().id) : 'NOVO'" disabled class="field-disabled" style="width:70px" />
+          </div>
+          <div class="field">
+            <label>DATA DE CADASTRO</label>
+            <input type="text" [value]="modoEdicao() ? (clienteForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" style="width:140px" />
+          </div>
           <div class="field">
             <label>TIPO</label>
             <select [value]="clienteForm().tipo" (change)="onTipoChange($any($event.target).value)">
@@ -183,11 +183,18 @@
               <option value="F">Pessoa Fisica</option>
             </select>
           </div>
+          <div class="field field-check" style="display:flex;align-items:flex-end;padding-bottom:8px">
+            <label class="erp-toggle erp-toggle-ativo">
+              <input type="checkbox" [checked]="clienteForm().ativo"
+                     (change)="updateForm('ativo', $any($event.target).checked)" />
+              <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+              <span class="erp-toggle-label">Ativo</span>
+            </label>
+          </div>
         </div>
 
         @if (clienteForm().tipo === 'J') {
           <!-- PESSOA JURIDICA -->
-          <div class="form-secao">Identificacao</div>
           <div class="form-grid">
             <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')" [class.field-alterado]="campoAlterado('cpfCnpj')">
               <label>CNPJ *</label>
@@ -230,7 +237,6 @@
 
         @if (clienteForm().tipo === 'F') {
           <!-- PESSOA FISICA -->
-          <div class="form-secao">Identificacao</div>
           <div class="form-grid">
             <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')" [class.field-alterado]="campoAlterado('cpfCnpj')">
               <label>CPF *</label>
@@ -267,15 +273,6 @@
           }
         }
 
-        <div class="form-grid" style="margin-top:10px">
-          <div class="field field-check">
-            <label class="check-label">
-              <input type="checkbox" [checked]="clienteForm().ativo"
-                     (change)="updateForm('ativo', $any($event.target).checked)" />
-              <span>Ativo</span>
-            </label>
-          </div>
-        </div>
 
         <!-- ══════ ACCORDION ENDERECOS ══════ -->
         <div class="accordion" [class.aberto]="accEnderecos()">
@@ -302,10 +299,11 @@
               <div class="item-card">
                 <div class="item-card-header">
                   <span class="item-card-titulo">Endereco {{ i + 1 }}</span>
-                  <label class="check-label check-sm">
+                  <label class="erp-check-card">
                     <input type="checkbox" [checked]="end.principal"
                            (change)="updateEndereco(i, 'principal', $any($event.target).checked)" />
-                    <span>Principal</span>
+                    <span class="erp-check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                    <span class="erp-check-text">Principal</span>
                   </label>
                   <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -414,10 +412,11 @@
               <div class="item-card">
                 <div class="item-card-header">
                   <span class="item-card-titulo">Contato {{ i + 1 }}</span>
-                  <label class="check-label check-sm">
+                  <label class="erp-check-card">
                     <input type="checkbox" [checked]="ct.principal"
                            (change)="updateContato(i, 'principal', $any($event.target).checked)" />
-                    <span>Principal</span>
+                    <span class="erp-check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                    <span class="erp-check-text">Principal</span>
                   </label>
                   <button class="btn-remove-item" (click)="removerContato(i)" title="Remover">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -547,11 +546,11 @@
             </div>
 
             <div class="form-grid checks-grid" style="margin-top:12px">
-              <label class="check-label"><input type="checkbox" [checked]="clienteForm().bloqueado" (change)="updateForm('bloqueado', $any($event.target).checked)" /> Bloqueado</label>
-              <label class="check-label"><input type="checkbox" [checked]="clienteForm().permiteVendaParcelada" (change)="updateForm('permiteVendaParcelada', $any($event.target).checked)" /> Permitir Venda Parcelada</label>
-              <label class="check-label"><input type="checkbox" [checked]="clienteForm().permiteFidelidade" (change)="updateForm('permiteFidelidade', $any($event.target).checked)" /> Permite Fidelidade</label>
-              <label class="check-label"><input type="checkbox" [checked]="clienteForm().bloquearDescontoParcelada" (change)="updateForm('bloquearDescontoParcelada', $any($event.target).checked)" /> Bloquear Desconto na Venda Parcelada</label>
-              <label class="check-label"><input type="checkbox" [checked]="clienteForm().venderSomenteComSenha" (change)="updateForm('venderSomenteComSenha', $any($event.target).checked)" /> Vender Somente com Senha</label>
+              <label class="erp-toggle"><input type="checkbox" [checked]="clienteForm().bloqueado" (change)="updateForm('bloqueado', $any($event.target).checked)" /><span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span><span class="erp-toggle-label">Bloqueado</span></label>
+              <label class="erp-toggle"><input type="checkbox" [checked]="clienteForm().permiteVendaParcelada" (change)="updateForm('permiteVendaParcelada', $any($event.target).checked)" /><span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span><span class="erp-toggle-label">Permitir Venda Parcelada</span></label>
+              <label class="erp-toggle"><input type="checkbox" [checked]="clienteForm().permiteFidelidade" (change)="updateForm('permiteFidelidade', $any($event.target).checked)" /><span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span><span class="erp-toggle-label">Permite Fidelidade</span></label>
+              <label class="erp-toggle"><input type="checkbox" [checked]="clienteForm().bloquearDescontoParcelada" (change)="updateForm('bloquearDescontoParcelada', $any($event.target).checked)" /><span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span><span class="erp-toggle-label">Bloquear Desconto na Venda Parcelada</span></label>
+              <label class="erp-toggle"><input type="checkbox" [checked]="clienteForm().venderSomenteComSenha" (change)="updateForm('venderSomenteComSenha', $any($event.target).checked)" /><span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span><span class="erp-toggle-label">Vender Somente com Senha</span></label>
             </div>
             @if (clienteForm().venderSomenteComSenha) {
               <div class="form-grid" style="margin-top:12px">
@@ -562,8 +561,8 @@
               </div>
             }
             <div class="form-grid checks-grid" style="margin-top:0">
-              <label class="check-label"><input type="checkbox" [checked]="clienteForm().cobrarJurosAtraso" (change)="updateForm('cobrarJurosAtraso', $any($event.target).checked)" /> Cobrar Juros quando Atrasar</label>
-              <label class="check-label"><input type="checkbox" [checked]="clienteForm().bloquearComissao" (change)="updateForm('bloquearComissao', $any($event.target).checked)" /> Bloquear Comissão</label>
+              <label class="erp-toggle"><input type="checkbox" [checked]="clienteForm().cobrarJurosAtraso" (change)="updateForm('cobrarJurosAtraso', $any($event.target).checked)" /><span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span><span class="erp-toggle-label">Cobrar Juros quando Atrasar</span></label>
+              <label class="erp-toggle"><input type="checkbox" [checked]="clienteForm().bloquearComissao" (change)="updateForm('bloquearComissao', $any($event.target).checked)" /><span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span><span class="erp-toggle-label">Bloquear Comissão</span></label>
             </div>
 
             @if (clienteForm().permiteVendaParcelada) {

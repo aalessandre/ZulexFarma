@@ -1795,10 +1795,10 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onDocumentKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
-      if (this.modalPendentes()) { this.fecharPendentes(); return; }
-      if (this.modalCesta()) { this.cancelarCesta(); return; }
-      if (this.modalPromoFixas()) { this.fecharModalPromoFixas(); return; }
-      if (this.modalPromoProgressiva()) { this.fecharModalPromoProgressiva(); return; }
+      if (this.modalPendentes()) { (e as any).__handled = true; this.fecharPendentes(); return; }
+      if (this.modalCesta()) { (e as any).__handled = true; this.cancelarCesta(); return; }
+      if (this.modalPromoFixas()) { (e as any).__handled = true; this.fecharModalPromoFixas(); return; }
+      if (this.modalPromoProgressiva()) { (e as any).__handled = true; this.fecharModalPromoProgressiva(); return; }
     }
     if (e.key === 'Delete' && this.itensSelecionadoIdx() !== null) {
       const target = e.target as HTMLElement;

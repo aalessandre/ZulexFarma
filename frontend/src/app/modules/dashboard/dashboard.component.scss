@@ -49,8 +49,6 @@
   padding: 40px 16px;
   min-height: 0;
   transition: background 0.3s;
-  display: flex;
-  justify-content: center;
 }
 
 .tiles-area {
@@ -58,6 +56,8 @@
   gap: 24px;
   flex-wrap: nowrap;
   align-items: flex-start;
+  margin: 0 auto;
+  width: fit-content;
 }
 
 .bloco {

@@ -260,6 +260,7 @@ public class AppDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Apelido).HasMaxLength(150);
             e.Property(x => x.Cargo).HasMaxLength(100);
             e.Property(x => x.Salario).HasColumnType("numeric(18,2)");
             e.Property(x => x.Observacao).HasMaxLength(500);

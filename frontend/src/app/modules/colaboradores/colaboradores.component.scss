@@ -29,7 +29,8 @@
 .sidebar-item-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  svg { width: 20px; height: 20px; flex-shrink: 0; }
 }
 
 .sidebar-item {
@@ -276,6 +277,14 @@
 .form-erro {
   background: #fde8e8; border: 1px solid #e57373; border-radius: 4px;
   padding: 10px 14px; color: #c0392b; font-size: var(--erp-fs-md); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+
+.btn-link-erro {
+  background: #c0392b; color: #fff; border: none; border-radius: 6px;
+  padding: 4px 14px; font-size: var(--erp-fs-sm); font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: filter 0.15s;
+  &:hover { filter: brightness(1.15); }
 }
 
 .form-info-pessoa {
@@ -306,7 +315,7 @@
 }
 
 .btn-fechar-form {
-  background: none;
+  background: var(--erp-bloco-bg);
   border: 1px solid var(--erp-border);
   border-radius: 6px;
   color: var(--erp-text-muted);
@@ -320,7 +329,15 @@
   &:hover { background: #fde8e8; color: #c0392b; border-color: #ef9a9a; }
 }
 
-.form-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+.form-bloco {
+  border: 1px solid var(--erp-border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: var(--erp-bloco-bg);
+}
+
+.form-grid { display: flex; flex-wrap: wrap; row-gap: 14px; column-gap: 24px; margin-bottom: 10px; }
 
 .field {
   display: flex; flex-direction: column; gap: 4px; min-width: 140px;
@@ -378,7 +395,9 @@
 .form-grid-linha1 {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  row-gap: 14px;
+  column-gap: 24px;
+  margin-bottom: 10px;
 }
 
 .sessao-inatividade-row {
@@ -400,6 +419,16 @@
   white-space: nowrap;
 }
 
+.input-prefixo-wrap {
+  position: relative;
+  .input-prefixo-inner {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    font-size: var(--erp-fs-sm); font-weight: 600; color: var(--erp-text-muted);
+    pointer-events: none; z-index: 1;
+  }
+  input { padding-left: 32px !important; width: 100%; }
+}
+
 .field-grupo-codigo {
   display: flex;
   gap: 14px;
@@ -410,8 +439,7 @@
 .field-check-linha1 {
   display: flex;
   align-items: flex-end;
-  padding-bottom: 4px;
-  margin-left: -55px;
+  padding-bottom: 8px;
 }
 
 .field-disabled {
@@ -500,6 +528,7 @@
   border-radius: 8px;
   margin-top: 14px;
   overflow: hidden;
+  background: var(--erp-bloco-bg);
 
   .accordion-body { display: none; padding: 8px 16px; }
   &.aberto .accordion-body { display: block; }
@@ -583,23 +612,25 @@
   border-radius: 6px;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 32px;
 }
 
 /* ── Layout duas colunas do Acesso ─────────────────────────────────── */
 .acesso-layout {
   display: flex;
-  gap: 20px;
+  gap: 24px;
   align-items: flex-start;
 }
 
 .acesso-credenciais {
-  width: 280px;
+  width: 50%;
   flex-shrink: 0;
 }
 
 .acesso-filiais {
-  flex: 1;
+  width: 50%;
   min-width: 0;
 }
 
@@ -815,15 +846,17 @@
 .tb-separador { flex: 1; }
 
 .tb-btn {
-  display: flex; align-items: center; gap: 6px; padding: 0 16px; height: 36px;
-  border: none; border-radius: 4px; font-size: var(--erp-fs-body); font-weight: 600;
-  cursor: pointer; transition: filter 0.15s; letter-spacing: 0.2px;
-  &:hover:not(:disabled) { filter: brightness(1.1); }
+  display: flex; align-items: center; gap: 8px; padding: 0 20px; height: 38px;
+  border: none; border-radius: 8px; font-size: var(--erp-fs-sm); font-weight: 600;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+  svg { width: 18px; height: 18px; flex-shrink: 0; }
+  &:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  &:active:not(:disabled) { transform: translateY(0); }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
   &.tb-salvar   { background: #27ae60; color: #fff; }
-  &.tb-cancelar { background: #7f8c8d; color: #fff; }
+  &.tb-cancelar { background: #e67e22; color: #fff; }
   &.tb-fechar   { background: #546e7a; color: #fff; }
-  &.tb-log      { background: #8e44ad; color: #fff; }
+  &.tb-log      { background: #2980b9; color: #fff; }
   &.tb-excluir  { background: #c0392b; color: #fff; }
 }
 

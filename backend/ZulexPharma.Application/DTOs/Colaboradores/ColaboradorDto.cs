@@ -9,6 +9,7 @@ public class ColaboradorListDto
     public string Cpf             { get; set; } = string.Empty;
     public string? Rg             { get; set; }
     public DateTime? DataNascimento { get; set; }
+    public string? Apelido        { get; set; }
     public string? Cargo          { get; set; }
     public decimal? Salario       { get; set; }
     public string? Email          { get; set; }
@@ -28,6 +29,7 @@ public class ColaboradorDetalheDto
     public string Cpf             { get; set; } = string.Empty;
     public string? Rg             { get; set; }
     public DateTime? DataNascimento { get; set; }
+    public string? Apelido        { get; set; }
     public string? Genero         { get; set; }
     public string? Cargo          { get; set; }
     public DateTime? DataAdmissao { get; set; }
@@ -53,6 +55,7 @@ public class ColaboradorFormDto
     public DateTime? DataNascimento { get; set; }
 
     // Emprego
+    public string? Apelido        { get; set; }
     public string? Genero         { get; set; }
     public string? Cargo          { get; set; }
     public DateTime? DataAdmissao { get; set; }
@@ -119,7 +122,7 @@ public class FilialGrupoDetalheDto
 public class EnderecoFormDto
 {
     public long?  Id          { get; set; }
-    public string Tipo        { get; set; } = "PRINCIPAL";
+    public string Tipo        { get; set; } = "CASA";
     public string Cep         { get; set; } = string.Empty;
     public string Rua         { get; set; } = string.Empty;
     public string Numero      { get; set; } = string.Empty;

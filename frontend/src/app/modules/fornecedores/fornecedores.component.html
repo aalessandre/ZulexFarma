@@ -163,40 +163,41 @@
       <div class="form-wrapper">
         <div class="form-titulo-wrap"><div class="form-titulo">{{ modoEdicao() ? (isDirty() ? 'Editando Fornecedor' : 'Consulta Fornecedor') : (isDirty() ? 'Criando Fornecedor' : 'Novo Fornecedor') }}</div><button class="btn-fechar-form" (click)="fecharForm()" title="Fechar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
 
-        <div class="field-grupo-codigo">
-          <div class="field">
+        @if (erro()) {
+          <div class="form-erro">{{ erro() }}</div>
+        }
+
+        <div class="form-bloco">
+        <label style="font-size:var(--erp-fs-sm);font-weight:700;color:var(--erp-primary);letter-spacing:0.7px;display:block;margin-bottom:8px">DADOS DO FORNECEDOR</label>
+
+        <div class="form-grid">
+          <div class="field" style="width:160px">
             <label>CÓDIGO</label>
-            <input type="text" [value]="modoEdicao() ? (fornecedorForm().codigo ?? fornecedorForm().id ?? '') : 'NOVO'" disabled class="field-disabled" style="width:70px" />
+            <input type="text" [value]="modoEdicao() ? (fornecedorForm().codigo ?? fornecedorForm().id ?? '') : 'NOVO'" disabled class="field-disabled" />
           </div>
-          <div class="field">
+          <div class="field" style="width:160px">
             <label>DATA DE CADASTRO</label>
-            <input type="text" [value]="modoEdicao() ? (fornecedorForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" style="width:140px" />
+            <input type="text" [value]="modoEdicao() ? (fornecedorForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" />
           </div>
-          <div class="field">
+          <div class="field" style="width:190px">
             <label>TIPO</label>
             <select [value]="fornecedorForm().tipo" (change)="onTipoChange($any($event.target).value)">
               <option value="J">Pessoa Jurídica</option>
               <option value="F">Pessoa Física</option>
             </select>
           </div>
-          <div class="field field-check" style="display:flex;align-items:flex-end;margin-top:22.5px">
-            <label class="check-label">
-              <input type="checkbox" [checked]="fornecedorForm().ativo"
-                     (change)="updateForm('ativo', $any($event.target).checked)" />
-              <span>Ativo</span>
-            </label>
-          </div>
+          <label class="erp-toggle erp-toggle-ativo" style="margin-left:auto;align-self:flex-end;padding-bottom:8px">
+            <input type="checkbox" [checked]="fornecedorForm().ativo"
+                   (change)="updateForm('ativo', $any($event.target).checked)" />
+            <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+            <span class="erp-toggle-label">Ativo</span>
+          </label>
         </div>
-
-        @if (erro()) {
-          <div class="form-erro">{{ erro() }}</div>
-        }
 
           @if (fornecedorForm().tipo === 'J') {
             <!-- PESSOA JURIDICA -->
-            <div class="form-secao">Identificação</div>
             <div class="form-grid">
-              <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')" [class.field-alterado]="campoAlterado('cpfCnpj')" style="flex:0.5">
+              <div class="field" style="width:200px" [class.field-invalido]="erroCampo('cpfCnpj')" [class.field-alterado]="campoAlterado('cpfCnpj')">
                 <label>CNPJ *</label>
                 <div class="input-icon-wrap">
                   <input type="text" [value]="formatarCpfCnpj(fornecedorForm().cpfCnpj, fornecedorForm().tipo)"
@@ -206,30 +207,30 @@
                 @if (erroCampo('cpfCnpj')) { <span class="field-erro">{{ erroCampo('cpfCnpj') }}</span> }
               </div>
 
-              <div class="field field-2" [class.field-invalido]="erroCampo('razaoSocial')" [class.field-alterado]="campoAlterado('razaoSocial')">
+              <div class="field field-3" [class.field-invalido]="erroCampo('razaoSocial')" [class.field-alterado]="campoAlterado('razaoSocial')">
                 <label>RAZÃO SOCIAL *</label>
                 <input type="text" [value]="fornecedorForm().razaoSocial || ''"
                        (input)="updateForm('razaoSocial', $any($event.target).value)" maxlength="200" />
                 @if (erroCampo('razaoSocial')) { <span class="field-erro">{{ erroCampo('razaoSocial') }}</span> }
               </div>
+            </div>
 
+            <div class="form-grid">
               <div class="field field-2" [class.field-invalido]="erroCampo('nome')" [class.field-alterado]="campoAlterado('nome')">
                 <label>NOME FANTASIA *</label>
                 <input type="text" [value]="fornecedorForm().nome"
                        (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
                 @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
               </div>
-            </div>
 
-            <div class="form-grid">
-              <div class="field field-2" [class.field-alterado]="campoAlterado('apelido')" style="flex:1.03">
+              <div class="field field-2" [class.field-alterado]="campoAlterado('apelido')">
                 <label>APELIDO</label>
                 <input type="text" [value]="fornecedorForm().apelido || ''"
                        (input)="updateForm('apelido', $any($event.target).value)" maxlength="100"
                        (blur)="onApelidoBlur()" />
               </div>
 
-              <div class="field" style="flex:0.5">
+              <div class="field" style="width:160px">
                 <label>INSCRIÇÃO ESTADUAL</label>
                 <input type="text" [value]="fornecedorForm().inscricaoEstadual || ''"
                        (input)="updateForm('inscricaoEstadual', $any($event.target).value)" maxlength="20" />
@@ -246,41 +247,40 @@
 
           @if (fornecedorForm().tipo === 'F') {
             <!-- PESSOA FISICA -->
-            <div class="form-secao">Identificação</div>
             <div class="form-grid">
-              <div class="field" [class.field-invalido]="erroCampo('cpfCnpj')" [class.field-alterado]="campoAlterado('cpfCnpj')">
+              <div class="field" style="width:160px" [class.field-invalido]="erroCampo('cpfCnpj')" [class.field-alterado]="campoAlterado('cpfCnpj')">
                 <label>CPF *</label>
                 <input type="text" [value]="formatarCpfCnpj(fornecedorForm().cpfCnpj, fornecedorForm().tipo)"
                        (input)="onCpfCnpjInput($event)" (blur)="onCpfCnpjBlur()" maxlength="14" placeholder="000.000.000-00" />
                 @if (erroCampo('cpfCnpj')) { <span class="field-erro">{{ erroCampo('cpfCnpj') }}</span> }
               </div>
 
-              <div class="field field-2" [class.field-invalido]="erroCampo('nome')" [class.field-alterado]="campoAlterado('nome')">
+              <div class="field field-3" [class.field-invalido]="erroCampo('nome')" [class.field-alterado]="campoAlterado('nome')">
                 <label>NOME *</label>
                 <input type="text" [value]="fornecedorForm().nome"
                        (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
                 @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
               </div>
-
-              <div class="field" [class.field-alterado]="campoAlterado('dataNascimento')">
-                <label>DATA NASCIMENTO</label>
-                <input type="date" [value]="fornecedorForm().dataNascimento ? fornecedorForm().dataNascimento!.slice(0,10) : ''"
-                       (input)="updateForm('dataNascimento', $any($event.target).value)" />
-              </div>
             </div>
 
             <div class="form-grid">
-              <div class="field field-2" [class.field-alterado]="campoAlterado('apelido')" style="flex:1.03">
+              <div class="field field-2" [class.field-alterado]="campoAlterado('apelido')">
                 <label>APELIDO</label>
                 <input type="text" [value]="fornecedorForm().apelido || ''"
                        (input)="updateForm('apelido', $any($event.target).value)" maxlength="100"
                        (blur)="onApelidoPFBlur()" />
               </div>
 
-              <div class="field" [class.field-alterado]="campoAlterado('rg')" style="flex:0.5">
+              <div class="field" style="width:160px" [class.field-alterado]="campoAlterado('rg')">
                 <label>RG</label>
                 <input type="text" [value]="fornecedorForm().rg || ''"
                        (input)="updateForm('rg', $any($event.target).value)" maxlength="20" />
+              </div>
+
+              <div class="field" style="width:160px" [class.field-alterado]="campoAlterado('dataNascimento')">
+                <label>DATA NASCIMENTO</label>
+                <input type="date" [value]="fornecedorForm().dataNascimento ? fornecedorForm().dataNascimento!.slice(0,10) : ''"
+                       (input)="updateForm('dataNascimento', $any($event.target).value)" />
               </div>
             </div>
 
@@ -291,6 +291,8 @@
               </div>
             }
           }
+
+        </div><!-- /form-bloco -->
 
         <!-- ══════ ACCORDION ENDEREÇOS ══════ -->
         <div class="accordion" [class.aberto]="accEnderecos()">
@@ -307,10 +309,11 @@
               <div class="item-card">
                 <div class="item-card-header">
                   <span class="item-card-titulo">Endereço {{ i + 1 }}</span>
-                <label class="check-label check-sm">
+                <label class="erp-check-card">
                   <input type="checkbox" [checked]="end.principal"
                          (change)="updateEndereco(i, 'principal', $any($event.target).checked)" />
-                  <span>Principal</span>
+                  <span class="erp-check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <span class="erp-check-text">Principal</span>
                 </label>
                 <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover" style="margin-left:auto">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -435,10 +438,11 @@
               <div class="item-card">
                 <div class="item-card-header">
                   <span class="item-card-titulo">Contato {{ i + 1 }}</span>
-                <label class="check-label check-sm">
+                <label class="erp-check-card">
                   <input type="checkbox" [checked]="ct.principal"
                          (change)="updateContato(i, 'principal', $any($event.target).checked)" />
-                  <span>Principal</span>
+                  <span class="erp-check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <span class="erp-check-text">Principal</span>
                 </label>
                 <button class="btn-remove-item" (click)="removerContato(i)" title="Remover" style="margin-left:auto">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

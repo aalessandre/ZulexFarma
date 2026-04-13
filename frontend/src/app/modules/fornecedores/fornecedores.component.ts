@@ -94,7 +94,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   private apiUrl = `${environment.apiUrl}/fornecedores`;
 
   tiposContato = ['TELEFONE', 'CELULAR', 'EMAIL', 'WHATSAPP', 'OUTRO'];
-  tiposEndereco = ['PRINCIPAL', 'ENTREGA', 'COBRANCA', 'OUTRO'];
+  tiposEndereco = ['CASA', 'ENTREGA', 'COBRANCA', 'OUTRO'];
 
   private tokenLiberacao: string | null = null;
 
@@ -159,7 +159,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   onKeydown(e: KeyboardEvent) {
     if (this.modal.visivel()) return;
     if (e.ctrlKey && e.key === 's' && this.modo() === 'form') { e.preventDefault(); if (this.isDirty()) this.salvar(); }
-    if (e.key === 'Escape' && this.modo() === 'form') { e.preventDefault(); if (this.isDirty()) this.cancelarEdicao(); else this.fecharForm(); }
+    if (e.key === 'Escape') { if (this.modo() === 'form') { (e as any).__handled = true; if (this.isDirty()) this.cancelarEdicao(); else this.fecharAba(this.abaAtivaId()!); } else if (this.abasEdicao().length > 0) { (e as any).__handled = true; const u = this.abasEdicao()[this.abasEdicao().length - 1]; this.fecharAba(u.fornecedor.id!); } }
     if (e.key === 'F2' && this.modo() === 'lista') { e.preventDefault(); this.editar(); }
     if (e.key === 'Enter' && this.modo() === 'lista' && this.fornecedorSelecionado()) {
       const el = e.target as HTMLElement;
@@ -513,6 +513,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   async salvar() {
     if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
     if (!this.validar()) return;
+    this.limparVazios();
     this.erro.set('');
     const f = this.fornecedorForm();
     this.salvando.set(true);
@@ -740,15 +741,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   }
 
   onTipoChange(tipo: string) {
-    this.fornecedorForm.update(f => ({
-      ...f,
-      tipo,
-      cpfCnpj: '',
-      razaoSocial: tipo === 'F' ? undefined : f.razaoSocial,
-      inscricaoEstadual: tipo === 'F' ? undefined : f.inscricaoEstadual,
-      rg: tipo === 'J' ? undefined : f.rg,
-      dataNascimento: tipo === 'J' ? undefined : f.dataNascimento
-    }));
+    this.fornecedorForm.update(f => ({ ...f, tipo }));
     this.isDirty.set(true);
   }
 
@@ -756,7 +749,7 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   adicionarEndereco() {
     this.fornecedorForm.update(f => ({
       ...f,
-      enderecos: [...f.enderecos, { tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: f.enderecos.length === 0 }]
+      enderecos: [...f.enderecos, { tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: f.enderecos.length === 0 }]
     }));
     this.isDirty.set(true);
   }
@@ -766,7 +759,16 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
       ...f,
       enderecos: f.enderecos.filter((_, i) => i !== idx)
     }));
-    this.isDirty.set(true);
+    this.erro.set('');
+    this.errosCampos.set({});
+    this.verificarDirty();
+  }
+
+  private verificarDirty() {
+    if (!this.formOriginal) { this.isDirty.set(true); return; }
+    const atual = JSON.stringify(this.fornecedorForm());
+    const original = JSON.stringify(this.formOriginal);
+    this.isDirty.set(atual !== original);
   }
 
   updateEndereco(idx: number, campo: string, valor: any) {
@@ -828,7 +830,9 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
       ...f,
       contatos: f.contatos.filter((_, i) => i !== idx)
     }));
-    this.isDirty.set(true);
+    this.erro.set('');
+    this.errosCampos.set({});
+    this.verificarDirty();
   }
 
   updateContato(idx: number, campo: string, valor: any) {
@@ -1053,32 +1057,28 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
     if (!f.cpfCnpj?.trim()) erros['cpfCnpj'] = 'Obrigatório';
     if (f.tipo === 'J' && !f.razaoSocial?.trim()) erros['razaoSocial'] = 'Obrigatório';
 
-    // Endereço NÃO é obrigatório para fornecedores
-    // Mas se preencheu parcialmente, valida os campos preenchidos
+    // Valida todos os endereços existentes (vazios já foram removidos por limparVazios)
     for (let i = 0; i < f.enderecos.length; i++) {
       const e = f.enderecos[i];
-      const temAlgo = e.cep || e.rua || e.numero || e.bairro || e.cidade || e.uf;
-      if (temAlgo) {
-        if (!e.cep?.trim())    erros[`end_cep_${i}`]    = 'Obrigatório';
-        if (!e.rua?.trim())    erros[`end_rua_${i}`]    = 'Obrigatório';
-        if (!e.numero?.trim()) erros[`end_numero_${i}`] = 'Obrigatório';
-        if (!e.bairro?.trim()) erros[`end_bairro_${i}`] = 'Obrigatório';
-        if (!e.cidade?.trim()) erros[`end_cidade_${i}`] = 'Obrigatório';
-        if (!e.uf?.trim())     erros[`end_uf_${i}`]     = 'Obrigatório';
-      }
+      if (!e.cep?.trim())    erros[`end_cep_${i}`]    = 'Obrigatório';
+      if (!e.rua?.trim())    erros[`end_rua_${i}`]    = 'Obrigatório';
+      if (!e.numero?.trim()) erros[`end_numero_${i}`] = 'Obrigatório';
+      if (!e.bairro?.trim()) erros[`end_bairro_${i}`] = 'Obrigatório';
+      if (!e.cidade?.trim()) erros[`end_cidade_${i}`] = 'Obrigatório';
+      if (!e.uf?.trim())     erros[`end_uf_${i}`]     = 'Obrigatório';
     }
 
     this.errosCampos.set(erros);
     if (Object.keys(erros).length > 0) {
       this.erro.set('Preencha todos os campos obrigatórios.');
-      // Priorizar: primeiro volta para aba Dados se tem erros lá
-      const temErroDados = erros['nome'] || erros['cpfCnpj'] || erros['razaoSocial'];
       const temErroEndereco = Object.keys(erros).some(k => k.startsWith('end_'));
-      if (temErroDados) {
-        this.abaFormAtiva.set('dados');
-      } else if (temErroEndereco) {
-        this.abaFormAtiva.set('endereco');
+      if (temErroEndereco) {
+        this.accEnderecos.set(true);
       }
+      setTimeout(() => {
+        const el = document.querySelector('.field-invalido input, .field-invalido select, .field-invalido textarea') as HTMLElement;
+        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+      }, 100);
       return false;
     }
     this.erro.set('');
@@ -1089,11 +1089,27 @@ export class FornecedoresComponent implements OnInit, OnDestroy {
   hasEnderecoErrors(): boolean { return Object.keys(this.errosCampos()).some(k => k.startsWith('end_')); }
 
   // ── Helpers ───────────────────────────────────────────────────────
+  private enderecoVazio(e: Endereco): boolean {
+    return !e.cep?.trim() && !e.rua?.trim() && !e.numero?.trim();
+  }
+
+  private contatoVazio(c: Contato): boolean {
+    return !c.valor?.trim();
+  }
+
+  private limparVazios() {
+    this.fornecedorForm.update(f => ({
+      ...f,
+      enderecos: f.enderecos.filter(e => !this.enderecoVazio(e)),
+      contatos: f.contatos.filter(c => !this.contatoVazio(c))
+    }));
+  }
+
   private novoFornecedor(): FornecedorDetalhe {
     return {
       tipo: 'J', nome: '', razaoSocial: '', cpfCnpj: '', inscricaoEstadual: '',
       rg: '', dataNascimento: '', observacao: '', ativo: true,
-      enderecos: [{ tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
+      enderecos: [{ tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
       contatos: []
     };
   }

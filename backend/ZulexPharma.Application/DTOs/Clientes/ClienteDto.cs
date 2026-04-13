@@ -5,6 +5,7 @@ namespace ZulexPharma.Application.DTOs.Clientes;
 public class ClienteListDto
 {
     public long Id { get; set; }
+    public string? Codigo { get; set; }
     public string Nome { get; set; } = string.Empty;
     public string? RazaoSocial { get; set; }
     public string Tipo { get; set; } = "F";
@@ -114,7 +115,7 @@ public class ClienteFormDto
 public class EnderecoDto
 {
     public long? Id { get; set; }
-    public string Tipo { get; set; } = "PRINCIPAL";
+    public string Tipo { get; set; } = "CASA";
     public string Cep { get; set; } = string.Empty;
     public string Rua { get; set; } = string.Empty;
     public string Numero { get; set; } = string.Empty;

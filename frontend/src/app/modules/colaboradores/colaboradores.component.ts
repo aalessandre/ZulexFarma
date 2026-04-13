@@ -19,7 +19,7 @@ interface Endereco {
 }
 
 interface Colaborador {
-  id?: number; codigo?: string; nome: string; cpf: string; rg?: string; dataNascimento?: string;
+  id?: number; codigo?: string; nome: string; cpf: string; rg?: string; apelido?: string; dataNascimento?: string;
   genero?: string; cargo?: string; dataAdmissao?: string; salario?: number;
   email?: string; telefone?: string; cidade?: string; uf?: string;
   observacao?: string; ativo: boolean; permitirAbrirCaixa: boolean; criadoEm?: string;
@@ -113,11 +113,12 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   grupos = signal<GrupoOption[]>([]);
   acessoHabilitado = signal(false);
   pessoaEncontrada = signal<any>(null);
+  colaboradorDuplicadoId = signal<number | null>(null);
   multiSelectAberto = signal<number | null>(null);
 
   tiposContato = ['CELULAR', 'TELEFONE', 'EMAIL', 'WHATSAPP', 'OUTRO'];
   dataHoje = new Date().toLocaleDateString('pt-BR');
-  tiposEndereco = ['PRINCIPAL', 'ENTREGA', 'COBRANÇA', 'OUTRO'];
+  tiposEndereco = ['CASA', 'ENTREGA', 'COBRANÇA', 'OUTRO'];
 
   private tokenLiberacao: string | null = null;
 
@@ -246,6 +247,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         const detalhe: ColaboradorDetalhe = {
           ...c,
           codigo: r.data.codigo,
+          apelido: r.data.apelido,
           genero: r.data.genero ?? '',
           permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
           enderecos: r.data.enderecos ?? [],
@@ -413,10 +415,16 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       e.preventDefault();
       if (this.isDirty()) this.salvar();
     }
-    if (e.key === 'Escape' && this.modo() === 'form') {
-      e.preventDefault();
-      if (this.isDirty()) this.cancelarEdicao();
-      else this.fecharForm();
+    if (e.key === 'Escape') {
+      if (this.modo() === 'form') {
+        (e as any).__handled = true;
+        if (this.isDirty()) this.cancelarEdicao();
+        else this.fecharAba(this.abaAtivaId()!);
+      } else if (this.abasEdicao().length > 0) {
+        (e as any).__handled = true;
+        const ultima = this.abasEdicao()[this.abasEdicao().length - 1];
+        this.fecharAba(ultima.colaborador.id!);
+      }
     }
     if (e.key === 'F2' && this.modo() === 'lista') {
       e.preventDefault();
@@ -547,6 +555,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         const detalhe: ColaboradorDetalhe = {
           ...c,
           codigo: r.data.codigo,
+          apelido: r.data.apelido,
           genero: r.data.genero ?? '',
           permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
           enderecos: r.data.enderecos ?? [],
@@ -619,6 +628,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   async salvar() {
     if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
     if (!this.validar()) return;
+    this.limparVazios();
     this.erro.set('');
     const f = this.colaboradorForm();
     this.salvando.set(true);
@@ -633,7 +643,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       : null;
 
     const payload: any = {
-      nome: f.nome, cpf: f.cpf, rg: f.rg,
+      nome: f.nome, cpf: f.cpf, rg: f.rg, apelido: f.apelido || null,
       dataNascimento: f.dataNascimento || null,
       genero: f.genero || null, cargo: f.cargo,
       dataAdmissao: f.dataAdmissao || null,
@@ -662,6 +672,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
               const detalhe: ColaboradorDetalhe = {
                 ...r.data,
                 codigo: det.data.codigo ?? r.data.codigo,
+                apelido: det.data.apelido,
                 enderecos: det.data.enderecos ?? [],
                 contatos: det.data.contatos ?? [],
                 observacao: det.data.observacao,
@@ -691,6 +702,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
               next: det => {
                 const detalhe: ColaboradorDetalhe = {
                   ...f, id,
+                  apelido: det.data.apelido,
                   enderecos: det.data.enderecos ?? [],
                   contatos: det.data.contatos ?? [],
                   observacao: det.data.observacao,
@@ -841,7 +853,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   adicionarEndereco() {
     this.colaboradorForm.update(f => ({
       ...f,
-      enderecos: [...f.enderecos, { tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: f.enderecos.length === 0 }]
+      enderecos: [...f.enderecos, { tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: f.enderecos.length === 0 }]
     }));
     this.marcarDirty();
   }
@@ -851,7 +863,9 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       enderecos: f.enderecos.filter((_, i) => i !== idx)
     }));
-    this.marcarDirty();
+    this.erro.set('');
+    this.errosCampos.set({});
+    this.verificarDirty();
   }
 
   updateEndereco(idx: number, campo: string, valor: any) {
@@ -913,7 +927,9 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       ...f,
       contatos: f.contatos.filter((_, i) => i !== idx)
     }));
-    this.marcarDirty();
+    this.erro.set('');
+    this.errosCampos.set({});
+    this.verificarDirty();
   }
 
   updateContato(idx: number, campo: string, valor: any) {
@@ -1028,6 +1044,32 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     this.updateForm('cpf', mascarado);
   }
 
+  abrirColaboradorDuplicado() {
+    const id = this.colaboradorDuplicadoId();
+    if (!id) return;
+    // Fechar aba NOVO sem confirmação
+    this.abasEdicao.update(tabs => tabs.filter(t => t.colaborador.id !== this.NOVO_ID));
+    this.isDirty.set(false);
+    this.erro.set('');
+    this.colaboradorDuplicadoId.set(null);
+    // Buscar o colaborador na lista e abrir
+    const colab = this.colaboradores().find(c => c.id === id);
+    if (colab) {
+      this.selecionar(colab);
+      this.editar();
+    } else {
+      // Se não está na lista (ex: inativo), busca e seleciona
+      this.http.get<any>(`${this.apiUrl}/${id}`).subscribe({
+        next: r => {
+          if (r?.data) {
+            this.colaboradorSelecionado.set(r.data);
+            this.editar();
+          }
+        }
+      });
+    }
+  }
+
   onCpfBlur() {
     // Só buscar em modo criação (não edição)
     if (this.modoEdicao()) return;
@@ -1048,10 +1090,15 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         }
 
         if (p.temColaborador) {
-          this.erro.set('Este CPF já possui um colaborador cadastrado.');
+          const nome = p.colaboradorNome || p.nome || '';
+          const codigo = p.colaboradorCodigo || p.colaboradorId || '';
+          const info = nome ? `: #${codigo} - ${nome}` : '';
+          this.erro.set(`Este CPF já possui um colaborador cadastrado${info}.`);
+          this.colaboradorDuplicadoId.set(p.colaboradorId || null);
           this.pessoaEncontrada.set(null);
           return;
         }
+        this.colaboradorDuplicadoId.set(null);
 
         // Auto-preencher dados da Pessoa existente
         this.pessoaEncontrada.set(p);
@@ -1126,6 +1173,13 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     input.value = num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  onApelidoBlur() {
+    const f = this.colaboradorForm();
+    if (!f.apelido?.trim() && f.nome?.trim()) {
+      this.updateForm('apelido', f.nome.trim());
+    }
+  }
+
   formatarSalario(valor?: number): string {
     if (valor == null) return '';
     return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1176,14 +1230,44 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   hasEnderecoErrors(): boolean { return Object.keys(this.errosCampos()).some(k => k.startsWith('end_')); }
 
   // ── Helpers ───────────────────────────────────────────────────────
+  private enderecoVazio(e: Endereco): boolean {
+    return !e.cep?.trim() && !e.rua?.trim() && !e.numero?.trim();
+  }
+
+  private contatoVazio(c: Contato): boolean {
+    return !c.valor?.trim();
+  }
+
+  private limparVazios() {
+    this.colaboradorForm.update(f => ({
+      ...f,
+      enderecos: f.enderecos.filter(e => !this.enderecoVazio(e)),
+      contatos: f.contatos.filter(c => !this.contatoVazio(c))
+    }));
+  }
+
   private novoColaborador(): ColaboradorDetalhe {
     return {
-      nome: '', cpf: '', rg: '', dataNascimento: '', genero: '', cargo: '', dataAdmissao: '',
+      nome: '', cpf: '', rg: '', apelido: '', dataNascimento: '', genero: '', cargo: '', dataAdmissao: '',
       salario: undefined, observacao: '', ativo: true, permitirAbrirCaixa: false,
-      enderecos: [{ tipo: 'PRINCIPAL', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
+      enderecos: [{ tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
       contatos: [],
       acesso: null
     };
+  }
+
+  private verificarDirty() {
+    if (!this.formOriginal) { this.marcarDirty(); return; }
+    const atual = JSON.stringify(this.colaboradorForm());
+    const original = JSON.stringify(this.formOriginal);
+    const dirty = atual !== original;
+    this.isDirty.set(dirty);
+    const id = this.abaAtivaId();
+    if (id != null) {
+      this.abasEdicao.update(tabs =>
+        tabs.map(t => t.colaborador.id === id ? { ...t, isDirty: dirty } : t)
+      );
+    }
   }
 
   private marcarDirty() {

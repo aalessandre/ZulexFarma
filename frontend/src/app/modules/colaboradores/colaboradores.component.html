@@ -184,22 +184,27 @@
         </div>
 
         @if (erro()) {
-          <div class="form-erro">{{ erro() }}</div>
+          <div class="form-erro">
+            {{ erro() }}
+            @if (colaboradorDuplicadoId()) {
+              <button class="btn-link-erro" (click)="abrirColaboradorDuplicado()">Abrir cadastro</button>
+            }
+          </div>
         }
 
-        <!-- ── LINHA 1: CÓDIGO, DATA CADASTRO, GÊNERO, CARGO, NASCIMENTO ── -->
-        <div class="form-grid form-grid-linha1">
-            <div class="field-grupo-codigo">
-              <div class="field">
-                <label>CÓDIGO</label>
-                <input type="text" [value]="modoEdicao() ? (colaboradorForm().codigo ?? colaboradorForm().id ?? '') : 'NOVO'" disabled class="field-disabled" style="width:70px" />
-              </div>
-              <div class="field">
-                <label>DATA DE CADASTRO</label>
-                <input type="text" [value]="modoEdicao() ? (colaboradorForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" style="width:140px" />
-              </div>
-            </div>
-          <div class="field" [class.field-alterado]="campoAlterado('genero')">
+        <!-- ── DADOS PESSOAIS ──────────────────────────────────────────── -->
+        <div class="form-bloco">
+        <label style="font-size:var(--erp-fs-sm);font-weight:700;color:var(--erp-primary);letter-spacing:0.7px;display:block;margin-bottom:8px">DADOS PESSOAIS</label>
+        <div class="form-grid">
+          <div class="field" style="width:160px">
+            <label>CÓDIGO</label>
+            <input type="text" [value]="modoEdicao() ? (colaboradorForm().codigo ?? colaboradorForm().id ?? '') : 'NOVO'" disabled class="field-disabled" />
+          </div>
+          <div class="field" style="width:160px">
+            <label>DATA DE CADASTRO</label>
+            <input type="text" [value]="modoEdicao() ? (colaboradorForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" />
+          </div>
+          <div class="field" style="width:160px" [class.field-alterado]="campoAlterado('genero')">
             <label>GÊNERO</label>
             <select [value]="colaboradorForm().genero || ''" (change)="updateForm('genero', $any($event.target).value)">
               <option value="">Selecione...</option>
@@ -208,28 +213,21 @@
               <option value="PREFIRO_NAO_DIZER">Prefiro não dizer</option>
             </select>
           </div>
-          <div class="field" [class.field-alterado]="campoAlterado('cargo')">
+          <div class="field" style="width:160px" [class.field-alterado]="campoAlterado('cargo')">
             <label>FUNÇÃO</label>
             <input type="text" [value]="colaboradorForm().cargo || ''"
                    (input)="updateForm('cargo', $any($event.target).value)" maxlength="100" />
           </div>
-          <div class="field" [class.field-alterado]="campoAlterado('dataNascimento')">
+          <div class="field" style="width:160px" [class.field-alterado]="campoAlterado('dataNascimento')">
             <label>NASCIMENTO</label>
             <input type="date" [value]="colaboradorForm().dataNascimento ? colaboradorForm().dataNascimento!.slice(0,10) : ''"
                    (input)="updateForm('dataNascimento', $any($event.target).value)" />
           </div>
-          <div class="field field-check field-check-linha1">
-            <label class="check-label">
-              <input type="checkbox" [checked]="colaboradorForm().ativo"
-                     (change)="updateForm('ativo', $any($event.target).checked)" />
-              <span>Ativo</span>
-            </label>
-          </div>
         </div>
 
-        <!-- ── LINHA 2: CPF, RG, NOME ──────────────────────────────────── -->
+        <!-- ── LINHA 2: CPF, NOME ──────────────────────────────────────── -->
         <div class="form-grid">
-          <div class="field" [class.field-invalido]="erroCampo('cpf')" [class.field-alterado]="campoAlterado('cpf')">
+          <div class="field" style="width:160px" [class.field-invalido]="erroCampo('cpf')" [class.field-alterado]="campoAlterado('cpf')">
             <label>CPF *</label>
             <input type="text" [value]="formatarCpf(colaboradorForm().cpf)"
                    (input)="onCpfInput($event)" (blur)="onCpfBlur()" maxlength="14" placeholder="000.000.000-00" />
@@ -242,12 +240,6 @@
                    (input)="updateForm('nome', $any($event.target).value)" maxlength="150" />
             @if (erroCampo('nome')) { <span class="field-erro">{{ erroCampo('nome') }}</span> }
           </div>
-
-          <div class="field" [class.field-alterado]="campoAlterado('rg')">
-            <label>RG</label>
-            <input type="text" [value]="colaboradorForm().rg || ''"
-                   (input)="updateForm('rg', $any($event.target).value)" maxlength="20" />
-          </div>
         </div>
 
         @if (pessoaEncontrada()) {
@@ -257,36 +249,66 @@
           </div>
         }
 
-        <!-- ── LINHA 3: DATA ADMISSÃO, SALÁRIO ─────────────────────────── -->
+        <!-- ── LINHA 3: RG, DATA ADMISSÃO, SALÁRIO ─────────────────────── -->
         <div class="form-grid">
-          <div class="field" [class.field-alterado]="campoAlterado('dataAdmissao')">
+          <div class="field" style="width:160px" [class.field-alterado]="campoAlterado('rg')">
+            <label>RG</label>
+            <input type="text" [value]="colaboradorForm().rg || ''"
+                   (input)="updateForm('rg', $any($event.target).value)" maxlength="20" />
+          </div>
+
+          <div class="field field-2" [class.field-alterado]="campoAlterado('apelido')">
+            <label>APELIDO</label>
+            <input type="text" [value]="colaboradorForm().apelido || ''"
+                   (input)="updateForm('apelido', $any($event.target).value)"
+                   (blur)="onApelidoBlur()" maxlength="150" />
+          </div>
+
+          <div class="field" style="width:160px" [class.field-alterado]="campoAlterado('dataAdmissao')">
             <label>DATA ADMISSÃO</label>
             <input type="date" [value]="colaboradorForm().dataAdmissao ? colaboradorForm().dataAdmissao!.slice(0,10) : ''"
                    (input)="updateForm('dataAdmissao', $any($event.target).value)" />
           </div>
 
-          <div class="field" [class.field-alterado]="campoAlterado('salario')">
+          <div class="field" style="width:160px" [class.field-alterado]="campoAlterado('salario')">
             <label>SALÁRIO</label>
-            <div class="input-icon-wrap">
-              <span class="input-prefixo">R$</span>
+            <div class="input-prefixo-wrap">
+              <span class="input-prefixo-inner">R$</span>
               <input type="text" [value]="formatarSalario(colaboradorForm().salario)"
                      (input)="onSalarioInput($event)" placeholder="0,00" />
             </div>
           </div>
         </div>
 
+        </div><!-- /form-bloco dados pessoais -->
+
         <!-- ── ACESSO AO SISTEMA ──────────────────────────────────────── -->
-        <label style="font-size:var(--erp-fs-sm);font-weight:700;color:var(--erp-text-muted);letter-spacing:0.7px;margin-top:14px;display:block">ACESSO AO SISTEMA</label>
+        <div class="form-bloco">
+        <label style="font-size:var(--erp-fs-sm);font-weight:700;color:var(--erp-primary);letter-spacing:0.7px;display:block;margin-bottom:8px">ACESSO AO SISTEMA</label>
           <div class="acesso-toggle">
-            <label class="check-label">
+            <label class="erp-toggle">
               <input type="checkbox" [checked]="acessoHabilitado()"
                      (change)="toggleAcesso($any($event.target).checked)" />
-              <span>Este colaborador possui acesso ao sistema</span>
+              <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+              <span class="erp-toggle-label">Acesso ao sistema</span>
             </label>
-            <label class="check-label">
+            <label class="erp-toggle">
               <input type="checkbox" [checked]="colaboradorForm().permitirAbrirCaixa"
                      (change)="updateForm('permitirAbrirCaixa', $any($event.target).checked)" />
-              <span>Permitir abrir caixa</span>
+              <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+              <span class="erp-toggle-label">Permitir abrir caixa</span>
+            </label>
+            <label class="erp-toggle">
+              <input type="checkbox" [checked]="colaboradorForm().acesso?.isAdministrador"
+                     (change)="updateAcesso('isAdministrador', $any($event.target).checked)" />
+              <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+              <span class="erp-toggle-label">Administrador</span>
+            </label>
+            <label class="erp-toggle erp-toggle-ativo" style="margin-left:auto">
+              <input type="checkbox" [checked]="colaboradorForm().ativo"
+                     (change)="updateForm('ativo', $any($event.target).checked)" />
+              <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+              <span class="erp-toggle-label">Ativo</span>
             </label>
           </div>
 
@@ -294,7 +316,7 @@
             <div class="acesso-layout">
               <!-- LADO ESQUERDO: Login e Senha -->
               <div class="acesso-credenciais">
-                <div class="form-secao">Credenciais</div>
+                <div class="form-secao">Dados de Login</div>
                 <div class="form-grid">
                   <div class="field field-full">
                     <label>LOGIN *</label>
@@ -303,7 +325,7 @@
                            placeholder="Nome de usuário" />
                   </div>
                   <div class="field field-full">
-                    <label>{{ colaboradorForm().acesso?.usuarioId ? 'NOVA SENHA (em branco = manter)' : 'SENHA *' }}</label>
+                    <label>SENHA *</label>
                     <input type="password" [value]="colaboradorForm().acesso?.senha || ''"
                            (input)="updateAcesso('senha', $any($event.target).value)" maxlength="100"
                            [placeholder]="colaboradorForm().acesso?.usuarioId ? '••••••••' : 'Digite a senha'" />
@@ -342,7 +364,7 @@
 
               <!-- LADO DIREITO: Grid Filial x Grupos -->
               <div class="acesso-filiais">
-                <div class="form-secao">Grupo de Usuários por Filial</div>
+                <div class="form-secao">Nível de Acesso por Filial</div>
                 <table class="acesso-grid">
                   <thead>
                     <tr>
@@ -384,13 +406,6 @@
                     }
                   </tbody>
                 </table>
-                <div class="field field-check" style="margin-top:12px">
-                  <label class="check-label">
-                    <input type="checkbox" [checked]="colaboradorForm().acesso?.isAdministrador"
-                           (change)="updateAcesso('isAdministrador', $any($event.target).checked)" />
-                    <span>Administrador</span>
-                  </label>
-                </div>
               </div>
             </div>
           } @else {
@@ -398,6 +413,8 @@
               Este colaborador não possui acesso ao sistema. Marque a opção acima para configurar.
             </div>
           }
+
+        </div><!-- /form-bloco acesso -->
 
         <!-- ══════ ACCORDION ENDEREÇOS ══════ -->
         <div class="accordion" [class.aberto]="accEnderecos()">
@@ -414,10 +431,11 @@
               <div class="item-card">
                 <div class="item-card-header">
                   <span class="item-card-titulo">Endereço {{ i + 1 }}</span>
-                  <label class="check-label check-sm">
+                  <label class="erp-check-card">
                     <input type="checkbox" [checked]="end.principal"
                            (change)="updateEndereco(i, 'principal', $any($event.target).checked)" />
-                    <span>Principal</span>
+                    <span class="erp-check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                    <span class="erp-check-text">Principal</span>
                   </label>
                   <button class="btn-remove-item" (click)="removerEndereco(i)" title="Remover" style="margin-left:auto">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -542,10 +560,11 @@
               <div class="item-card">
                 <div class="item-card-header">
                   <span class="item-card-titulo">Contato {{ i + 1 }}</span>
-                  <label class="check-label check-sm">
+                  <label class="erp-check-card">
                     <input type="checkbox" [checked]="ct.principal"
                            (change)="updateContato(i, 'principal', $any($event.target).checked)" />
-                    <span>Principal</span>
+                    <span class="erp-check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                    <span class="erp-check-text">Principal</span>
                   </label>
                   <button class="btn-remove-item" (click)="removerContato(i)" title="Remover" style="margin-left:auto">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -182,11 +182,12 @@
             <label>DATA DE CADASTRO</label>
             <input type="text" [value]="modoEdicao() ? (filialForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" style="width:140px" />
           </div>
-          <div class="field field-check" style="display:flex;align-items:flex-end;margin-top:22.5px">
-            <label class="check-label">
+          <div class="field field-check" style="display:flex;align-items:flex-end;padding-bottom:8px">
+            <label class="erp-toggle erp-toggle-ativo">
               <input type="checkbox" [checked]="filialForm().ativo"
                      (change)="updateForm('ativo', $any($event.target).checked)" />
-              <span>Ativo</span>
+              <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+              <span class="erp-toggle-label">Ativo</span>
             </label>
           </div>
         </div>
@@ -335,15 +336,17 @@
         <!-- PROMOÇÕES -->
         <div class="form-secao">Promoções</div>
         <div class="filial-checks-matriz">
-          <label class="check-label">
+          <label class="erp-toggle">
             <input type="checkbox" [checked]="filialForm().incluirPromoFixa"
                    (change)="updateForm('incluirPromoFixa', $any($event.target).checked)" />
-            <span>Incluir filial nas promoções fixas da matriz</span>
+            <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+            <span class="erp-toggle-label">Incluir filial nas promoções fixas da matriz</span>
           </label>
-          <label class="check-label">
+          <label class="erp-toggle">
             <input type="checkbox" [checked]="filialForm().incluirPromoProgressiva"
                    (change)="updateForm('incluirPromoProgressiva', $any($event.target).checked)" />
-            <span>Incluir filial nas promoções progressivas da matriz</span>
+            <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+            <span class="erp-toggle-label">Incluir filial nas promoções progressivas da matriz</span>
           </label>
         </div>
       </div>

@@ -39,6 +39,7 @@ public class ColaboradorService : IColaboradorService
                     Cpf            = c.Pessoa.CpfCnpj,
                     Rg             = c.Pessoa.Rg,
                     DataNascimento = c.Pessoa.DataNascimento,
+                    Apelido        = c.Apelido,
                     Cargo          = c.Cargo,
                     Salario        = c.Salario,
                     Email          = c.Pessoa.Contatos
@@ -90,6 +91,7 @@ public class ColaboradorService : IColaboradorService
             Cpf            = c.Pessoa.CpfCnpj,
             Rg             = c.Pessoa.Rg,
             DataNascimento = c.Pessoa.DataNascimento,
+            Apelido        = c.Apelido,
             Genero         = c.Genero,
             Cargo          = c.Cargo,
             DataAdmissao   = c.DataAdmissao,
@@ -238,6 +240,7 @@ public class ColaboradorService : IColaboradorService
             var colaborador = new Colaborador
             {
                 PessoaId    = pessoa.Id,
+                Apelido     = dto.Apelido?.Trim(),
                 Genero      = dto.Genero?.Trim().ToUpper(),
                 Cargo       = dto.Cargo?.Trim().ToUpper(),
                 DataAdmissao = ToUtc(dto.DataAdmissao),
@@ -296,6 +299,7 @@ public class ColaboradorService : IColaboradorService
             pessoa.Observacao     = dto.Observacao?.Trim();
 
             // Atualizar Colaborador
+            colaborador.Apelido     = dto.Apelido?.Trim();
             colaborador.Genero      = dto.Genero?.Trim().ToUpper();
             colaborador.Cargo       = dto.Cargo?.Trim().ToUpper();
             colaborador.DataAdmissao = ToUtc(dto.DataAdmissao);
@@ -399,6 +403,7 @@ public class ColaboradorService : IColaboradorService
                 Cpf            = c.Pessoa.CpfCnpj,
                 Rg             = c.Pessoa.Rg,
                 DataNascimento = c.Pessoa.DataNascimento,
+                Apelido        = c.Apelido,
                 Cargo          = c.Cargo,
                 Salario        = c.Salario,
                 Email          = c.Pessoa.Contatos

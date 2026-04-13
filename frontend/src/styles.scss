@@ -73,6 +73,7 @@ body {
   --erp-text-sec:      #556677;
   --erp-blue:          #2c5fad;
   --erp-primary:       #1e3a5f;
+  --erp-bloco-bg:      #f5f6f8;
   --erp-row-hover:     #f5f8ff;
   --erp-row-selected:  #dce8ff;
   --erp-grid-head:     #f0f2f5;
@@ -104,6 +105,7 @@ body {
   --erp-text-sec:      #8899bb;
   --erp-blue:          #5585e0;
   --erp-primary:       #6ea8e6;
+  --erp-bloco-bg:      #232b3e;
   --erp-row-hover:     #242e48;
   --erp-row-selected:  #1c3060;
   --erp-grid-head:     #192030;
@@ -117,5 +119,65 @@ body {
   --erp-config-border: #2e3a54;
   --erp-config-op-bg:  #192030;
   --erp-config-op-hover: #1c3060;
+}
+
+/* ── Grid global: divisões verticais + zebra ────────────────────────── */
+/* ── Toggle Switch Global ────────────────────────────────────────────── */
+.erp-toggle {
+  position: relative; display: inline-flex; align-items: center; cursor: pointer;
+  input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .erp-toggle-track {
+    position: relative; width: 36px; height: 20px; border-radius: 12px;
+    background: var(--erp-border-input, #ccc); transition: background 0.25s;
+    flex-shrink: 0;
+  }
+  .erp-toggle-thumb {
+    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    transition: transform 0.25s;
+  }
+  input:checked + .erp-toggle-track { background: var(--erp-blue, #2196F3); }
+  input:checked + .erp-toggle-track .erp-toggle-thumb { transform: translateX(16px); }
+  .erp-toggle-label { margin-left: 8px; font-size: var(--erp-fs-sm); color: var(--erp-text); user-select: none; }
+  &.erp-toggle-ativo {
+    input:checked + .erp-toggle-track { background: #27ae60; }
+    input:not(:checked) + .erp-toggle-track { background: #c0392b; }
+  }
+}
+
+/* ── Checkbox Customizado (Principal em endereços/contatos) ──────────── */
+.erp-check-card {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+  input { display: none; }
+  .erp-check-box {
+    width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--erp-border-input);
+    background: var(--erp-surface); display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; flex-shrink: 0;
+    svg { opacity: 0; transition: opacity 0.15s; }
+  }
+  .erp-check-text { font-size: var(--erp-fs-sm); font-weight: 600; color: var(--erp-text); }
+  input:checked ~ .erp-check-box {
+    background: var(--erp-blue); border-color: var(--erp-blue);
+    svg { opacity: 1; }
+  }
+  &:hover .erp-check-box { border-color: var(--erp-blue); }
+}
+
+.erp-grid th {
+  border-right: 1px solid var(--erp-border) !important;
+  &:last-child { border-right: none !important; }
+}
+.erp-grid td {
+  border-right: 1px solid var(--erp-border) !important;
+  &:last-child { border-right: none !important; }
+}
+.erp-grid tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+.erp-grid tbody tr:hover {
+  background: var(--erp-row-hover) !important;
+}
+.erp-grid tbody tr.selecionado {
+  background: var(--erp-row-selected) !important;
 }
 

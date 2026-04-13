@@ -177,10 +177,16 @@ export class FiliaisComponent implements OnInit, OnDestroy {
       e.preventDefault();
       if (this.isDirty()) this.salvar();
     }
-    if (e.key === 'Escape' && this.modo() === 'form') {
-      e.preventDefault();
-      if (this.isDirty()) this.cancelarEdicao();
-      else this.fecharForm();
+    if (e.key === 'Escape') {
+      if (this.modo() === 'form') {
+        (e as any).__handled = true;
+        if (this.isDirty()) this.cancelarEdicao();
+        else this.fecharAba(this.abaAtivaId()!);
+      } else if (this.abasEdicao().length > 0) {
+        (e as any).__handled = true;
+        const u = this.abasEdicao()[this.abasEdicao().length - 1];
+        this.fecharAba(u.filial.id!);
+      }
     }
     if (e.key === 'F2' && this.modo() === 'lista') {
       e.preventDefault();

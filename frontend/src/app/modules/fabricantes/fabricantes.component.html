@@ -176,11 +176,12 @@
             <label>DATA DE CADASTRO</label>
             <input type="text" [value]="modoEdicao() ? (fabricanteForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" style="width:140px" />
           </div>
-          <div class="field field-check" style="display:flex;align-items:flex-end;margin-top:22.5px">
-            <label class="check-label">
+          <div class="field field-check" style="display:flex;align-items:flex-end;padding-bottom:8px">
+            <label class="erp-toggle erp-toggle-ativo">
               <input type="checkbox" [checked]="fabricanteForm().ativo"
                      (change)="upd('ativo', $any($event.target).checked)" />
-              <span>Ativo</span>
+              <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+              <span class="erp-toggle-label">Ativo</span>
             </label>
           </div>
         </div>

@@ -982,7 +982,7 @@ public class CompraService : ICompraService
                 _db.PessoasEndereco.Add(new PessoaEndereco
                 {
                     PessoaId = pessoa.Id,
-                    Tipo = "PRINCIPAL",
+                    Tipo = "CASA",
                     Rua = Txt(enderEmit, "xLgr").ToUpper(),
                     Numero = Txt(enderEmit, "nro").ToUpper(),
                     Bairro = Txt(enderEmit, "xBairro").ToUpper(),

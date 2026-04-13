@@ -22,6 +22,8 @@ export class AuthService {
   private timerInatividade: any = null;
   private timerAviso: any = null;
   avisoSessao = signal('');
+  sessaoBloqueada = signal(false);
+  motivoBloqueio = signal('');
 
   constructor(private http: HttpClient, private router: Router, private tabService: TabService) {
     const token = this.getToken();
@@ -41,6 +43,28 @@ export class AuthService {
           // Limpar estado anterior (abas abertas, forms em edição)
           sessionStorage.clear();
 
+          const usuario: UsuarioLogado = {
+            ...response.data,
+            expiracao: new Date(response.data.expiracao)
+          };
+          localStorage.setItem(this.TOKEN_KEY, response.data.token);
+          localStorage.setItem(this.USER_KEY, JSON.stringify(usuario));
+          this.usuarioLogado.set(usuario);
+          this.extrairPermissoes(response.data.token);
+          this.extrairSessao(response.data.token);
+          this.iniciarTimers();
+        }
+      })
+    );
+  }
+
+  trocarUsuario(request: LoginRequest): Observable<{ success: boolean; data: LoginResponse }> {
+    return this.http.post<{ success: boolean; data: LoginResponse }>(
+      `${environment.apiUrl}/auth/login`, request
+    ).pipe(
+      tap(response => {
+        if (response.success) {
+          // NÃO limpa sessionStorage — preserva abas e estado
           const usuario: UsuarioLogado = {
             ...response.data,
             expiracao: new Date(response.data.expiracao)
@@ -97,7 +121,7 @@ export class AuthService {
       }, avisoMs);
 
       this.timerSessao = setTimeout(() => {
-        this.logout();
+        this.bloquearSessao('Sua sessão expirou.');
       }, ms);
     }
 
@@ -117,7 +141,7 @@ export class AuthService {
   private resetarInatividade() {
     if (this.timerInatividade) clearTimeout(this.timerInatividade);
     this.timerInatividade = setTimeout(() => {
-      this.logout();
+      this.bloquearSessao('Sessão bloqueada por inatividade.');
     }, this.inatividade * 60 * 1000);
   }
 
@@ -128,6 +152,36 @@ export class AuthService {
     document.removeEventListener('mousemove', this.onAtividade);
     document.removeEventListener('keydown', this.onAtividade);
     document.removeEventListener('click', this.onAtividade);
+  }
+
+  private bloquearSessao(motivo: string) {
+    this.pararTimers();
+    this.motivoBloqueio.set(motivo);
+    this.sessaoBloqueada.set(true);
+  }
+
+  desbloquearSessao(request: LoginRequest): Observable<{ success: boolean; data: LoginResponse }> {
+    return this.http.post<{ success: boolean; data: LoginResponse }>(
+      `${environment.apiUrl}/auth/login`, request
+    ).pipe(
+      tap(response => {
+        if (response.success) {
+          const usuario: UsuarioLogado = {
+            ...response.data,
+            expiracao: new Date(response.data.expiracao)
+          };
+          localStorage.setItem(this.TOKEN_KEY, response.data.token);
+          localStorage.setItem(this.USER_KEY, JSON.stringify(usuario));
+          this.usuarioLogado.set(usuario);
+          this.extrairPermissoes(response.data.token);
+          this.extrairSessao(response.data.token);
+          this.iniciarTimers();
+          this.sessaoBloqueada.set(false);
+          this.motivoBloqueio.set('');
+          this.avisoSessao.set('');
+        }
+      })
+    );
   }
 
   logout(): void {

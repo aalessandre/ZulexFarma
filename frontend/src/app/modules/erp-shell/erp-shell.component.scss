@@ -330,6 +330,16 @@
   .busca-resultado.ativo & { transform: translateX(2px); }
 }
 
+.busca-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px;
+  color: var(--erp-text-muted);
+  font-size: var(--erp-fs-sm);
+  font-weight: 500;
+}
+
 .busca-vazio {
   display: flex;
   flex-direction: column;
@@ -827,4 +837,108 @@
 @keyframes toastSlideIn {
   from { transform: translateY(-20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* ── Modal Trocar Usuário ────────────────────────────────────────── */
+.modal-trocar-usuario {
+  background: var(--erp-surface); border-radius: 12px; width: 380px;
+  padding: 28px; position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.bloqueio-overlay {
+  z-index: 10000 !important;
+  backdrop-filter: blur(6px);
+}
+
+.bloqueio-usuario-info {
+  display: flex; align-items: center; gap: 8px; justify-content: center;
+  padding: 8px 16px; margin-bottom: 16px;
+  background: var(--erp-bloco-bg); border-radius: 8px;
+  font-size: var(--erp-fs-sm); font-weight: 600; color: var(--erp-text);
+}
+
+.modal-trocar-header {
+  display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 20px;
+  .modal-titulo { margin-top: 8px; }
+}
+
+.modal-trocar-desc {
+  font-size: var(--erp-fs-sm); color: var(--erp-text-muted); margin: 4px 0 0;
+}
+
+.modal-trocar-footer {
+  display: flex; gap: 10px; margin-top: 20px;
+}
+
+.btn-trocar-entrar {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 42px; border: none; border-radius: 8px;
+  background: #27ae60; color: #fff; font-size: var(--erp-fs-body); font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+  &:hover:not(:disabled) { filter: brightness(1.1); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btn-trocar-cancelar {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 42px; border: none; border-radius: 8px;
+  background: #c0392b; color: #fff; font-size: var(--erp-fs-body); font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+  &:hover { filter: brightness(1.1); }
+}
+
+/* ── FAB Suporte ─────────────────────────────────────────────────── */
+.fab-suporte-wrap {
+  position: fixed;
+  bottom: 24px;
+  right: 64px;
+  z-index: 1000;
+}
+
+.fab-suporte-btn {
+  height: 44px; padding: 0 20px; border-radius: 22px;
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: all 0.2s; opacity: 0.7;
+  svg { stroke: var(--erp-text-muted); }
+  &:hover { opacity: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  &:active { transform: scale(0.96); }
+}
+
+.fab-suporte-label {
+  color: var(--erp-text-muted); font-size: 13px; font-weight: 600; letter-spacing: 0.3px;
+}
+
+.fab-suporte-overlay {
+  position: fixed; inset: 0; z-index: -1;
+}
+
+.fab-suporte-menu {
+  position: absolute; bottom: calc(100% + 12px); right: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  animation: fabMenuIn 0.2s ease;
+}
+
+@keyframes fabMenuIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fab-suporte-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px; border-radius: 12px;
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  text-decoration: none; color: var(--erp-text);
+  font-size: var(--erp-fs-sm); font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover { background: var(--erp-bloco-bg); transform: translateX(-4px); }
+
+  svg { flex-shrink: 0; }
 }

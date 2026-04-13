@@ -76,6 +76,19 @@ export class ErpShellComponent {
   });
 
   estaHome = signal(true);
+  fabSuporteAberto = signal(false);
+
+  // ── Trocar Usuário ──────────────────────────────────────────────
+  modalTrocarUsuario = signal(false);
+  trocarLogin = signal('');
+  trocarSenha = signal('');
+  erroTrocar = signal('');
+  trocandoUsuario = signal(false);
+
+  // ── Sessão Bloqueada ──────────────────────────────────────────
+  bloqueioSenha = signal('');
+  erroBloqueio = signal('');
+  desbloqueando = signal(false);
 
   // ── Blocos (tiles data for search) ──────────────────────────────
   blocos: BlocoTiles[] = [
@@ -180,9 +193,7 @@ export class ErpShellComponent {
     return results;
   });
 
-  mostrarDropdown = computed(() =>
-    this.buscaFocada() && this.buscaGlobal().trim().length > 0
-  );
+  mostrarDropdown = computed(() => this.buscaFocada());
 
   // ── User menu ──────────────────────────────────────────────────
   menuUsuarioAberto = signal(false);
@@ -220,6 +231,15 @@ export class ErpShellComponent {
         this.modal.aviso('Limite de telas', `Você atingiu o limite de ${this.tabService.MAX_TABS} telas abertas. Feche alguma tela antes de abrir outra.`);
       }
     });
+
+    effect(() => {
+      if (this.authService.sessaoBloqueada()) {
+        setTimeout(() => {
+          const input = document.querySelector('.bloqueio-overlay input') as HTMLElement;
+          if (input) input.focus();
+        }, 200);
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -235,6 +255,104 @@ export class ErpShellComponent {
 
   irHome() { this.router.navigate(['/erp']); }
   logout()  { this.authService.logout(); }
+
+  // ── Trocar Usuário ──────────────────────────────────────────────
+  abrirTrocarUsuario() {
+    this.menuUsuarioAberto.set(false);
+    this.trocarLogin.set('');
+    this.trocarSenha.set('');
+    this.erroTrocar.set('');
+    this.modalTrocarUsuario.set(true);
+    setTimeout(() => {
+      const input = document.querySelector('.modal-trocar-usuario input') as HTMLElement;
+      if (input) input.focus();
+    }, 100);
+  }
+
+  fecharTrocarUsuario() {
+    this.modalTrocarUsuario.set(false);
+  }
+
+  onTrocarKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      (e as any).__handled = true;
+      this.fecharTrocarUsuario();
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      const el = e.target as HTMLElement;
+      if (el?.tagName === 'BUTTON') {
+        e.preventDefault();
+        const btns = Array.from(document.querySelectorAll('.modal-trocar-footer button')) as HTMLElement[];
+        const idx = btns.indexOf(el);
+        const next = e.key === 'ArrowRight' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+        btns[next]?.focus();
+      }
+    }
+  }
+
+  executarTrocarUsuario() {
+    const login = this.trocarLogin().trim();
+    const senha = this.trocarSenha();
+    if (!login || !senha) {
+      this.erroTrocar.set('Informe login e senha.');
+      return;
+    }
+    this.trocandoUsuario.set(true);
+    this.erroTrocar.set('');
+    this.authService.trocarUsuario({ login, senha }).subscribe({
+      next: (r) => {
+        this.trocandoUsuario.set(false);
+        if (r.success) {
+          this.modalTrocarUsuario.set(false);
+        } else {
+          this.erroTrocar.set('Credenciais inválidas.');
+        }
+      },
+      error: (e) => {
+        this.trocandoUsuario.set(false);
+        this.erroTrocar.set(e?.error?.message || 'Login ou senha incorretos.');
+      }
+    });
+  }
+
+  // ── Sessão Bloqueada ──────────────────────────────────────────
+  desbloquear() {
+    const usuario = this.authService.usuarioLogado();
+    const senha = this.bloqueioSenha();
+    if (!senha) { this.erroBloqueio.set('Informe a senha.'); return; }
+    if (!usuario?.login) { this.logout(); return; }
+    this.desbloqueando.set(true);
+    this.erroBloqueio.set('');
+    this.authService.desbloquearSessao({ login: usuario.login, senha }).subscribe({
+      next: (r) => {
+        this.desbloqueando.set(false);
+        if (r.success) {
+          this.bloqueioSenha.set('');
+          this.erroBloqueio.set('');
+        } else {
+          this.erroBloqueio.set('Senha incorreta.');
+        }
+      },
+      error: (e) => {
+        this.desbloqueando.set(false);
+        this.erroBloqueio.set(e?.error?.message || 'Senha incorreta.');
+      }
+    });
+  }
+
+  onBloqueioKeydown(e: KeyboardEvent) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      const el = e.target as HTMLElement;
+      if (el?.tagName === 'BUTTON') {
+        e.preventDefault();
+        const btns = Array.from(document.querySelectorAll('.modal-trocar-footer button')) as HTMLElement[];
+        const idx = btns.indexOf(el);
+        const next = e.key === 'ArrowRight' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+        btns[next]?.focus();
+      }
+    }
+  }
 
   abrirPainel()  { this.painelAberto.set(true); }
   fecharPainel() { this.painelAberto.set(false); }
@@ -294,11 +412,26 @@ export class ErpShellComponent {
       this.inputBuscaRef?.nativeElement.focus();
       this.buscaFocada.set(true);
     }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'F9') {
+      e.preventDefault();
+      this.abrirTrocarUsuario();
+      return;
+    }
+    if (e.key === 'Home') {
+      e.preventDefault();
+      this.irHome();
+      return;
+    }
     if (e.key === 'Escape' && !this.buscaFocada()) {
-      const tabAtiva = this.tabService.tabAtiva();
-      if (tabAtiva) {
-        this.tabService.fecharTab(tabAtiva);
-      }
+      // Aguarda um tick para dar tempo dos componentes filhos marcarem __handled
+      setTimeout(() => {
+        if (!(e as any).__handled) {
+          const tabAtiva = this.tabService.tabAtiva();
+          if (tabAtiva) {
+            this.tabService.fecharTab(tabAtiva);
+          }
+        }
+      });
     }
   }
 

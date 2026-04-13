@@ -10,6 +10,7 @@ public class Colaborador : BaseEntity
     public long PessoaId { get; set; }
     public Pessoa Pessoa { get; set; } = null!;
 
+    public string? Apelido { get; set; }
     public string? Genero { get; set; }
     public string? Cargo { get; set; }
     public DateTime? DataAdmissao { get; set; }
