@@ -1,0 +1,190 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-editar" (click)="aplicarFiltro()">
+      <span>Atualizar</span><span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="abrirAjuste()">
+      <span>Ajuste</span><span class="sidebar-sub">Manual</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span><span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="cb-header">
+      <div class="cb-filtros">
+        <div class="cb-field">
+          <label>CONTA</label>
+          <select [value]="contaSelecionadaId() ?? ''" (change)="selecionarConta(+$any($event.target).value)">
+            @for (c of contas(); track c.id) {
+              <option [value]="c.id">{{ c.descricao }}{{ c.tipoConta === 3 ? ' (Caixa Interno)' : '' }}</option>
+            }
+          </select>
+        </div>
+        <div class="cb-field">
+          <label>DATA INICIAL</label>
+          <input type="date" [value]="dataInicio()" (change)="dataInicio.set($any($event.target).value)" />
+        </div>
+        <div class="cb-field">
+          <label>DATA FINAL</label>
+          <input type="date" [value]="dataFim()" (change)="dataFim.set($any($event.target).value)" />
+        </div>
+        <button class="cb-btn-filtrar" (click)="aplicarFiltro()">Filtrar</button>
+      </div>
+    </div>
+
+    @if (saldo(); as s) {
+      <div class="cb-cards">
+        <div class="cb-card cb-card-principal" [class.cb-card-cofre]="s.ehCofre">
+          <div class="cb-card-label">
+            @if (s.ehCofre) {
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              COFRE — {{ s.contaBancariaNome }}
+            } @else {
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              {{ s.contaBancariaNome }}
+            }
+          </div>
+          <div class="cb-card-valor">R$ {{ s.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</div>
+          <div class="cb-card-sub">Saldo inicial: R$ {{ s.saldoInicial.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</div>
+        </div>
+
+        <div class="cb-card cb-card-entrada">
+          <div class="cb-card-label">Entradas no período</div>
+          <div class="cb-card-valor">R$ {{ s.totalEntradasPeriodo.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</div>
+        </div>
+
+        <div class="cb-card cb-card-saida">
+          <div class="cb-card-label">Saídas no período</div>
+          <div class="cb-card-valor">R$ {{ s.totalSaidasPeriodo.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</div>
+        </div>
+
+        <div class="cb-card cb-card-saldo-per">
+          <div class="cb-card-label">Saldo do período</div>
+          <div class="cb-card-valor" [class.negativo]="s.saldoPeriodo < 0">
+            R$ {{ s.saldoPeriodo.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="cb-grid-wrap">
+      <div class="cb-grid-header">
+        <h3>Extrato</h3>
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header">
+                <span>Personalizar Colunas</span>
+                <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+              </div>
+              <div class="col-picker-lista">
+                @for (col of colunas(); track col.campo) {
+                  <label class="col-picker-item">
+                    <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                    <span>{{ col.label }}</span>
+                    @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="grid-wrapper cb-grid-scroll">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+                <th class="th-sort th-resize"
+                    [style.width.px]="col.largura"
+                    [style.min-width.px]="col.minLargura"
+                    (click)="ordenar(col.campo)"
+                    draggable="true"
+                    (dragstart)="onDragStartCol(i)"
+                    (dragover)="onDragOverCol($event, i)"
+                    (drop)="onDropCol()">
+                  {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                  <div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td [attr.colspan]="colunasVisiveis().length" class="grid-loading">Carregando...</td></tr>
+            } @else if (movimentosOrdenados().length === 0) {
+              <tr><td [attr.colspan]="colunasVisiveis().length" class="grid-vazio">Nenhum movimento no período.</td></tr>
+            } @else {
+              @for (m of movimentosOrdenados(); track m.id) {
+                <tr [class.cb-row-manual]="m.manual">
+                  @for (col of colunasVisiveis(); track col.campo) {
+                    <td [class.cb-td-entrada]="col.campo === 'entrada' && m.tipo === 1"
+                        [class.cb-td-saida]="col.campo === 'saida' && m.tipo === 2"
+                        [class.cb-td-data]="col.campo === 'dataMovimento'">
+                      {{ getCellValue(m, col.campo) }}
+                    </td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ movimentosOrdenados().length }}</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ajuste Manual -->
+  @if (modalAjuste()) {
+    <div class="cb-modal-overlay" (click)="cancelarAjuste()">
+      <div class="cb-modal" (click)="$event.stopPropagation()">
+        <div class="cb-modal-header">
+          <h3>Ajuste Manual</h3>
+        </div>
+        <div class="cb-modal-body">
+          <div class="cb-modal-field">
+            <label>TIPO</label>
+            <select [value]="ajusteTipo()" (change)="ajusteTipo.set(+$any($event.target).value)">
+              <option [value]="1">Entrada</option>
+              <option [value]="2">Saída</option>
+            </select>
+          </div>
+          <div class="cb-modal-field">
+            <label>VALOR</label>
+            <div class="cb-moeda">
+              <span>R$</span>
+              <input type="text" [value]="ajusteValor()" (input)="ajusteValor.set($any($event.target).value)" placeholder="0,00" autofocus />
+            </div>
+          </div>
+          <div class="cb-modal-field">
+            <label>DESCRIÇÃO / MOTIVO *</label>
+            <input type="text" [value]="ajusteDescricao()" (input)="ajusteDescricao.set($any($event.target).value)" placeholder="Ex: Ajuste de saldo inicial" maxlength="200" />
+          </div>
+          <div class="cb-modal-field">
+            <label>OBSERVAÇÃO</label>
+            <textarea rows="2" [value]="ajusteObservacao()" (input)="ajusteObservacao.set($any($event.target).value)"></textarea>
+          </div>
+          <div class="cb-modal-aviso">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>Este lançamento será registrado no histórico de auditoria.</span>
+          </div>
+        </div>
+        <div class="cb-modal-footer">
+          <button class="cb-btn-cancelar" (click)="cancelarAjuste()">Cancelar</button>
+          <button class="cb-btn-ok" (click)="confirmarAjuste()">Confirmar Ajuste</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

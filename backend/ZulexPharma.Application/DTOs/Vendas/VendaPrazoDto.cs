@@ -28,6 +28,9 @@ public class FinalizarVendaDto
     public string? SenhaCliente { get; set; }
     public string? TokenLiberacaoCredito { get; set; }
     public int NumeroParcelas { get; set; } = 1;
+
+    /// <summary>Payload SNGPC quando a venda tem itens controlados (psicotrópicos/antimicrobianos).</summary>
+    public ZulexPharma.Application.DTOs.Sngpc.FinalizarVendaSngpcDto? Sngpc { get; set; }
 }
 
 /// <summary>Request para POST api/vendas/validar-prazo.</summary>

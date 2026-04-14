@@ -35,6 +35,9 @@ public class ProdutoDetalheDto
     public long? SubGrupoId { get; set; }
     public long? NcmId { get; set; }
 
+    // Classe terapêutica (para SNGPC)
+    public string? ClasseTerapeutica { get; set; }
+
     // Nomes para exibição
     public string? FabricanteNome { get; set; }
     public string? GrupoPrincipalNome { get; set; }
@@ -69,6 +72,9 @@ public class ProdutoFormDto
     public long? GrupoProdutoId { get; set; }
     public long? SubGrupoId { get; set; }
     public long? NcmId { get; set; }
+
+    /// <summary>Classe terapêutica para SNGPC: null (nenhum), "Psicotrópicos", "Antimicrobiano".</summary>
+    public string? ClasseTerapeutica { get; set; }
 
     public List<ProdutoBarrasDto> Barras { get; set; } = new();
     public List<ProdutoMsDto> RegistrosMs { get; set; } = new();
@@ -124,15 +130,60 @@ public class ProdutoFiscalDto
     public string? NcmCodigo { get; set; }
     public string? Cest { get; set; }
     public string? OrigemMercadoria { get; set; }
+    public string? Cfop { get; set; }
+
+    // ICMS saída
     public string? CstIcms { get; set; }
     public string? Csosn { get; set; }
     public decimal AliquotaIcms { get; set; }
+    public decimal AliquotaFcp { get; set; }
+    public string? ModBc { get; set; }
+    public decimal PercentualReducaoBc { get; set; }
+    public string? CodigoBeneficio { get; set; }
+    public string? DispositivoLegalIcms { get; set; }
+
+    // ICMS ST + entrada
+    public bool TemSubstituicaoTributaria { get; set; }
+    public decimal MvaOriginal { get; set; }
+    public decimal MvaAjustado4 { get; set; }
+    public decimal MvaAjustado7 { get; set; }
+    public decimal MvaAjustado12 { get; set; }
+    public decimal AliquotaIcmsSt { get; set; }
+    public decimal AliquotaFcpSt { get; set; }
+    public decimal AliquotaIcmsInternoEntrada { get; set; }
+
+    // PIS
     public string? CstPis { get; set; }
     public decimal AliquotaPis { get; set; }
+    public string? CstPisEntrada { get; set; }
+    public string? NaturezaReceita { get; set; }
+
+    // COFINS
     public string? CstCofins { get; set; }
     public decimal AliquotaCofins { get; set; }
+    public string? CstCofinsEntrada { get; set; }
+
+    // IPI
     public string? CstIpi { get; set; }
     public decimal AliquotaIpi { get; set; }
+    public string? EnquadramentoIpi { get; set; }
+    public string? CstIpiEntrada { get; set; }
+    public decimal AliquotaIpiEntrada { get; set; }
+    public decimal AliquotaIpiIndustria { get; set; }
+
+    // Reforma Tributária 2026+
+    public string? CstIs { get; set; }
+    public string? ClassTribIs { get; set; }
+    public decimal AliquotaIs { get; set; }
+    public string? CstIbsCbs { get; set; }
+    public string? ClassTribIbsCbs { get; set; }
+    public decimal AliquotaIbsUf { get; set; }
+    public decimal AliquotaIbsMun { get; set; }
+    public decimal AliquotaCbs { get; set; }
+
+    // Origem dos dados
+    public DateTime? AtualizadoGestorTributarioEm { get; set; }
+    public string? AtualizadoGestorTributarioProvider { get; set; }
 }
 
 public class ProdutoDadosDto

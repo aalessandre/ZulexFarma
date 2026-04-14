@@ -100,6 +100,10 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFornecedorService
                             ZulexPharma.Infrastructure.Services.FornecedorService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFabricanteService,
                             ZulexPharma.Infrastructure.Services.FabricanteService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPrescritorService,
+                            ZulexPharma.Infrastructure.Services.PrescritorService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaReceitaService,
+                            ZulexPharma.Infrastructure.Services.VendaReceitaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPlanoContaService,
                             ZulexPharma.Infrastructure.Services.PlanoContaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IContaBancariaService,
@@ -123,23 +127,33 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.IbptService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAdquirenteService,
                             ZulexPharma.Infrastructure.Services.AdquirenteService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ICaixaMovimentoService,
+                            ZulexPharma.Infrastructure.Services.CaixaMovimentoService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISubstanciaService,
                             ZulexPharma.Infrastructure.Services.SubstanciaService>();
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoPrincipal>(
     sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
-    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "GrupoPrincipal"));
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(),
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.IProdutoLoteService>(),
+    "Gerenciar Produtos", "GrupoPrincipal"));
 
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoProduto>(
     sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
-    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "GrupoProduto"));
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(),
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.IProdutoLoteService>(),
+    "Gerenciar Produtos", "GrupoProduto"));
 
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.SubGrupo>(
     sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
-    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "SubGrupo"));
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(),
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.IProdutoLoteService>(),
+    "Gerenciar Produtos", "SubGrupo"));
 
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.Secao>(
     sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
-    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(), "Gerenciar Produtos", "Secao"));
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(),
+    sp.GetRequiredService<ZulexPharma.Application.Interfaces.IProdutoLoteService>(),
+    "Gerenciar Produtos", "Secao"));
 
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoFamiliaService,
                             ZulexPharma.Infrastructure.Services.ProdutoFamiliaService>();
@@ -149,6 +163,27 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoLocalServi
                             ZulexPharma.Infrastructure.Services.ProdutoLocalService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ICompraService,
                             ZulexPharma.Infrastructure.Services.CompraService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoLoteService,
+                            ZulexPharma.Infrastructure.Services.ProdutoLoteService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IInventarioSngpcService,
+                            ZulexPharma.Infrastructure.Services.InventarioSngpcService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IReceitaService,
+                            ZulexPharma.Infrastructure.Services.ReceitaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPerdaService,
+                            ZulexPharma.Infrastructure.Services.PerdaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEstoqueSngpcService,
+                            ZulexPharma.Infrastructure.Services.EstoqueSngpcService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISngpcMapaService,
+                            ZulexPharma.Infrastructure.Services.SngpcMapaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ICompraSngpcService,
+                            ZulexPharma.Infrastructure.Services.CompraSngpcService>();
+
+// ── Gestor Tributário ──
+builder.Services.AddHttpClient("Avant");
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IGestorTributarioProvider,
+                            ZulexPharma.Infrastructure.Services.GestorTributario.AvantGestorTributarioProvider>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IGestorTributarioService,
+                            ZulexPharma.Infrastructure.Services.GestorTributario.GestorTributarioService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IIcmsUfService,
                             ZulexPharma.Infrastructure.Services.IcmsUfService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAtualizacaoPrecoService,

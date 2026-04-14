@@ -20,6 +20,8 @@ public class FilialListDto
     public decimal AliquotaIcms { get; set; }
     public bool IncluirPromoFixa { get; set; }
     public bool IncluirPromoProgressiva { get; set; }
+    public long? ContaCofreId { get; set; }
+    public string? ContaCofreNome { get; set; }
     public DateTime CriadoEm { get; set; }
     public bool Ativo { get; set; }
 }
@@ -43,5 +45,6 @@ public class FilialFormDto
     public decimal AliquotaIcms { get; set; }
     public bool IncluirPromoFixa { get; set; } = true;
     public bool IncluirPromoProgressiva { get; set; } = true;
+    public long? ContaCofreId { get; set; }
     public bool Ativo { get; set; } = true;
 }

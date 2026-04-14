@@ -100,6 +100,15 @@ export class ErpShellComponent {
         { label: 'Contas a Pagar',   sigla: 'CP', iconKey: 'dollar',    rota: '/erp/contas-pagar' },
         { label: 'Contas a Receber', sigla: 'CR', iconKey: 'dollar',    rota: '/erp/contas-receber' },
         { label: 'Adquirentes',     sigla: 'AQ', iconKey: 'dollar',    rota: '/erp/adquirentes' },
+        { label: 'SNGPC',           sigla: 'SN', iconKey: 'shield',    rota: '/erp/sngpc' },
+        { label: 'SNGPC - Inventário Inicial', sigla: 'II', iconKey: 'shield', rota: '/erp/sngpc-inventario' },
+        { label: 'SNGPC - Compras e Transferências', sigla: 'CT', iconKey: 'shield', rota: '/erp/sngpc-compras' },
+        { label: 'SNGPC - Receitas', sigla: 'SR', iconKey: 'shield',   rota: '/erp/sngpc-receitas' },
+        { label: 'SNGPC - Perdas',  sigla: 'SP', iconKey: 'shield',    rota: '/erp/sngpc-perdas' },
+        { label: 'SNGPC - Estoque', sigla: 'SE', iconKey: 'shield',    rota: '/erp/sngpc-estoque' },
+        { label: 'SNGPC - Mapas',   sigla: 'SM', iconKey: 'shield',    rota: '/erp/sngpc-mapas' },
+        { label: 'SNGPC - Vendas Pendentes', sigla: 'VP', iconKey: 'shield', rota: '/erp/sngpc-pendentes' },
+        { label: 'Prescritores',    sigla: 'PR', iconKey: 'shield',    rota: '/erp/prescritores' },
       ]
     },
     {

@@ -19,4 +19,8 @@ public interface ICompraService
     Task<DadosFinalizacaoDto> ObterDadosFinalizacaoAsync(long compraId);
     Task<FinalizarCompraResult> FinalizarAsync(FinalizarCompraRequest request);
     Task<string> ExcluirAsync(long id);
+
+    // ── Conferência de Lotes ──────────────────────────────────────
+    Task<ConferenciaLotesDto> ObterConferenciaLotesAsync(long compraId);
+    Task SalvarConferenciaLotesAsync(long compraId, long usuarioId, SalvarConferenciaLotesDto dto);
 }

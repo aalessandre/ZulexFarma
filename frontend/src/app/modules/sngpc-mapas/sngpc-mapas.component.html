@@ -1,0 +1,156 @@
+<div class="tela-erp">
+
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-adicionar" (click)="abrirGerar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Gerar</span></div>
+      <span class="sidebar-sub">Novo mapa</span>
+    </div>
+    <div class="sidebar-item tile-atualizar" (click)="carregar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg><span>Atualizar</span></div>
+      <span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="lista-header">
+      <div class="lista-filtro">
+        <label>ANO</label>
+        <select [value]="anoFiltro()" (change)="anoFiltro.set(+$any($event.target).value); carregar()">
+          @for (a of anosDisponiveis; track a) { <option [value]="a">{{a}}</option> }
+        </select>
+      </div>
+
+      <div class="col-picker-wrap">
+        <button class="btn-colunas" (click)="painelColunas.update(v => !v)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Colunas
+        </button>
+        @if (painelColunas()) {
+          <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+          <div class="col-picker-painel">
+            <div class="col-picker-header">
+              <span>Personalizar Colunas</span>
+              <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+            </div>
+            <div class="col-picker-lista">
+              @for (col of colunas(); track col.campo) {
+                <label class="col-picker-item">
+                  <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                  <span>{{ col.label }}</span>
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="map-aviso">
+      ⚠️ O envio automático ao webservice Anvisa ainda não está implementado. Baixe o XML e submeta manualmente pelo portal.
+    </div>
+
+    <div class="grid-wrapper">
+      <table class="erp-grid">
+        <thead>
+          <tr>
+            @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize"
+                  [style.width.px]="col.largura"
+                  [style.min-width.px]="col.minLargura"
+                  (click)="ordenar(col.campo)"
+                  draggable="true"
+                  (dragstart)="onDragStartCol(i)"
+                  (dragover)="onDragOverCol($event, i)"
+                  (drop)="onDropCol()">
+                {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+              </th>
+            }
+            <th style="width:130px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (carregando()) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+          } @else if (mapasOrdenados().length === 0) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum mapa gerado para o ano {{ anoFiltro() }}.</td></tr>
+          } @else {
+            @for (m of mapasOrdenados(); track m.id) {
+              <tr>
+                @for (col of colunasVisiveis(); track col.campo) {
+                  @if (col.campo === 'competencia') {
+                    <td><strong>{{ mesNome(m.competenciaMes) }}/{{ m.competenciaAno }}</strong></td>
+                  } @else if (col.campo === 'statusNome') {
+                    <td><span class="status-badge status-{{m.status}}">{{ m.statusNome }}</span></td>
+                  } @else if (col.campo === 'totalEntradas' || col.campo === 'totalSaidas' || col.campo === 'totalReceitas' || col.campo === 'totalPerdas') {
+                    <td class="td-center">{{ getCellValue(m, col.campo) }}</td>
+                  } @else {
+                    <td>{{ getCellValue(m, col.campo) }}</td>
+                  }
+                }
+                <td class="td-center">
+                  <button class="btn-acao btn-baixar" (click)="baixar(m); $event.stopPropagation()" title="Baixar XML">⇩</button>
+                  @if (m.status === 2) {
+                    <button class="btn-acao btn-enviar" (click)="enviar(m); $event.stopPropagation()" title="Marcar enviado">📤</button>
+                  }
+                  @if (m.status !== 3) {
+                    <button class="btn-acao btn-excluir" (click)="excluir(m); $event.stopPropagation()" title="Excluir">✕</button>
+                  }
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-rodape">
+      <span>Registro(s): <strong>{{ mapasOrdenados().length }}</strong></span>
+    </div>
+  </div>
+</div>
+
+@if (modalAberto()) {
+  <div class="modal-overlay" (click)="fecharModal()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Gerar Mapa SNGPC</h3>
+        <button class="modal-fechar" (click)="fecharModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="mod-field">
+          <label>FILIAL</label>
+          <select [value]="filialId()" (change)="filialId.set(+$any($event.target).value)">
+            @for (f of filiais(); track f.id) { <option [value]="f.id">{{ f.nomeFilial }}</option> }
+          </select>
+        </div>
+        <div class="mod-row">
+          <div class="mod-field">
+            <label>MÊS</label>
+            <select [value]="mes()" (change)="mes.set(+$any($event.target).value)">
+              @for (m of meses; track $index; let i = $index) { <option [value]="i + 1">{{ i + 1 }} — {{ m }}</option> }
+            </select>
+          </div>
+          <div class="mod-field">
+            <label>ANO</label>
+            <select [value]="ano()" (change)="ano.set(+$any($event.target).value)">
+              @for (a of anosDisponiveis; track a) { <option [value]="a">{{a}}</option> }
+            </select>
+          </div>
+        </div>
+        <div class="mod-info">
+          O mapa vai consolidar todas as entradas (compras), saídas (vendas), perdas e receitas
+          de produtos psicotrópicos e antimicrobianos no mês selecionado.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancelar" (click)="fecharModal()">Cancelar</button>
+        <button class="btn-ok" (click)="gerar()">Gerar Mapa</button>
+      </div>
+    </div>
+  </div>
+}

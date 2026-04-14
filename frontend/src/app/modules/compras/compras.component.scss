@@ -54,6 +54,7 @@
   &.tile-sefaz        { background: linear-gradient(135deg, #1a5276, #2471a3); }
   &.tile-finalizar    { background: linear-gradient(135deg, #1e8449, #27ae60); }
   &.tile-conferencia  { background: linear-gradient(135deg, #d35400, #e67e22); }
+  &.tile-conferir-lotes { background: linear-gradient(135deg, #16a085, #27ae60); }
   &.tile-procurar     { background: linear-gradient(135deg, #2471a3, #2e86c1); }
   &.tile-importar     { background: linear-gradient(135deg, #1abc9c, #16a085); }
   &.tile-atualizar    { background: linear-gradient(135deg, #2980b9, #3498db); }
@@ -986,4 +987,191 @@
 .erp-grid-compact th[draggable="true"] {
   cursor: grab;
   &:active { cursor: grabbing; }
+}
+
+/* ══ Modal Conferir Lotes (SNGPC) ════════════════════════════════════ */
+.modal-conf-lotes {
+  background: #fff;
+  width: 90vw;
+  max-width: 1400px;
+  max-height: 90vh;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.modal-cl-header {
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #16a085, #27ae60);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  position: relative;
+}
+.modal-cl-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.modal-cl-info {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  opacity: 0.9;
+  flex: 1;
+}
+.modal-cl-ja-conferido {
+  background: rgba(255, 255, 255, 0.18);
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.modal-cl-fechar {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  font-size: 20px;
+  cursor: pointer;
+  &:hover { background: rgba(255, 255, 255, 0.28); }
+}
+
+.modal-cl-toolbar {
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+.modal-cl-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #37474f;
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #16a085;
+    margin-right: 8px;
+  }
+  small {
+    color: #78909c;
+    font-size: 11px;
+    margin-left: 26px;
+  }
+}
+
+.modal-cl-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+.modal-cl-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  th {
+    background: #37474f;
+    color: #fff;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 700;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    white-space: nowrap;
+  }
+  td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #eceff1;
+    white-space: nowrap;
+  }
+  .td-valor { text-align: right; }
+  .cl-icon-col { width: 60px; text-align: center; }
+  .cl-acao-col { width: 70px; text-align: center; }
+}
+.cl-row-sngpc {
+  background: #e8f5e9;
+  &:hover { background: #d7efd9; }
+}
+.cl-row-rastreavel {
+  background: #fff8e1;
+  &:hover { background: #feefc4; }
+}
+.cl-badge-sngpc {
+  display: inline-block;
+  background: #16a085;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+.cl-badge-rastreavel {
+  display: inline-block;
+  background: #f39c12;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+.cl-input {
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid #cfd8dc;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  &:focus { border-color: #16a085; }
+  &.cl-editado {
+    border-color: #f39c12;
+    background: #fff8e1;
+  }
+}
+.cl-input-ms { min-width: 110px; }
+.cl-sem-lote {
+  color: #90a4ae;
+  font-style: italic;
+  text-align: center;
+}
+.cl-btn-add, .cl-btn-remove {
+  background: none;
+  border: 1px solid transparent;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  margin: 0 2px;
+}
+.cl-btn-add {
+  color: #2e7d32;
+  &:hover { background: #e8f5e9; border-color: #a5d6a7; }
+}
+.cl-btn-remove {
+  color: #c62828;
+  &:hover { background: #fde8e8; border-color: #f5c6c3; }
+}
+
+.modal-cl-footer {
+  padding: 14px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }

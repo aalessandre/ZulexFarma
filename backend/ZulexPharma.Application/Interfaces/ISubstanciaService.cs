@@ -8,4 +8,5 @@ public interface ISubstanciaService
     Task<SubstanciaListDto> CriarAsync(SubstanciaFormDto dto);
     Task AtualizarAsync(long id, SubstanciaFormDto dto);
     Task<string> ExcluirAsync(long id);
+    Task<SubstanciaImportResultDto> ImportarPlanilhaAsync(Stream xlsxStream, bool limparAntes);
 }

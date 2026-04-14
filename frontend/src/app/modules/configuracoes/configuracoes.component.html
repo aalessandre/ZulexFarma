@@ -393,6 +393,198 @@
           }
         </div>
 
+        <!-- ══════ SNGPC ══════ -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'sngpc'" (click)="toggleAccordion('sngpc')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+            <span>SNGPC (Sistema Nacional de Gerenciamento de Produtos Controlados)</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'sngpc' ? '▲' : '▼' }}</span>
+          </div>
+          @if (accordionAberto() === 'sngpc') {
+            <div class="cfg-acc-body">
+              <div class="cfg-sub-titulo">Ativação</div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field">
+                  <label class="cfg-toggle-row">
+                    <span class="cfg-toggle">
+                      <input type="checkbox" [checked]="getBool('sngpc.ativar')"
+                             (change)="setBool('sngpc.ativar', $any($event.target).checked)" />
+                      <span class="cfg-toggle-track"></span>
+                      <span class="cfg-toggle-thumb"></span>
+                    </span>
+                    <span class="cfg-toggle-label">Ativar SNGPC
+                      <small>Quando desativado, os controles SNGPC e geração de lotes ficam inativos mesmo para produtos controlados. O último lote/validade ainda é gravado na compra para controle simples.</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="cfg-sub-titulo" style="margin-top:16px">Lançamento de movimentos</div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field cfg-field-select">
+                  <label>COMPRAS
+                    <span class="cfg-info" title="Obrigatório: lança automaticamente todos os produtos psicotrópicos/antimicrobianos no SNGPC. Não Lançar: ignora. Misto: pergunta ao finalizar a compra (switch global).">i</span>
+                  </label>
+                  <select class="cfg-select" [value]="getConfig('sngpc.compras.modo', 'Misto')"
+                          (change)="setConfig('sngpc.compras.modo', $any($event.target).value)">
+                    <option value="Obrigatorio">Obrigatório</option>
+                    <option value="NaoLancar">Não Lançar</option>
+                    <option value="Misto">Misto</option>
+                  </select>
+                </div>
+                <div class="cfg-field cfg-field-select">
+                  <label>VENDAS
+                    <span class="cfg-info" title="Obrigatório: abate automático do estoque SNGPC ao vender controlado. Não Lançar: ignora. Misto: permite opt-out.">i</span>
+                  </label>
+                  <select class="cfg-select" [value]="getConfig('sngpc.vendas.modo', 'Obrigatorio')"
+                          (change)="setConfig('sngpc.vendas.modo', $any($event.target).value)">
+                    <option value="Obrigatorio">Obrigatório</option>
+                    <option value="NaoLancar">Não Lançar</option>
+                    <option value="Misto">Misto</option>
+                  </select>
+                </div>
+                <div class="cfg-field cfg-field-select">
+                  <label>SAÍDA DE LOTE
+                    <span class="cfg-info" title="Automático: sistema força FEFO (primeiro a vencer, primeiro a sair). Manual: operador escolhe o lote. Sugestão: pré-seleciona FEFO mas operador pode trocar com senha de gerente.">i</span>
+                  </label>
+                  <select class="cfg-select" [value]="getConfig('sngpc.lote.saida', 'Automatico')"
+                          (change)="setConfig('sngpc.lote.saida', $any($event.target).value)">
+                    <option value="Automatico">Automático (FEFO)</option>
+                    <option value="Manual">Manual</option>
+                    <option value="Sugestao">Sugestão (com liberação)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cfg-sub-titulo" style="margin-top:16px">Validade das receitas (dias)</div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field">
+                  <label>NOTIFICAÇÃO A (Amarela)</label>
+                  <input type="number" min="1" max="365" class="cfg-input-num"
+                         [value]="getConfig('sngpc.validade_receita_a_dias', '30')"
+                         (input)="setConfig('sngpc.validade_receita_a_dias', $any($event.target).value)" />
+                </div>
+                <div class="cfg-field">
+                  <label>NOTIFICAÇÕES B1/B2 (Azul)</label>
+                  <input type="number" min="1" max="365" class="cfg-input-num"
+                         [value]="getConfig('sngpc.validade_receita_b_dias', '30')"
+                         (input)="setConfig('sngpc.validade_receita_b_dias', $any($event.target).value)" />
+                </div>
+                <div class="cfg-field">
+                  <label>RECEITAS C1/C2/C4/C5 (Branca)</label>
+                  <input type="number" min="1" max="365" class="cfg-input-num"
+                         [value]="getConfig('sngpc.validade_receita_c_dias', '30')"
+                         (input)="setConfig('sngpc.validade_receita_c_dias', $any($event.target).value)" />
+                </div>
+                <div class="cfg-field">
+                  <label>ANTIMICROBIANO</label>
+                  <input type="number" min="1" max="365" class="cfg-input-num"
+                         [value]="getConfig('sngpc.validade_receita_antimicrob_dias', '10')"
+                         (input)="setConfig('sngpc.validade_receita_antimicrob_dias', $any($event.target).value)" />
+                </div>
+              </div>
+
+              <div class="cfg-sub-titulo" style="margin-top:16px">Envio e impressão</div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field">
+                  <label class="cfg-toggle-row">
+                    <span class="cfg-toggle">
+                      <input type="checkbox" [checked]="getBool('sngpc.enviar.automatico')"
+                             (change)="setBool('sngpc.enviar.automatico', $any($event.target).checked)" />
+                      <span class="cfg-toggle-track"></span>
+                      <span class="cfg-toggle-thumb"></span>
+                    </span>
+                    <span class="cfg-toggle-label">Enviar automaticamente
+                      <small>Ao final de cada mês, gera o XML e envia à Anvisa sem intervenção.</small>
+                    </span>
+                  </label>
+                </div>
+                <div class="cfg-field">
+                  <label class="cfg-toggle-row">
+                    <span class="cfg-toggle">
+                      <input type="checkbox" [checked]="getBool('sngpc.imprimir.etiqueta')"
+                             (change)="setBool('sngpc.imprimir.etiqueta', $any($event.target).checked)" />
+                      <span class="cfg-toggle-track"></span>
+                      <span class="cfg-toggle-thumb"></span>
+                    </span>
+                    <span class="cfg-toggle-label">Imprimir etiqueta de controlado
+                      <small>Ao registrar entrada de produto controlado, imprime etiqueta com lote, validade, CNPJ e registro MS.</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- ══════ GESTOR TRIBUTÁRIO ══════ -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'gestor_tributario'" (click)="toggleAccordion('gestor_tributario')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+            <span>Gestor Tributário</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'gestor_tributario' ? '▲' : '▼' }}</span>
+          </div>
+          @if (accordionAberto() === 'gestor_tributario') {
+            <div class="cfg-acc-body">
+              <div class="cfg-sub-titulo">Provedor</div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field cfg-field-select">
+                  <label>PROVEDOR ATIVO
+                    <span class="cfg-info" title="Empresa que fornece a parametrização tributária.">i</span>
+                  </label>
+                  <select class="cfg-select" [value]="getConfig('gestor.tributario.provider', '')"
+                          (change)="setConfig('gestor.tributario.provider', $any($event.target).value)">
+                    <option value="">— Desabilitado —</option>
+                    <option value="avant">Avant (figurafiscal.com.br)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cfg-sub-titulo" style="margin-top:16px">Credenciais Avant</div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field" style="max-width:150px">
+                  <label>ID PARCEIRO
+                    <span class="cfg-info" title="ID numérico do parceiro que administra os tributos na Avant.">i</span>
+                  </label>
+                  <input type="text" [value]="getConfig('gestor.avant.id_parceiro', '')"
+                         (input)="setConfig('gestor.avant.id_parceiro', $any($event.target).value)"
+                         placeholder="Ex: 1" />
+                </div>
+                <div class="cfg-field">
+                  <label>CNPJ DO CLIENTE
+                    <span class="cfg-info" title="CNPJ da farmácia conforme cadastrado na Avant (14 dígitos).">i</span>
+                  </label>
+                  <input type="text" [value]="getConfig('gestor.avant.cnpj_cliente', '')"
+                         (input)="setConfig('gestor.avant.cnpj_cliente', $any($event.target).value)"
+                         placeholder="00.000.000/0000-00" />
+                </div>
+                <div class="cfg-field" style="max-width:170px">
+                  <label>CÓDIGO MUNICÍPIO (IBGE)
+                    <span class="cfg-info" title="Código IBGE de 7 dígitos do município da filial.">i</span>
+                  </label>
+                  <input type="text" [value]="getConfig('gestor.avant.cod_municipio', '')"
+                         (input)="setConfig('gestor.avant.cod_municipio', $any($event.target).value)"
+                         placeholder="Ex: 4119905" />
+                </div>
+                <div class="cfg-field cfg-field-full">
+                  <label>TOKEN (32 caracteres)
+                    <span class="cfg-info" title="Token gerado no cadastro do cliente na Avant.">i</span>
+                  </label>
+                  <input type="text" [value]="getConfig('gestor.avant.token', '')"
+                         (input)="setConfig('gestor.avant.token', $any($event.target).value)"
+                         placeholder="Token fornecido pela Avant"
+                         style="font-family:monospace" />
+                </div>
+              </div>
+
+              <div class="cfg-info-box">
+                <strong>ℹ️ Rate limit:</strong> a Avant aceita até <strong>50.000 requisições/mês</strong>. Cada lote de até 300 produtos conta como 1 requisição.
+                O sistema bloqueia ações em lote automaticamente quando o uso passa de 95%.
+              </div>
+            </div>
+          }
+        </div>
+
       }
     </div>
 

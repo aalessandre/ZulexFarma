@@ -95,6 +95,34 @@ public class SubstanciasController : ControllerBase
         }
     }
 
+    [HttpPost("importar-planilha")]
+    [Permissao("substancias", "i")]
+    [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
+    public async Task<IActionResult> ImportarPlanilha([FromForm] IFormFile arquivo, [FromForm] bool limparAntes = false)
+    {
+        try
+        {
+            if (arquivo == null || arquivo.Length == 0)
+                return BadRequest(new { success = false, message = "Arquivo não enviado." });
+
+            if (!arquivo.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { success = false, message = "Apenas arquivos .xlsx são suportados." });
+
+            using var stream = arquivo.OpenReadStream();
+            var r = await _service.ImportarPlanilhaAsync(stream, limparAntes);
+            return Ok(new { success = true, data = r });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em SubstanciasController.ImportarPlanilha");
+            return StatusCode(500, new { success = false, message = "Erro ao importar planilha." });
+        }
+    }
+
     [HttpGet("{id:long}/log")]
     [Permissao("substancias", "c")]
     public async Task<IActionResult> ObterLog(long id, [FromQuery] DateTime? dataInicio = null, [FromQuery] DateTime? dataFim = null)

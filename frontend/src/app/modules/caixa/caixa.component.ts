@@ -96,6 +96,55 @@ const VR_ITENS_COLUNAS: ColunaDef[] = [
 
 type PainelAtivo = 'vender' | 'pendentes' | 'entregas' | 'valores' | 'vendas' | 'recargas';
 
+interface CaixaMovimentoItem {
+  id: number;
+  codigo?: string;
+  tipo: number;
+  tipoDescricao: string;
+  dataMovimento: string;
+  valor: number;
+  tipoPagamentoId?: number;
+  tipoPagamentoNome?: string;
+  modalidadePagamento?: number;
+  descricao: string;
+  observacao?: string;
+  statusConferencia: number;
+  statusConferenciaDescricao: string;
+  dataConferencia?: string;
+  usuarioNome?: string;
+}
+
+interface TipoPagamentoOpcao {
+  id: number;
+  nome: string;
+  modalidade: number;
+}
+
+interface ContaReceberPendente {
+  id: number;
+  codigo?: string;
+  descricao: string;
+  clienteNome?: string;
+  valor: number;
+  valorLiquido: number;
+  valorRecebido: number;
+  dataVencimento: string;
+  tipoPagamentoNome?: string;
+}
+
+interface PessoaLookup { id: number; nome: string; cpfCnpj?: string; }
+interface PlanoContaLookup { id: number; descricao: string; codigoHierarquico: string; }
+
+const VC_COLUNAS: ColunaDef[] = [
+  { campo: 'codigo',       label: 'CÓDIGO',     largura: 120, minLargura: 90,  padrao: true },
+  { campo: 'dataMovimento',label: 'DATA/HORA',  largura: 140, minLargura: 100, padrao: true },
+  { campo: 'tipoDescricao',label: 'TIPO',       largura: 110, minLargura: 80,  padrao: true },
+  { campo: 'tipoPagamentoNome', label: 'FORMA', largura: 110, minLargura: 80,  padrao: true },
+  { campo: 'descricao',    label: 'DESCRIÇÃO',  largura: 240, minLargura: 120, padrao: true },
+  { campo: 'valor',        label: 'VALOR',      largura: 100, minLargura: 70,  padrao: true },
+  { campo: 'statusConferenciaDescricao', label: 'CONF.', largura: 90, minLargura: 60, padrao: true },
+];
+
 interface SidebarItem {
   id: PainelAtivo;
   label: string;
@@ -137,6 +186,7 @@ export class CaixaComponent implements OnInit, OnDestroy {
   filialId = signal(0);
   colaboradorNomeLogado = signal('');
   dataHoraAbertura = signal('');
+  valorAberturaInput = signal('0,00');
 
   // ── Pendentes (grid padrão ERP) ─────────────────────────────────
   private readonly STORAGE_PEND = 'zulex_colunas_caixa_pendentes';
@@ -176,6 +226,52 @@ export class CaixaComponent implements OnInit, OnDestroy {
   private vrItensDragIdx: number | null = null;
   private vrItensResizeState: { campo: string; startX: number; startW: number } | null = null;
 
+  // ══ Valores em Caixa (movimentos + bipagem) ══════════════════════
+  movimentos = signal<CaixaMovimentoItem[]>([]);
+  movimentosLoading = signal(false);
+  scanInput = signal('');
+  vcColunas = signal<ColunaEstado[]>(VC_COLUNAS.map(c => ({ ...c, visivel: c.padrao })));
+  vcColunasVisiveis = computed(() => this.vcColunas().filter(c => c.visivel));
+
+  // ══ Tipos de pagamento lookup ════════════════════════════════════
+  tiposPagamento = signal<TipoPagamentoOpcao[]>([]);
+
+  // ══ Modais ═══════════════════════════════════════════════════════
+  modalSangria = signal(false);
+  sangriaValor = signal('');
+  sangriaObs = signal('');
+
+  modalSuprimento = signal(false);
+  suprimentoValor = signal('');
+  suprimentoObs = signal('');
+
+  modalRecebimento = signal(false);
+  recebClienteBusca = signal('');
+  recebClienteResultados = signal<PessoaLookup[]>([]);
+  recebClienteSelecionado = signal<PessoaLookup | null>(null);
+  recebContasPendentes = signal<ContaReceberPendente[]>([]);
+  recebContaSelecionada = signal<ContaReceberPendente | null>(null);
+  recebValor = signal('');
+  recebTipoPagamentoId = signal<number | null>(null);
+  private recebTimer: any = null;
+
+  modalPagamento = signal(false);
+  pagPessoaBusca = signal('');
+  pagPessoaResultados = signal<PessoaLookup[]>([]);
+  pagPessoaSelecionada = signal<PessoaLookup | null>(null);
+  pagPlanoBusca = signal('');
+  pagPlanoResultados = signal<PlanoContaLookup[]>([]);
+  pagPlanoSelecionado = signal<PlanoContaLookup | null>(null);
+  pagValor = signal('');
+  pagDescricao = signal('');
+  pagObs = signal('');
+  pagTipoPagamentoId = signal<number | null>(null);
+  private pagTimer: any = null;
+
+  modalFechamentoSimples = signal(false);
+  fechamentoDeclarados = signal<{ tipoPagamentoId: number; nome: string; valor: string }[]>([]);
+  fechamentoObs = signal('');
+
   constructor(
     private http: HttpClient,
     private tabService: TabService,
@@ -187,6 +283,17 @@ export class CaixaComponent implements OnInit, OnDestroy {
     this.carregarFiliais();
     this.verificarCaixaAberto();
     this.carregarCaixasDisponiveis();
+    this.carregarTiposPagamento();
+  }
+
+  private carregarTiposPagamento() {
+    this.http.get<any>(`${this.apiUrl}/tipospagamento`).subscribe({
+      next: r => {
+        const tipos: TipoPagamentoOpcao[] = (r.data ?? []).filter((t: any) => t.ativo)
+          .map((t: any) => ({ id: t.id, nome: t.nome, modalidade: t.modalidade }));
+        this.tiposPagamento.set(tipos);
+      }
+    });
   }
 
   private carregarFiliais() {
@@ -219,21 +326,36 @@ export class CaixaComponent implements OnInit, OnDestroy {
     this.dataHoraAbertura.set(
       agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     );
+    this.valorAberturaInput.set('0,00');
     this.modalAbertura.set(true);
   }
 
   confirmarAberturaCaixa() {
+    const valor = parseFloat(this.valorAberturaInput().replace(',', '.')) || 0;
     this.modalAbertura.set(false);
     this.caixaAbertoLoading.set(true);
-    this.http.post<any>(`${this.apiUrl}/caixas/abrir`, { valorAbertura: 0 }).subscribe({
+    this.http.post<any>(`${this.apiUrl}/caixas/abrir`, { valorAbertura: valor }).subscribe({
       next: r => {
         this.caixaAberto.set(r.data);
         this.caixaAbertoLoading.set(false);
-        this.modal.sucesso('Caixa Aberto', 'O caixa foi aberto com sucesso.');
+        // Imprime canhoto da abertura
+        this.imprimirCanhotoAbertura(r.data.id);
+        this.modal.sucesso('Caixa Aberto', `Caixa aberto com fundo de R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`);
       },
       error: (err: any) => {
         this.caixaAbertoLoading.set(false);
         this.modal.erro('Erro', err?.error?.message || 'Erro ao abrir caixa.');
+      }
+    });
+  }
+
+  private imprimirCanhotoAbertura(caixaId: number) {
+    // Busca o movimento de abertura do caixa recém-aberto
+    this.http.get<any>(`${this.apiUrl}/caixamovimentos/caixa/${caixaId}`).subscribe({
+      next: r => {
+        const movs = r.data ?? [];
+        const abertura = movs.find((m: any) => m.tipo === 1);
+        if (abertura) this.imprimirCanhoto(abertura.id);
       }
     });
   }
@@ -243,13 +365,22 @@ export class CaixaComponent implements OnInit, OnDestroy {
   }
 
   async fecharCaixa() {
-    if (!this.caixaAberto()) return;
-    const resultado = await this.modal.confirmar('Fechar Caixa', 'Deseja fechar o caixa? Não será possível realizar novas vendas até reabrir.', 'Fechar', 'Cancelar');
+    const caixa = this.caixaAberto();
+    if (!caixa) return;
+    // Se o caixa for modo "conferencia_simples", abre modal de declaração
+    const modelo = (caixa as any).modeloFechamento || 'confirmacao_posse';
+    if (modelo === 'conferencia_simples') {
+      this.prepararFechamento();
+      this.modalFechamentoSimples.set(true);
+      return;
+    }
+    // Confirmação de posse: fecha direto
+    const resultado = await this.modal.confirmar('Fechar Caixa', 'Deseja fechar o caixa? Lembre-se de fazer uma sangria final com todo o dinheiro restante antes de fechar.', 'Fechar', 'Cancelar');
     if (!resultado.confirmado) return;
-    this.http.post<any>(`${this.apiUrl}/caixas/${this.caixaAberto()!.id}/fechar`, {}).subscribe({
+    this.http.post<any>(`${this.apiUrl}/caixas/${caixa.id}/fechar`, {}).subscribe({
       next: () => {
         this.caixaAberto.set(null);
-        this.modal.sucesso('Caixa Fechado', 'O caixa foi fechado com sucesso.');
+        this.modal.sucesso('Caixa Fechado', 'O caixa foi fechado. Passe para a conferência em Financeiro > Conferência de Caixa.');
       },
       error: () => this.modal.erro('Erro', 'Erro ao fechar caixa.')
     });
@@ -260,6 +391,65 @@ export class CaixaComponent implements OnInit, OnDestroy {
     this.painelAtivo.set(id);
     if (id === 'pendentes') this.carregarPendentes();
     if (id === 'vendas') this.carregarVendasRealizadas();
+    if (id === 'valores') this.carregarMovimentos();
+  }
+
+  // ── Valores em Caixa ───────────────────────────────────────────
+  carregarMovimentos() {
+    const caixa = this.caixaAberto();
+    if (!caixa) return;
+    this.movimentosLoading.set(true);
+    this.http.get<any>(`${this.apiUrl}/caixamovimentos/caixa/${caixa.id}`).subscribe({
+      next: r => { this.movimentos.set(r.data ?? []); this.movimentosLoading.set(false); },
+      error: () => this.movimentosLoading.set(false)
+    });
+  }
+
+  bipar() {
+    const codigo = this.scanInput().trim();
+    if (!codigo) return;
+    this.http.post<any>(`${this.apiUrl}/caixamovimentos/bipar`, { codigo }).subscribe({
+      next: _ => {
+        this.scanInput.set('');
+        this.carregarMovimentos();
+      },
+      error: (err: any) => {
+        this.scanInput.set('');
+        this.modal.aviso('Canhoto', err?.error?.message || 'Erro ao bipar canhoto.');
+      }
+    });
+  }
+
+  corStatusMov(status: number): string {
+    if (status === 3) return '#27ae60'; // Conferido
+    if (status === 2) return '#f39c12'; // PendenteConferente
+    return '#e74c3c'; // Pendente
+  }
+
+  getCellMov(mov: CaixaMovimentoItem, campo: string): string {
+    const v = (mov as any)[campo];
+    if (campo === 'valor') return (v as number).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    if (campo === 'dataMovimento') return new Date(v).toLocaleString('pt-BR');
+    if (campo === 'tipoDescricao') {
+      const map: Record<number, string> = { 1: 'Abertura', 2: 'Fechamento', 3: 'Venda', 4: 'Sangria', 5: 'Suprimento', 6: 'Recebimento', 7: 'Pagamento' };
+      return map[mov.tipo] ?? '';
+    }
+    return v?.toString() ?? '';
+  }
+
+  imprimirCanhoto(movId: number) {
+    // Busca o HTML via HTTP autenticado e abre janela com o conteúdo
+    this.http.get(`${this.apiUrl}/caixamovimentos/${movId}/canhoto`, { responseType: 'text' }).subscribe({
+      next: (html: string) => {
+        const win = window.open('', '_blank', 'width=400,height=700');
+        if (win) {
+          win.document.open();
+          win.document.write(html);
+          win.document.close();
+        }
+      },
+      error: (err: any) => this.modal.erro('Canhoto', err?.error?.message || 'Erro ao gerar canhoto.')
+    });
   }
 
   // ── Pendentes ──────────────────────────────────────────────────
@@ -337,9 +527,230 @@ export class CaixaComponent implements OnInit, OnDestroy {
     }, 200);
   }
 
-  // ── Operações (placeholder) ────────────────────────────────────
-  sangria() { this.modal.aviso('Em Desenvolvimento', 'A funcionalidade de sangria será implementada em breve.'); }
-  suprimento() { this.modal.aviso('Em Desenvolvimento', 'A funcionalidade de suprimento será implementada em breve.'); }
+  // ══ Sangria ═══════════════════════════════════════════════════
+  sangria() {
+    if (!this.caixaAberto()) { this.modal.aviso('Caixa fechado', 'Abra o caixa primeiro.'); return; }
+    this.sangriaValor.set('');
+    this.sangriaObs.set('');
+    this.modalSangria.set(true);
+  }
+  cancelarSangria() { this.modalSangria.set(false); }
+  confirmarSangria() {
+    const valor = parseFloat(this.sangriaValor().replace(',', '.')) || 0;
+    if (valor <= 0) { this.modal.aviso('Valor inválido', 'Informe um valor maior que zero.'); return; }
+    const caixaId = this.caixaAberto()!.id;
+    this.http.post<any>(`${this.apiUrl}/caixamovimentos/sangria`, {
+      caixaId, valor, observacao: this.sangriaObs() || null
+    }).subscribe({
+      next: r => {
+        this.modalSangria.set(false);
+        this.imprimirCanhoto(r.data.id);
+        this.carregarMovimentos();
+        this.modal.sucesso('Sangria', 'Sangria registrada. Entregue o dinheiro ao conferente.');
+      },
+      error: (err: any) => this.modal.erro('Erro', err?.error?.message || 'Erro ao registrar sangria.')
+    });
+  }
+
+  // ══ Suprimento ════════════════════════════════════════════════
+  suprimento() {
+    if (!this.caixaAberto()) { this.modal.aviso('Caixa fechado', 'Abra o caixa primeiro.'); return; }
+    this.suprimentoValor.set('');
+    this.suprimentoObs.set('');
+    this.modalSuprimento.set(true);
+  }
+  cancelarSuprimento() { this.modalSuprimento.set(false); }
+  confirmarSuprimento() {
+    const valor = parseFloat(this.suprimentoValor().replace(',', '.')) || 0;
+    if (valor <= 0) { this.modal.aviso('Valor inválido', 'Informe um valor maior que zero.'); return; }
+    const caixaId = this.caixaAberto()!.id;
+    this.http.post<any>(`${this.apiUrl}/caixamovimentos/suprimento`, {
+      caixaId, valor, observacao: this.suprimentoObs() || null
+    }).subscribe({
+      next: r => {
+        this.modalSuprimento.set(false);
+        this.imprimirCanhoto(r.data.id);
+        this.carregarMovimentos();
+        this.modal.sucesso('Suprimento', 'Suprimento registrado. Retirada do cofre efetivada.');
+      },
+      error: (err: any) => this.modal.erro('Erro', err?.error?.message || 'Erro ao registrar suprimento.')
+    });
+  }
+
+  // ══ Recebimento (conta a receber) ═════════════════════════════
+  recebimento() {
+    if (!this.caixaAberto()) { this.modal.aviso('Caixa fechado', 'Abra o caixa primeiro.'); return; }
+    this.recebClienteBusca.set('');
+    this.recebClienteResultados.set([]);
+    this.recebClienteSelecionado.set(null);
+    this.recebContasPendentes.set([]);
+    this.recebContaSelecionada.set(null);
+    this.recebValor.set('');
+    this.recebTipoPagamentoId.set(null);
+    this.modalRecebimento.set(true);
+  }
+  cancelarRecebimento() { this.modalRecebimento.set(false); }
+
+  onRecebClienteInput(valor: string) {
+    this.recebClienteBusca.set(valor);
+    if (this.recebTimer) clearTimeout(this.recebTimer);
+    if (valor.trim().length < 2) { this.recebClienteResultados.set([]); return; }
+    this.recebTimer = setTimeout(() => {
+      this.http.get<any>(`${this.apiUrl}/clientes/pesquisar?termo=${encodeURIComponent(valor.trim())}`).subscribe({
+        next: r => {
+          const lista = (r.data ?? []).map((c: any) => ({ id: c.clienteId, nome: c.nome, cpfCnpj: c.cpfCnpj }));
+          this.recebClienteResultados.set(lista);
+        }
+      });
+    }, 300);
+  }
+
+  selecionarRecebCliente(c: PessoaLookup) {
+    this.recebClienteSelecionado.set(c);
+    this.recebClienteBusca.set(c.nome);
+    this.recebClienteResultados.set([]);
+    // Carrega contas a receber abertas do cliente
+    this.http.get<any>(`${this.apiUrl}/contasreceber?status=aberta&busca=${encodeURIComponent(c.nome)}`).subscribe({
+      next: r => {
+        const lista: ContaReceberPendente[] = (r.data ?? []).filter((x: any) => x.clienteNome === c.nome).map((x: any) => ({
+          id: x.id, codigo: x.codigo, descricao: x.descricao, clienteNome: x.clienteNome,
+          valor: x.valor, valorLiquido: x.valorLiquido, valorRecebido: x.valorRecebido,
+          dataVencimento: x.dataVencimento, tipoPagamentoNome: x.tipoPagamentoNome
+        }));
+        this.recebContasPendentes.set(lista);
+      }
+    });
+  }
+
+  selecionarRecebConta(c: ContaReceberPendente) {
+    this.recebContaSelecionada.set(c);
+    const restante = c.valorLiquido - c.valorRecebido;
+    this.recebValor.set(restante.toFixed(2).replace('.', ','));
+  }
+
+  confirmarRecebimento() {
+    const conta = this.recebContaSelecionada();
+    const tipoPag = this.recebTipoPagamentoId();
+    const valor = parseFloat(this.recebValor().replace(',', '.')) || 0;
+    if (!conta) { this.modal.aviso('Selecione uma conta', 'Escolha uma conta a receber.'); return; }
+    if (!tipoPag) { this.modal.aviso('Forma de pagamento', 'Selecione a forma de pagamento.'); return; }
+    if (valor <= 0) { this.modal.aviso('Valor inválido', 'Informe um valor maior que zero.'); return; }
+    const caixaId = this.caixaAberto()!.id;
+    this.http.post<any>(`${this.apiUrl}/caixamovimentos/recebimento`, {
+      caixaId, contaReceberId: conta.id, valor, tipoPagamentoId: tipoPag
+    }).subscribe({
+      next: () => {
+        this.modalRecebimento.set(false);
+        this.carregarMovimentos();
+        this.modal.sucesso('Recebimento', 'Recebimento registrado.');
+      },
+      error: (err: any) => this.modal.erro('Erro', err?.error?.message || 'Erro ao registrar recebimento.')
+    });
+  }
+
+  // ══ Pagamento (despesa do dia) ════════════════════════════════
+  pagamento() {
+    if (!this.caixaAberto()) { this.modal.aviso('Caixa fechado', 'Abra o caixa primeiro.'); return; }
+    this.pagPessoaBusca.set('');
+    this.pagPessoaResultados.set([]);
+    this.pagPessoaSelecionada.set(null);
+    this.pagPlanoBusca.set('');
+    this.pagPlanoResultados.set([]);
+    this.pagPlanoSelecionado.set(null);
+    this.pagValor.set('');
+    this.pagDescricao.set('');
+    this.pagObs.set('');
+    this.pagTipoPagamentoId.set(null);
+    this.modalPagamento.set(true);
+  }
+  cancelarPagamento() { this.modalPagamento.set(false); }
+
+  onPagPessoaInput(valor: string) {
+    this.pagPessoaBusca.set(valor);
+    if (this.pagTimer) clearTimeout(this.pagTimer);
+    if (valor.trim().length < 2) { this.pagPessoaResultados.set([]); return; }
+    this.pagTimer = setTimeout(() => {
+      this.http.get<any>(`${this.apiUrl}/fornecedores/pesquisar?termo=${encodeURIComponent(valor.trim())}`).subscribe({
+        next: r => {
+          const lista = (r.data ?? []).map((f: any) => ({ id: f.pessoaId ?? f.id, nome: f.nome, cpfCnpj: f.cpfCnpj }));
+          this.pagPessoaResultados.set(lista);
+        }
+      });
+    }, 300);
+  }
+  selecionarPagPessoa(p: PessoaLookup) {
+    this.pagPessoaSelecionada.set(p);
+    this.pagPessoaBusca.set(p.nome);
+    this.pagPessoaResultados.set([]);
+  }
+
+  onPagPlanoInput(valor: string) {
+    this.pagPlanoBusca.set(valor);
+    if (valor.trim().length < 2) { this.pagPlanoResultados.set([]); return; }
+    this.http.get<any>(`${this.apiUrl}/planoscontas/pesquisar?termo=${encodeURIComponent(valor.trim())}`).subscribe({
+      next: r => this.pagPlanoResultados.set(r.data ?? [])
+    });
+  }
+  selecionarPagPlano(p: PlanoContaLookup) {
+    this.pagPlanoSelecionado.set(p);
+    this.pagPlanoBusca.set(`${p.codigoHierarquico} - ${p.descricao}`);
+    this.pagPlanoResultados.set([]);
+  }
+
+  confirmarPagamento() {
+    const pessoa = this.pagPessoaSelecionada();
+    const plano = this.pagPlanoSelecionado();
+    const tipoPag = this.pagTipoPagamentoId();
+    const valor = parseFloat(this.pagValor().replace(',', '.')) || 0;
+    if (!pessoa) { this.modal.aviso('Fornecedor', 'Selecione um fornecedor.'); return; }
+    if (!plano) { this.modal.aviso('Plano de contas', 'Selecione um plano de contas.'); return; }
+    if (!tipoPag) { this.modal.aviso('Forma de pagamento', 'Selecione a forma de pagamento.'); return; }
+    if (valor <= 0) { this.modal.aviso('Valor inválido', 'Informe um valor maior que zero.'); return; }
+    const caixaId = this.caixaAberto()!.id;
+    this.http.post<any>(`${this.apiUrl}/caixamovimentos/pagamento`, {
+      caixaId, pessoaId: pessoa.id, planoContaId: plano.id, valor,
+      tipoPagamentoId: tipoPag, descricao: this.pagDescricao(), observacao: this.pagObs() || null
+    }).subscribe({
+      next: () => {
+        this.modalPagamento.set(false);
+        this.carregarMovimentos();
+        this.modal.sucesso('Pagamento', 'Pagamento registrado e lançado em contas a pagar.');
+      },
+      error: (err: any) => this.modal.erro('Erro', err?.error?.message || 'Erro ao registrar pagamento.')
+    });
+  }
+
+  // ══ Fechamento simples (declaração de valores) ═══════════════
+  prepararFechamento() {
+    const tipos = this.tiposPagamento();
+    this.fechamentoDeclarados.set(tipos.map(t => ({ tipoPagamentoId: t.id, nome: t.nome, valor: '0,00' })));
+    this.fechamentoObs.set('');
+  }
+
+  onFechamentoValor(tipoId: number, valor: string) {
+    this.fechamentoDeclarados.update(lista =>
+      lista.map(d => d.tipoPagamentoId === tipoId ? { ...d, valor } : d)
+    );
+  }
+
+  confirmarFechamentoSimples() {
+    const caixaId = this.caixaAberto()!.id;
+    const declarados = this.fechamentoDeclarados().map(d => ({
+      tipoPagamentoId: d.tipoPagamentoId,
+      valorDeclarado: parseFloat(d.valor.replace(',', '.')) || 0
+    }));
+    this.http.post<any>(`${this.apiUrl}/caixas/${caixaId}/fechar`, {
+      caixaId, declarados, observacao: this.fechamentoObs() || null
+    }).subscribe({
+      next: () => {
+        this.modalFechamentoSimples.set(false);
+        this.caixaAberto.set(null);
+        this.modal.sucesso('Caixa Fechado', 'Fechamento realizado. A conferência será feita em Financeiro > Conferência de Caixa.');
+      },
+      error: (err: any) => this.modal.erro('Erro', err?.error?.message || 'Erro ao fechar caixa.')
+    });
+  }
+
   recargas() { this.modal.aviso('Em Desenvolvimento', 'A funcionalidade de recargas será implementada em breve.'); }
   opcoes() { this.modal.aviso('Em Desenvolvimento', 'As opções adicionais serão implementadas em breve.'); }
 

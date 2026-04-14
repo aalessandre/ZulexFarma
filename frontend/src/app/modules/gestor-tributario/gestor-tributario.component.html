@@ -1,0 +1,201 @@
+<div class="tela-erp">
+
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-adicionar" [class.disabled]="!status()?.ativo || status()?.nivelAlerta === 'critico'" (click)="abrirRevisarBase()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg><span>Revisar</span></div>
+      <span class="sidebar-sub">Base toda</span>
+    </div>
+    <div class="sidebar-item tile-atualizar" (click)="carregarJobs()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg><span>Atualizar</span></div>
+      <span class="sidebar-sub">Recarregar jobs</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <!-- Cards de status -->
+    @if (status(); as s) {
+      <div class="gt-status-wrap">
+        <div class="gt-card" [class.gt-card-erro]="!s.ativo">
+          <div class="gt-card-label">Conexão</div>
+          <div class="gt-card-valor">
+            @if (s.ativo) { <span class="gt-ok">● Ativo</span> }
+            @else if (s.configurado) { <span class="gt-warn">● Configurado mas inativo</span> }
+            @else { <span class="gt-erro">● Não configurado</span> }
+          </div>
+          <div class="gt-card-sub">
+            @if (s.provider) { Provider: <strong>{{ s.provider }}</strong> · }
+            @if (s.cnpjCliente) { CNPJ: {{ s.cnpjCliente }} }
+          </div>
+        </div>
+
+        <div class="gt-card" [class.gt-card-warn]="s.nivelAlerta === 'atencao'" [class.gt-card-erro]="s.nivelAlerta === 'critico'">
+          <div class="gt-card-label">Uso Mensal ({{ s.mes }}/{{ s.ano }})</div>
+          <div class="gt-card-valor">{{ s.requisicoesUsadas | number:'1.0-0':'pt-BR' }} / {{ s.limiteMensal | number:'1.0-0':'pt-BR' }}</div>
+          <div class="gt-progress">
+            <div class="gt-progress-bar" [style.width.%]="s.percentualUsado"
+                 [class.bar-ok]="s.nivelAlerta === 'ok'"
+                 [class.bar-warn]="s.nivelAlerta === 'atencao'"
+                 [class.bar-erro]="s.nivelAlerta === 'critico'"></div>
+          </div>
+          <div class="gt-card-sub">{{ s.percentualUsado }}% usado · {{ s.requisicoesDisponiveis | number:'1.0-0':'pt-BR' }} disponíveis</div>
+        </div>
+
+        <div class="gt-card">
+          <div class="gt-card-label">Última chamada</div>
+          <div class="gt-card-valor">{{ s.ultimaChamadaEm ? (s.ultimaChamadaEm | date:'dd/MM/yyyy HH:mm') : '—' }}</div>
+          <div class="gt-card-sub">Contador local defensivo</div>
+        </div>
+      </div>
+
+      @if (s.nivelAlerta === 'critico') {
+        <div class="gt-banner gt-banner-erro">
+          ⚠️ <strong>Limite crítico:</strong> você já usou {{ s.percentualUsado }}% das requisições. Ações em lote estão bloqueadas até o próximo mês.
+        </div>
+      } @else if (s.nivelAlerta === 'atencao') {
+        <div class="gt-banner gt-banner-warn">
+          ⚠️ <strong>Atenção:</strong> {{ s.percentualUsado }}% das requisições do mês já foram utilizadas. Restam {{ s.requisicoesDisponiveis }}.
+        </div>
+      }
+
+      @if (!s.configurado) {
+        <div class="gt-banner gt-banner-info">
+          ℹ️ O Gestor Tributário ainda não está configurado. Vá em <strong>Configurações → Gestor Tributário</strong> e preencha ID Parceiro, CNPJ, Token e Código do Município.
+        </div>
+      }
+    }
+
+    <!-- Header + col picker -->
+    <div class="lista-header">
+      <h3 class="gt-titulo">Histórico de jobs</h3>
+      <div class="col-picker-wrap">
+        <button class="btn-colunas" (click)="painelColunas.update(v => !v)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Colunas
+        </button>
+        @if (painelColunas()) {
+          <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+          <div class="col-picker-painel">
+            <div class="col-picker-header">
+              <span>Personalizar Colunas</span>
+              <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+            </div>
+            <div class="col-picker-lista">
+              @for (col of colunas(); track col.campo) {
+                <label class="col-picker-item">
+                  <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                  <span>{{ col.label }}</span>
+                  @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="grid-wrapper">
+      <table class="erp-grid">
+        <thead>
+          <tr>
+            @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize"
+                  [style.width.px]="col.largura"
+                  [style.min-width.px]="col.minLargura"
+                  (click)="ordenar(col.campo)"
+                  draggable="true"
+                  (dragstart)="onDragStartCol(i)"
+                  (dragover)="onDragOverCol($event, i)"
+                  (drop)="onDropCol()">
+                {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+              </th>
+            }
+            <th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (carregando() && jobs().length === 0) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+          } @else if (jobs().length === 0) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum job executado ainda.</td></tr>
+          } @else {
+            @for (j of jobsOrdenados(); track j.id) {
+              <tr>
+                @for (col of colunasVisiveis(); track col.campo) {
+                  @if (col.campo === 'statusNome') {
+                    <td><span class="status-badge status-{{j.status}}">{{ j.statusNome }}</span></td>
+                  } @else if (col.campo === 'progresso') {
+                    <td>
+                      <div class="mini-progress">
+                        <div class="mini-progress-bar" [style.width.%]="j.progresso" [class.em-erro]="j.status === 4"></div>
+                      </div>
+                      <span class="mini-progress-text">{{ j.itensProcessados }} / {{ j.totalItens }} ({{ j.progresso }}%)</span>
+                    </td>
+                  } @else {
+                    <td>{{ getCellValue(j, col.campo) }}</td>
+                  }
+                }
+                <td class="td-center">
+                  @if (j.status === 1 || j.status === 2) {
+                    <button class="btn-acao btn-cancelar" (click)="cancelarJob(j); $event.stopPropagation()" title="Cancelar">✕</button>
+                  }
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-rodape">
+      <span>Jobs: <strong>{{ jobsOrdenados().length }}</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Revisar Base -->
+@if (modalRevisar()) {
+  <div class="modal-overlay" (click)="fecharRevisar()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Revisar Base Tributária</h3>
+        <button class="modal-fechar" (click)="fecharRevisar()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-info">
+          Esta ação irá consultar o Gestor Tributário para todos os produtos da base e atualizar os dados fiscais.
+          O processo roda em background — você pode fechar esta tela e acompanhar pelo histórico de jobs.
+        </p>
+
+        <div class="mod-field">
+          <label class="check-label">
+            <input type="checkbox" [checked]="filtroSomenteSemFiscal()"
+                   (change)="filtroSomenteSemFiscal.set($any($event.target).checked)" />
+            <span>Somente produtos <strong>sem NCM preenchido</strong></span>
+          </label>
+        </div>
+        <div class="mod-field">
+          <label class="check-label">
+            <input type="checkbox" [checked]="filtroForcarAtualizacao()"
+                   (change)="filtroForcarAtualizacao.set($any($event.target).checked)" />
+            <span>Forçar atualização mesmo nos marcados como <strong>"Não atualizar Gestor Tributário"</strong></span>
+          </label>
+        </div>
+
+        <div class="modal-aviso">
+          ⚠️ Produtos com a flag "Não atualizar Gestor Tributário" (em ProdutoDados) serão pulados por padrão, a menos que você marque "Forçar".
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancelar" (click)="fecharRevisar()" [disabled]="disparandoJob()">Cancelar</button>
+        <button class="btn-ok" (click)="confirmarRevisarBase()" [disabled]="disparandoJob()">
+          {{ disparandoJob() ? 'Iniciando...' : 'Iniciar Revisão' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

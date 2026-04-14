@@ -11,13 +11,15 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
 {
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
+    private readonly IProdutoLoteService _loteService;
     private readonly string _tela;
     private readonly string _entidade;
 
-    public ClassificacaoProdutoService(AppDbContext db, ILogAcaoService log, string tela, string entidade)
+    public ClassificacaoProdutoService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService, string tela, string entidade)
     {
         _db = db;
         _log = log;
+        _loteService = loteService;
         _tela = tela;
         _entidade = entidade;
     }
@@ -56,11 +58,31 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
     {
         var e = await Set.FindAsync(id) ?? throw new KeyNotFoundException($"{_entidade} {id} não encontrado.");
         var anterior = ParaDict(e);
+        bool controleLotesAntes = e.ControlarLotesVencimento;
         MapFromDto(e, dto);
         await _db.SaveChangesAsync();
         var novo = ParaDict(e);
         if (!DictsIguais(anterior, novo))
             await _log.RegistrarAsync(_tela, "ALTERAÇÃO", _entidade, id, anterior: anterior, novo: novo);
+
+        // ── Hook: ativação retroativa do controle de lotes ────────────
+        // Quando o usuário LIGA ControlarLotesVencimento em um GrupoProduto,
+        // gera lotes fictícios para todos os produtos do grupo que tenham estoque > 0.
+        // (Só implementado para GrupoProduto por enquanto — SubGrupo/Secao ficam pra depois.)
+        if (!controleLotesAntes && e.ControlarLotesVencimento && typeof(T) == typeof(GrupoProduto))
+        {
+            var criados = await _loteService.GerarLotesFicticiosDoGrupoAsync(id, null);
+            if (criados > 0)
+            {
+                await _log.RegistrarAsync(_tela, "ATIVAÇÃO RASTREIO LOTES", _entidade, id,
+                    novo: new Dictionary<string, string?>
+                    {
+                        ["Grupo"] = e.Nome,
+                        ["Lotes fictícios criados"] = criados.ToString(),
+                        ["Observação"] = "Lotes gerados automaticamente a partir do estoque atual. Recomenda-se fazer balanço físico."
+                    });
+            }
+        }
     }
 
     public async Task<string> ExcluirAsync(long id)

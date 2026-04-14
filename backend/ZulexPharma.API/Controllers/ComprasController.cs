@@ -262,6 +262,48 @@ public class ComprasController : ControllerBase
             return StatusCode(500, new { success = false, message = "Erro ao buscar histórico." });
         }
     }
+
+    // ══ Conferência de Lotes ═══════════════════════════════════════════
+    [HttpGet("{id:long}/conferencia-lotes")]
+    [Permissao("compras", "c")]
+    public async Task<IActionResult> ObterConferenciaLotes(long id)
+    {
+        try
+        {
+            var data = await _service.ObterConferenciaLotesAsync(id);
+            return Ok(new { success = true, data });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em ComprasController.ObterConferenciaLotes | Id: {Id}", id);
+            return StatusCode(500, new { success = false, message = "Erro ao obter conferência de lotes." });
+        }
+    }
+
+    [HttpPost("{id:long}/conferencia-lotes")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> SalvarConferenciaLotes(long id, [FromBody] SalvarConferenciaLotesDto dto)
+    {
+        try
+        {
+            var usuarioId = long.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+            await _service.SalvarConferenciaLotesAsync(id, usuarioId, dto);
+            return Ok(new { success = true });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em ComprasController.SalvarConferenciaLotes | Id: {Id}", id);
+            return StatusCode(500, new { success = false, message = "Erro ao salvar conferência de lotes." });
+        }
+    }
 }
 
 public class ImportarXmlRequest

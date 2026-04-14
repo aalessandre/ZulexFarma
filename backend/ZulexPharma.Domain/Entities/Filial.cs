@@ -27,6 +27,11 @@ public class Filial : BaseEntity
     /// <summary>Incluir esta filial nas promoções progressivas da matriz.</summary>
     public bool IncluirPromoProgressiva { get; set; } = true;
 
+    /// <summary>Conta bancária que representa o cofre físico da filial.
+    /// Obrigatória para abrir o caixa. Recebe sangrias e fornece suprimentos.</summary>
+    public long? ContaCofreId { get; set; }
+    public ContaBancaria? ContaCofre { get; set; }
+
     public ICollection<Usuario> Usuarios { get; set; } = new List<Usuario>();
     public ICollection<UsuarioFilialGrupo> UsuarioFilialGrupos { get; set; } = new List<UsuarioFilialGrupo>();
 }

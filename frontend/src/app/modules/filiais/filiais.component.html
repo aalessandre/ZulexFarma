@@ -346,6 +346,23 @@
             <span>Incluir filial nas promoções progressivas da matriz</span>
           </label>
         </div>
+
+        <!-- FINANCEIRO / COFRE -->
+        <div class="form-secao">Financeiro</div>
+        <div class="form-grid">
+          <div class="field field-3">
+            <label>CONTA COFRE
+              <span class="field-help" title="Conta bancária que representa o cofre físico. Obrigatória para abrir o caixa.">ℹ</span>
+            </label>
+            <select [value]="filialForm().contaCofreId ?? ''"
+                    (change)="updateForm('contaCofreId', +$any($event.target).value || null)">
+              <option [value]="''">-- Nenhuma --</option>
+              @for (c of contasBancarias(); track c.id) {
+                <option [value]="c.id">{{ c.descricao }}</option>
+              }
+            </select>
+          </div>
+        </div>
       </div>
     }
 

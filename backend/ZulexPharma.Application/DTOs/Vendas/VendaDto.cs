@@ -79,6 +79,10 @@ public class VendaPagamentoFormDto
     public decimal Valor { get; set; }
     public decimal Troco { get; set; }
     public string? TrocoPara { get; set; }
+    public string? CartaoBandeira { get; set; }
+    public string? CartaoAutorizacao { get; set; }
+    public string? CartaoCnpjCredenciadora { get; set; }
+    public int? CartaoTipo { get; set; }
 }
 
 public class VendaItemDto

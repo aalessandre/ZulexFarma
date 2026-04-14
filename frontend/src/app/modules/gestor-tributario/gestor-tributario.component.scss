@@ -1,0 +1,73 @@
+@use '../erp-grid' as *;
+
+.gt-titulo { margin: 0; font-size: 15px; color: var(--erp-text, #2c3e50); flex: 1; }
+
+/* Cards de status */
+.gt-status-wrap { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 14px; padding: 0 16px 12px; }
+.gt-card {
+  background: #fff; border: 1px solid #e8ecf1; border-radius: 10px;
+  padding: 14px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  display: flex; flex-direction: column; gap: 4px;
+  .gt-card-label { font-size: 11px; color: #78909c; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+  .gt-card-valor { font-size: 20px; font-weight: 800; color: #37474f; }
+  .gt-card-sub { font-size: 12px; color: #90a4ae; }
+  &.gt-card-warn  { background: #fff8e1; border-color: #ffb74d; }
+  &.gt-card-erro  { background: #ffebee; border-color: #ef9a9a; }
+}
+.gt-ok   { color: #2e7d32; }
+.gt-warn { color: #ef6c00; }
+.gt-erro { color: #c62828; }
+
+.gt-progress { height: 8px; background: #eceff1; border-radius: 4px; overflow: hidden; }
+.gt-progress-bar { height: 100%; transition: width 0.3s;
+  &.bar-ok { background: linear-gradient(90deg, #66bb6a, #2e7d32); }
+  &.bar-warn { background: linear-gradient(90deg, #ffb74d, #ef6c00); }
+  &.bar-erro { background: linear-gradient(90deg, #ef5350, #c62828); }
+}
+
+/* Banners */
+.gt-banner {
+  margin: 0 16px 12px; padding: 12px 16px; border-radius: 8px;
+  font-size: 13px; line-height: 1.5;
+  &.gt-banner-erro { background: #ffebee; border: 1px solid #ef9a9a; color: #b71c1c; }
+  &.gt-banner-warn { background: #fff8e1; border: 1px solid #ffb74d; color: #e65100; }
+  &.gt-banner-info { background: #e3f2fd; border: 1px solid #90caf9; color: #0d47a1; }
+}
+
+/* Status badge */
+.status-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 10px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  &.status-1 { background: #eceff1; color: #546e7a; } // Pendente
+  &.status-2 { background: #bbdefb; color: #0d47a1; } // Executando
+  &.status-3 { background: #c8e6c9; color: #1b5e20; } // Concluido
+  &.status-4 { background: #ffcdd2; color: #b71c1c; } // Erro
+  &.status-5 { background: #ffe0b2; color: #e65100; } // Cancelado
+  &.status-6 { background: #eceff1; color: #78909c; } // Interrompido
+}
+
+/* Progress mini na tabela */
+.mini-progress { height: 6px; background: #eceff1; border-radius: 3px; overflow: hidden; margin-bottom: 2px; }
+.mini-progress-bar { height: 100%; background: linear-gradient(90deg, #66bb6a, #2e7d32); transition: width 0.3s;
+  &.em-erro { background: linear-gradient(90deg, #ef5350, #c62828); } }
+.mini-progress-text { font-size: 10px; color: #78909c; }
+
+.btn-acao { background: none; border: 1px solid transparent; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; font-size: 13px;
+  &.btn-cancelar { color: #c62828; &:hover { background: #fde8e8; } } }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.modal-box { background: #fff; border-radius: 12px; width: 520px; max-width: 94vw; overflow: hidden; }
+.modal-header { padding: 14px 20px; background: linear-gradient(135deg, #1a5276, #2471a3); color: #fff; display: flex; justify-content: space-between; align-items: center;
+  h3 { margin: 0; font-size: 16px; } }
+.modal-fechar { background: rgba(255,255,255,.15); border: none; color: #fff; width: 28px; height: 28px; border-radius: 4px; font-size: 18px; cursor: pointer; }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.modal-info { margin: 0; font-size: 13px; color: #546e7a; line-height: 1.5; }
+.mod-field .check-label { display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer;
+  input[type="checkbox"] { width: 16px; height: 16px; } }
+.modal-aviso { background: #fff3e0; border: 1px solid #ffb74d; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #e65100; line-height: 1.4; }
+.modal-footer { padding: 14px 20px; background: #f5f5f5; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 10px; }
+.btn-cancelar, .btn-ok { padding: 10px 18px; border: none; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: pointer;
+  &:disabled { opacity: 0.6; cursor: not-allowed; } }
+.btn-cancelar { background: #eceff1; color: #546e7a; }
+.btn-ok { background: #2471a3; color: #fff; }

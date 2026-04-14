@@ -42,7 +42,15 @@ public class Venda : BaseEntity
     public VendaStatus Status { get; set; } = VendaStatus.Aberta;
     public string? Observacao { get; set; }
 
+    /// <summary>
+    /// Marca venda com itens controlados SNGPC cujas receitas ainda não foram lançadas.
+    /// Setado no modo <c>NaoLancar</c> (sempre) ou no modo <c>Misto</c> (quando o operador
+    /// escolhe "Lançar Depois" com senha de supervisor).
+    /// </summary>
+    public bool SngpcPendente { get; set; }
+
     // ── Navigation ─────────────────────────────────────────────
     public ICollection<VendaItem> Itens { get; set; } = new List<VendaItem>();
     public ICollection<VendaPagamento> Pagamentos { get; set; } = new List<VendaPagamento>();
+    public ICollection<VendaReceita> Receitas { get; set; } = new List<VendaReceita>();
 }

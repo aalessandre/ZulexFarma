@@ -1,0 +1,167 @@
+<div class="tela-erp">
+
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-adicionar" (click)="novaReceita()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Nova</span></div>
+      <span class="sidebar-sub">Receita</span>
+    </div>
+    <div class="sidebar-item tile-atualizar" (click)="carregar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg><span>Atualizar</span></div>
+      <span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="lista-header">
+      <div class="col-picker-wrap">
+        <button class="btn-colunas" (click)="painelColunas.update(v => !v)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Colunas
+        </button>
+        @if (painelColunas()) {
+          <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+          <div class="col-picker-painel">
+            <div class="col-picker-header">
+              <span>Personalizar Colunas</span>
+              <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+            </div>
+            <div class="col-picker-lista">
+              @for (col of colunas(); track col.campo) {
+                <label class="col-picker-item">
+                  <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                  <span>{{ col.label }}</span>
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="grid-wrapper">
+      <table class="erp-grid">
+        <thead>
+          <tr>
+            @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize"
+                  [style.width.px]="col.largura"
+                  [style.min-width.px]="col.minLargura"
+                  (click)="ordenar(col.campo)"
+                  draggable="true"
+                  (dragstart)="onDragStartCol(i)"
+                  (dragover)="onDragOverCol($event, i)"
+                  (drop)="onDropCol()">
+                {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+              </th>
+            }
+            <th style="width:90px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (carregando()) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+          } @else if (receitasOrdenadas().length === 0) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhuma receita cadastrada.</td></tr>
+          } @else {
+            @for (r of receitasOrdenadas(); track r.id) {
+              <tr (dblclick)="editar(r)">
+                @for (col of colunasVisiveis(); track col.campo) {
+                  @if (col.campo === 'tipoReceita') {
+                    <td><span class="tipo-badge tipo-{{r.tipoReceita?.toLowerCase()?.replace(' ', '-')}}">{{ r.tipoReceita || '—' }}</span></td>
+                  } @else if (col.campo === 'totalItens') {
+                    <td class="td-center">{{ r.totalItens }}</td>
+                  } @else {
+                    <td>{{ getCellValue(r, col.campo) }}</td>
+                  }
+                }
+                <td class="td-center">
+                  <button class="btn-acao btn-editar" (click)="editar(r); $event.stopPropagation()" title="Editar">✎</button>
+                  <button class="btn-acao btn-excluir" (click)="excluir(r); $event.stopPropagation()" title="Excluir">✕</button>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-rodape">
+      <span>Registro(s): <strong>{{ receitasOrdenadas().length }}</strong></span>
+    </div>
+  </div>
+</div>
+
+@if (modalAberto()) {
+  <div class="modal-overlay" (click)="fecharModal()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ editId() ? 'Editar Receita' : 'Nova Receita' }}</h3>
+        <button class="modal-fechar" (click)="fecharModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="sec-titulo">Dados da Receita</div>
+        <div class="row-3">
+          <div class="mod-field"><label>DATA *</label><input type="date" [value]="dataEmissao()" (change)="dataEmissao.set($any($event.target).value)" /></div>
+          <div class="mod-field"><label>TIPO</label>
+            <select [value]="tipoReceita()" (change)="tipoReceita.set($any($event.target).value)">
+              @for (t of tiposReceita; track t) { <option [value]="t">{{t}}</option> }
+            </select>
+          </div>
+          <div class="mod-field"><label>Nº RECEITA</label><input [value]="numeroReceita()" (input)="numeroReceita.set($any($event.target).value)" /></div>
+        </div>
+        <div class="sec-titulo">Prescritor</div>
+        <div class="row-3">
+          <div class="mod-field"><label>NOME *</label><input [value]="medicoNome()" (input)="medicoNome.set($any($event.target).value)" maxlength="200" /></div>
+          <div class="mod-field"><label>CRM</label><input [value]="medicoCrm()" (input)="medicoCrm.set($any($event.target).value)" maxlength="20" /></div>
+          <div class="mod-field"><label>UF</label><input [value]="medicoUf()" (input)="medicoUf.set($any($event.target).value)" maxlength="2" /></div>
+        </div>
+        <div class="sec-titulo">Paciente</div>
+        <div class="row-3">
+          <div class="mod-field"><label>NOME *</label><input [value]="pacienteNome()" (input)="pacienteNome.set($any($event.target).value)" maxlength="200" /></div>
+          <div class="mod-field"><label>CPF</label><input [value]="pacienteCpf()" (input)="pacienteCpf.set($any($event.target).value)" maxlength="14" /></div>
+          <div class="mod-field"><label>UF</label><input [value]="pacienteUf()" (input)="pacienteUf.set($any($event.target).value)" maxlength="2" /></div>
+        </div>
+        <div class="row-2">
+          <div class="mod-field"><label>ENDEREÇO</label><input [value]="pacienteEndereco()" (input)="pacienteEndereco.set($any($event.target).value)" /></div>
+          <div class="mod-field"><label>CIDADE</label><input [value]="pacienteCidade()" (input)="pacienteCidade.set($any($event.target).value)" /></div>
+        </div>
+
+        <div class="sec-titulo">Medicamentos</div>
+        <div class="lookup-add">
+          <input type="text" [value]="produtoBusca()" (input)="onProdutoInput($any($event.target).value)" placeholder="Buscar produto..." />
+          @if (produtoResultados().length > 0) {
+            <ul class="lookup-list">
+              @for (p of produtoResultados(); track p.id) {
+                <li (mousedown)="selecionarProduto(p)">{{ p.nome }}</li>
+              }
+            </ul>
+          }
+        </div>
+        @if (itens().length > 0) {
+          <table class="itens-tabela">
+            <thead><tr><th>Produto</th><th>Qtde</th><th>Posologia</th><th></th></tr></thead>
+            <tbody>
+              @for (it of itens(); track $index; let idx = $index) {
+                <tr>
+                  <td>{{ it.produtoNome }}</td>
+                  <td><input type="number" min="1" step="0.001" [value]="it.quantidade" (input)="atualizarItem(idx, 'quantidade', +$any($event.target).value)" /></td>
+                  <td><input [value]="it.posologia || ''" (input)="atualizarItem(idx, 'posologia', $any($event.target).value)" /></td>
+                  <td><button class="btn-acao btn-excluir" (click)="removerItem(idx)">✕</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancelar" (click)="fecharModal()">Cancelar</button>
+        <button class="btn-ok" (click)="salvar()">Salvar</button>
+      </div>
+    </div>
+  </div>
+}

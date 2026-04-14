@@ -1,0 +1,154 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="voltar()" [class.disabled]="etapa() === 'selecao'">
+      <span>Voltar</span><span class="sidebar-sub">Seleção</span>
+    </div>
+    <div class="sidebar-item tile-editar" (click)="carregarCaixas()">
+      <span>Atualizar</span><span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span><span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    @if (etapa() === 'selecao') {
+      <div class="form-wrapper">
+        <div class="form-titulo">Conferência de Caixa — Selecione o caixa</div>
+        <div class="cc-caixas-grid">
+          @if (carregando()) { <div class="cc-loading">Carregando...</div> }
+          @else if (caixas().length === 0) {
+            <div class="cc-vazio">Nenhum caixa fechado aguardando conferência.</div>
+          } @else {
+            @for (c of caixas(); track c.id) {
+              <div class="cc-caixa-card" [class.cc-caixa-selected]="caixaSelecionadoId() === c.id" (click)="selecionarCaixa(c.id)">
+                <div class="cc-card-header">
+                  <strong>#{{ c.codigo ?? c.id }}</strong>
+                  <span class="cc-card-modelo">{{ c.modeloFechamento === 'confirmacao_posse' ? 'Posse' : 'Simples' }}</span>
+                </div>
+                <div class="cc-card-nome">{{ c.colaboradorNome }}</div>
+                <div class="cc-card-data">Abertura: {{ c.dataAbertura | date:'dd/MM/yyyy HH:mm' }}</div>
+                @if (c.dataFechamento) {
+                  <div class="cc-card-data">Fechamento: {{ c.dataFechamento | date:'dd/MM/yyyy HH:mm' }}</div>
+                }
+              </div>
+            }
+          }
+        </div>
+      </div>
+      <footer class="tela-toolbar">
+        <button class="tb-btn tb-salvar" [disabled]="!caixaSelecionadoId()" (click)="avancar()">
+          Avançar →
+        </button>
+      </footer>
+    }
+
+    @if (etapa() === 'conferencia' && conferencia(); as conf) {
+      <div class="form-wrapper">
+        <div class="form-titulo">Conferência de Caixa #{{ conf.codigo ?? conf.caixaId }} — {{ conf.colaboradorNome }}</div>
+        <div class="cc-info-row">
+          <span>Modelo: <strong>{{ conf.modeloFechamento === 'confirmacao_posse' ? 'Confirmação de Posse' : 'Conferência Simples' }}</strong></span>
+          <span>Abertura: {{ conf.dataAbertura | date:'dd/MM/yyyy HH:mm' }}</span>
+          <span>Fechamento: {{ conf.dataFechamento | date:'dd/MM/yyyy HH:mm' }}</span>
+          <span>Fundo: R$ {{ conf.valorAbertura.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+        </div>
+
+        <div class="cc-totalizadores">
+          <table class="cc-tabela-totais">
+            <colgroup>
+              <col class="cc-col-forma"/>
+              <col class="cc-col-val"/>
+              <col class="cc-col-val"/>
+              <col class="cc-col-val"/>
+              <col class="cc-col-conf"/>
+              <col class="cc-col-arrow"/>
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="cc-th-left">Forma de Pagamento</th>
+                <th class="cc-th-right">Declarado</th>
+                <th class="cc-th-right">Sistema</th>
+                <th class="cc-th-right">Diferença</th>
+                <th class="cc-th-right">Conferidos</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (forma of conf.formasPagamento; track forma.tipoPagamentoId) {
+                <tr class="cc-total-row" (click)="toggleForma(forma.tipoPagamentoId)"
+                    [class.cc-expanded]="formaExpandidaId() === forma.tipoPagamentoId">
+                  <td><strong>{{ forma.tipoPagamentoNome }}</strong></td>
+                  <td class="cc-valor">R$ {{ forma.valorDeclarado.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="cc-valor">R$ {{ forma.valorSistema.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="cc-valor" [style.color]="corDiferenca(forma.diferenca)">
+                    R$ {{ forma.diferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                  </td>
+                  <td class="cc-valor">{{ forma.qtdeConferidos }} / {{ forma.qtdeMovimentos }}</td>
+                  <td class="cc-valor">{{ formaExpandidaId() === forma.tipoPagamentoId ? '▼' : '▶' }}</td>
+                </tr>
+                @if (formaExpandidaId() === forma.tipoPagamentoId) {
+                  <tr class="cc-expand-row">
+                    <td colspan="6">
+                      <table class="cc-movs-tabela">
+                        <thead>
+                          <tr>
+                            <th style="width:30px"></th>
+                            <th>Código</th>
+                            <th>Data/Hora</th>
+                            <th>Tipo</th>
+                            <th>Descrição</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (mov of forma.movimentos; track mov.id) {
+                            <tr [style.background]="isSelecionado(mov.id) ? '#e8f5e9' : ''"
+                                [style.border-left]="'4px solid ' + corStatus(mov.statusConferencia)">
+                              <td>
+                                <input type="checkbox" [checked]="isSelecionado(mov.id)"
+                                       (change)="toggleMovimento(mov.id)" />
+                              </td>
+                              <td><code>{{ mov.codigo }}</code></td>
+                              <td>{{ mov.dataMovimento | date:'dd/MM/yyyy HH:mm' }}</td>
+                              <td>{{ mov.tipoDescricao }}</td>
+                              <td>{{ mov.descricao }}</td>
+                              <td class="cc-valor">R$ {{ mov.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                              <td>
+                                <span class="cc-badge" [style.background]="corStatus(mov.statusConferencia)">
+                                  {{ nomeStatus(mov.statusConferencia) }}
+                                </span>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colspan="5" style="text-align:right"><strong>Selecionado:</strong></td>
+                            <td class="cc-valor"><strong>R$ {{ totalSelecionadoForma(forma).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</strong></td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cc-obs">
+          <label>Observação da conferência</label>
+          <textarea rows="2" [value]="observacao()" (input)="observacao.set($any($event.target).value)"></textarea>
+        </div>
+      </div>
+      <footer class="tela-toolbar">
+        <button class="tb-btn tb-fechar" (click)="voltar()">← Voltar</button>
+        <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="confirmarConferencia()">
+          {{ salvando() ? 'Confirmando...' : 'Confirmar Conferência' }}
+        </button>
+      </footer>
+    }
+  </div>
+</div>

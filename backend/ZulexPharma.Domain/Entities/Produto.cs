@@ -11,6 +11,13 @@ public class Produto : BaseEntity
     public bool Eliminado { get; set; }
     public bool PermitirConferenciaDigitando { get; set; }
 
+    /// <summary>
+    /// Classe terapêutica para fins de controle SNGPC.
+    /// Valores: null (nenhum) | "Psicotrópicos" | "Antimicrobiano".
+    /// Produtos com esse campo preenchido são considerados controlados e entram no relatório mensal SNGPC.
+    /// </summary>
+    public string? ClasseTerapeutica { get; set; }
+
     // FKs
     public long? FabricanteId { get; set; }
     public long? GrupoPrincipalId { get; set; }

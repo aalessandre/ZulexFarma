@@ -74,7 +74,71 @@ interface ProdutoBarrasItem { id?: number; barras: string; }
 interface ProdutoMsItem { id?: number; numeroMs: string; }
 interface ProdutoSubstanciaItem { id?: number; substanciaId: number; substanciaNome?: string; }
 interface ProdutoFornecedorItem { id?: number; filialId: number; fornecedorId: number; fornecedorNome?: string; codigoProdutoFornecedor?: string; nomeProduto?: string; fracao: number; }
-interface ProdutoFiscalItem { id?: number; filialId: number; ncmId?: number; ncmCodigo?: string; cest?: string; origemMercadoria?: string; cstIcms?: string; csosn?: string; aliquotaIcms: number; cstPis?: string; aliquotaPis: number; cstCofins?: string; aliquotaCofins: number; cstIpi?: string; aliquotaIpi: number; }
+interface ProdutoFiscalItem {
+  id?: number;
+  filialId: number;
+  ncmId?: number;
+  ncmCodigo?: string;
+  cest?: string;
+  origemMercadoria?: string;
+  cfop?: string;
+
+  // ICMS saída
+  cstIcms?: string;
+  csosn?: string;
+  aliquotaIcms: number;
+  aliquotaFcp?: number;
+  modBc?: string;
+  percentualReducaoBc?: number;
+  codigoBeneficio?: string;
+  dispositivoLegalIcms?: string;
+
+  // Tributação ICMS (dropdown) — derivado de csosn/cst pra facilitar edição
+  tributacaoIcms?: string;
+
+  // ST + entrada
+  temSubstituicaoTributaria?: boolean;
+  mvaOriginal?: number;
+  mvaAjustado4?: number;
+  mvaAjustado7?: number;
+  mvaAjustado12?: number;
+  aliquotaIcmsSt?: number;
+  aliquotaFcpSt?: number;
+  aliquotaIcmsInternoEntrada?: number;
+
+  // PIS
+  cstPis?: string;
+  aliquotaPis: number;
+  cstPisEntrada?: string;
+  naturezaReceita?: string;
+
+  // COFINS
+  cstCofins?: string;
+  aliquotaCofins: number;
+  cstCofinsEntrada?: string;
+
+  // IPI
+  cstIpi?: string;
+  aliquotaIpi: number;
+  enquadramentoIpi?: string;
+  cstIpiEntrada?: string;
+  aliquotaIpiEntrada?: number;
+  aliquotaIpiIndustria?: number;
+
+  // Reforma Tributária 2026+
+  cstIs?: string;
+  classTribIs?: string;
+  aliquotaIs?: number;
+  cstIbsCbs?: string;
+  classTribIbsCbs?: string;
+  aliquotaIbsUf?: number;
+  aliquotaIbsMun?: number;
+  aliquotaCbs?: number;
+
+  // Origem
+  atualizadoGestorTributarioEm?: string;
+  atualizadoGestorTributarioProvider?: string;
+}
 interface ProdutoDadosItem {
   id?: number; filialId: number; filialNome?: string;
   estoqueAtual: number; estoqueMinimo: number; estoqueMaximo: number; demanda: number; curvaAbc?: string; estoqueDeposito: number;
@@ -94,11 +158,17 @@ interface ProdutoForm {
   nome: string; codigoBarras?: string; qtdeEmbalagem: number; precoFp?: number;
   lista: string; fracao: number; ativo: boolean; eliminado: boolean; permitirConferenciaDigitando: boolean; criadoEm?: string;
   fabricanteId?: number; grupoPrincipalId?: number; grupoProdutoId?: number; subGrupoId?: number; ncmId?: number;
+  classeTerapeutica: string | null;
   fabricanteNome?: string; grupoPrincipalNome?: string; grupoProdutoNome?: string; subGrupoNome?: string; ncmCodigo?: string;
   barras: ProdutoBarrasItem[]; registrosMs: ProdutoMsItem[];
   substancias: ProdutoSubstanciaItem[]; fornecedores: ProdutoFornecedorItem[];
   fiscais: ProdutoFiscalItem[]; dados: ProdutoDadosItem[];
 }
+
+const CLASSES_TERAPEUTICAS_PRODUTO: { codigo: string; descricao: string }[] = [
+  { codigo: 'Psicotrópicos', descricao: 'Psicotrópicos' },
+  { codigo: 'Antimicrobiano', descricao: 'Antimicrobiano' },
+];
 
 interface LookupItem { id: number; texto: string; }
 
@@ -209,6 +279,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   produtoBusca = signal('');
   /** Quantidade da compra atual (usado para cálculo de custo médio ponderado) */
   qtdeCompraAtual = signal<number>(1);
+
+  // ── Gestor Tributário ─────────────────────────────────────────────
+  consultandoGt = signal(false);
+  mensagemGt = signal('');
+  feedbackGtTipo = signal<'ok' | 'erro' | ''>('');
+  private ultimoEanConsultadoGt = '';
 
   // ── ABCFarma lookup ──────────────────────────────────────────────
   abcFarmaInfo = signal<{ encontrado: boolean; nome?: string; pf: number; pmc: number; markupAbc: number; fabricante?: string } | null>(null);
@@ -977,6 +1053,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           precoFp: d.precoFp, lista: d.lista, fracao: d.fracao, ativo: d.ativo, eliminado: d.eliminado, permitirConferenciaDigitando: d.permitirConferenciaDigitando ?? false,
           fabricanteId: d.fabricanteId, grupoPrincipalId: d.grupoPrincipalId,
           grupoProdutoId: d.grupoProdutoId, subGrupoId: d.subGrupoId, ncmId: d.ncmId,
+          classeTerapeutica: d.classeTerapeutica ?? null,
           fabricanteNome: d.fabricanteNome, grupoPrincipalNome: d.grupoPrincipalNome,
           grupoProdutoNome: d.grupoProdutoNome, subGrupoNome: d.subGrupoNome, ncmCodigo: d.ncmCodigo,
           criadoEm: d.criadoEm,
@@ -1313,6 +1390,50 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.produtoForm.update(f => ({
       ...f,
       fiscais: f.fiscais.map((fiscal, i) => i === idx ? { ...fiscal, [campo]: valor } : fiscal)
+    }));
+    this.isDirty.set(true);
+  }
+
+  /** Deriva o tipo de tributação ICMS a partir de CSOSN/CST para o dropdown. */
+  getTributacaoIcms(fi: ProdutoFiscalItem): string | null {
+    if (fi.temSubstituicaoTributaria) return 'substituicao';
+    const cs = (fi.csosn || '').trim();
+    const cst = (fi.cstIcms || '').trim();
+    // CSOSN (Simples Nacional)
+    if (cs === '201' || cs === '202' || cs === '203' || cs === '500') return 'substituicao';
+    if (cs === '102' || cs === '400') return 'nao_tributado';
+    if (cs === '103') return 'isento';
+    if (cs === '101' || cs === '900') return 'normal';
+    // CST (Regime Normal)
+    if (cst === '10' || cst === '30' || cst === '60' || cst === '70') return 'substituicao';
+    if (cst === '40') return 'isento';
+    if (cst === '41') return 'nao_tributado';
+    if (cst === '00' || cst === '20') return 'normal';
+    if (cst === '04') return 'monofasico';
+    return null;
+  }
+
+  /** Ao escolher um tipo no dropdown, pré-preenche CSOSN/CST correspondente. */
+  setTributacaoIcms(idx: number, tipo: string | null) {
+    // Descobre o CRT (regime) da config — se Simples, usa CSOSN; se Normal, usa CST
+    // Por simplicidade, pré-preenche CSOSN (mais comum pra farmácias).
+    const map: Record<string, { csosn: string; cst: string; st: boolean }> = {
+      normal:       { csosn: '102', cst: '00', st: false },
+      substituicao: { csosn: '500', cst: '60', st: true },
+      isento:       { csosn: '103', cst: '40', st: false },
+      nao_tributado:{ csosn: '400', cst: '41', st: false },
+      monofasico:   { csosn: '900', cst: '04', st: false },
+    };
+    if (!tipo || !map[tipo]) return;
+    const m = map[tipo];
+    this.produtoForm.update(f => ({
+      ...f,
+      fiscais: f.fiscais.map((fiscal, i) => i === idx ? {
+        ...fiscal,
+        csosn: m.csosn,
+        cstIcms: m.cst,
+        temSubstituicaoTributaria: m.st
+      } : fiscal)
     }));
     this.isDirty.set(true);
   }
@@ -1677,6 +1798,141 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.buscarAbcFarma(ean, true);
   }
 
+  // ── Gestor Tributário ─────────────────────────────────────────────
+  onCodigoBarrasBlur() {
+    const ean = this.produtoForm().codigoBarras;
+    // Auto-consulta ao sair do campo se EAN válido e ainda não foi consultado
+    if (!ean || ean.length < 8) return;
+    if (ean === this.ultimoEanConsultadoGt) return;
+    // Só consulta automaticamente em modo de novo produto
+    if (this.produtoEditandoId()) return;
+    this.consultarGestorTributario(true);
+  }
+
+  consultarGestorTributario(auto = false) {
+    const ean = this.produtoForm().codigoBarras;
+    if (!ean || ean.length < 7) {
+      if (!auto) this.modal.aviso('Código de barras', 'Informe um código de barras válido (mínimo 7 dígitos).');
+      return;
+    }
+
+    // Verifica flag nao atualizar
+    const dados = this.produtoForm().dados || [];
+    if (dados.some(d => d.naoAtualizarGestorTributario)) {
+      if (!auto) this.modal.aviso('Gestor Tributário',
+        'Este produto está marcado como "Não atualizar Gestor Tributário". Desmarque a flag em "Dados por Filial" para poder consultar.');
+      return;
+    }
+
+    this.consultandoGt.set(true);
+    this.mensagemGt.set('Consultando...');
+    this.feedbackGtTipo.set('');
+    this.ultimoEanConsultadoGt = ean;
+
+    this.http.get<any>(`${environment.apiUrl}/gestor-tributario/consultar-ean?ean=${encodeURIComponent(ean)}`).subscribe({
+      next: r => {
+        this.consultandoGt.set(false);
+        this.mensagemGt.set('');
+
+        // Backend retorna success=false em caso de erro de config/API externa
+        if (!r.success) {
+          if (!auto) {
+            this.modal.erro('Gestor Tributário', r.message || 'Erro ao consultar.');
+          }
+          return;
+        }
+
+        const dto = r.data;
+        if (!dto || !dto.encontrado) {
+          if (!auto) {
+            this.modal.aviso('Gestor Tributário',
+              'Este código de barras não foi encontrado na base do Gestor Tributário. Os dados fiscais precisarão ser preenchidos manualmente.');
+          }
+          return;
+        }
+
+        this.aplicarDadosGestorTributario(dto);
+        this.mensagemGt.set('✓ Dados fiscais aplicados do Gestor Tributário.');
+        this.feedbackGtTipo.set('ok');
+        // Limpa mensagem de sucesso após 4 segundos
+        setTimeout(() => { this.mensagemGt.set(''); }, 4000);
+      },
+      error: (e: any) => {
+        this.consultandoGt.set(false);
+        this.mensagemGt.set('');
+        if (!auto) {
+          // Erro HTTP real (não devia acontecer pois o backend usa 200 com success=false,
+          // mas se acontecer, mostra mesmo assim)
+          this.modal.erro('Gestor Tributário',
+            e?.error?.message || `Erro HTTP ${e?.status || '?'} ao consultar Gestor Tributário.`);
+        }
+      }
+    });
+  }
+
+  private aplicarDadosGestorTributario(dto: any) {
+    // Aplica em todos os fiscais (por filial) do produto.
+    this.produtoForm.update(f => {
+      const fiscais = f.fiscais.map(fs => ({
+        ...fs,
+        cest: dto.cest ?? fs.cest,
+        origemMercadoria: dto.origem ?? fs.origemMercadoria,
+        cfop: dto.cfop ?? fs.cfop,
+
+        // ICMS saída
+        cstIcms: dto.cstIcms ?? fs.cstIcms,
+        csosn: dto.csosn ?? fs.csosn,
+        aliquotaIcms: dto.aliquotaIcms ?? fs.aliquotaIcms,
+        aliquotaFcp: dto.aliquotaFcp ?? fs.aliquotaFcp,
+        modBc: dto.modBc ?? fs.modBc,
+        percentualReducaoBc: dto.percentualReducaoBc ?? fs.percentualReducaoBc,
+        codigoBeneficio: dto.codigoBeneficio ?? fs.codigoBeneficio,
+        dispositivoLegalIcms: dto.dispositivoLegalIcms ?? fs.dispositivoLegalIcms,
+
+        // ST
+        temSubstituicaoTributaria: dto.temSubstituicaoTributaria ?? fs.temSubstituicaoTributaria,
+        mvaOriginal: dto.mvaOriginal ?? fs.mvaOriginal,
+        mvaAjustado4: dto.mvaAjustado4 ?? fs.mvaAjustado4,
+        mvaAjustado7: dto.mvaAjustado7 ?? fs.mvaAjustado7,
+        mvaAjustado12: dto.mvaAjustado12 ?? fs.mvaAjustado12,
+        aliquotaIcmsSt: dto.aliquotaIcmsSt ?? fs.aliquotaIcmsSt,
+        aliquotaFcpSt: dto.aliquotaFcpSt ?? fs.aliquotaFcpSt,
+        aliquotaIcmsInternoEntrada: dto.aliquotaIcmsInternoEntrada ?? fs.aliquotaIcmsInternoEntrada,
+
+        // PIS / COFINS / IPI
+        cstPis: dto.cstPis ?? fs.cstPis,
+        aliquotaPis: dto.aliquotaPis ?? fs.aliquotaPis,
+        cstPisEntrada: dto.cstPisEntrada ?? fs.cstPisEntrada,
+        naturezaReceita: dto.naturezaReceita ?? fs.naturezaReceita,
+        cstCofins: dto.cstCofins ?? fs.cstCofins,
+        aliquotaCofins: dto.aliquotaCofins ?? fs.aliquotaCofins,
+        cstCofinsEntrada: dto.cstCofinsEntrada ?? fs.cstCofinsEntrada,
+        cstIpi: dto.cstIpi ?? fs.cstIpi,
+        aliquotaIpi: dto.aliquotaIpi ?? fs.aliquotaIpi,
+        enquadramentoIpi: dto.enquadramentoIpi ?? fs.enquadramentoIpi,
+        cstIpiEntrada: dto.cstIpiEntrada ?? fs.cstIpiEntrada,
+        aliquotaIpiEntrada: dto.aliquotaIpiEntrada ?? fs.aliquotaIpiEntrada,
+        aliquotaIpiIndustria: dto.aliquotaIpiIndustria ?? fs.aliquotaIpiIndustria,
+
+        // Reforma Tributária 2026+
+        cstIs: dto.cstIs ?? fs.cstIs,
+        classTribIs: dto.classTribIs ?? fs.classTribIs,
+        aliquotaIs: dto.aliquotaIs ?? fs.aliquotaIs,
+        cstIbsCbs: dto.cstIbsCbs ?? fs.cstIbsCbs,
+        classTribIbsCbs: dto.classTribIbsCbs ?? fs.classTribIbsCbs,
+        aliquotaIbsUf: dto.aliquotaIbsUf ?? fs.aliquotaIbsUf,
+        aliquotaIbsMun: dto.aliquotaIbsMun ?? fs.aliquotaIbsMun,
+        aliquotaCbs: dto.aliquotaCbs ?? fs.aliquotaCbs,
+
+        // Marca origem
+        atualizadoGestorTributarioEm: new Date().toISOString(),
+        atualizadoGestorTributarioProvider: 'avant'
+      }));
+      return { ...f, fiscais };
+    });
+    this.isDirty.set(true);
+  }
+
   buscarAbcFarma(ean: string, forcarAtualizar = false) {
     // Buscar alíquota da filial
     const filialId = this.filialSelecionada();
@@ -1823,9 +2079,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   private novoProdutoForm(): ProdutoForm {
     return {
       nome: '', qtdeEmbalagem: 1, lista: 'Indefinida', fracao: 1, ativo: true, eliminado: false, permitirConferenciaDigitando: false,
+      classeTerapeutica: null,
       barras: [], registrosMs: [], substancias: [], fornecedores: [], fiscais: [], dados: []
     };
   }
+
+  readonly classesTerapeuticasProduto = CLASSES_TERAPEUTICAS_PRODUTO;
 
   private hoje(offsetDias: number): string {
     const d = new Date();

@@ -240,6 +240,13 @@ export class ComprasComponent implements OnInit, OnDestroy {
   confCarregando = signal(false);
   confCompraIds = signal<number[]>([]);
 
+  // ── Conferir Lotes (SNGPC) ────────────────────────────────────
+  confLotesCarregando = signal(false);
+  confLotesAberto = signal(false);
+  confLotesSalvando = signal(false);
+  confLotesData = signal<any | null>(null);
+  confLotesSngpcOptOut = signal(false);
+
   // ── Modal fiscal ──────────────────────────────────────────────
   modalFiscal = signal(false);
   itemFiscal = signal<CompraProduto | null>(null);
@@ -1463,5 +1470,126 @@ export class ComprasComponent implements OnInit, OnDestroy {
       return h;
     }
     return {};
+  }
+
+  // ══ Conferir Lotes (SNGPC + rastreabilidade) ═══════════════════
+  abrirConferirLotes() {
+    if (this.qtdeNotasSelecionadas() !== 1) {
+      this.modal.aviso('Seleção', 'Selecione apenas uma nota para conferir os lotes.');
+      return;
+    }
+    const compraId = this.compras().find(c => this.notasSelecionadas().has(c.id))?.id;
+    if (!compraId) return;
+
+    this.confLotesCarregando.set(true);
+    this.http.get<any>(`${this.apiUrl}/${compraId}/conferencia-lotes`).subscribe({
+      next: r => {
+        this.confLotesCarregando.set(false);
+        this.confLotesData.set(r.data);
+        this.confLotesSngpcOptOut.set(r.data?.sngpcOptOut === true);
+        this.confLotesAberto.set(true);
+      },
+      error: (e: any) => {
+        this.confLotesCarregando.set(false);
+        this.modal.erro('Erro', e?.error?.message || 'Erro ao carregar conferência de lotes.');
+      }
+    });
+  }
+
+  fecharConferirLotes() {
+    this.confLotesAberto.set(false);
+    this.confLotesData.set(null);
+  }
+
+  adicionarLoteLinha(itemIdx: number) {
+    this.confLotesData.update((d: any) => {
+      if (!d) return d;
+      const novoLotes = [...d.itens[itemIdx].lotes, {
+        id: null,
+        numeroLote: '',
+        dataFabricacao: null,
+        dataValidade: null,
+        quantidade: 0,
+        registroMs: d.itens[itemIdx].registroMs,
+        editadoPeloUsuario: true
+      }];
+      const novosItens = [...d.itens];
+      novosItens[itemIdx] = { ...d.itens[itemIdx], lotes: novoLotes };
+      return { ...d, itens: novosItens };
+    });
+  }
+
+  removerLoteLinha(itemIdx: number, loteIdx: number) {
+    this.confLotesData.update((d: any) => {
+      if (!d) return d;
+      const novoLotes = d.itens[itemIdx].lotes.filter((_: any, i: number) => i !== loteIdx);
+      const novosItens = [...d.itens];
+      novosItens[itemIdx] = { ...d.itens[itemIdx], lotes: novoLotes };
+      return { ...d, itens: novosItens };
+    });
+  }
+
+  atualizarLoteCampo(itemIdx: number, loteIdx: number, campo: string, valor: any) {
+    this.confLotesData.update((d: any) => {
+      if (!d) return d;
+      const lote = { ...d.itens[itemIdx].lotes[loteIdx], [campo]: valor };
+      const novoLotes = [...d.itens[itemIdx].lotes];
+      novoLotes[loteIdx] = lote;
+      const novosItens = [...d.itens];
+      novosItens[itemIdx] = { ...d.itens[itemIdx], lotes: novoLotes };
+      return { ...d, itens: novosItens };
+    });
+  }
+
+  atualizarItemRegistroMs(itemIdx: number, valor: string) {
+    this.confLotesData.update((d: any) => {
+      if (!d) return d;
+      const novosItens = [...d.itens];
+      novosItens[itemIdx] = { ...d.itens[itemIdx], registroMs: valor };
+      return { ...d, itens: novosItens };
+    });
+  }
+
+  salvarConferirLotes() {
+    const data = this.confLotesData();
+    if (!data) return;
+
+    for (const item of data.itens) {
+      for (const lote of item.lotes) {
+        if (!lote.numeroLote || !lote.numeroLote.trim()) {
+          this.modal.aviso('Lote inválido', `O item "${item.descricao}" tem um lote sem número.`);
+          return;
+        }
+      }
+    }
+
+    this.confLotesSalvando.set(true);
+    const body = {
+      sngpcOptOut: this.confLotesSngpcOptOut(),
+      itens: data.itens.map((i: any) => ({
+        compraProdutoId: i.compraProdutoId,
+        registroMs: i.registroMs,
+        lotes: i.lotes.map((l: any) => ({
+          id: l.id,
+          numeroLote: l.numeroLote,
+          dataFabricacao: l.dataFabricacao,
+          dataValidade: l.dataValidade,
+          quantidade: l.quantidade,
+          registroMs: l.registroMs
+        }))
+      }))
+    };
+
+    this.http.post<any>(`${this.apiUrl}/${data.compraId}/conferencia-lotes`, body).subscribe({
+      next: () => {
+        this.confLotesSalvando.set(false);
+        this.toastr.success('Conferência de lotes salva.');
+        this.fecharConferirLotes();
+      },
+      error: (e: any) => {
+        this.confLotesSalvando.set(false);
+        this.modal.erro('Erro', e?.error?.message || 'Erro ao salvar conferência de lotes.');
+      }
+    });
   }
 }

@@ -55,4 +55,5 @@ public class CompraProduto : BaseEntity
 
     // ── Navigation ──────────────────────────────────────────────
     public CompraFiscal? Fiscal { get; set; }
+    public ICollection<CompraProdutoLote> Lotes { get; set; } = new List<CompraProdutoLote>();
 }

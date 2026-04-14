@@ -25,6 +25,7 @@ const ICONS: Record<string, string> = {
   building:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 22V12h6v10"/><path d="M9 7h.01M12 7h.01M15 7h.01M9 12h.01M15 12h.01"/></svg>`,
   lock:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
   grid:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+  shield:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
 };
 
 export interface TileItem {
@@ -68,6 +69,7 @@ export class DashboardComponent {
         { label: 'Financeiro',       sigla: 'FN', iconKey: 'dollar',    rota: '/erp/financeiro' },
         { label: 'Fiscal',           sigla: 'FS', iconKey: 'dollar',    rota: '/erp/fiscal' },
         { label: 'Promoções',        sigla: 'PM', iconKey: 'dollar',    rota: '/erp/promocoes' },
+        { label: 'SNGPC',            sigla: 'SN', iconKey: 'shield',    rota: '/erp/sngpc' },
       ]
     },
     {
@@ -76,7 +78,7 @@ export class DashboardComponent {
       tiles: [
         { label: 'Clientes',         sigla: 'CL', iconKey: 'users',     rota: '/erp/clientes' },
         { label: 'Colaboradores',    sigla: 'CO', iconKey: 'user',      rota: '/erp/colaboradores' },
-        { label: 'Gerenciar Produtos', sigla: 'GP', iconKey: 'pill',    rota: '/erp/gerenciar-produtos' },
+        { label: 'Gerenciar Produtos', sigla: 'GP', iconKey: 'pill',    rota: '/erp/gerenciar-produtos-menu' },
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
         { label: 'Substancias',      sigla: 'SB', iconKey: 'pill',      rota: '/erp/substancias' },

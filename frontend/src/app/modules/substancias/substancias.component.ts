@@ -18,8 +18,23 @@ interface Substancia {
   cas: string;
   controleEspecialSngpc: boolean;
   classeTerapeutica: string | null;
+  listaPortaria344: string | null;
+  tipoReceita: number | null;
+  validadeReceitaDias: number | null;
+  adendo: boolean;
   ativo: boolean;
   criadoEm?: string;
+}
+
+interface ListaPortaria344Option {
+  codigo: string;
+  descricao: string;
+}
+
+interface TipoReceitaOption {
+  codigo: number;
+  descricao: string;
+  validadePadrao: number;
 }
 
 interface AbaEdicao {
@@ -49,6 +64,10 @@ const SUBSTANCIAS_COLUNAS: ColunaDef[] = [
   { campo: 'cas',                  label: 'CAS',               largura: 120, minLargura: 80,  padrao: true },
   { campo: 'controleEspecialSngpc',label: 'Ctrl. Especial',    largura: 110, minLargura: 80,  padrao: true },
   { campo: 'classeTerapeutica',    label: 'Classe Terapêutica',largura: 150, minLargura: 100, padrao: true },
+  { campo: 'listaPortaria344',     label: 'Lista 344',         largura: 90,  minLargura: 70,  padrao: false },
+  { campo: 'tipoReceita',          label: 'Tipo Receita',      largura: 100, minLargura: 80,  padrao: false },
+  { campo: 'validadeReceitaDias',  label: 'Val. (dias)',       largura: 90,  minLargura: 70,  padrao: false },
+  { campo: 'adendo',               label: 'Adendo',            largura: 80,  minLargura: 60,  padrao: false },
   { campo: 'ativo',                label: 'Ativo',             largura: 60,  minLargura: 50,  padrao: true },
 ];
 
@@ -98,6 +117,37 @@ export class SubstanciasComponent implements OnInit, OnDestroy {
   carregandoLog  = signal(false);
 
   readonly classesTerapeuticas = ['Antimicrobianos', 'Psicotrópicos'];
+
+  readonly listasPortaria344: ListaPortaria344Option[] = [
+    { codigo: 'A1', descricao: 'A1 — Substâncias entorpecentes' },
+    { codigo: 'A2', descricao: 'A2 — Substâncias entorpecentes de uso permitido sob controle especial' },
+    { codigo: 'A3', descricao: 'A3 — Substâncias psicotrópicas' },
+    { codigo: 'B1', descricao: 'B1 — Substâncias psicotrópicas' },
+    { codigo: 'B2', descricao: 'B2 — Substâncias psicotrópicas anorexígenas' },
+    { codigo: 'C1', descricao: 'C1 — Outras substâncias sujeitas a controle especial' },
+    { codigo: 'C2', descricao: 'C2 — Substâncias retinoicas de uso sistêmico' },
+    { codigo: 'C3', descricao: 'C3 — Substâncias imunossupressoras' },
+    { codigo: 'C4', descricao: 'C4 — Substâncias antirretrovirais' },
+    { codigo: 'C5', descricao: 'C5 — Substâncias anabolizantes' },
+    { codigo: 'D1', descricao: 'D1 — Substâncias precursoras' },
+    { codigo: 'D2', descricao: 'D2 — Insumos químicos usados na fabricação/síntese de entorpecentes ou psicotrópicos' },
+  ];
+
+  readonly tiposReceita: TipoReceitaOption[] = [
+    { codigo: 1, descricao: '1 - Receita de Controle Especial em 2 vias (Receita Branca)', validadePadrao: 30 },
+    { codigo: 2, descricao: '2 - Notificação de Receita B (Notificação Azul)',              validadePadrao: 30 },
+    { codigo: 3, descricao: '3 - Notificação de Receita Especial (Notificação Branca)',    validadePadrao: 30 },
+    { codigo: 4, descricao: '4 - Notificação de Receita A (Notificação Amarela)',          validadePadrao: 30 },
+    { codigo: 5, descricao: '5 - Receita Antimicrobiano em 2 vias',                         validadePadrao: 10 },
+    { codigo: 6, descricao: '6 - Notificação de Receita B2 (Azul — Anorexígenos)',         validadePadrao: 30 },
+  ];
+
+  // Importação de planilha
+  modalImportacao    = signal(false);
+  importacaoArquivo  = signal<File | null>(null);
+  importacaoLimparAntes = signal(true);
+  importando         = signal(false);
+  importacaoResultado = signal<any>(null);
 
   private apiUrl = `${environment.apiUrl}/substancias`;
   private tokenLiberacao: string | null = null;
@@ -427,6 +477,10 @@ export class SubstanciasComponent implements OnInit, OnDestroy {
       cas: f.cas,
       controleEspecialSngpc: f.controleEspecialSngpc,
       classeTerapeutica: f.classeTerapeutica || null,
+      listaPortaria344: f.listaPortaria344 || null,
+      tipoReceita: f.tipoReceita ?? null,
+      validadeReceitaDias: f.validadeReceitaDias ?? null,
+      adendo: f.adendo,
       ativo: f.ativo
     };
 
@@ -549,10 +603,91 @@ export class SubstanciasComponent implements OnInit, OnDestroy {
 
   // ── Utils ────────────────────────────────────────────────────────
   private novaSubstancia(): Substancia {
-    return { nome: '', dcb: '', cas: '', controleEspecialSngpc: false, classeTerapeutica: null, ativo: true };
+    return {
+      nome: '', dcb: '', cas: '',
+      controleEspecialSngpc: false,
+      classeTerapeutica: null,
+      listaPortaria344: null,
+      tipoReceita: null,
+      validadeReceitaDias: null,
+      adendo: false,
+      ativo: true
+    };
+  }
+
+  /** Auto-preenche a validade padrão ao trocar o tipo de receita (se ainda não houver valor). */
+  onTipoReceitaChange(valor: number | null) {
+    this.upd('tipoReceita', valor);
+    if (valor) {
+      const def = this.tiposReceita.find(t => t.codigo === valor);
+      if (def && !this.substanciaForm().validadeReceitaDias) {
+        this.upd('validadeReceitaDias', def.validadePadrao);
+      }
+    }
   }
 
   private clonar<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj));
+  }
+
+  // ── Importação de planilha ───────────────────────────────────────
+  async abrirImportacao() {
+    if (!await this.verificarPermissao('i')) return;
+    this.importacaoArquivo.set(null);
+    this.importacaoLimparAntes.set(true);
+    this.importacaoResultado.set(null);
+    this.modalImportacao.set(true);
+  }
+
+  fecharImportacao() {
+    this.modalImportacao.set(false);
+    this.importacaoResultado.set(null);
+  }
+
+  onArquivoImportacao(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.importacaoArquivo.set(file);
+  }
+
+  async confirmarImportacao() {
+    const arquivo = this.importacaoArquivo();
+    if (!arquivo) {
+      this.modal.aviso('Arquivo', 'Selecione um arquivo .xlsx para importar.');
+      return;
+    }
+    if (!arquivo.name.toLowerCase().endsWith('.xlsx')) {
+      this.modal.aviso('Formato', 'Apenas arquivos .xlsx são suportados.');
+      return;
+    }
+
+    if (this.importacaoLimparAntes()) {
+      const r = await this.modal.confirmar(
+        'Apagar cadastro existente?',
+        'Todas as substâncias atuais serão removidas antes da importação. Esta ação é irreversível. Deseja continuar?',
+        'Sim, apagar e importar',
+        'Cancelar'
+      );
+      if (!r.confirmado) return;
+    }
+
+    this.importando.set(true);
+    this.importacaoResultado.set(null);
+
+    const form = new FormData();
+    form.append('arquivo', arquivo);
+    form.append('limparAntes', this.importacaoLimparAntes() ? 'true' : 'false');
+
+    this.http.post<any>(`${this.apiUrl}/importar-planilha`, form).subscribe({
+      next: r => {
+        this.importando.set(false);
+        this.importacaoResultado.set(r.data);
+        this.carregar();
+      },
+      error: (e: any) => {
+        this.importando.set(false);
+        this.modal.erro('Erro', e?.error?.message || 'Erro ao importar planilha.');
+      }
+    });
   }
 }

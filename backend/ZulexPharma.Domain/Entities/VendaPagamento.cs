@@ -12,4 +12,14 @@ public class VendaPagamento
 
     /// <summary>Para onde foi o troco: "Dinheiro", "PIX", etc.</summary>
     public string? TrocoPara { get; set; }
+
+    // ── Dados do cartão (para NFC-e) ──────────────────────────
+    /// <summary>Bandeira do cartão: 01=Visa, 02=Mastercard, 03=Amex, 04=Elo, 99=Outros</summary>
+    public string? CartaoBandeira { get; set; }
+    /// <summary>Código de autorização (NSU ou cAut)</summary>
+    public string? CartaoAutorizacao { get; set; }
+    /// <summary>CNPJ da credenciadora/adquirente</summary>
+    public string? CartaoCnpjCredenciadora { get; set; }
+    /// <summary>Tipo: 1=Débito, 2=Crédito</summary>
+    public int? CartaoTipo { get; set; }
 }

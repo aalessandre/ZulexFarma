@@ -133,7 +133,7 @@ public static class DatabaseSeeder
             await context.SaveChangesAsync();
         }
 
-        // Configurações com IDs fixos (6-9) — idênticas em todas as filiais e Railway.
+        // Configurações com IDs fixos — idênticas em todas as filiais e Railway.
         // Garante que o sync não conflita (mesmo Id = skip por idempotência).
         var configsSeed = new (long id, string chave, string valor, string descricao)[]
         {
@@ -141,18 +141,36 @@ public static class DatabaseSeeder
             (2, "sessao.inatividade.minutos", "10",        "Tempo de inatividade para encerrar sessao (0 = sem limite)"),
             (3, "sistema.nome",              "ZulexPharma", "Nome do sistema exibido no topo"),
             (4, "produto.preco.regra",       "perguntar",  "Ao alterar preco: perguntar | todas | atual"),
+            // ── SNGPC ────────────────────────────────────────────────
+            (10, "sngpc.ativar",                         "false",       "SNGPC ativado no sistema"),
+            (11, "sngpc.vendas.modo",                    "Obrigatorio", "Modo SNGPC na venda: Obrigatorio | NaoLancar | Misto"),
+            (12, "sngpc.validade_receita_a_dias",        "30",          "Validade (dias) da notificacao A (amarela)"),
+            (13, "sngpc.validade_receita_b_dias",        "30",          "Validade (dias) das notificacoes B1/B2 (azul)"),
+            (14, "sngpc.validade_receita_c_dias",        "30",          "Validade (dias) das receitas C1/C2/C4/C5"),
+            (15, "sngpc.validade_receita_antimicrob_dias","10",         "Validade (dias) da receita de antimicrobiano"),
         };
         foreach (var (id, chave, valor, descricao) in configsSeed)
         {
-            if (!await context.Configuracoes.AnyAsync(c => c.Id == id))
+            // Já está no Id correto — skip
+            if (await context.Configuracoes.AnyAsync(c => c.Id == id)) continue;
+
+            // Config já existe pela chave mas com Id diferente (ex: criada via tela antes de entrar no seed):
+            // realoca para o Id fixo esperado.
+            var existentePorChave = await context.Configuracoes.FirstOrDefaultAsync(c => c.Chave == chave);
+            if (existentePorChave != null)
             {
-                var cfg = new Configuracao { Chave = chave, Valor = valor, Descricao = descricao };
-                context.Configuracoes.Add(cfg);
-                await context.SaveChangesAsync();
-                if (cfg.Id != id)
-                    await context.Database.ExecuteSqlAsync(
-                        $"UPDATE \"Configuracoes\" SET \"Id\" = {id} WHERE \"Id\" = {cfg.Id}");
+                await context.Database.ExecuteSqlAsync(
+                    $"UPDATE \"Configuracoes\" SET \"Id\" = {id} WHERE \"Id\" = {existentePorChave.Id}");
+                continue;
             }
+
+            // Não existe — insere e força Id fixo
+            var cfg = new Configuracao { Chave = chave, Valor = valor, Descricao = descricao };
+            context.Configuracoes.Add(cfg);
+            await context.SaveChangesAsync();
+            if (cfg.Id != id)
+                await context.Database.ExecuteSqlAsync(
+                    $"UPDATE \"Configuracoes\" SET \"Id\" = {id} WHERE \"Id\" = {cfg.Id}");
         }
 
         // Seed de DicionarioTabelas para tabelas NCM (se não existirem)

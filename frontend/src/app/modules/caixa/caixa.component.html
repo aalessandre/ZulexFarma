@@ -42,6 +42,14 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 7 7 17"/><polyline points="17 17 7 17 7 7"/></svg>
         Suprimento
       </button>
+      <button class="cx-btn-top cx-btn-recebimento" (click)="recebimento()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Recebimento
+      </button>
+      <button class="cx-btn-top cx-btn-pagamento" (click)="pagamento()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 010-4h12v4"/><path d="M4 6v12a2 2 0 002 2h14v-4"/><path d="M18 12a2 2 0 000 4h4v-4z"/></svg>
+        Pagamento
+      </button>
       <button class="cx-btn-top cx-btn-recargas" (click)="recargas()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
         Recargas
@@ -176,10 +184,50 @@
       <!-- Painel: Valores em Caixa -->
       @if (painelAtivo() === 'valores') {
         <div class="cx-painel">
-          <div class="cx-painel-header"><h3>Valores em Caixa</h3></div>
-          <div class="cx-painel-placeholder">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--erp-text-muted)" stroke-width="1"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <p>Movimentações em dinheiro do caixa aberto serão exibidas aqui.</p>
+          <div class="cx-painel-header">
+            <h3>Valores em Caixa</h3>
+            <div class="cx-scan-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="4" height="10"/><rect x="8" y="7" width="1" height="10"/><rect x="11" y="7" width="2" height="10"/><rect x="15" y="7" width="1" height="10"/><rect x="18" y="7" width="4" height="10"/></svg>
+              <input type="text" placeholder="Bipe o canhoto..." class="cx-scan-input"
+                     [value]="scanInput()" (input)="scanInput.set($any($event.target).value)"
+                     (keydown.enter)="bipar()" autofocus />
+              <button class="cx-scan-btn" (click)="carregarMovimentos()">Atualizar</button>
+            </div>
+          </div>
+          <div class="cx-vc-grid-wrap">
+            <table class="erp-grid">
+              <thead>
+                <tr>
+                  @for (col of vcColunasVisiveis(); track col.campo) {
+                    <th [style.width.px]="col.largura" [style.min-width.px]="col.minLargura">{{ col.label }}</th>
+                  }
+                  <th style="width:40px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @if (movimentosLoading()) {
+                  <tr><td [attr.colspan]="vcColunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+                } @else if (movimentos().length === 0) {
+                  <tr><td [attr.colspan]="vcColunasVisiveis().length + 1" class="grid-vazio">Nenhum movimento registrado neste caixa.</td></tr>
+                } @else {
+                  @for (mov of movimentos(); track mov.id) {
+                    <tr [style.border-left]="'4px solid ' + corStatusMov(mov.statusConferencia)">
+                      @for (col of vcColunasVisiveis(); track col.campo) {
+                        <td>{{ getCellMov(mov, col.campo) }}</td>
+                      }
+                      <td>
+                        <button class="cx-btn-canhoto" title="Reimprimir canhoto" (click)="imprimirCanhoto(mov.id)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="grid-rodape">
+            <span>Movimentos: <strong>{{ movimentos().length }}</strong></span>
           </div>
         </div>
       }
@@ -377,6 +425,13 @@
             <label>DATA/HORA DA ABERTURA</label>
             <input type="text" [value]="dataHoraAbertura()" disabled />
           </div>
+          <div class="cx-modal-field">
+            <label>VALOR DE ABERTURA (FUNDO DE CAIXA)</label>
+            <div class="cx-moeda-wrap">
+              <span class="cx-moeda-prefix">R$</span>
+              <input type="text" [value]="valorAberturaInput()" (input)="valorAberturaInput.set($any($event.target).value)" placeholder="0,00" autofocus />
+            </div>
+          </div>
         </div>
         <div class="cx-modal-abertura-footer">
           <button class="cx-modal-btn-cancelar" (click)="cancelarAbertura()">Cancelar</button>
@@ -384,6 +439,238 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
             {{ caixaAbertoLoading() ? 'Abrindo...' : 'Abrir Caixa' }}
           </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ══ MODAL SANGRIA ════════════════════════════════════════ -->
+  @if (modalSangria()) {
+    <div class="cx-modal-overlay" (click)="cancelarSangria()">
+      <div class="cx-modal-op" (click)="$event.stopPropagation()">
+        <div class="cx-modal-op-header cx-modal-sangria"><h3>Sangria</h3></div>
+        <div class="cx-modal-op-body">
+          <div class="cx-modal-field">
+            <label>VALOR</label>
+            <div class="cx-moeda-wrap"><span class="cx-moeda-prefix">R$</span>
+              <input type="text" [value]="sangriaValor()" (input)="sangriaValor.set($any($event.target).value)" placeholder="0,00" autofocus />
+            </div>
+          </div>
+          <div class="cx-modal-field">
+            <label>OBSERVAÇÃO (opcional)</label>
+            <textarea rows="2" [value]="sangriaObs()" (input)="sangriaObs.set($any($event.target).value)"></textarea>
+          </div>
+          <div class="cx-modal-aviso">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>Após confirmar, entregue o dinheiro ao conferente. A sangria só entra no cofre depois da confirmação dele.</span>
+          </div>
+        </div>
+        <div class="cx-modal-op-footer">
+          <button class="cx-modal-btn-cancelar" (click)="cancelarSangria()">Cancelar</button>
+          <button class="cx-modal-btn-ok" (click)="confirmarSangria()">Confirmar Sangria</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ══ MODAL SUPRIMENTO ══════════════════════════════════════ -->
+  @if (modalSuprimento()) {
+    <div class="cx-modal-overlay" (click)="cancelarSuprimento()">
+      <div class="cx-modal-op" (click)="$event.stopPropagation()">
+        <div class="cx-modal-op-header cx-modal-suprimento"><h3>Suprimento</h3></div>
+        <div class="cx-modal-op-body">
+          <div class="cx-modal-field">
+            <label>VALOR</label>
+            <div class="cx-moeda-wrap"><span class="cx-moeda-prefix">R$</span>
+              <input type="text" [value]="suprimentoValor()" (input)="suprimentoValor.set($any($event.target).value)" placeholder="0,00" autofocus />
+            </div>
+          </div>
+          <div class="cx-modal-field">
+            <label>OBSERVAÇÃO (opcional)</label>
+            <textarea rows="2" [value]="suprimentoObs()" (input)="suprimentoObs.set($any($event.target).value)"></textarea>
+          </div>
+          <div class="cx-modal-aviso">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>O valor será retirado da Conta Cofre da filial imediatamente.</span>
+          </div>
+        </div>
+        <div class="cx-modal-op-footer">
+          <button class="cx-modal-btn-cancelar" (click)="cancelarSuprimento()">Cancelar</button>
+          <button class="cx-modal-btn-ok" (click)="confirmarSuprimento()">Confirmar Suprimento</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ══ MODAL RECEBIMENTO ══════════════════════════════════════ -->
+  @if (modalRecebimento()) {
+    <div class="cx-modal-overlay" (click)="cancelarRecebimento()">
+      <div class="cx-modal-op cx-modal-op-large" (click)="$event.stopPropagation()">
+        <div class="cx-modal-op-header cx-modal-recebimento"><h3>Recebimento</h3></div>
+        <div class="cx-modal-op-body">
+          <div class="cx-modal-field">
+            <label>CLIENTE</label>
+            <div class="cx-autocomplete-wrap">
+              <input type="text" [value]="recebClienteBusca()" (input)="onRecebClienteInput($any($event.target).value)" placeholder="Digite o nome..." />
+              @if (recebClienteResultados().length > 0) {
+                <div class="cx-autocomplete">
+                  @for (c of recebClienteResultados(); track c.id) {
+                    <div class="cx-autocomplete-item" (click)="selecionarRecebCliente(c)">
+                      <strong>{{ c.nome }}</strong>
+                      @if (c.cpfCnpj) { <span> — {{ c.cpfCnpj }}</span> }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
+          @if (recebContasPendentes().length > 0) {
+            <div class="cx-modal-field">
+              <label>CONTAS A RECEBER ABERTAS</label>
+              <div class="cx-cr-list">
+                @for (c of recebContasPendentes(); track c.id) {
+                  <div class="cx-cr-item" [class.cx-cr-selected]="recebContaSelecionada()?.id === c.id" (click)="selecionarRecebConta(c)">
+                    <div class="cx-cr-info">
+                      <strong>#{{ c.codigo }}</strong> — {{ c.descricao }}
+                      <small>Venc: {{ c.dataVencimento | date:'dd/MM/yyyy' }}</small>
+                    </div>
+                    <div class="cx-cr-valor">
+                      R$ {{ (c.valorLiquido - c.valorRecebido).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (recebContaSelecionada()) {
+            <div class="cx-modal-row">
+              <div class="cx-modal-field">
+                <label>VALOR A RECEBER</label>
+                <div class="cx-moeda-wrap"><span class="cx-moeda-prefix">R$</span>
+                  <input type="text" [value]="recebValor()" (input)="recebValor.set($any($event.target).value)" placeholder="0,00" />
+                </div>
+              </div>
+              <div class="cx-modal-field">
+                <label>FORMA DE PAGAMENTO</label>
+                <select [value]="recebTipoPagamentoId() ?? ''" (change)="recebTipoPagamentoId.set(+$any($event.target).value || null)">
+                  <option value="">-- Selecione --</option>
+                  @for (t of tiposPagamento(); track t.id) { <option [value]="t.id">{{ t.nome }}</option> }
+                </select>
+              </div>
+            </div>
+          }
+        </div>
+        <div class="cx-modal-op-footer">
+          <button class="cx-modal-btn-cancelar" (click)="cancelarRecebimento()">Cancelar</button>
+          <button class="cx-modal-btn-ok" (click)="confirmarRecebimento()" [disabled]="!recebContaSelecionada()">Confirmar Recebimento</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ══ MODAL PAGAMENTO (DESPESA DO DIA) ═══════════════════════ -->
+  @if (modalPagamento()) {
+    <div class="cx-modal-overlay" (click)="cancelarPagamento()">
+      <div class="cx-modal-op cx-modal-op-large" (click)="$event.stopPropagation()">
+        <div class="cx-modal-op-header cx-modal-pag"><h3>Pagamento / Despesa</h3></div>
+        <div class="cx-modal-op-body">
+          <div class="cx-modal-field">
+            <label>FORNECEDOR</label>
+            <div class="cx-autocomplete-wrap">
+              <input type="text" [value]="pagPessoaBusca()" (input)="onPagPessoaInput($any($event.target).value)" placeholder="Digite o nome..." />
+              @if (pagPessoaResultados().length > 0) {
+                <div class="cx-autocomplete">
+                  @for (p of pagPessoaResultados(); track p.id) {
+                    <div class="cx-autocomplete-item" (click)="selecionarPagPessoa(p)">
+                      <strong>{{ p.nome }}</strong>
+                      @if (p.cpfCnpj) { <span> — {{ p.cpfCnpj }}</span> }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+          <div class="cx-modal-field">
+            <label>PLANO DE CONTAS</label>
+            <div class="cx-autocomplete-wrap">
+              <input type="text" [value]="pagPlanoBusca()" (input)="onPagPlanoInput($any($event.target).value)" placeholder="Pesquisar plano de contas..." />
+              @if (pagPlanoResultados().length > 0) {
+                <div class="cx-autocomplete">
+                  @for (p of pagPlanoResultados(); track p.id) {
+                    <div class="cx-autocomplete-item" (click)="selecionarPagPlano(p)">
+                      <span class="cx-autocomplete-cod">{{ p.codigoHierarquico }}</span>
+                      <span>{{ p.descricao }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+          <div class="cx-modal-row">
+            <div class="cx-modal-field">
+              <label>VALOR</label>
+              <div class="cx-moeda-wrap"><span class="cx-moeda-prefix">R$</span>
+                <input type="text" [value]="pagValor()" (input)="pagValor.set($any($event.target).value)" placeholder="0,00" />
+              </div>
+            </div>
+            <div class="cx-modal-field">
+              <label>FORMA DE PAGAMENTO</label>
+              <select [value]="pagTipoPagamentoId() ?? ''" (change)="pagTipoPagamentoId.set(+$any($event.target).value || null)">
+                <option value="">-- Selecione --</option>
+                @for (t of tiposPagamento(); track t.id) { <option [value]="t.id">{{ t.nome }}</option> }
+              </select>
+            </div>
+          </div>
+          <div class="cx-modal-field">
+            <label>DESCRIÇÃO</label>
+            <input type="text" [value]="pagDescricao()" (input)="pagDescricao.set($any($event.target).value)" placeholder="Ex: Frete entregador" />
+          </div>
+          <div class="cx-modal-field">
+            <label>OBSERVAÇÃO (opcional)</label>
+            <textarea rows="2" [value]="pagObs()" (input)="pagObs.set($any($event.target).value)"></textarea>
+          </div>
+        </div>
+        <div class="cx-modal-op-footer">
+          <button class="cx-modal-btn-cancelar" (click)="cancelarPagamento()">Cancelar</button>
+          <button class="cx-modal-btn-ok" (click)="confirmarPagamento()">Confirmar Pagamento</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ══ MODAL FECHAMENTO (SIMPLES) ═════════════════════════════ -->
+  @if (modalFechamentoSimples()) {
+    <div class="cx-modal-overlay">
+      <div class="cx-modal-op cx-modal-op-large" (click)="$event.stopPropagation()">
+        <div class="cx-modal-op-header cx-modal-fechamento"><h3>Fechamento de Caixa</h3></div>
+        <div class="cx-modal-op-body">
+          <p class="cx-modal-info">Declare os valores de cada forma de pagamento conforme a contagem física:</p>
+          <table class="cx-fech-tabela">
+            <thead><tr><th>Forma de Pagamento</th><th style="width:160px">Valor Declarado</th></tr></thead>
+            <tbody>
+              @for (d of fechamentoDeclarados(); track d.tipoPagamentoId) {
+                <tr>
+                  <td>{{ d.nome }}</td>
+                  <td>
+                    <div class="cx-moeda-wrap">
+                      <span class="cx-moeda-prefix">R$</span>
+                      <input type="text" [value]="d.valor" (input)="onFechamentoValor(d.tipoPagamentoId, $any($event.target).value)" />
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="cx-modal-field">
+            <label>OBSERVAÇÃO (opcional)</label>
+            <textarea rows="2" [value]="fechamentoObs()" (input)="fechamentoObs.set($any($event.target).value)"></textarea>
+          </div>
+        </div>
+        <div class="cx-modal-op-footer">
+          <button class="cx-modal-btn-cancelar" (click)="modalFechamentoSimples.set(false)">Cancelar</button>
+          <button class="cx-modal-btn-ok" (click)="confirmarFechamentoSimples()">Fechar Caixa</button>
         </div>
       </div>
     </div>

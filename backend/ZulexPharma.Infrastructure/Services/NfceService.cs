@@ -102,6 +102,16 @@ public class NfceService
 
         var resultado = ProcessarRetorno(xmlRetorno);
 
+        // LOG DIAGNÓSTICO: log completo do status retornado
+        Serilog.Log.Information("NFC-e Retorno | VendaId={VendaId} | cStat={CodStatus} | xMotivo={Motivo} | Autorizada={Auth}",
+            vendaId, resultado.CodigoStatus, resultado.MotivoStatus, resultado.Autorizada);
+
+        // Log do fragmento <pag> do XML enviado para debug
+        var pagStart = xmlAssinado.IndexOf("<pag>");
+        var pagEnd = xmlAssinado.IndexOf("</pag>");
+        if (pagStart >= 0 && pagEnd > pagStart)
+            Serilog.Log.Information("NFC-e <pag> enviado: {Pag}", xmlAssinado.Substring(pagStart, pagEnd - pagStart + 6));
+
         var nfce = new Nfce
         {
             FilialId = filial.Id, VendaId = vendaId,
@@ -140,6 +150,49 @@ public class NfceService
         Domain.Enums.ModalidadePagamento.VendaPrazo => "05",
         _ => "99"
     };
+
+    /// <summary>Retorna tPag considerando débito (03) vs crédito (04) quando é cartão.
+    /// Se for VendaCartao SEM dados de cartão (autorização vazia), cai para "99" (Outros)
+    /// para não gerar XML inválido que faz a SEFAZ rejeitar.</summary>
+    private static string ObterCodigoPagamentoCartao(VendaPagamento pag)
+    {
+        if (pag.TipoPagamento?.Modalidade == Domain.Enums.ModalidadePagamento.VendaCartao)
+        {
+            // Proteção: se for cartão sem dados preenchidos, usa "99" (Outros)
+            if (string.IsNullOrWhiteSpace(pag.CartaoAutorizacao)) return "99";
+            return pag.CartaoTipo == 2 ? "04" : "03";
+        }
+        return ObterCodigoPagamento(pag.TipoPagamento?.Modalidade);
+    }
+
+    /// <summary>Gera o grupo card dentro de detPag.
+    /// NT 2020.006: para cartão (03/04) E PIX (17), o grupo card é esperado com tpIntegra.
+    /// tpIntegra=2 = pagamento não integrado (manual).</summary>
+    private static void AppendCard(System.Text.StringBuilder sb, VendaPagamento pag)
+    {
+        var mod = pag.TipoPagamento?.Modalidade;
+        var isCartao = mod == Domain.Enums.ModalidadePagamento.VendaCartao;
+        var isPix = mod == Domain.Enums.ModalidadePagamento.VendaPix;
+
+        if (!isCartao && !isPix) return;
+
+        // Cartão sem dados: não gera card (o tPag já foi ajustado para 99 em ObterCodigoPagamentoCartao)
+        if (isCartao && string.IsNullOrWhiteSpace(pag.CartaoAutorizacao)) return;
+
+        sb.Append("<card>");
+        sb.Append("<tpIntegra>2</tpIntegra>");
+        if (isCartao)
+        {
+            if (!string.IsNullOrWhiteSpace(pag.CartaoCnpjCredenciadora))
+                sb.Append($"<CNPJ>{pag.CartaoCnpjCredenciadora.Replace(".", "").Replace("/", "").Replace("-", "")}</CNPJ>");
+            if (!string.IsNullOrWhiteSpace(pag.CartaoBandeira))
+                sb.Append($"<tBand>{pag.CartaoBandeira}</tBand>");
+            if (!string.IsNullOrWhiteSpace(pag.CartaoAutorizacao))
+                sb.Append($"<cAut>{Esc(pag.CartaoAutorizacao)}</cAut>");
+        }
+        // Para PIX, só <tpIntegra>2</tpIntegra> é suficiente
+        sb.Append("</card>");
+    }
 
     private static string D2(decimal v) => v.ToString("F2", CultureInfo.InvariantCulture);
     private static string D4(decimal v) => v.ToString("F4", CultureInfo.InvariantCulture);
@@ -371,30 +424,39 @@ public class NfceService
         var trocoReal = pagamentos.Sum(p => p.Troco);
         var totalNF = venda.TotalLiquido;
 
+        // LOG DIAGNÓSTICO: listar todos os pagamentos e suas modalidades
+        foreach (var p in pagamentos)
+        {
+            Serilog.Log.Information("NFC-e Pagamento | VendaId={VendaId} | TipoPag={Nome} | Modalidade={Mod} | Valor={Valor} | CartaoTipo={CartaoTipo} | CartaoAut={CartaoAut}",
+                venda.Id, p.TipoPagamento?.Nome, p.TipoPagamento?.Modalidade, p.Valor, p.CartaoTipo, p.CartaoAutorizacao ?? "(null)");
+        }
+
         sb.Append("<pag>");
         if (pagamentos.Count == 1)
         {
             var pag = pagamentos[0];
-            var tPag = ObterCodigoPagamento(pag.TipoPagamento?.Modalidade);
-            // vPag = totalNF + troco (garante a regra)
-            sb.Append($"<detPag><tPag>{tPag}</tPag><vPag>{D2(totalNF + trocoReal)}</vPag></detPag>");
+            var tPag = ObterCodigoPagamentoCartao(pag);
+            sb.Append($"<detPag><tPag>{tPag}</tPag><vPag>{D2(totalNF + trocoReal)}</vPag>");
+            AppendCard(sb, pag);
+            sb.Append("</detPag>");
         }
         else
         {
-            // Múltiplos: usar o valor proporcional ao totalNF
             var somaPag = pagamentos.Sum(p => p.Valor);
             decimal acumulado = 0;
             for (int i = 0; i < pagamentos.Count; i++)
             {
                 var pag = pagamentos[i];
-                var tPag = ObterCodigoPagamento(pag.TipoPagamento?.Modalidade);
+                var tPag = ObterCodigoPagamentoCartao(pag);
                 decimal vPag;
                 if (i == pagamentos.Count - 1)
-                    vPag = totalNF + trocoReal - acumulado; // último pega o resto para evitar centavo de diferença
+                    vPag = totalNF + trocoReal - acumulado;
                 else
                     vPag = Math.Round(pag.Valor / somaPag * (totalNF + trocoReal), 2);
                 acumulado += vPag;
-                sb.Append($"<detPag><tPag>{tPag}</tPag><vPag>{D2(vPag)}</vPag></detPag>");
+                sb.Append($"<detPag><tPag>{tPag}</tPag><vPag>{D2(vPag)}</vPag>");
+                AppendCard(sb, pag);
+                sb.Append("</detPag>");
             }
         }
         sb.Append($"<vTroco>{D2(trocoReal)}</vTroco>");
