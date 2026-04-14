@@ -35,3 +35,24 @@ desktop.ini
 # ── Backups e logs ────────────────────────────────
 *.log
 backups/
+
+# ── Certificados digitais (chaves privadas — nunca commitar) ──
+*.pfx
+*.p12
+*.pem
+*.key
+
+# ── Documentos locais e binários soltos ──────────
+*.pdf
+*.xlsx
+*.xls
+*.exe
+*.msi
+
+# ── Rascunhos e notas locais ─────────────────────
+/AvantFiscal.txt
+/hierarquia.txt
+/*.txt
+!README*.txt
+/smart tef/
+
