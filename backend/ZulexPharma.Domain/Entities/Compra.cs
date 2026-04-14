@@ -45,6 +45,24 @@ public class Compra : BaseEntity
     [JsonIgnore]
     public string? XmlConteudo { get; set; }
 
+    // ── SNGPC ───────────────────────────────────────────────────
+    /// <summary>
+    /// Flag global da compra para opt-out do SNGPC (modo Misto).
+    /// Quando true, os controlados desta compra NÃO são lançados no relatório SNGPC,
+    /// mas o rastreio de lote ainda acontece normalmente.
+    /// Se null, usa a config <c>sngpc.compras.modo</c>.
+    /// </summary>
+    public bool? SngpcOptOut { get; set; }
+
+    /// <summary>True se a conferência de lotes já foi feita para esta compra.</summary>
+    public bool LotesConferidos { get; set; }
+
+    /// <summary>Data/hora em que os lotes foram conferidos.</summary>
+    public DateTime? LotesConferidosEm { get; set; }
+
+    /// <summary>Usuário que conferiu os lotes.</summary>
+    public long? LotesConferidosPorUsuarioId { get; set; }
+
     // ── Navigation ──────────────────────────────────────────────
     public ICollection<CompraProduto> Produtos { get; set; } = new List<CompraProduto>();
 }

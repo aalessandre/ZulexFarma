@@ -1,0 +1,46 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-editar" (click)="carregar()">
+      <span>Atualizar</span><span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span><span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+  <div class="tela-main">
+    <div class="form-wrapper">
+      <div class="form-titulo">Sangrias Pendentes de Confirmação</div>
+
+      <div class="sp-scan">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="4" height="10"/><rect x="8" y="7" width="1" height="10"/><rect x="11" y="7" width="2" height="10"/><rect x="15" y="7" width="1" height="10"/><rect x="18" y="7" width="4" height="10"/></svg>
+        <input type="text" placeholder="Bipe o canhoto da sangria..." [value]="scanInput()" (input)="scanInput.set($any($event.target).value)" (keydown.enter)="bipar()" autofocus />
+      </div>
+
+      @if (carregando()) {
+        <div class="sp-loading">Carregando...</div>
+      } @else if (sangrias().length === 0) {
+        <div class="sp-vazio">Nenhuma sangria pendente de confirmação.</div>
+      } @else {
+        <div class="sp-grid">
+          @for (s of sangrias(); track s.id) {
+            <div class="sp-card">
+              <div class="sp-card-header">
+                <code>{{ s.codigo }}</code>
+                <span class="sp-valor">R$ {{ s.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+              </div>
+              <div class="sp-card-body">
+                <div><b>Operador:</b> {{ s.usuarioNome || '—' }}</div>
+                <div><b>Data/Hora:</b> {{ s.dataMovimento | date:'dd/MM/yyyy HH:mm' }}</div>
+                @if (s.observacao) { <div><b>Obs:</b> {{ s.observacao }}</div> }
+              </div>
+              <div class="sp-card-footer">
+                <button class="sp-btn-canhoto" (click)="imprimirCanhoto(s.id)">Ver Canhoto</button>
+                <button class="sp-btn-confirmar" (click)="confirmar(s)">Confirmar Recebimento</button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>

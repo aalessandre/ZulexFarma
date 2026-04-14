@@ -229,8 +229,8 @@
                             <select class="tarifa-select"
                                     [value]="tarifa.modalidade"
                                     (change)="updTarifa(bi, ti, 'modalidade', $any($event.target).value)">
-                              @for (mod of modalidades; track mod) {
-                                <option [value]="mod">{{ mod }}</option>
+                              @for (mod of modalidades; track mod.valor) {
+                                <option [value]="mod.valor" [selected]="'' + mod.valor === '' + tarifa.modalidade">{{ mod.label }}</option>
                               }
                             </select>
                           </td>
@@ -247,10 +247,14 @@
                                    placeholder="0" />
                           </td>
                           <td>
-                            <input type="text" class="tarifa-input"
-                                   [value]="tarifa.contaBancariaId"
-                                   (input)="updTarifa(bi, ti, 'contaBancariaId', $any($event.target).value)"
-                                   placeholder="ID" />
+                            <select class="tarifa-select"
+                                    [value]="tarifa.contaBancariaId"
+                                    (change)="updTarifa(bi, ti, 'contaBancariaId', $any($event.target).value)">
+                              <option value="">-- Nenhuma --</option>
+                              @for (cb of contasBancarias(); track cb.id) {
+                                <option [value]="cb.id" [selected]="'' + cb.id === '' + tarifa.contaBancariaId">{{ cb.nome }}</option>
+                              }
+                            </select>
                           </td>
                           <td>
                             <button class="tarifa-remover" (click)="removerTarifa(bi, ti)" title="Remover tarifa">

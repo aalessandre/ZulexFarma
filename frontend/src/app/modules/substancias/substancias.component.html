@@ -14,6 +14,10 @@
       <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Editar</span></div>
       <span class="sidebar-sub">Alterar registro</span>
     </div>
+    <div class="sidebar-item tile-importar" (click)="abrirImportacao()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Importar</span></div>
+      <span class="sidebar-sub">Planilha Anvisa</span>
+    </div>
     <div class="sidebar-item tile-sair" (click)="sairDaTela()">
       <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
       <span class="sidebar-sub">Fechar tela</span>
@@ -207,13 +211,54 @@
           <div class="field field-2">
             <label>CLASSE TERAPÊUTICA</label>
             <select class="select-field"
-                    [value]="substanciaForm().classeTerapeutica ?? ''"
-                    (change)="upd('classeTerapeutica', $any($event.target).value || null)">
-              <option value="">— Nenhuma —</option>
+                    [ngModel]="substanciaForm().classeTerapeutica"
+                    (ngModelChange)="upd('classeTerapeutica', $event)">
+              <option [ngValue]="null">— Nenhuma —</option>
               @for (classe of classesTerapeuticas; track classe) {
-                <option [value]="classe">{{ classe }}</option>
+                <option [ngValue]="classe">{{ classe }}</option>
               }
             </select>
+          </div>
+
+          <div class="field field-3">
+            <label>LISTA PORTARIA 344/1998 (SVS/MS)</label>
+            <select class="select-field"
+                    [ngModel]="substanciaForm().listaPortaria344"
+                    (ngModelChange)="upd('listaPortaria344', $event)">
+              <option [ngValue]="null">— Não enquadrada —</option>
+              @for (lista of listasPortaria344; track lista.codigo) {
+                <option [ngValue]="lista.codigo">{{ lista.descricao }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field field-2">
+            <label>TIPO DE RECEITA</label>
+            <select class="select-field"
+                    [ngModel]="substanciaForm().tipoReceita"
+                    (ngModelChange)="onTipoReceitaChange($event)">
+              <option [ngValue]="null">— Nenhum —</option>
+              @for (tr of tiposReceita; track tr.codigo) {
+                <option [ngValue]="tr.codigo">{{ tr.descricao }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="field field-1">
+            <label>VALIDADE (DIAS)</label>
+            <input type="number" min="0" max="365"
+                   [value]="substanciaForm().validadeReceitaDias ?? ''"
+                   (input)="upd('validadeReceitaDias', $any($event.target).value ? +$any($event.target).value : null)"
+                   placeholder="30" enterTab />
+          </div>
+
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox"
+                     [checked]="substanciaForm().adendo"
+                     (change)="upd('adendo', $any($event.target).checked)" />
+              Adendo
+            </label>
           </div>
 
           <div class="field field-check">
@@ -276,6 +321,90 @@
 
   </div>
 </div>
+
+<!-- MODAL IMPORTAÇÃO PLANILHA -->
+@if (modalImportacao()) {
+  <div class="modal-overlay" (click)="fecharImportacao()">
+    <div class="modal-import-box" (click)="$event.stopPropagation()">
+      <div class="modal-import-header">
+        <div class="modal-import-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Importar Planilha Anvisa
+        </div>
+        <button class="modal-import-fechar" (click)="fecharImportacao()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-import-body">
+        @if (!importacaoResultado()) {
+          <div class="import-info">
+            A planilha deve ser a oficial <strong>substancias_controladas_receitas.xlsx</strong> com a aba <code>substancias</code>
+            contendo as colunas: <code>lista</code>, <code>substancia_portaria</code>, <code>dcb</code>, <code>cas</code>, <code>tipo_receita</code>.
+          </div>
+
+          <div class="import-campo">
+            <label>ARQUIVO (.xlsx)</label>
+            <input type="file" accept=".xlsx" (change)="onArquivoImportacao($event)" />
+            @if (importacaoArquivo()) {
+              <span class="import-nome-arquivo">📄 {{ importacaoArquivo()!.name }}</span>
+            }
+          </div>
+
+          <div class="import-campo">
+            <label class="check-label">
+              <input type="checkbox"
+                     [checked]="importacaoLimparAntes()"
+                     (change)="importacaoLimparAntes.set($any($event.target).checked)" />
+              Apagar todas as substâncias existentes antes da importação
+            </label>
+            <div class="import-aviso" [class.ativo]="importacaoLimparAntes()">
+              ⚠️ Atenção: todas as substâncias atuais serão <strong>removidas permanentemente</strong> do banco.
+            </div>
+          </div>
+
+          @if (importando()) {
+            <div class="import-loading">Importando... aguarde.</div>
+          }
+        } @else {
+          <div class="import-resultado">
+            <div class="import-resultado-titulo">✅ Importação concluída</div>
+            <table class="import-resultado-tabela">
+              <tr><td>Total de linhas processadas</td><td><strong>{{ importacaoResultado().totalLinhas }}</strong></td></tr>
+              <tr><td>Substâncias importadas</td><td class="ok"><strong>{{ importacaoResultado().importadas }}</strong></td></tr>
+              <tr><td>Puladas (sem DCB/CAS)</td><td class="warn"><strong>{{ importacaoResultado().puladasSemDcbCas }}</strong></td></tr>
+              <tr><td>Puladas (duplicadas)</td><td class="warn"><strong>{{ importacaoResultado().puladasDuplicadas }}</strong></td></tr>
+              @if (importacaoResultado().removidasAntes > 0) {
+                <tr><td>Removidas antes da importação</td><td class="danger"><strong>{{ importacaoResultado().removidasAntes }}</strong></td></tr>
+              }
+            </table>
+            @if (importacaoResultado().avisos?.length > 0) {
+              <div class="import-avisos-titulo">Avisos ({{ importacaoResultado().avisos.length }})</div>
+              <div class="import-avisos-lista">
+                @for (a of importacaoResultado().avisos; track $index) {
+                  <div class="import-aviso-item">{{ a }}</div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="modal-import-footer">
+        @if (!importacaoResultado()) {
+          <button class="modal-btn modal-btn-cancelar" (click)="fecharImportacao()" [disabled]="importando()">Cancelar</button>
+          <button class="modal-btn modal-btn-ok" (click)="confirmarImportacao()" [disabled]="importando() || !importacaoArquivo()">
+            {{ importando() ? 'Importando...' : 'Importar' }}
+          </button>
+        } @else {
+          <button class="modal-btn modal-btn-ok" (click)="fecharImportacao()">Fechar</button>
+        }
+      </div>
+    </div>
+  </div>
+}
 
 <!-- MODAL HISTÓRICO DE ALTERAÇÕES -->
 @if (modalLog()) {

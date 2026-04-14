@@ -269,11 +269,24 @@
           <div class="prod-field prod-field-2">
             <label>CÓDIGO DE BARRAS</label>
             <div class="barras-row">
-              <input type="text" [value]="produtoForm().codigoBarras || ''" (input)="onCodigoBarrasChange($any($event.target).value)" placeholder="Código de barras principal" maxlength="13" (keypress)="somenteNumeros($event)" />
+              <input type="text" [value]="produtoForm().codigoBarras || ''"
+                     (input)="onCodigoBarrasChange($any($event.target).value)"
+                     (blur)="onCodigoBarrasBlur()"
+                     placeholder="Código de barras principal" maxlength="13" (keypress)="somenteNumeros($event)" />
               <button class="btn-abcfarma" (click)="buscarAbcFarmaManual()" [disabled]="!produtoForm().codigoBarras || produtoForm().codigoBarras!.length < 7" title="Buscar na base ABCFarma">
                 ABCFarma
               </button>
+              <button class="btn-gt" (click)="consultarGestorTributario()"
+                      [disabled]="!produtoForm().codigoBarras || produtoForm().codigoBarras!.length < 7 || consultandoGt()"
+                      title="Buscar parametrização no Gestor Tributário">
+                {{ consultandoGt() ? '⌛' : 'GT' }}
+              </button>
             </div>
+            @if (mensagemGt()) {
+              <div class="gt-feedback" [class.gt-feedback-ok]="feedbackGtTipo() === 'ok'" [class.gt-feedback-erro]="feedbackGtTipo() === 'erro'">
+                {{ mensagemGt() }}
+              </div>
+            }
           </div>
           <div class="prod-field prod-field-full">
             <label>NOME *</label>
@@ -410,6 +423,19 @@
               }
             </div>
           </div>
+          <!-- CLASSE TERAPÊUTICA (SNGPC) -->
+          <div class="prod-field">
+            <label>CLASSE TERAPÊUTICA
+              <span class="field-info" title="Define se o produto é controlado SNGPC. Somente Psicotrópicos e Antimicrobianos são reportados à Anvisa.">i</span>
+            </label>
+            <select [ngModel]="produtoForm().classeTerapeutica"
+                    (ngModelChange)="updateProdutoForm('classeTerapeutica', $event)">
+              <option [ngValue]="null">— Nenhum —</option>
+              @for (c of classesTerapeuticasProduto; track c.codigo) {
+                <option [ngValue]="c.codigo">{{ c.descricao }}</option>
+              }
+            </select>
+          </div>
         </div>
 
         <!-- ACCORDIONS -->
@@ -494,22 +520,96 @@
 
           <!-- FISCAL (filial selecionada) -->
           @if (fiscalFilialAtual(); as fi) {
-          <details class="prod-accordion">
-            <summary class="prod-acc-header acc-fiscal">Fiscal</summary>
+          <details class="prod-accordion" open>
+            <summary class="prod-acc-header acc-fiscal">
+              Fiscal
+              @if (fi.atualizadoGestorTributarioEm) {
+                <span class="gt-tag" title="Atualizado via Gestor Tributário">
+                  GT · {{ fi.atualizadoGestorTributarioProvider }} · {{ fi.atualizadoGestorTributarioEm | date:'dd/MM/yyyy HH:mm' }}
+                </span>
+              }
+            </summary>
             <div class="prod-acc-body">
+
+              <!-- ICMS (Saída) -->
+              <div class="fiscal-secao">ICMS (Saída)</div>
               <div class="prod-grid">
+                <div class="prod-field">
+                  <label>TRIBUTAÇÃO ICMS</label>
+                  <select [ngModel]="getTributacaoIcms(fi)" (ngModelChange)="setTributacaoIcms(fiscalFilialIdx(), $event)">
+                    <option [ngValue]="null">— Não informado —</option>
+                    <option value="normal">Tributação Normal</option>
+                    <option value="substituicao">Substituição Tributária</option>
+                    <option value="isento">Isento</option>
+                    <option value="nao_tributado">Não Tributado</option>
+                    <option value="monofasico">Monofásico</option>
+                  </select>
+                </div>
                 <div class="prod-field"><label>CEST</label><input type="text" [value]="fi.cest || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cest', $any($event.target).value)" maxlength="9" /></div>
-                <div class="prod-field"><label>ORIGEM MERCADORIA</label><input type="text" [value]="fi.origemMercadoria || ''" (input)="updateFiscal(fiscalFilialIdx(), 'origemMercadoria', $any($event.target).value)" maxlength="1" /></div>
+                <div class="prod-field"><label>ORIGEM</label><input type="text" [value]="fi.origemMercadoria || ''" (input)="updateFiscal(fiscalFilialIdx(), 'origemMercadoria', $any($event.target).value)" maxlength="1" /></div>
+                <div class="prod-field"><label>CFOP</label><input type="text" [value]="fi.cfop || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cfop', $any($event.target).value)" maxlength="4" /></div>
                 <div class="prod-field"><label>CST ICMS</label><input type="text" [value]="fi.cstIcms || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIcms', $any($event.target).value)" maxlength="3" /></div>
                 <div class="prod-field"><label>CSOSN</label><input type="text" [value]="fi.csosn || ''" (input)="updateFiscal(fiscalFilialIdx(), 'csosn', $any($event.target).value)" maxlength="4" /></div>
+                <div class="prod-field"><label>MOD BC</label><input type="text" [value]="fi.modBc || ''" (input)="updateFiscal(fiscalFilialIdx(), 'modBc', $any($event.target).value)" maxlength="2" /></div>
+                <div class="prod-field"><label>% RED. BC</label><input type="text" currencyInput [currencyValue]="fi.percentualReducaoBc || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'percentualReducaoBc', $event)" /></div>
                 <div class="prod-field"><label>% ICMS</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIcms || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIcms', $event)" /></div>
-                <div class="prod-field"><label>CST PIS</label><input type="text" [value]="fi.cstPis || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstPis', $any($event.target).value)" maxlength="2" /></div>
+                <div class="prod-field"><label>% FCP</label><input type="text" currencyInput [currencyValue]="fi.aliquotaFcp || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaFcp', $event)" /></div>
+                <div class="prod-field"><label>COD. BENEFÍCIO</label><input type="text" [value]="fi.codigoBeneficio || ''" (input)="updateFiscal(fiscalFilialIdx(), 'codigoBeneficio', $any($event.target).value)" maxlength="10" /></div>
+              </div>
+
+              <!-- ICMS ST -->
+              <div class="fiscal-secao">ICMS ST (Substituição Tributária)</div>
+              <div class="prod-grid">
+                <div class="prod-field prod-field-check">
+                  <label class="check-label">
+                    <input type="checkbox" [checked]="fi.temSubstituicaoTributaria" (change)="updateFiscal(fiscalFilialIdx(), 'temSubstituicaoTributaria', $any($event.target).checked)" />
+                    Tem ST
+                  </label>
+                </div>
+                <div class="prod-field"><label>MVA ORIGINAL</label><input type="text" currencyInput [currencyValue]="fi.mvaOriginal || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'mvaOriginal', $event)" /></div>
+                <div class="prod-field"><label>MVA 4%</label><input type="text" currencyInput [currencyValue]="fi.mvaAjustado4 || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'mvaAjustado4', $event)" /></div>
+                <div class="prod-field"><label>MVA 7%</label><input type="text" currencyInput [currencyValue]="fi.mvaAjustado7 || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'mvaAjustado7', $event)" /></div>
+                <div class="prod-field"><label>MVA 12%</label><input type="text" currencyInput [currencyValue]="fi.mvaAjustado12 || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'mvaAjustado12', $event)" /></div>
+                <div class="prod-field"><label>% ICMS ST</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIcmsSt || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIcmsSt', $event)" /></div>
+                <div class="prod-field"><label>% FCP ST</label><input type="text" currencyInput [currencyValue]="fi.aliquotaFcpSt || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaFcpSt', $event)" /></div>
+                <div class="prod-field"><label>% ICMS INTERNO</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIcmsInternoEntrada || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIcmsInternoEntrada', $event)" /></div>
+              </div>
+
+              <!-- PIS / COFINS / IPI -->
+              <div class="fiscal-secao">PIS / COFINS / IPI</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>CST PIS SAÍDA</label><input type="text" [value]="fi.cstPis || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstPis', $any($event.target).value)" maxlength="2" /></div>
                 <div class="prod-field"><label>% PIS</label><input type="text" currencyInput [currencyValue]="fi.aliquotaPis || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaPis', $event)" /></div>
-                <div class="prod-field"><label>CST COFINS</label><input type="text" [value]="fi.cstCofins || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstCofins', $any($event.target).value)" maxlength="2" /></div>
+                <div class="prod-field"><label>CST PIS ENTRADA</label><input type="text" [value]="fi.cstPisEntrada || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstPisEntrada', $any($event.target).value)" maxlength="2" /></div>
+                <div class="prod-field"><label>NAT. RECEITA</label><input type="text" [value]="fi.naturezaReceita || ''" (input)="updateFiscal(fiscalFilialIdx(), 'naturezaReceita', $any($event.target).value)" maxlength="50" /></div>
+                <div class="prod-field"><label>CST COFINS SAÍDA</label><input type="text" [value]="fi.cstCofins || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstCofins', $any($event.target).value)" maxlength="2" /></div>
                 <div class="prod-field"><label>% COFINS</label><input type="text" currencyInput [currencyValue]="fi.aliquotaCofins || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaCofins', $event)" /></div>
+                <div class="prod-field"><label>CST COFINS ENTRADA</label><input type="text" [value]="fi.cstCofinsEntrada || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstCofinsEntrada', $any($event.target).value)" maxlength="2" /></div>
                 <div class="prod-field"><label>CST IPI</label><input type="text" [value]="fi.cstIpi || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIpi', $any($event.target).value)" maxlength="3" /></div>
                 <div class="prod-field"><label>% IPI</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIpi || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIpi', $event)" /></div>
+                <div class="prod-field"><label>cEnq IPI</label><input type="text" [value]="fi.enquadramentoIpi || ''" (input)="updateFiscal(fiscalFilialIdx(), 'enquadramentoIpi', $any($event.target).value)" maxlength="10" /></div>
+                <div class="prod-field"><label>CST IPI ENTRADA</label><input type="text" [value]="fi.cstIpiEntrada || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIpiEntrada', $any($event.target).value)" maxlength="3" /></div>
+                <div class="prod-field"><label>% IPI INDÚSTRIA</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIpiIndustria || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIpiIndustria', $event)" /></div>
               </div>
+
+              <!-- Reforma Tributária 2026+ -->
+              <div class="fiscal-secao fiscal-secao-rt">Reforma Tributária (2026+)</div>
+              <div class="prod-grid">
+                <div class="prod-field"><label>CST IS</label><input type="text" [value]="fi.cstIs || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIs', $any($event.target).value)" maxlength="3" /></div>
+                <div class="prod-field"><label>CLASS. TRIB. IS</label><input type="text" [value]="fi.classTribIs || ''" (input)="updateFiscal(fiscalFilialIdx(), 'classTribIs', $any($event.target).value)" maxlength="10" /></div>
+                <div class="prod-field"><label>% IS</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIs || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIs', $event)" /></div>
+                <div class="prod-field"><label>CST IBS/CBS</label><input type="text" [value]="fi.cstIbsCbs || ''" (input)="updateFiscal(fiscalFilialIdx(), 'cstIbsCbs', $any($event.target).value)" maxlength="3" /></div>
+                <div class="prod-field"><label>CLASS. TRIB. IBS/CBS</label><input type="text" [value]="fi.classTribIbsCbs || ''" (input)="updateFiscal(fiscalFilialIdx(), 'classTribIbsCbs', $any($event.target).value)" maxlength="10" /></div>
+                <div class="prod-field"><label>% IBS UF</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIbsUf || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIbsUf', $event)" /></div>
+                <div class="prod-field"><label>% IBS MUN</label><input type="text" currencyInput [currencyValue]="fi.aliquotaIbsMun || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaIbsMun', $event)" /></div>
+                <div class="prod-field"><label>% CBS</label><input type="text" currencyInput [currencyValue]="fi.aliquotaCbs || 0" (currencyChange)="updateFiscal(fiscalFilialIdx(), 'aliquotaCbs', $event)" /></div>
+              </div>
+
+              @if (fi.dispositivoLegalIcms) {
+                <div class="fiscal-info">
+                  <strong>Dispositivo legal ICMS:</strong> {{ fi.dispositivoLegalIcms }}
+                </div>
+              }
             </div>
           </details>
           }

@@ -1,0 +1,164 @@
+<div class="tela-erp">
+
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-atualizar" (click)="carregar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg><span>Atualizar</span></div>
+      <span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="lista-header">
+      <div class="lista-filtro">
+        <label>DATA INICIAL</label>
+        <input type="date" [value]="dataInicio()" (change)="dataInicio.set($any($event.target).value)" />
+      </div>
+      <div class="lista-filtro">
+        <label>DATA FINAL</label>
+        <input type="date" [value]="dataFim()" (change)="dataFim.set($any($event.target).value)" />
+      </div>
+      <div class="lista-filtro">
+        <label>STATUS</label>
+        <select [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+          <option value="todas">Todas</option>
+          <option value="lancadas">Lançadas</option>
+          <option value="optout">Opt-out</option>
+        </select>
+      </div>
+      <button class="btn-colunas" (click)="carregar()" style="margin-left:8px">Filtrar</button>
+
+      <div class="col-picker-wrap">
+        <button class="btn-colunas" (click)="painelColunas.update(v => !v)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Colunas
+        </button>
+        @if (painelColunas()) {
+          <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+          <div class="col-picker-painel">
+            <div class="col-picker-header">
+              <span>Personalizar Colunas</span>
+              <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+            </div>
+            <div class="col-picker-lista">
+              @for (col of colunas(); track col.campo) {
+                <label class="col-picker-item">
+                  <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                  <span>{{ col.label }}</span>
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="grid-wrapper">
+      <table class="erp-grid">
+        <thead>
+          <tr>
+            <th class="th-arrow"></th>
+            @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize"
+                  [style.width.px]="col.largura"
+                  [style.min-width.px]="col.minLargura"
+                  (click)="ordenar(col.campo)"
+                  draggable="true"
+                  (dragstart)="onDragStartCol(i)"
+                  (dragover)="onDragOverCol($event, i)"
+                  (drop)="onDropCol()">
+                {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                <div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+              </th>
+            }
+            <th style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (carregando()) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 2" class="grid-loading">Carregando...</td></tr>
+          } @else if (comprasFiltradas().length === 0) {
+            <tr><td [attr.colspan]="colunasVisiveis().length + 2" class="grid-vazio">Nenhuma compra com produtos controlados no período.</td></tr>
+          } @else {
+            @for (c of comprasFiltradas(); track c.compraId) {
+              <tr [class.row-optout]="c.sngpcOptOut"
+                  [class.tr-selecionada]="linhaExpandida() === c.compraId"
+                  (click)="toggleExpandir(c)">
+                <td class="td-arrow">
+                  @if (linhaExpandida() === c.compraId) { <span>▼</span> } @else { <span>▶</span> }
+                </td>
+                @for (col of colunasVisiveis(); track col.campo) {
+                  @if (col.campo === 'statusSngpc') {
+                    <td><span class="status-badge" [class.status-lancada]="!c.sngpcOptOut" [class.status-optout]="c.sngpcOptOut">{{ c.statusSngpc }}</span></td>
+                  } @else if (col.campo === 'qtdeProdutosSngpc' || col.campo === 'qtdeLotesCriados') {
+                    <td class="td-center">{{ getCellValue(c, col.campo) }}</td>
+                  } @else if (col.campo === 'quantidadeTotal') {
+                    <td class="td-valor">{{ getCellValue(c, col.campo) }}</td>
+                  } @else {
+                    <td>{{ getCellValue(c, col.campo) }}</td>
+                  }
+                }
+                <td class="td-center">
+                  @if (c.sngpcOptOut) {
+                    <button class="btn-acao btn-lancar" (click)="lancarRetroativo(c); $event.stopPropagation()" title="Lançar retroativamente">↗</button>
+                  }
+                </td>
+              </tr>
+              @if (linhaExpandida() === c.compraId) {
+                <tr class="tr-detail">
+                  <td [attr.colspan]="colunasVisiveis().length + 2">
+                    <div class="detail-container">
+                      @if (detalheLoading()) {
+                        <div class="detail-loading">Carregando itens...</div>
+                      } @else if (detalhe(); as d) {
+                        @if (d.sngpcOptOut) {
+                          <div class="aviso-optout">⚠️ Esta compra foi finalizada com <strong>opt-out do SNGPC</strong>. Os produtos abaixo foram importados mas não geraram movimentos SNGPC.</div>
+                        }
+                        <table class="itens-tabela">
+                          <thead>
+                            <tr>
+                              <th>Produto</th>
+                              <th>Classe</th>
+                              <th>Lote</th>
+                              <th>Fabricação</th>
+                              <th>Validade</th>
+                              <th class="td-valor">Qtde</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @if (d.itens.length === 0) {
+                              <tr><td colspan="6" class="grid-vazio">Nenhum produto controlado nesta compra.</td></tr>
+                            } @else {
+                              @for (it of d.itens; track $index) {
+                                <tr>
+                                  <td>{{ it.produtoNome }}</td>
+                                  <td><span class="classe-badge">{{ it.classeTerapeutica }}</span></td>
+                                  <td>{{ it.numeroLote }}</td>
+                                  <td>{{ it.dataFabricacao ? (it.dataFabricacao | date:'dd/MM/yyyy') : '—' }}</td>
+                                  <td>{{ it.dataValidade ? (it.dataValidade | date:'dd/MM/yyyy') : '—' }}</td>
+                                  <td class="td-valor">{{ it.quantidade | number:'1.0-3':'pt-BR' }}</td>
+                                </tr>
+                              }
+                            }
+                          </tbody>
+                        </table>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-rodape">
+      <span>Registro(s): <strong>{{ comprasFiltradas().length }}</strong></span>
+    </div>
+  </div>
+</div>
+

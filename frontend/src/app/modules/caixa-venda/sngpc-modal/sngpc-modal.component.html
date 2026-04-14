@@ -1,0 +1,319 @@
+<div class="sng-root" [class.sng-overlay]="!inline" [class.sng-inline]="inline" (click)="!inline && cancelarModal()">
+  <div class="sng-modal" [class.sng-modal-inline]="inline" (click)="$event.stopPropagation()">
+
+    <div class="sng-header">
+      <div class="sng-titulo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+        </svg>
+        SNGPC — Preenchimento de Receitas
+      </div>
+      @if (!inline) {
+        <button class="sng-btn-fechar" (click)="cancelarModal()" title="Fechar">×</button>
+      }
+    </div>
+
+    <div class="sng-body">
+      @if (carregando()) {
+        <div class="sng-loading">Carregando itens controlados...</div>
+      } @else {
+        <!-- Lista de itens controlados (cabeçalho) -->
+        <div class="sng-itens-header">
+          <span class="sng-sub-titulo">Itens controlados ({{ itensControlados().length }})</span>
+        </div>
+        <div class="sng-itens-chips">
+          @for (item of itensControlados(); track item.vendaItemId) {
+            <span class="sng-chip" [class.sng-chip-ok]="itensCobertos().has(item.vendaItemId)">
+              {{ item.produtoNome }} — {{ item.quantidade }}x
+              @if (item.classeTerapeutica) { <small>({{ item.classeTerapeutica }})</small> }
+              @if (itensCobertos().has(item.vendaItemId)) { <span class="sng-chip-check">✓</span> }
+            </span>
+          }
+        </div>
+
+        <!-- Botão adicionar receita -->
+        <div class="sng-add-receita-wrap">
+          <button class="sng-btn-add" (click)="adicionarReceita()">
+            + Adicionar Receita
+          </button>
+        </div>
+
+        <!-- Lista de receitas (cards) -->
+        @for (rec of receitas(); track $index; let idx = $index) {
+          <div class="sng-receita-card">
+            <div class="sng-receita-head" (click)="toggleAberta(idx)">
+              <span class="sng-receita-chevron">{{ rec._aberta ? '▼' : '▶' }}</span>
+              <span class="sng-receita-titulo">Receita #{{ idx + 1 }}</span>
+              <span class="sng-receita-info">
+                {{ rec.tipo }} · {{ rec.pacienteNome || 'Paciente não informado' }} · {{ rec.itens | slice:0:20 }}{{ (rec.itens | slice:0:20).length }} itens
+              </span>
+              <button class="sng-btn-remover" (click)="$event.stopPropagation(); removerReceita(idx)" title="Remover receita">×</button>
+            </div>
+
+            @if (rec._aberta) {
+              <div class="sng-receita-body">
+
+                <!-- SEÇÃO 1: Dados da receita -->
+                <div class="sng-secao">
+                  <div class="sng-secao-titulo">RECEITA</div>
+                  <div class="sng-form-grid">
+                    <div class="sng-field sng-field-3">
+                      <label>Tipo *</label>
+                      <select [value]="rec.tipo" (change)="updReceita(idx, 'tipo', $any($event.target).value)">
+                        @for (t of tiposReceita; track t.valor) {
+                          <option [value]="t.valor">{{ t.label }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="sng-field sng-field-2">
+                      <label>Nº Notificação</label>
+                      <input type="text" [value]="rec.numeroNotificacao"
+                             (input)="updReceita(idx, 'numeroNotificacao', $any($event.target).value)"
+                             maxlength="30" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>Data Emissão *</label>
+                      <input type="date" [value]="rec.dataEmissao"
+                             (change)="updReceita(idx, 'dataEmissao', $any($event.target).value)" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>Validade *</label>
+                      <input type="date" [value]="rec.dataValidade"
+                             (change)="updReceita(idx, 'dataValidade', $any($event.target).value)" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>CID</label>
+                      <input type="text" [value]="rec.cid" (input)="updReceita(idx, 'cid', $any($event.target).value)" maxlength="10" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SEÇÃO 2: Prescritor -->
+                <div class="sng-secao">
+                  <div class="sng-secao-titulo">PRESCRITOR</div>
+                  @if (!rec.prescritorNovo) {
+                    <div class="sng-prescritor-busca">
+                      <input type="text" placeholder="Digite nome ou nº do conselho para buscar..."
+                             [value]="rec.prescritorBusca"
+                             (input)="onPrescritorBusca(idx, $any($event.target).value)" />
+                      @if (rec.prescritorDropdown && rec.prescritorResultados.length > 0) {
+                        <div class="sng-dropdown">
+                          @for (p of rec.prescritorResultados; track p.id) {
+                            <div class="sng-dropdown-item" (click)="selecionarPrescritor(idx, p)">
+                              <strong>{{ p.nome }}</strong>
+                              <small>{{ p.tipoConselho }} {{ p.numeroConselho }}/{{ p.uf }}</small>
+                            </div>
+                          }
+                        </div>
+                      }
+                      <button class="sng-btn-novo-prescritor" (click)="abrirFormPrescritorNovo(idx)"
+                              [disabled]="rec.prescritorId !== null">+ Novo</button>
+                    </div>
+                  } @else {
+                    <div class="sng-form-grid">
+                      <div class="sng-field sng-field-3">
+                        <label>Nome *</label>
+                        <input type="text" [value]="rec.prescritorNovo.nome"
+                               (input)="updPrescritorNovo(idx, 'nome', $any($event.target).value)" />
+                      </div>
+                      <div class="sng-field sng-field-1">
+                        <label>Conselho *</label>
+                        <select [value]="rec.prescritorNovo.tipoConselho"
+                                (change)="updPrescritorNovo(idx, 'tipoConselho', $any($event.target).value)">
+                          <option value="CRM">CRM</option>
+                          <option value="CRO">CRO</option>
+                          <option value="CRMV">CRMV</option>
+                          <option value="CRF">CRF</option>
+                        </select>
+                      </div>
+                      <div class="sng-field sng-field-1">
+                        <label>Nº *</label>
+                        <input type="text" [value]="rec.prescritorNovo.numeroConselho"
+                               (input)="updPrescritorNovo(idx, 'numeroConselho', $any($event.target).value)" maxlength="20" />
+                      </div>
+                      <div class="sng-field sng-field-1">
+                        <label>UF *</label>
+                        <input type="text" [value]="rec.prescritorNovo.uf"
+                               (input)="updPrescritorNovo(idx, 'uf', $any($event.target).value)" maxlength="2" />
+                      </div>
+                      <div class="sng-field sng-field-2">
+                        <label>Especialidade</label>
+                        <input type="text" [value]="rec.prescritorNovo.especialidade"
+                               (input)="updPrescritorNovo(idx, 'especialidade', $any($event.target).value)" maxlength="100" />
+                      </div>
+                      <div class="sng-field sng-field-1" style="display:flex;align-items:flex-end">
+                        <button class="sng-btn-mini" (click)="fecharFormPrescritorNovo(idx)">Buscar existente</button>
+                      </div>
+                    </div>
+                    <small class="sng-hint">O prescritor será cadastrado automaticamente ao finalizar a venda.</small>
+                  }
+                </div>
+
+                <!-- SEÇÃO 3: Paciente -->
+                <div class="sng-secao">
+                  <div class="sng-secao-titulo">PACIENTE</div>
+                  <div class="sng-form-grid">
+                    <div class="sng-field sng-field-3">
+                      <label>Nome *</label>
+                      <input type="text" [value]="rec.pacienteNome"
+                             (input)="updReceita(idx, 'pacienteNome', $any($event.target).value.toUpperCase())" maxlength="200" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>CPF</label>
+                      <input type="text" [value]="rec.pacienteCpf"
+                             (input)="updReceita(idx, 'pacienteCpf', $any($event.target).value)" maxlength="14" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>RG</label>
+                      <input type="text" [value]="rec.pacienteRg"
+                             (input)="updReceita(idx, 'pacienteRg', $any($event.target).value)" maxlength="20" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>Nasc.</label>
+                      <input type="date" [value]="rec.pacienteNascimento"
+                             (change)="updReceita(idx, 'pacienteNascimento', $any($event.target).value)" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>Sexo</label>
+                      <select [value]="rec.pacienteSexo" (change)="updReceita(idx, 'pacienteSexo', $any($event.target).value)">
+                        <option value="">—</option>
+                        <option value="M">Masculino</option>
+                        <option value="F">Feminino</option>
+                      </select>
+                    </div>
+                    <div class="sng-field sng-field-3">
+                      <label>Endereço</label>
+                      <input type="text" [value]="rec.pacienteEndereco"
+                             (input)="updReceita(idx, 'pacienteEndereco', $any($event.target).value.toUpperCase())" maxlength="200" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>Nº</label>
+                      <input type="text" [value]="rec.pacienteNumero"
+                             (input)="updReceita(idx, 'pacienteNumero', $any($event.target).value)" maxlength="10" />
+                    </div>
+                    <div class="sng-field sng-field-2">
+                      <label>Bairro</label>
+                      <input type="text" [value]="rec.pacienteBairro"
+                             (input)="updReceita(idx, 'pacienteBairro', $any($event.target).value.toUpperCase())" maxlength="100" />
+                    </div>
+                    <div class="sng-field sng-field-2">
+                      <label>Cidade</label>
+                      <input type="text" [value]="rec.pacienteCidade"
+                             (input)="updReceita(idx, 'pacienteCidade', $any($event.target).value.toUpperCase())" maxlength="100" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>UF</label>
+                      <input type="text" [value]="rec.pacienteUf"
+                             (input)="updReceita(idx, 'pacienteUf', $any($event.target).value.toUpperCase())" maxlength="2" />
+                    </div>
+                    <div class="sng-field sng-field-1">
+                      <label>CEP</label>
+                      <input type="text" [value]="rec.pacienteCep"
+                             (input)="updReceita(idx, 'pacienteCep', $any($event.target).value)" maxlength="9" />
+                    </div>
+                    <div class="sng-field sng-field-2">
+                      <label>Telefone</label>
+                      <input type="text" [value]="rec.pacienteTelefone"
+                             (input)="updReceita(idx, 'pacienteTelefone', $any($event.target).value)" maxlength="20" />
+                    </div>
+                  </div>
+
+                  <label class="sng-check-row">
+                    <input type="checkbox" [checked]="rec.compradorMesmoPaciente"
+                           (change)="updReceita(idx, 'compradorMesmoPaciente', $any($event.target).checked)" />
+                    <span>Comprador é o próprio paciente</span>
+                  </label>
+
+                  @if (!rec.compradorMesmoPaciente) {
+                    <div class="sng-form-grid">
+                      <div class="sng-field sng-field-3">
+                        <label>Nome do comprador *</label>
+                        <input type="text" [value]="rec.compradorNome"
+                               (input)="updReceita(idx, 'compradorNome', $any($event.target).value.toUpperCase())" maxlength="200" />
+                      </div>
+                      <div class="sng-field sng-field-1">
+                        <label>CPF</label>
+                        <input type="text" [value]="rec.compradorCpf"
+                               (input)="updReceita(idx, 'compradorCpf', $any($event.target).value)" maxlength="14" />
+                      </div>
+                      <div class="sng-field sng-field-1">
+                        <label>RG</label>
+                        <input type="text" [value]="rec.compradorRg"
+                               (input)="updReceita(idx, 'compradorRg', $any($event.target).value)" maxlength="20" />
+                      </div>
+                      <div class="sng-field sng-field-3">
+                        <label>Endereço</label>
+                        <input type="text" [value]="rec.compradorEndereco"
+                               (input)="updReceita(idx, 'compradorEndereco', $any($event.target).value.toUpperCase())" maxlength="200" />
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <!-- SEÇÃO 4: Itens -->
+                <div class="sng-secao">
+                  <div class="sng-secao-titulo">ITENS COBERTOS POR ESTA RECEITA</div>
+                  <table class="sng-tabela-itens">
+                    <thead>
+                      <tr>
+                        <th style="width:30px"></th>
+                        <th>Produto</th>
+                        <th style="width:160px">Lote *</th>
+                        <th style="width:90px">Qtde</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (it of rec.itens; track it.vendaItemId) {
+                        <tr [class.sng-item-desabilitado]="itemJaCoberto(it.vendaItemId, idx)">
+                          <td>
+                            <input type="checkbox" [checked]="it._incluido"
+                                   [disabled]="itemJaCoberto(it.vendaItemId, idx)"
+                                   (change)="toggleItem(idx, it.vendaItemId)" />
+                          </td>
+                          <td>{{ labelItem(it.vendaItemId) }}</td>
+                          <td>
+                            <select [value]="it.produtoLoteId"
+                                    [disabled]="!it._incluido"
+                                    (change)="updItemLote(idx, it.vendaItemId, $any($event.target).value)">
+                              @for (lote of lotesItem(it.vendaItemId); track lote.produtoLoteId) {
+                                <option [value]="lote.produtoLoteId">
+                                  {{ lote.numeroLote }} · {{ lote.dataValidade ? (lote.dataValidade | date:'dd/MM/yyyy') : 's/val' }} · saldo {{ lote.saldoAtual }}
+                                </option>
+                              }
+                            </select>
+                          </td>
+                          <td>{{ it.quantidade }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            }
+          </div>
+        }
+
+        @if (receitas().length === 0 && itensControlados().length > 0) {
+          <div class="sng-vazio">Clique em "+ Adicionar Receita" para começar.</div>
+        }
+      }
+    </div>
+
+    <div class="sng-footer">
+      @if (inline) {
+        <button class="sng-btn sng-btn-voltar" (click)="voltar.emit()">◀ Voltar</button>
+      } @else {
+        <button class="sng-btn sng-btn-cancel" (click)="cancelarModal()">Cancelar venda</button>
+      }
+      @if (modoMisto) {
+        <button class="sng-btn sng-btn-depois" (click)="lancarDepois()">Lançar Depois</button>
+      }
+      <button class="sng-btn sng-btn-ok" [disabled]="!todosCobertos() || receitas().length === 0"
+              (click)="confirmarFinalizacao()">
+        Finalizar Venda
+      </button>
+    </div>
+
+  </div>
+</div>

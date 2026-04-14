@@ -15,16 +15,18 @@ public class CompraService : ICompraService
 {
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
+    private readonly IProdutoLoteService _loteService;
 
     private const string TELA = "Compras";
     private const string ENTIDADE = "Compra";
 
     private static readonly XNamespace _nfe = "http://www.portalfiscal.inf.br/nfe";
 
-    public CompraService(AppDbContext db, ILogAcaoService log)
+    public CompraService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService)
     {
         _db = db;
         _log = log;
+        _loteService = loteService;
     }
 
     // ── Listar ───────────────────────────────────────────────────────
@@ -175,7 +177,9 @@ public class CompraService : ICompraService
             {
                 var prod = det.Element(_nfe + "prod")!;
                 var imposto = det.Element(_nfe + "imposto");
-                var rastro = prod.Element(_nfe + "rastro");
+                // Um item pode ter vários <rastro> — cada um é um lote.
+                var rastros = prod.Elements(_nfe + "rastro").ToList();
+                var rastroPrimario = rastros.FirstOrDefault();
                 var med = prod.Element(_nfe + "med");
 
                 var codigoBarras = Txt(prod, "cEAN");
@@ -199,9 +203,11 @@ public class CompraService : ICompraService
                     ValorFrete = Dec(prod, "vFrete"),
                     ValorOutros = Dec(prod, "vOutro"),
                     ValorItemNota = Dec(det, "vItem"),
-                    Lote = Txt(rastro, "nLote"),
-                    DataFabricacao = ParseDt(Txt(rastro, "dFab")),
-                    DataValidade = ParseDt(Txt(rastro, "dVal")),
+                    // Lote/validade ainda são gravados no CompraProduto como "último lote"
+                    // (backward compat + controle simples quando SNGPC está desativado).
+                    Lote = Txt(rastroPrimario, "nLote"),
+                    DataFabricacao = ParseDt(Txt(rastroPrimario, "dFab")),
+                    DataValidade = ParseDt(Txt(rastroPrimario, "dVal")),
                     CodigoAnvisa = Txt(med, "cProdANVISA"),
                     PrecoMaximoConsumidor = med != null ? DecN(med, "vPMC") : null,
                     InfoAdicional = Txt(det, "infAdProd"),
@@ -210,6 +216,29 @@ public class CompraService : ICompraService
 
                 _db.ComprasProdutos.Add(item);
                 await _db.SaveChangesAsync();
+
+                // ── Lotes da NFe (múltiplos rastros → CompraProdutoLote 1:N) ────
+                // Se não tiver rastro, não cria nada aqui (controle simples fica no CompraProduto.Lote).
+                foreach (var rastro in rastros)
+                {
+                    var nLote = Txt(rastro, "nLote");
+                    if (string.IsNullOrWhiteSpace(nLote)) continue;
+                    var qLote = DecN(rastro, "qLote") ?? 0m;
+                    var dFab = ParseDt(Txt(rastro, "dFab"));
+                    var dVal = ParseDt(Txt(rastro, "dVal"));
+                    _db.ComprasProdutosLotes.Add(new CompraProdutoLote
+                    {
+                        CompraProdutoId = item.Id,
+                        NumeroLote = nLote,
+                        DataFabricacao = dFab,
+                        DataValidade = dVal,
+                        Quantidade = qLote,
+                        NumeroLoteOriginal = nLote,
+                        DataFabricacaoOriginal = dFab,
+                        DataValidadeOriginal = dVal,
+                        EditadoPeloUsuario = false
+                    });
+                }
 
                 // ── Fiscal ─────────────────────────────────────────
                 var fiscal = ParseFiscal(imposto, item.Id);
@@ -729,6 +758,9 @@ public class CompraService : ICompraService
     {
         var compra = await _db.Compras
             .Include(c => c.Produtos).ThenInclude(p => p.Fiscal)
+            .Include(c => c.Produtos).ThenInclude(p => p.Lotes)
+            .Include(c => c.Produtos).ThenInclude(p => p.Produto).ThenInclude(pr => pr!.GrupoProduto)
+            .Include(c => c.Produtos).ThenInclude(p => p.Produto).ThenInclude(pr => pr!.RegistrosMs)
             .FirstOrDefaultAsync(c => c.Id == request.CompraId)
             ?? throw new KeyNotFoundException("Compra não encontrada.");
 
@@ -738,6 +770,7 @@ public class CompraService : ICompraService
         var produtosAtualizados = 0;
         var precosAplicados = 0;
         decimal estoqueAdicionado = 0;
+        int lotesRegistrados = 0;
 
         foreach (var item in compra.Produtos.Where(p => p.Vinculado && p.ProdutoId.HasValue))
         {
@@ -822,6 +855,58 @@ public class CompraService : ICompraService
                     ["NF"] = compra.NumeroNf
                 });
 
+            // 6. Rastreio por lote — só para produtos rastreáveis
+            if (item.Produto != null && ProdutoControleHelper.IsProdutoRastreavel(item.Produto))
+            {
+                var registroMs = item.Produto.RegistrosMs.FirstOrDefault()?.NumeroMs;
+
+                // Se a conferência de lotes foi feita (tem CompraProdutoLote), usa ela.
+                // Senão, usa o lote simples do CompraProduto (quando existir).
+                if (item.Lotes.Count > 0)
+                {
+                    foreach (var lote in item.Lotes)
+                    {
+                        // Quantidade do rastro × fração do produto
+                        var qtde = lote.Quantidade * fracao;
+                        if (qtde <= 0) continue;
+                        await _loteService.RegistrarEntradaAsync(
+                            produtoId: item.ProdutoId!.Value,
+                            filialId: compra.FilialId,
+                            numeroLote: lote.NumeroLote,
+                            dataFabricacao: lote.DataFabricacao,
+                            dataValidade: lote.DataValidade,
+                            quantidade: qtde,
+                            tipo: TipoMovimentoLote.Entrada,
+                            registroMs: lote.RegistroMs ?? registroMs,
+                            fornecedorId: compra.FornecedorId,
+                            compraId: compra.Id,
+                            compraProdutoLoteId: lote.Id,
+                            usuarioId: null,
+                            observacao: $"Entrada NF {compra.NumeroNf}");
+                        lotesRegistrados++;
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(item.Lote))
+                {
+                    await _loteService.RegistrarEntradaAsync(
+                        produtoId: item.ProdutoId!.Value,
+                        filialId: compra.FilialId,
+                        numeroLote: item.Lote,
+                        dataFabricacao: item.DataFabricacao,
+                        dataValidade: item.DataValidade,
+                        quantidade: qtdeTotal,
+                        tipo: TipoMovimentoLote.Entrada,
+                        registroMs: registroMs,
+                        fornecedorId: compra.FornecedorId,
+                        compraId: compra.Id,
+                        usuarioId: null,
+                        observacao: $"Entrada NF {compra.NumeroNf}");
+                    lotesRegistrados++;
+                }
+                // Se não tem nem lote simples nem CompraProdutoLote, o produto rastreável
+                // entra no estoque mas sem lote — vai precisar de balanço manual depois.
+            }
+
             produtosAtualizados++;
         }
 
@@ -874,6 +959,7 @@ public class CompraService : ICompraService
                 ["Produtos"] = produtosAtualizados.ToString(),
                 ["Preços aplicados"] = precosAplicados.ToString(),
                 ["Estoque adicionado"] = estoqueAdicionado.ToString("N3"),
+                ["Lotes registrados"] = lotesRegistrados.ToString(),
                 ["Usuário"] = request.NomeUsuario
             });
 
@@ -964,11 +1050,12 @@ public class CompraService : ICompraService
         }
         else
         {
+            var razao = nome.Trim().ToUpper();
             pessoa = new Pessoa
             {
                 Tipo = "J",
-                Nome = (fantasia ?? nome).Trim().ToUpper(),
-                RazaoSocial = nome.Trim().ToUpper(),
+                Nome = razao,
+                RazaoSocial = razao,
                 CpfCnpj = CpfCnpjHelper.SomenteDigitos(cnpj),
                 InscricaoEstadual = ie?.Trim().ToUpper()
             };
@@ -1337,5 +1424,237 @@ public class CompraService : ICompraService
         if (DateTime.TryParse(val, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
             return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
         return null;
+    }
+
+    // ══════ Conferência de Lotes ═════════════════════════════════════════
+    public async Task<ConferenciaLotesDto> ObterConferenciaLotesAsync(long compraId)
+    {
+        var compra = await _db.Compras
+            .Include(c => c.Fornecedor).ThenInclude(f => f.Pessoa)
+            .Include(c => c.Produtos).ThenInclude(p => p.Produto).ThenInclude(pr => pr!.Fabricante)
+            .Include(c => c.Produtos).ThenInclude(p => p.Produto).ThenInclude(pr => pr!.GrupoProduto)
+            .Include(c => c.Produtos).ThenInclude(p => p.Produto).ThenInclude(pr => pr!.RegistrosMs)
+            .Include(c => c.Produtos).ThenInclude(p => p.Lotes).ThenInclude(l => l.EditadoPorUsuario)
+            .FirstOrDefaultAsync(c => c.Id == compraId)
+            ?? throw new KeyNotFoundException($"Compra {compraId} não encontrada.");
+
+        string? usuarioConfNome = null;
+        if (compra.LotesConferidosPorUsuarioId.HasValue)
+        {
+            usuarioConfNome = await _db.Usuarios
+                .Where(u => u.Id == compra.LotesConferidosPorUsuarioId.Value)
+                .Select(u => u.Login)
+                .FirstOrDefaultAsync();
+        }
+
+        var dto = new ConferenciaLotesDto
+        {
+            CompraId = compra.Id,
+            NumeroNf = compra.NumeroNf,
+            FornecedorNome = compra.Fornecedor?.Pessoa?.Nome ?? "",
+            DataEmissao = compra.DataEmissao,
+            LotesConferidos = compra.LotesConferidos,
+            LotesConferidosEm = compra.LotesConferidosEm,
+            LotesConferidosPorUsuarioNome = usuarioConfNome,
+            SngpcOptOut = compra.SngpcOptOut
+        };
+
+        foreach (var item in compra.Produtos.OrderBy(p => p.NumeroItem))
+        {
+            var produto = item.Produto;
+            var registroMsAtual = produto?.RegistrosMs.FirstOrDefault()?.NumeroMs;
+            var isSngpc = produto != null && ProdutoControleHelper.IsProdutoSngpc(produto);
+            var isRastreavel = produto != null && ProdutoControleHelper.IsProdutoRastreavel(produto);
+
+            var itemDto = new ConferenciaLotesItemDto
+            {
+                CompraProdutoId = item.Id,
+                ProdutoId = item.ProdutoId,
+                Codigo = item.CodigoProdutoFornecedor ?? "",
+                Descricao = produto?.Nome ?? item.DescricaoXml ?? "",
+                Fabricante = produto?.Fabricante?.Nome,
+                Quantidade = item.Quantidade,
+                UnidadeXml = item.UnidadeXml,
+                IsSngpc = isSngpc,
+                IsRastreavel = isRastreavel,
+                RegistroMs = registroMsAtual
+            };
+
+            // Se não tem lotes do XML mas tem lote simples no CompraProduto, cria 1 linha sintética
+            if (item.Lotes.Count == 0 && !string.IsNullOrWhiteSpace(item.Lote))
+            {
+                itemDto.Lotes.Add(new ConferenciaLoteLinhaDto
+                {
+                    Id = null,
+                    NumeroLote = item.Lote,
+                    DataFabricacao = item.DataFabricacao,
+                    DataValidade = item.DataValidade,
+                    Quantidade = item.Quantidade,
+                    RegistroMs = registroMsAtual,
+                    NumeroLoteOriginal = item.Lote,
+                    DataFabricacaoOriginal = item.DataFabricacao,
+                    DataValidadeOriginal = item.DataValidade,
+                    RegistroMsOriginal = registroMsAtual,
+                    EditadoPeloUsuario = false
+                });
+            }
+            else
+            {
+                foreach (var lote in item.Lotes.OrderBy(l => l.DataValidade))
+                {
+                    itemDto.Lotes.Add(new ConferenciaLoteLinhaDto
+                    {
+                        Id = lote.Id,
+                        NumeroLote = lote.NumeroLote,
+                        DataFabricacao = lote.DataFabricacao,
+                        DataValidade = lote.DataValidade,
+                        Quantidade = lote.Quantidade,
+                        RegistroMs = lote.RegistroMs ?? registroMsAtual,
+                        NumeroLoteOriginal = lote.NumeroLoteOriginal,
+                        DataFabricacaoOriginal = lote.DataFabricacaoOriginal,
+                        DataValidadeOriginal = lote.DataValidadeOriginal,
+                        RegistroMsOriginal = lote.RegistroMsOriginal,
+                        EditadoPeloUsuario = lote.EditadoPeloUsuario,
+                        EditadoEm = lote.EditadoEm,
+                        EditadoPorUsuarioNome = lote.EditadoPorUsuario?.Login
+                    });
+                }
+            }
+
+            dto.Itens.Add(itemDto);
+        }
+
+        return dto;
+    }
+
+    public async Task SalvarConferenciaLotesAsync(long compraId, long usuarioId, SalvarConferenciaLotesDto dto)
+    {
+        var compra = await _db.Compras
+            .Include(c => c.Produtos).ThenInclude(p => p.Lotes)
+            .FirstOrDefaultAsync(c => c.Id == compraId)
+            ?? throw new KeyNotFoundException($"Compra {compraId} não encontrada.");
+
+        compra.SngpcOptOut = dto.SngpcOptOut;
+
+        var agora = DateTime.UtcNow;
+        var auditoriaEdicoes = new List<Dictionary<string, string?>>();
+
+        foreach (var itemDto in dto.Itens)
+        {
+            var item = compra.Produtos.FirstOrDefault(p => p.Id == itemDto.CompraProdutoId);
+            if (item == null) continue;
+
+            // Valores existentes indexados por ID pra detectar edições/remoções
+            var existentesPorId = item.Lotes.ToDictionary(l => l.Id);
+            var idsRecebidos = itemDto.Lotes.Where(l => l.Id.HasValue).Select(l => l.Id!.Value).ToHashSet();
+
+            // Remove lotes que o usuário tirou (não foram enviados)
+            foreach (var velho in item.Lotes.Where(l => !idsRecebidos.Contains(l.Id)).ToList())
+            {
+                _db.ComprasProdutosLotes.Remove(velho);
+            }
+
+            foreach (var loteDto in itemDto.Lotes)
+            {
+                if (loteDto.Id.HasValue && existentesPorId.TryGetValue(loteDto.Id.Value, out var existente))
+                {
+                    // Atualização — detecta edição e grava snapshot
+                    bool mudou =
+                        existente.NumeroLote != loteDto.NumeroLote ||
+                        existente.DataFabricacao != loteDto.DataFabricacao ||
+                        existente.DataValidade != loteDto.DataValidade ||
+                        existente.Quantidade != loteDto.Quantidade ||
+                        existente.RegistroMs != loteDto.RegistroMs;
+
+                    if (mudou)
+                    {
+                        auditoriaEdicoes.Add(new Dictionary<string, string?>
+                        {
+                            ["ItemId"] = item.Id.ToString(),
+                            ["LoteId"] = existente.Id.ToString(),
+                            ["NumeroLote (antes)"] = existente.NumeroLote,
+                            ["NumeroLote (depois)"] = loteDto.NumeroLote,
+                            ["Validade (antes)"] = existente.DataValidade?.ToString("dd/MM/yyyy"),
+                            ["Validade (depois)"] = loteDto.DataValidade?.ToString("dd/MM/yyyy"),
+                            ["Fabricacao (antes)"] = existente.DataFabricacao?.ToString("dd/MM/yyyy"),
+                            ["Fabricacao (depois)"] = loteDto.DataFabricacao?.ToString("dd/MM/yyyy"),
+                            ["RegistroMs (antes)"] = existente.RegistroMs,
+                            ["RegistroMs (depois)"] = loteDto.RegistroMs
+                        });
+
+                        existente.NumeroLote = loteDto.NumeroLote;
+                        existente.DataFabricacao = loteDto.DataFabricacao;
+                        existente.DataValidade = loteDto.DataValidade;
+                        existente.Quantidade = loteDto.Quantidade;
+                        existente.RegistroMs = loteDto.RegistroMs;
+                        existente.EditadoPeloUsuario = true;
+                        existente.EditadoEm = agora;
+                        existente.EditadoPorUsuarioId = usuarioId;
+                    }
+                }
+                else
+                {
+                    // Novo lote adicionado pelo usuário
+                    _db.ComprasProdutosLotes.Add(new CompraProdutoLote
+                    {
+                        CompraProdutoId = item.Id,
+                        NumeroLote = loteDto.NumeroLote,
+                        DataFabricacao = loteDto.DataFabricacao,
+                        DataValidade = loteDto.DataValidade,
+                        Quantidade = loteDto.Quantidade,
+                        RegistroMs = loteDto.RegistroMs,
+                        // Snapshot original == valores informados (não veio do XML)
+                        NumeroLoteOriginal = loteDto.NumeroLote,
+                        DataFabricacaoOriginal = loteDto.DataFabricacao,
+                        DataValidadeOriginal = loteDto.DataValidade,
+                        RegistroMsOriginal = loteDto.RegistroMs,
+                        EditadoPeloUsuario = true,
+                        EditadoEm = agora,
+                        EditadoPorUsuarioId = usuarioId
+                    });
+
+                    auditoriaEdicoes.Add(new Dictionary<string, string?>
+                    {
+                        ["ItemId"] = item.Id.ToString(),
+                        ["LoteId"] = "(novo)",
+                        ["NumeroLote"] = loteDto.NumeroLote,
+                        ["Validade"] = loteDto.DataValidade?.ToString("dd/MM/yyyy"),
+                        ["Quantidade"] = loteDto.Quantidade.ToString("N3"),
+                        ["Origem"] = "Adicionado manualmente na conferência"
+                    });
+                }
+            }
+
+            // Também atualiza o "lote primário" no CompraProduto para o primeiro lote
+            // (manter backward compat / controle simples quando SNGPC desativado)
+            var primeiroLote = itemDto.Lotes.FirstOrDefault();
+            if (primeiroLote != null)
+            {
+                item.Lote = primeiroLote.NumeroLote;
+                item.DataFabricacao = primeiroLote.DataFabricacao;
+                item.DataValidade = primeiroLote.DataValidade;
+            }
+        }
+
+        compra.LotesConferidos = true;
+        compra.LotesConferidosEm = agora;
+        compra.LotesConferidosPorUsuarioId = usuarioId;
+
+        await _db.SaveChangesAsync();
+
+        // Log único da conferência
+        await _log.RegistrarAsync("Compras", "CONFERÊNCIA LOTES", "Compra", compraId, novo: new Dictionary<string, string?>
+        {
+            ["NF"] = compra.NumeroNf,
+            ["Edições"] = auditoriaEdicoes.Count.ToString(),
+            ["SNGPC Opt-Out"] = dto.SngpcOptOut?.ToString() ?? "(usar config padrão)"
+        });
+
+        // Log detalhado por edição (pra auditoria fina)
+        foreach (var edicao in auditoriaEdicoes)
+        {
+            await _log.RegistrarAsync("Compras", "EDIÇÃO LOTE", "CompraProdutoLote",
+                long.Parse(edicao["ItemId"] ?? "0"), novo: edicao);
+        }
     }
 }

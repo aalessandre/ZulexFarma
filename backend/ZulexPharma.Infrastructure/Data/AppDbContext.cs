@@ -59,7 +59,18 @@ public class AppDbContext : DbContext
     public DbSet<NcmStUf> NcmStUfs => Set<NcmStUf>();
     public DbSet<Compra> Compras => Set<Compra>();
     public DbSet<CompraProduto> ComprasProdutos => Set<CompraProduto>();
+    public DbSet<CompraProdutoLote> ComprasProdutosLotes => Set<CompraProdutoLote>();
     public DbSet<CompraFiscal> ComprasFiscal => Set<CompraFiscal>();
+    public DbSet<ProdutoLote> ProdutosLotes => Set<ProdutoLote>();
+    public DbSet<MovimentoLote> MovimentosLote => Set<MovimentoLote>();
+    public DbSet<Receita> Receitas => Set<Receita>();
+    public DbSet<ReceitaItem> ReceitasItens => Set<ReceitaItem>();
+    public DbSet<Perda> Perdas => Set<Perda>();
+    public DbSet<InventarioSngpc> InventariosSngpc => Set<InventarioSngpc>();
+    public DbSet<InventarioSngpcItem> InventariosSngpcItens => Set<InventarioSngpcItem>();
+    public DbSet<SngpcMapa> SngpcMapas => Set<SngpcMapa>();
+    public DbSet<GestorTributarioJob> GestorTributarioJobs => Set<GestorTributarioJob>();
+    public DbSet<GestorTributarioUsoMensal> GestorTributarioUsoMensais => Set<GestorTributarioUsoMensal>();
     public DbSet<IcmsUf> IcmsUfs => Set<IcmsUf>();
     public DbSet<CertificadoDigital> CertificadosDigitais => Set<CertificadoDigital>();
     public DbSet<SefazNota> SefazNotas => Set<SefazNota>();
@@ -92,10 +103,16 @@ public class AppDbContext : DbContext
     public DbSet<HierarquiaDescontoConvenio> HierarquiaDescontoConvenios => Set<HierarquiaDescontoConvenio>();
     public DbSet<HierarquiaDescontoCliente> HierarquiaDescontoClientes => Set<HierarquiaDescontoCliente>();
     public DbSet<Caixa> Caixas => Set<Caixa>();
+    public DbSet<CaixaMovimento> CaixaMovimentos => Set<CaixaMovimento>();
+    public DbSet<CaixaFechamentoDeclarado> CaixaFechamentoDeclarados => Set<CaixaFechamentoDeclarado>();
+    public DbSet<MovimentoContaBancaria> MovimentosContaBancaria => Set<MovimentoContaBancaria>();
     public DbSet<Venda> Vendas => Set<Venda>();
     public DbSet<VendaItem> VendaItens => Set<VendaItem>();
     public DbSet<VendaItemDesconto> VendaItemDescontos => Set<VendaItemDesconto>();
     public DbSet<VendaPagamento> VendaPagamentos => Set<VendaPagamento>();
+    public DbSet<VendaReceita> VendaReceitas => Set<VendaReceita>();
+    public DbSet<VendaReceitaItem> VendaReceitaItens => Set<VendaReceitaItem>();
+    public DbSet<Prescritor> Prescritores => Set<Prescritor>();
     public DbSet<Adquirente> Adquirentes => Set<Adquirente>();
     public DbSet<AdquirenteBandeira> AdquirenteBandeiras => Set<AdquirenteBandeira>();
     public DbSet<AdquirenteTarifa> AdquirenteTarifas => Set<AdquirenteTarifa>();
@@ -128,6 +145,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Telefone).HasMaxLength(20).IsRequired();
             e.Property(x => x.Email).HasMaxLength(150).IsRequired();
             e.Property(x => x.AliquotaIcms).HasColumnType("numeric(5,2)");
+            e.HasOne(x => x.ContaCofre).WithMany().HasForeignKey(x => x.ContaCofreId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // ── IcmsUf ────────────────────────────────────────────────────
@@ -356,6 +374,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Dcb).HasMaxLength(200).IsRequired();
             e.Property(x => x.Cas).HasMaxLength(50).IsRequired();
             e.Property(x => x.ClasseTerapeutica).HasMaxLength(100);
+            e.Property(x => x.ListaPortaria344).HasMaxLength(4);
         });
 
         // ── DicionarioTabela ─────────────────────────────────────────
@@ -484,6 +503,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.CodigoBarras).HasMaxLength(20);
             e.Property(x => x.Lista).HasMaxLength(20).HasDefaultValue("Indefinida");
             e.Property(x => x.PrecoFp).HasColumnType("numeric(10,4)");
+            e.Property(x => x.ClasseTerapeutica).HasMaxLength(30);
 
             e.HasOne(x => x.Fabricante).WithMany().HasForeignKey(x => x.FabricanteId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.GrupoPrincipal).WithMany().HasForeignKey(x => x.GrupoPrincipalId).OnDelete(DeleteBehavior.SetNull);
@@ -546,6 +566,58 @@ public class AppDbContext : DbContext
             e.Property(x => x.AliquotaPis).HasColumnType("numeric(5,2)");
             e.Property(x => x.AliquotaCofins).HasColumnType("numeric(5,2)");
             e.Property(x => x.AliquotaIpi).HasColumnType("numeric(5,2)");
+
+            // Campos extras vindos do Gestor Tributário
+            e.Property(x => x.AliquotaFcp).HasColumnType("numeric(5,2)");
+            e.Property(x => x.ModBc).HasMaxLength(2);
+            e.Property(x => x.PercentualReducaoBc).HasColumnType("numeric(6,2)");
+            e.Property(x => x.CodigoBeneficio).HasMaxLength(10);
+            e.Property(x => x.DispositivoLegalIcms).HasMaxLength(200);
+            e.Property(x => x.MvaOriginal).HasColumnType("numeric(7,2)");
+            e.Property(x => x.MvaAjustado4).HasColumnType("numeric(7,2)");
+            e.Property(x => x.MvaAjustado7).HasColumnType("numeric(7,2)");
+            e.Property(x => x.MvaAjustado12).HasColumnType("numeric(7,2)");
+            e.Property(x => x.AliquotaIcmsSt).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaFcpSt).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaIcmsInternoEntrada).HasColumnType("numeric(5,2)");
+            e.Property(x => x.NaturezaReceita).HasMaxLength(50);
+            e.Property(x => x.EnquadramentoIpi).HasMaxLength(10);
+            e.Property(x => x.CstPisEntrada).HasMaxLength(2);
+            e.Property(x => x.CstCofinsEntrada).HasMaxLength(2);
+            e.Property(x => x.CstIpiEntrada).HasMaxLength(3);
+            e.Property(x => x.AliquotaIpiEntrada).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaIpiIndustria).HasColumnType("numeric(5,2)");
+            // Reforma Tributária 2026+
+            e.Property(x => x.CstIs).HasMaxLength(3);
+            e.Property(x => x.ClassTribIs).HasMaxLength(10);
+            e.Property(x => x.AliquotaIs).HasColumnType("numeric(5,2)");
+            e.Property(x => x.CstIbsCbs).HasMaxLength(3);
+            e.Property(x => x.ClassTribIbsCbs).HasMaxLength(10);
+            e.Property(x => x.AliquotaIbsUf).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaIbsMun).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AliquotaCbs).HasColumnType("numeric(5,2)");
+            e.Property(x => x.AtualizadoGestorTributarioProvider).HasMaxLength(30);
+        });
+
+        // ── GestorTributarioJob ───────────────────────────────────
+        modelBuilder.Entity<GestorTributarioJob>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Provider).HasMaxLength(30).IsRequired();
+            e.Property(x => x.MensagemErro).HasMaxLength(2000);
+            e.Property(x => x.FiltroJson).HasColumnType("text");
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.Status, x.CriadoEm });
+        });
+
+        // ── GestorTributarioUsoMensal ─────────────────────────────
+        modelBuilder.Entity<GestorTributarioUsoMensal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Provider).HasMaxLength(30).IsRequired();
+            e.HasIndex(x => new { x.Ano, x.Mes, x.Provider }).IsUnique();
         });
 
         modelBuilder.Entity<ProdutoDados>(e =>
@@ -651,6 +723,136 @@ public class AppDbContext : DbContext
             e.Property(x => x.SugestaoCustoMedio).HasColumnType("numeric(12,4)");
         });
 
+        // ── CompraProdutoLote (rastros/lotes do XML da compra) ────
+        modelBuilder.Entity<CompraProdutoLote>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.NumeroLote).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Quantidade).HasColumnType("numeric(12,4)");
+            e.Property(x => x.RegistroMs).HasMaxLength(30);
+            e.Property(x => x.NumeroLoteOriginal).HasMaxLength(30);
+            e.Property(x => x.RegistroMsOriginal).HasMaxLength(30);
+            e.HasOne(x => x.CompraProduto).WithMany(c => c.Lotes).HasForeignKey(x => x.CompraProdutoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.EditadoPorUsuario).WithMany().HasForeignKey(x => x.EditadoPorUsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.CompraProdutoId);
+        });
+
+        // ── ProdutoLote (lote do produto por filial) ──────────────
+        modelBuilder.Entity<ProdutoLote>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.NumeroLote).HasMaxLength(30).IsRequired();
+            e.Property(x => x.SaldoAtual).HasColumnType("numeric(12,4)");
+            e.Property(x => x.RegistroMs).HasMaxLength(30);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Compra).WithMany().HasForeignKey(x => x.CompraId).OnDelete(DeleteBehavior.SetNull);
+            // Índice de consulta rápida por (filial, produto, vencimento) — base do FEFO
+            e.HasIndex(x => new { x.FilialId, x.ProdutoId, x.DataValidade });
+            e.HasIndex(x => new { x.FilialId, x.ProdutoId, x.NumeroLote });
+        });
+
+        // ── MovimentoLote (histórico de cada lote) ────────────────
+        modelBuilder.Entity<MovimentoLote>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Quantidade).HasColumnType("numeric(12,4)");
+            e.Property(x => x.SaldoAposMovimento).HasColumnType("numeric(12,4)");
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.ProdutoLote).WithMany(p => p.Movimentos).HasForeignKey(x => x.ProdutoLoteId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Compra).WithMany().HasForeignKey(x => x.CompraId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Venda).WithMany().HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.CompraProdutoLote).WithMany().HasForeignKey(x => x.CompraProdutoLoteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.ProdutoLoteId, x.DataMovimento });
+        });
+
+        // ── Receita (prescrição médica de controlados) ────────────
+        modelBuilder.Entity<Receita>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.MedicoNome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.MedicoCrm).HasMaxLength(20);
+            e.Property(x => x.MedicoUf).HasMaxLength(2);
+            e.Property(x => x.MedicoCpf).HasMaxLength(14);
+            e.Property(x => x.PacienteNome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.PacienteCpf).HasMaxLength(14);
+            e.Property(x => x.PacienteEndereco).HasMaxLength(300);
+            e.Property(x => x.PacienteCep).HasMaxLength(10);
+            e.Property(x => x.PacienteCidade).HasMaxLength(100);
+            e.Property(x => x.PacienteUf).HasMaxLength(2);
+            e.Property(x => x.NumeroReceita).HasMaxLength(50);
+            e.Property(x => x.TipoReceita).HasMaxLength(30);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Venda).WithMany().HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.FilialId, x.DataEmissao });
+        });
+
+        modelBuilder.Entity<ReceitaItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Quantidade).HasColumnType("numeric(12,4)");
+            e.Property(x => x.Posologia).HasMaxLength(300);
+            e.HasOne(x => x.Receita).WithMany(r => r.Itens).HasForeignKey(x => x.ReceitaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ProdutoLote).WithMany().HasForeignKey(x => x.ProdutoLoteId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── Perda (baixa de estoque por furto/avaria/vencimento) ──
+        modelBuilder.Entity<Perda>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Quantidade).HasColumnType("numeric(12,4)");
+            e.Property(x => x.NumeroBoletim).HasMaxLength(50);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ProdutoLote).WithMany().HasForeignKey(x => x.ProdutoLoteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.FilialId, x.DataPerda });
+        });
+
+        // ── InventarioSngpc (cabeçalho) ───────────────────────────
+        modelBuilder.Entity<InventarioSngpc>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Descricao).HasMaxLength(200);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.FilialId, x.DataInventario });
+        });
+
+        modelBuilder.Entity<InventarioSngpcItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.NumeroLote).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Quantidade).HasColumnType("numeric(12,4)");
+            e.Property(x => x.RegistroMs).HasMaxLength(30);
+            e.Property(x => x.Observacao).HasMaxLength(300);
+            e.HasOne(x => x.Inventario).WithMany(i => i.Itens).HasForeignKey(x => x.InventarioSngpcId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── SngpcMapa (relatório mensal Anvisa) ──────────────────
+        modelBuilder.Entity<SngpcMapa>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.XmlConteudo).HasColumnType("text");
+            e.Property(x => x.ProtocoloAnvisa).HasMaxLength(100);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.FilialId, x.CompetenciaAno, x.CompetenciaMes }).IsUnique();
+        });
+
         // ── ComprasFiscal (dados fiscais por item) ─────────────────
         modelBuilder.Entity<CompraFiscal>(e =>
         {
@@ -732,10 +934,52 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.Property(x => x.ValorAbertura).HasPrecision(18, 2);
             e.Property(x => x.Observacao).HasMaxLength(500);
+            e.Property(x => x.ModeloFechamento).HasMaxLength(30);
             e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Colaborador).WithMany().HasForeignKey(x => x.ColaboradorId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => x.Status);
+        });
+
+        // ── CaixaMovimento ───────────────────────────────────────────
+        modelBuilder.Entity<CaixaMovimento>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Valor).HasPrecision(18, 2);
+            e.Property(x => x.Descricao).HasMaxLength(200);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasOne(x => x.Caixa).WithMany(x => x.Movimentos).HasForeignKey(x => x.CaixaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.VendaPagamento).WithMany().HasForeignKey(x => x.VendaPagamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ContaReceber).WithMany().HasForeignKey(x => x.ContaReceberId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ContaPagar).WithMany().HasForeignKey(x => x.ContaPagarId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.CaixaId);
+            e.HasIndex(x => x.Tipo);
+            e.HasIndex(x => x.StatusConferencia);
+        });
+
+        // ── CaixaFechamentoDeclarado ─────────────────────────────────
+        modelBuilder.Entity<CaixaFechamentoDeclarado>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ValorDeclarado).HasPrecision(18, 2);
+            e.HasOne(x => x.Caixa).WithMany(x => x.Declarados).HasForeignKey(x => x.CaixaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.CaixaId, x.TipoPagamentoId }).IsUnique();
+        });
+
+        // ── MovimentoContaBancaria ───────────────────────────────────
+        modelBuilder.Entity<MovimentoContaBancaria>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Valor).HasPrecision(18, 2);
+            e.Property(x => x.Descricao).HasMaxLength(200);
+            e.HasOne(x => x.ContaBancaria).WithMany().HasForeignKey(x => x.ContaBancariaId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CaixaMovimento).WithMany().HasForeignKey(x => x.CaixaMovimentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Caixa).WithMany().HasForeignKey(x => x.CaixaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.ContaBancariaId, x.DataMovimento });
         });
 
         // ── Venda ─────────────────────────────────────────────────
@@ -793,6 +1037,66 @@ public class AppDbContext : DbContext
             e.Property(x => x.TrocoPara).HasMaxLength(50);
             e.HasOne(x => x.Venda).WithMany(x => x.Pagamentos).HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── Prescritor ───────────────────────────────────────────
+        modelBuilder.Entity<Prescritor>(e =>
+        {
+            e.ToTable("Prescritores");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.TipoConselho).HasMaxLength(10).IsRequired();
+            e.Property(x => x.NumeroConselho).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
+            e.Property(x => x.Cpf).HasMaxLength(14);
+            e.Property(x => x.Especialidade).HasMaxLength(100);
+            e.Property(x => x.Telefone).HasMaxLength(20);
+            e.HasIndex(x => new { x.TipoConselho, x.NumeroConselho, x.Uf });
+            e.HasIndex(x => x.Nome);
+        });
+
+        // ── VendaReceita ─────────────────────────────────────────
+        modelBuilder.Entity<VendaReceita>(e =>
+        {
+            e.ToTable("VendaReceitas");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tipo).IsRequired();
+            e.Property(x => x.NumeroNotificacao).HasMaxLength(30);
+            e.Property(x => x.Cid).HasMaxLength(10);
+            e.Property(x => x.PacienteNome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.PacienteCpf).HasMaxLength(14);
+            e.Property(x => x.PacienteRg).HasMaxLength(20);
+            e.Property(x => x.PacienteSexo).HasMaxLength(1);
+            e.Property(x => x.PacienteEndereco).HasMaxLength(200);
+            e.Property(x => x.PacienteNumero).HasMaxLength(10);
+            e.Property(x => x.PacienteBairro).HasMaxLength(100);
+            e.Property(x => x.PacienteCidade).HasMaxLength(100);
+            e.Property(x => x.PacienteUf).HasMaxLength(2);
+            e.Property(x => x.PacienteCep).HasMaxLength(9);
+            e.Property(x => x.PacienteTelefone).HasMaxLength(20);
+            e.Property(x => x.CompradorNome).HasMaxLength(200);
+            e.Property(x => x.CompradorCpf).HasMaxLength(14);
+            e.Property(x => x.CompradorRg).HasMaxLength(20);
+            e.Property(x => x.CompradorEndereco).HasMaxLength(200);
+            e.Property(x => x.CompradorNumero).HasMaxLength(10);
+            e.Property(x => x.CompradorBairro).HasMaxLength(100);
+            e.Property(x => x.CompradorCidade).HasMaxLength(100);
+            e.Property(x => x.CompradorUf).HasMaxLength(2);
+            e.Property(x => x.CompradorCep).HasMaxLength(9);
+            e.Property(x => x.CompradorTelefone).HasMaxLength(20);
+            e.HasOne(x => x.Venda).WithMany(x => x.Receitas).HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Prescritor).WithMany().HasForeignKey(x => x.PrescritorId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── VendaReceitaItem ─────────────────────────────────────
+        modelBuilder.Entity<VendaReceitaItem>(e =>
+        {
+            e.ToTable("VendaReceitaItens");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Quantidade).HasPrecision(18, 3);
+            e.HasOne(x => x.VendaReceita).WithMany(x => x.Itens).HasForeignKey(x => x.VendaReceitaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VendaItem).WithMany().HasForeignKey(x => x.VendaItemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ProdutoLote).WithMany().HasForeignKey(x => x.ProdutoLoteId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // ── Adquirente ───────────────────────────────────────────

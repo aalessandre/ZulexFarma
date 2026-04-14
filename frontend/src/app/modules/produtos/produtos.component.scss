@@ -257,6 +257,22 @@
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
+.btn-gt {
+  padding: 0 12px; border: none; border-radius: 4px; margin-left: 4px;
+  background: linear-gradient(135deg, #16a085, #27ae60);
+  color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  cursor: pointer; white-space: nowrap; transition: filter 0.15s;
+  &:hover:not(:disabled) { filter: brightness(1.15); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.gt-feedback {
+  margin-top: 4px; padding: 6px 10px; border-radius: 4px; font-size: 11px; line-height: 1.3;
+  background: #f0f4fa; color: #546e7a; border: 1px solid #cfd8dc;
+  &.gt-feedback-ok { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; }
+  &.gt-feedback-erro { background: #ffebee; color: #b71c1c; border-color: #ef9a9a; }
+}
+
 /* ── ABCFarma block ──────────────────────────────────────────────── */
 .prod-section-abc {
   display: flex; align-items: center; gap: 10px;
@@ -514,6 +530,28 @@
 }
 
 .prod-acc-body { padding: 16px 20px; }
+
+/* Sub-seções do accordion Fiscal */
+.fiscal-secao {
+  font-size: 11px; font-weight: 700; color: #8e44ad;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  margin: 14px 0 8px; padding: 4px 0;
+  border-bottom: 1px solid #e8d5f0;
+  &:first-child { margin-top: 0; }
+  &.fiscal-secao-rt { color: #1e8449; border-bottom-color: #a5d6a7; }
+}
+.fiscal-info {
+  margin-top: 10px; padding: 8px 12px;
+  background: #f3e5f5; border-left: 3px solid #8e44ad;
+  font-size: 11px; color: #4a148c; border-radius: 4px;
+  strong { color: #6a1b9a; }
+}
+.gt-tag {
+  display: inline-block; margin-left: 10px;
+  padding: 2px 8px; background: #16a085; color: #fff;
+  font-size: 10px; font-weight: 700; border-radius: 10px;
+  letter-spacing: 0.3px;
+}
 
 .prod-acc-placeholder {
   text-align: center; padding: 30px; color: var(--erp-text-muted, #6a7888);

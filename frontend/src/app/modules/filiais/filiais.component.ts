@@ -42,6 +42,8 @@ interface Filial {
   aliquotaIcms: number;
   incluirPromoFixa: boolean;
   incluirPromoProgressiva: boolean;
+  contaCofreId?: number | null;
+  contaCofreNome?: string | null;
   ativo: boolean;
   criadoEm?: string;
 }
@@ -93,6 +95,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   erro = signal('');
   errosCampos = signal<Record<string, string>>({});
   icmsUfOptions = signal<IcmsUfOption[]>([]);
+  contasBancarias = signal<{ id: number; descricao: string }[]>([]);
   private formOriginal: Filial | null = null;
   modalLog = signal(false);
   logRegistros = signal<LogEntry[]>([]);
@@ -145,6 +148,9 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     this.carregar();
     this.http.get<any>(`${environment.apiUrl}/icms-uf`).subscribe({
       next: r => this.icmsUfOptions.set((r.data ?? []).filter((x: any) => x.ativo))
+    });
+    this.http.get<any>(`${environment.apiUrl}/contasbancarias`).subscribe({
+      next: r => this.contasBancarias.set((r.data ?? []).filter((c: any) => c.ativo).map((c: any) => ({ id: c.id, descricao: c.descricao })))
     });
     window.addEventListener('beforeunload', this.onBeforeUnload);
     this.tabService.registrarBeforeClose(this.TAB_ID, async () => {
@@ -848,7 +854,9 @@ export class FiliaisComponent implements OnInit, OnDestroy {
       nomeFilial: '', razaoSocial: '', nomeFantasia: '', cnpj: '',
       inscricaoEstadual: '', cep: '', rua: '', numero: '', bairro: '',
       cidade: '', uf: '', telefone: '', email: '', aliquotaIcms: 0,
-      incluirPromoFixa: true, incluirPromoProgressiva: true, ativo: true
+      incluirPromoFixa: true, incluirPromoProgressiva: true,
+      contaCofreId: null, contaCofreNome: null,
+      ativo: true
     };
   }
 

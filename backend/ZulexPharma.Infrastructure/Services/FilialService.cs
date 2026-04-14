@@ -47,6 +47,8 @@ public class FilialService : IFilialService
                     AliquotaIcms     = f.AliquotaIcms,
                     IncluirPromoFixa = f.IncluirPromoFixa,
                     IncluirPromoProgressiva = f.IncluirPromoProgressiva,
+                    ContaCofreId     = f.ContaCofreId,
+                    ContaCofreNome   = f.ContaCofre != null ? f.ContaCofre.Descricao : null,
                     CriadoEm         = f.CriadoEm,
                     Ativo            = f.Ativo
                 })
@@ -84,6 +86,7 @@ public class FilialService : IFilialService
                 AliquotaIcms      = dto.AliquotaIcms,
                 IncluirPromoFixa  = dto.IncluirPromoFixa,
                 IncluirPromoProgressiva = dto.IncluirPromoProgressiva,
+                ContaCofreId      = dto.ContaCofreId,
                 Ativo             = dto.Ativo
             };
 
@@ -130,6 +133,7 @@ public class FilialService : IFilialService
             filial.AliquotaIcms      = dto.AliquotaIcms;
             filial.IncluirPromoFixa  = dto.IncluirPromoFixa;
             filial.IncluirPromoProgressiva = dto.IncluirPromoProgressiva;
+            filial.ContaCofreId      = dto.ContaCofreId;
             filial.Ativo             = dto.Ativo;
 
             await _db.SaveChangesAsync();
@@ -266,6 +270,8 @@ public class FilialService : IFilialService
         AliquotaIcms     = f.AliquotaIcms,
         IncluirPromoFixa = f.IncluirPromoFixa,
         IncluirPromoProgressiva = f.IncluirPromoProgressiva,
+        ContaCofreId     = f.ContaCofreId,
+        ContaCofreNome   = f.ContaCofre?.Descricao,
         CriadoEm         = f.CriadoEm,
         Ativo            = f.Ativo
     };

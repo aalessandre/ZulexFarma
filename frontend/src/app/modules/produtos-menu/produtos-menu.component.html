@@ -1,0 +1,27 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <span>Sair</span>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <main class="tela-conteudo">
+    <div class="menu-header">
+      <h2>Gerenciar Produtos</h2>
+      <span class="menu-sub">Cadastro e parametrização tributária</span>
+    </div>
+
+    <div class="menu-grid">
+      @for (tile of tiles; track tile.sigla) {
+        <div class="menu-tile" (click)="navegar(tile)">
+          <div class="menu-tile-icon" [innerHTML]="getIcon(tile.icon)"></div>
+          <div class="menu-tile-info">
+            <span class="menu-tile-sigla">{{ tile.sigla }}</span>
+            <span class="menu-tile-label">{{ tile.label }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  </main>
+</div>

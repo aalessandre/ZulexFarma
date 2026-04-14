@@ -1298,9 +1298,46 @@ para cada item da hierarquia (ordenado por Ordem):
             <div class="doc-bloco">
               <div class="doc-titulo">Visão Geral</div>
               <div class="doc-texto">
-                A <strong>Pré-Venda</strong> é a tela de atendimento ao cliente (POS). Permite registrar itens, aplicar descontos,
-                selecionar condição de pagamento e finalizar o pedido. A <strong>Venda</strong> (Caixa) será a finalização com pagamento efetivo.
+                O ERP tem <strong>dois fluxos de venda</strong> que compartilham o mesmo backend (entidade Venda, VendaItem, VendaPagamento):
               </div>
+              <ul class="doc-lista">
+                <li><strong>Pré-Venda</strong> (<code>pre-venda.component.ts</code>, rota <code>/erp/pre-venda</code>): tela de atendimento sem pagamento. Cria Venda em status Aberta. Usada para montar pedidos, cotações, orçamentos, atendimentos que serão finalizados depois no caixa.</li>
+                <li><strong>Venda Direta no Caixa</strong> (<code>caixa-venda.component.ts</code>, acessada de dentro do módulo Caixa): tela de frente de loja com fluxo completo: registra itens + recebe pagamento + emite NFC-e + gera CaixaMovimento + DANFE em modal. Cria Venda já em status Finalizada.</li>
+              </ul>
+              <div class="doc-texto" style="margin-top:8px">
+                As duas telas compartilham quase toda a lógica de desconto, hierarquia e validação — a diferença é que a Venda Direta <b>finaliza</b> ao clicar em "Finalizar" enquanto a Pré-Venda apenas salva e deixa aberta.
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Venda Direta no Caixa — Fluxo</div>
+              <div class="doc-texto">Acesso: abre o módulo Caixa e clica em "Nova Venda" (ou F2). O componente roda dentro do shell do Caixa, então todos os movimentos gerados são automaticamente vinculados ao caixa aberto do operador.</div>
+              <ol class="doc-lista">
+                <li><strong>Produto:</strong> scanner de código de barras (foco automático) ou busca por nome.</li>
+                <li><strong>Cliente:</strong> opcional para venda à vista/cartão/PIX, <b>obrigatório</b> para venda a prazo (modal bloqueia com aviso).</li>
+                <li><strong>Vendedor:</strong> colaborador logado é default; se <code>vendas.multiplos.vendedores</code>=true, pode trocar por item.</li>
+                <li><strong>Descontos:</strong> resolvidos pela engine de hierarquia (cliente → convênio → colaborador → padrão). <b>Promoção fixa</b> e <b>desconto de produto</b> são somados em um único <code>percentualDesconto</code> para evitar race condition.</li>
+                <li><strong>Condição:</strong> clica no tile (Dinheiro, Cartão, PIX, A Prazo). Trocar a condição recalcula descontos (regra do componente CondPagamento na hierarquia).</li>
+                <li><strong>Finalizar:</strong> abre modal de desdobramento de pagamento (permite dividir em até 6 formas na mesma venda).</li>
+                <li><strong>Cartão/PIX:</strong> abre modal específica de dados do cartão (bandeira, modalidade, NSU).</li>
+                <li><strong>Venda a prazo:</strong> executa <code>POST /api/vendas/validar-prazo</code> antes. Se falhar por limite, pede senha de supervisor. Se cliente tiver <code>VenderSomenteComSenha</code>, abre modal de senha do cliente.</li>
+                <li><strong>Finalizar → Backend:</strong> cria Venda (Finalizada), VendaPagamentos, ContaReceber (por parcela), <code>CaixaMovimento</code>(s) vinculados ao caixa aberto (auto-conferidos), emite NFC-e, devolve DANFE HTML.</li>
+                <li><strong>DANFE:</strong> exibido em modal com iframe. Botões Imprimir / WhatsApp / OK.</li>
+              </ol>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Fix de divergência de centavos no XML NFC-e</div>
+              <div class="doc-texto">
+                Bug anterior: em alguns casos a SEFAZ rejeitava com erro de valor total divergente (<code>vNF</code> ≠ Σ(<code>vProd</code> − <code>vDesc</code>)) por arredondamento em cascata. <b>Solução</b>: <code>VendaService.MapearItem</code> agora calcula na ordem fixa:
+              </div>
+              <pre class="doc-code">
+valorBruto   = round(PrecoVenda × Quantidade, 2)
+valorDesconto = round(valorBruto × percentual / 100, 2)
+total         = round(valorBruto − valorDesconto, 2)
+precoUnitario = round(total / Quantidade, 2)
+              </pre>
+              <div class="doc-texto">Isso garante que <code>vProd − vDesc = vNF</code> exato, sem arredondamento intermediário no <code>precoUnitario</code>.</div>
             </div>
 
             <div class="doc-bloco">
@@ -1464,6 +1501,322 @@ para cada item da hierarquia (ordenado por Ordem):
               <div class="cmd-grupo"><div class="cmd-label">Atualizar</div><code class="cmd">PUT /api/vendas/&#123;id&#125;</code></div>
               <div class="cmd-grupo"><div class="cmd-label">Finalizar</div><code class="cmd">POST /api/vendas/&#123;id&#125;/finalizar</code></div>
               <div class="cmd-grupo"><div class="cmd-label">Cancelar</div><code class="cmd">POST /api/vendas/&#123;id&#125;/cancelar</code></div>
+            </div>
+
+          </div>
+        }
+      </section>
+
+      <!-- FINANCEIRO -->
+      <section class="help-secao">
+        <div class="secao-header compras" [class.aberto]="isAberta('financeiro')" (click)="toggleSecao('financeiro')" style="background:#16a085">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          <span>Financeiro</span>
+        </div>
+        @if (isAberta('financeiro')) {
+          <div class="secao-corpo">
+
+            <div class="doc-titulo" style="color:#16a085">📌 Caixa (Venda a Vista / Frente de Loja)</div>
+            <p class="doc-texto">O Caixa é o módulo de venda direta ao consumidor. Diferente da Pré-Venda (que apenas prepara o pedido), o Caixa <strong>finaliza</strong> a venda: recebe pagamento, emite NFC-e e gera contas a receber. O componente principal é <code>caixa-venda.component.ts</code>, com UI em tela cheia focada em agilidade.</p>
+
+            <div class="doc-titulo">Fluxo completo da venda no caixa</div>
+            <div class="doc-lista">
+              <div class="doc-item">1. Operador abre o Caixa → seleciona Cliente (se aplicável) e Vendedor</div>
+              <div class="doc-item">2. Adiciona produtos (scanner de código de barras ou busca por nome)</div>
+              <div class="doc-item">3. Sistema resolve descontos pela <strong>hierarquia</strong> (cliente → convênio → colaborador → padrão)</div>
+              <div class="doc-item">4. Seleciona condição de pagamento (Dinheiro, Cartão, PIX, A Prazo)</div>
+              <div class="doc-item">5. Clica em "Finalizar Venda" → abre modal de desdobramento de pagamento</div>
+              <div class="doc-item">6. Informa valores por condição (pode dividir: parte dinheiro + parte cartão)</div>
+              <div class="doc-item">7. Se tem cartão → abre modal de dados do cartão (bandeira, modalidade, NSU)</div>
+              <div class="doc-item">8. Se tem a prazo → executa validações de limite/bloqueios/senha</div>
+              <div class="doc-item">9. Backend cria Venda → finaliza → gera Contas a Receber → emite NFC-e</div>
+              <div class="doc-item">10. DANFE exibido em modal (imprimir/WhatsApp/OK)</div>
+            </div>
+
+            <div class="doc-titulo">Modal de Pagamento (desdobramento)</div>
+            <p class="doc-texto">Permite dividir o valor da venda entre múltiplas condições de pagamento (ex: R$50 dinheiro + R$100 cartão + R$50 PIX). O total da venda é pré-preenchido na condição selecionada inicialmente.</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Troco:</b> calculado automaticamente para Dinheiro (modalidade 1)</div>
+              <div class="doc-item"><b>Seletor de Parcelas:</b> aparece quando modalidade = A Prazo (4) e cliente permite parcelada</div>
+              <div class="doc-item"><b>Validação:</b> total informado deve ser ≥ total da venda (diferença vira troco)</div>
+              <div class="doc-item"><b>Rodapé:</b> mostra "Valor exato", "Troco: R$X" ou "Falta: R$X"</div>
+            </div>
+
+            <div class="doc-titulo">Modal de Dados do Cartão (quando há pagamento em cartão)</div>
+            <p class="doc-texto">Após confirmar o pagamento, se houver cartão, abre modal específica para capturar os dados necessários para a NFC-e e contas a receber. Suporta <strong>múltiplos cartões</strong> na mesma venda (cliente pode pagar com 2 cartões diferentes).</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Bandeira:</b> tiles carregados dos Adquirentes cadastrados (deduplicado — Visa, Master, Elo, etc.)</div>
+              <div class="doc-item"><b>Modalidade:</b> aparece após escolher bandeira; mostra Débito / Crédito / Parcelado 2x-12x conforme cadastro do adquirente</div>
+              <div class="doc-item"><b>Valor:</b> pré-preenchido com total pendente do cartão</div>
+              <div class="doc-item"><b>NSU (Código de Autorização):</b> obrigatório, usado no &lt;cAut&gt; da NFC-e</div>
+              <div class="doc-item"><b>+ Adicionar outro cartão:</b> cria novo card com valor = falta</div>
+              <div class="doc-item"><b>Adquirente automático:</b> ao clicar na bandeira, o sistema seleciona o primeiro adquirente que possui essa bandeira (transparente ao operador)</div>
+            </div>
+
+            <div class="doc-titulo">Venda a Prazo — Validações</div>
+            <p class="doc-texto">Quando o operador seleciona uma condição com modalidade = VendaPrazo (4), o sistema chama <code>POST /api/vendas/validar-prazo</code> antes de permitir a troca. As validações seguem a <strong>hierarquia Cliente → Convênio</strong> (cliente primeiro, fallback no convênio).</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Cliente obrigatório:</b> se não tem cliente selecionado, modal bloqueia</div>
+              <div class="doc-item"><b>Bloqueado:</b> cliente ou convênio com Bloqueado=true → rejeita</div>
+              <div class="doc-item"><b>Condição bloqueada:</b> verifica entidades <code>ClienteBloqueio</code> e <code>ConvenioBloqueio</code> — lista de TipoPagamentoId bloqueados por cliente/convênio. Qualquer match bloqueia a venda.</div>
+              <div class="doc-item"><b>Limite de crédito:</b> soma ContasReceber abertas com modalidade VendaPrazo; se (usado + valorNovaVenda) &gt; LimiteCredito → pede senha/token de liberação de supervisor</div>
+              <div class="doc-item"><b>BloquearDescontoParcelada:</b> se true, zera descontos manuais dos itens automaticamente ao trocar para prazo</div>
+              <div class="doc-item"><b>PermiteVendaParcelada:</b> habilita seletor de parcelas no modal de pagamento (se false, força 1 parcela)</div>
+            </div>
+
+            <div class="doc-titulo">Senha do Cliente — Dois campos separados</div>
+            <p class="doc-texto">Cliente e Convênio têm <b>duas senhas</b> independentes, cada uma com sua flag e uso distinto:</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b><code>SenhaVenda</code> + flag <code>VenderSomenteComSenha</code>:</b> pede senha em <b>qualquer venda</b> (vista, cartão, PIX, prazo). Usado para cliente com forte controle — ex: convênio de empresa que exige senha pra qualquer compra.</div>
+              <div class="doc-item"><b><code>SenhaVendaPrazo</code> + flag <code>VenderPrazoSomenteComSenha</code>:</b> pede senha apenas quando a venda for a prazo. Usado para cliente que compra à vista livremente mas precisa autorizar compras fiadas.</div>
+              <div class="doc-item"><b>Hierarquia:</b> se cliente tem a flag ativa, usa a senha do cliente; senão, se o convênio tem, usa a do convênio.</div>
+              <div class="doc-item"><b>Modal reutilizável:</b> <code>ModalSenhaComponent</code> + <code>ModalSenhaService</code>. Título e descrição configuráveis. Backend valida via <code>POST /api/vendas/&#123;id&#125;/finalizar</code> com <code>senhaCliente</code> no body — falha em senha inválida retorna 401.</div>
+            </div>
+
+            <div class="doc-titulo">Cálculo de Vencimento (VencimentoHelper.cs)</div>
+            <p class="doc-texto">Ao finalizar venda a prazo, o backend calcula a DataVencimento de cada ContaReceber usando os parâmetros merged do cliente+convênio:</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Modo DiasCorridos:</b> <code>dataVenda + QtdeDias</code> (ex: venda hoje, 30 dias → vence em 30 dias)</div>
+              <div class="doc-item"><b>Modo PorFechamento:</b> calcula mês de fechamento (se dia da venda &gt; DiaFechamento → mês seguinte), soma QtdeMeses, usa DiaVencimento (clamped ao último dia do mês)</div>
+              <div class="doc-item"><b>Exemplo 1:</b> DiaFechamento=10, DiaVencimento=20, QtdeMeses=0, venda dia 11/04 → fecha 10/05, vence 20/05</div>
+              <div class="doc-item"><b>Exemplo 2:</b> DiaFechamento=10, DiaVencimento=5, QtdeMeses=2, venda dia 11/04 → fecha 10/05, vence 05/07</div>
+              <div class="doc-item"><b>Parcelas:</b> parcela N+1 = parcela N + 1 mês (escalonado mensalmente)</div>
+            </div>
+
+            <div class="doc-titulo">Dados do Cartão → NFC-e (XML)</div>
+            <p class="doc-texto">Cada cartão informado na modal vira uma <code>VendaPagamento</code> separada no backend, que por sua vez gera um <code>&lt;detPag&gt;</code> no XML da NFC-e com um grupo <code>&lt;card&gt;</code> interno.</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>tPag 03:</b> Cartão de Débito (CartaoTipo=1)</div>
+              <div class="doc-item"><b>tPag 04:</b> Cartão de Crédito / Parcelado (CartaoTipo=2)</div>
+              <div class="doc-item"><b>tPag 17:</b> PIX — <b>também precisa do grupo &lt;card&gt;</b> (ver próximo bloco)</div>
+              <div class="doc-item"><b>tpIntegra 2:</b> Pagamento não integrado (manual, sem TEF)</div>
+              <div class="doc-item"><b>tBand:</b> Código SEFAZ da bandeira (01=Visa, 02=Master, 03=Amex, 04=SoroCredit, 05=Elo, 06=Hipercard, 99=Outros)</div>
+              <div class="doc-item"><b>cAut:</b> Código de autorização (NSU) informado pelo operador</div>
+              <div class="doc-item"><b>CNPJ:</b> CNPJ da credenciadora (hoje null, campo a ser adicionado no cadastro de Adquirente)</div>
+            </div>
+
+            <div class="doc-titulo">PIX e o grupo &lt;card&gt; (fix rejeição 391 SEFAZ-PR)</div>
+            <p class="doc-texto">A SEFAZ-PR rejeitava vendas em PIX (<code>tPag=17</code>) com erro 391 — "Não informados os dados do cartão". Investigação mostrou que a <b>NT 2020.006</b> exige o grupo <code>&lt;card&gt;</code> também para PIX quando não há integração com PSP:</p>
+            <pre class="doc-code">
+&lt;detPag&gt;
+  &lt;tPag&gt;17&lt;/tPag&gt;
+  &lt;vPag&gt;123.45&lt;/vPag&gt;
+  &lt;card&gt;
+    &lt;tpIntegra&gt;2&lt;/tpIntegra&gt;
+  &lt;/card&gt;
+&lt;/detPag&gt;
+            </pre>
+            <div class="doc-texto">O método <code>NfceService.AppendCard</code> agora gera o grupo para <b>cartão E pix</b>. Para PIX, só <code>tpIntegra=2</code> é necessário (sem tBand/cAut/CNPJ).</div>
+
+            <div class="doc-titulo">Geração de Contas a Receber (VendaService.FinalizarAsync)</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Dinheiro (VendaVista) / PIX:</b> Status = Recebida, DataRecebimento = agora, ValorRecebido = valorLiquido</div>
+              <div class="doc-item"><b>Cartão (VendaCartao):</b> Status = Aberta, aguarda repasse da adquirente conforme prazoRecebimento cadastrado</div>
+              <div class="doc-item"><b>A Prazo (VendaPrazo):</b> Status = Aberta, DataVencimento calculada pelo VencimentoHelper, pode gerar N parcelas</div>
+              <div class="doc-item"><b>PlanoContaId:</b> herdado do TipoPagamento para lançamento contábil automático</div>
+            </div>
+
+            <div class="doc-titulo">Integração com Adquirentes</div>
+            <p class="doc-texto">O cadastro de Adquirentes (Outros Cadastros &gt; Adquirentes) alimenta a modal do cartão. Cada adquirente pode ter múltiplas bandeiras, cada bandeira múltiplas tarifas por modalidade.</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Estrutura:</b> Adquirente → Bandeiras → Tarifas (por modalidade)</div>
+              <div class="doc-item"><b>Modalidades suportadas:</b> Débito, Crédito, Parcelado 2x até 12x (enum ModalidadeCartao)</div>
+              <div class="doc-item"><b>Tarifa %:</b> desconto da adquirente sobre o valor (usado em relatórios financeiros)</div>
+              <div class="doc-item"><b>Prazo Recebimento:</b> dias até o crédito na conta bancária</div>
+              <div class="doc-item"><b>Conta Bancária:</b> opcional, define onde o valor será creditado</div>
+            </div>
+
+            <div class="doc-titulo">Endpoints principais</div>
+            <div class="doc-lista">
+              <div class="doc-item"><code>POST /api/vendas</code> — cria Venda (status=Aberta)</div>
+              <div class="doc-item"><code>PUT /api/vendas/&#123;id&#125;</code> — atualiza venda aberta (itens, pagamentos)</div>
+              <div class="doc-item"><code>POST /api/vendas/&#123;id&#125;/finalizar</code> — finaliza, gera ContasReceber. Body: &#123; senhaCliente?, tokenLiberacaoCredito?, numeroParcelas? &#125;</div>
+              <div class="doc-item"><code>POST /api/vendas/validar-prazo</code> — valida condição a prazo para cliente+convênio+tipoPagamento+valor</div>
+              <div class="doc-item"><code>POST /api/nfce/emitir/&#123;vendaId&#125;</code> — emite NFC-e após finalização</div>
+              <div class="doc-item"><code>GET /api/adquirentes</code> — lista adquirentes (usado na modal de cartão)</div>
+              <div class="doc-item"><code>GET /api/adquirentes/&#123;id&#125;</code> — detalhes com bandeiras/tarifas</div>
+            </div>
+
+            <div class="doc-titulo">Entidades envolvidas</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Venda</b> — cabeçalho com ClienteId, ColaboradorId, TipoPagamentoId, ConvenioId, Totais, Status</div>
+              <div class="doc-item"><b>VendaItem</b> — item com Produto, Qtde, Preço, Descontos (manual + promoção)</div>
+              <div class="doc-item"><b>VendaPagamento</b> — pagamentos da venda. Novos campos: CartaoBandeira, CartaoAutorizacao, CartaoCnpjCredenciadora, CartaoTipo</div>
+              <div class="doc-item"><b>ContaReceber</b> — uma por VendaPagamento (ou N por parcelamento). Campos: Valor, DataVencimento, Status, NumParcela/TotalParcelas</div>
+              <div class="doc-item"><b>Adquirente</b> → <b>AdquirenteBandeira</b> → <b>AdquirenteTarifa</b> — cadastro para modal de cartão</div>
+              <div class="doc-item"><b>TipoPagamento</b> — define modalidade (VendaVista=1, VendaCartao=2, VendaPix=3, VendaPrazo=4, Voucher=5, Outros=6)</div>
+            </div>
+
+            <div class="doc-titulo">Modal de Senha Reutilizável</div>
+            <p class="doc-texto">Componente genérico <code>ModalSenhaComponent</code> + <code>ModalSenhaService</code> usado sempre que um parâmetro exigir senha do cliente (não supervisor). Título e descrição configuráveis. Atualmente usado em Venda a Prazo quando VenderSomenteComSenha está ativo.</p>
+
+            <div class="doc-titulo">Regras importantes</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Cliente obrigatório para a prazo:</b> validado no frontend (modal aviso) e backend (ArgumentException)</div>
+              <div class="doc-item"><b>Hierarquia de parâmetros:</b> cliente.LimiteCredito &gt; 0 ? cliente : convenio. Bloqueado: OR (qualquer um bloqueia). ModoFechamento: cliente primeiro, fallback no convênio se DiasCorridos+QtdeDias null</div>
+              <div class="doc-item"><b>Múltiplos cartões:</b> o front quebra uma única linha "Cartão" em N VendaPagamento no body do POST/PUT vendas</div>
+              <div class="doc-item"><b>Validação de total na modal do cartão:</b> Σ(valores dos cartões) deve ser igual ao total alocado para cartão no modal de pagamento</div>
+              <div class="doc-item"><b>Desdobramento de pagamento:</b> o frontend recalcula descontos automaticamente ao trocar TipoPagamento (afeta regras de desconto)</div>
+            </div>
+
+            <div class="doc-titulo" style="color:#16a085;margin-top:24px">📌 Contas a Receber</div>
+            <p class="doc-texto">Tela de gestão dos recebíveis gerados pelas vendas. Permite filtrar por status (aberta, recebida, cancelada, vencida), tipo de pagamento (a prazo, cartão, pix...) e período. Cada linha é uma parcela com NumParcela/TotalParcelas.</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Baixar conta:</b> <code>POST /api/contasreceber/&#123;id&#125;/receber</code> — marca como Recebida, atualiza DataRecebimento e ValorRecebido</div>
+              <div class="doc-item"><b>Vencida:</b> status calculado dinamicamente (Aberta + DataVencimento &lt; hoje)</div>
+              <div class="doc-item"><b>Origem:</b> cada conta referencia a VendaPagamento que a gerou (pode voltar à venda original)</div>
+            </div>
+
+            <div class="doc-titulo" style="color:#16a085;margin-top:24px">📌 Adquirentes (Outros Cadastros)</div>
+            <p class="doc-texto">Cadastro de operadoras de cartão. Estrutura hierárquica: Adquirente → Bandeiras → Tarifas. Alimenta a modal de dados do cartão no caixa.</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Campos do Adquirente:</b> Nome, Ativo</div>
+              <div class="doc-item"><b>Campos da Bandeira:</b> nome (Visa, Master, Elo, Amex, Hipercard, Diners)</div>
+              <div class="doc-item"><b>Campos da Tarifa:</b> Modalidade (enum), Tarifa%, PrazoRecebimento (dias), ContaBancariaId (opcional)</div>
+              <div class="doc-item"><b>DTO frontend ⇄ backend:</b> bandeira (não nome), tarifa (não tarifaPercentual), prazoRecebimento, modalidade como enum numérico</div>
+              <div class="doc-item"><b>Atualização:</b> o backend deleta todas as bandeiras/tarifas e recria no update (estratégia de replace total)</div>
+            </div>
+
+            <div class="doc-titulo" style="color:#16a085;margin-top:24px">📌 Configurações Fiscal &gt; IBPTax</div>
+            <p class="doc-texto">Tabela IBPTax (Lei 12.741/2012) sincronizada via API oficial do IBPT. Necessária para calcular vTotTrib na NFC-e.</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Configuração:</b> Configurações &gt; Fiscal → Token IBPTax + CNPJ IBPTax (obtidos em deolhonoimposto.ibpt.org.br)</div>
+              <div class="doc-item"><b>Sincronização manual:</b> botão "Atualizar Agora" na tela IBPTax chama <code>POST /api/ibpt/sincronizar</code></div>
+              <div class="doc-item"><b>Sincronização automática:</b> <code>IbptBackgroundService</code> verifica a cada 24h; se tabela expirada ou &lt;30 dias, sincroniza automaticamente (se token/cnpj configurados)</div>
+              <div class="doc-item"><b>Fluxo interno:</b> percorre todos os NCMs cadastrados, consulta <code>apidoni.ibpt.org.br/api/v1/produtos</code> para cada um, salva resultado em IbptTaxes por UF</div>
+              <div class="doc-item"><b>Fallback:</b> importação manual de CSV ainda disponível via <code>POST /api/ibpt/importar</code></div>
+            </div>
+
+            <div class="doc-titulo" style="color:#16a085;margin-top:24px">📌 Movimentação e Conferência de Caixa</div>
+            <p class="doc-texto">Sistema completo de movimentos do caixa com rastreabilidade via código de barras (canhoto). Suporta dois modos de fechamento: <b>Confirmação de Posse</b> (bip dos canhotos) e <b>Conferência Simples</b> (declaração manual).</p>
+
+            <div class="doc-titulo">Entidades</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>CaixaMovimento</b> — unificada para todos os movimentos (Abertura, Fechamento, VendaPagamento, Sangria, Suprimento, Recebimento, Pagamento). Cada linha tem um <code>Codigo</code> único que vira código de barras no canhoto</div>
+              <div class="doc-item"><b>MovimentoContaBancaria</b> — entradas/saídas em ContaBancaria (incluindo Cofre)</div>
+              <div class="doc-item"><b>CaixaFechamentoDeclarado</b> — valores declarados pelo operador no fechamento (apenas modo Conferência Simples)</div>
+              <div class="doc-item"><b>Filial.ContaCofreId</b> — novo campo que aponta para a ContaBancaria do cofre físico da filial</div>
+            </div>
+
+            <div class="doc-titulo">Conta Cofre</div>
+            <p class="doc-texto">Cada filial tem uma ContaBancaria designada como cofre (cadastro em Filiais → Financeiro). <b>Obrigatória para abrir o caixa</b> — sem ela, o sistema bloqueia com modal de aviso.</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Sangria</b> → cria Entrada no cofre após dupla confirmação</div>
+              <div class="doc-item"><b>Suprimento</b> → cria Saída imediata do cofre</div>
+              <div class="doc-item"><b>Dinheiro das vendas</b> → entra no cofre apenas após conferência do caixa</div>
+              <div class="doc-item"><b>Cartão/PIX/A Prazo</b> → não passa pelo cofre (vai para ContaReceber e depois para conta bancária correspondente)</div>
+            </div>
+
+            <div class="doc-titulo">Operações do Caixa</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Sangria</b> — retirada de dinheiro. Status <code>PendenteConferente</code> até o supervisor confirmar em Financeiro &gt; Sangrias Pendentes. Operador e conferente DEVEM ser usuários diferentes. Imprime canhoto.</div>
+              <div class="doc-item"><b>Suprimento</b> — entrada de dinheiro no caixa vindo do cofre. Auto-confirmado. Saída imediata do cofre. Imprime canhoto.</div>
+              <div class="doc-item"><b>Recebimento</b> — baixa de ContaReceber (cliente). Permite valor parcial. Atualiza <code>ValorRecebido</code> e muda status se quitou tudo. <b>Auto-confirmado</b>. Sem canhoto.</div>
+              <div class="doc-item"><b>Pagamento (despesa)</b> — cria uma ContaPagar nova já com status <code>Pago</code>, vinculada a fornecedor + plano de contas. Aparece no DRE. <b>Auto-confirmado</b>. Sem canhoto.</div>
+              <div class="doc-item"><b>Venda à vista (dinheiro)</b> — <b>NÃO imprime canhoto</b>. A sangria final do turno é quem vai comprovar o dinheiro.</div>
+              <div class="doc-item"><b>Demais vendas (cartão, PIX, a prazo)</b> — sem canhoto; <b>auto-confirmadas</b> na finalização da venda. A conferência final por drill-down serve só para a fase de bater saldo por forma de pagamento.</div>
+              <div class="doc-item"><b>Regra geral:</b> somente a <b>Sangria</b> exige dupla confirmação (operador + supervisor). Todos os demais movimentos saem do caixa já como <code>Conferido</code>.</div>
+            </div>
+
+            <div class="doc-titulo">Canhoto (código de barras)</div>
+            <p class="doc-texto">HTML térmico 80mm gerado pelo backend em <code>GET /api/caixamovimentos/&#123;id&#125;/canhoto</code>. Contém dados do movimento + código de barras Code128 inline SVG (sem dependência externa).</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Formato do código:</b> <code>{{ '{' }}FilialCodigo{{ '}' }}{{ '{' }}Sequencial{{ '}' }}</code> (via SequenciaLocal)</div>
+              <div class="doc-item"><b>Leitor USB:</b> comporta-se como teclado. Basta input com autofocus no painel "Valores em Caixa"</div>
+              <div class="doc-item"><b>Impressão:</b> <code>window.print()</code> automático ao abrir a janela</div>
+            </div>
+
+            <div class="doc-titulo">Painel "Valores em Caixa" (durante o turno)</div>
+            <p class="doc-texto">Dentro do módulo Caixa. Lista todos os movimentos com cor de borda por status (verde=conferido, amarelo=aguardando conferente, vermelho=pendente). Input de scan no topo sempre em foco — operador bipa canhotos durante o turno e eles ficam verdes.</p>
+
+            <div class="doc-titulo">Tela "Sangrias Pendentes" (Financeiro)</div>
+            <p class="doc-texto">Acesso do supervisor/conferente. Lista sangrias em status <code>PendenteConferente</code> da filial. Permite confirmar individualmente ou bipar canhoto. Ao confirmar, cria <code>MovimentoContaBancaria</code> Entrada na Conta Cofre.</p>
+
+            <div class="doc-titulo">Tela "Conferência de Caixa" (Financeiro)</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Etapa 1:</b> selecionar caixa fechado (grid de cards)</div>
+              <div class="doc-item"><b>Etapa 2:</b> totalizadores por forma de pagamento (Declarado × Sistema × Diferença). Diferenças em vermelho (não bloqueia)</div>
+              <div class="doc-item"><b>Drill-down:</b> clica na forma → expande lista de movimentos</div>
+              <div class="doc-item"><b>Confirmar conferência:</b> caixa vira <code>Conferido</code> e o saldo de dinheiro é enviado ao cofre via <code>MovimentoContaBancaria</code></div>
+            </div>
+
+            <div class="doc-titulo">Cálculo da linha DINHEIRO (crucial)</div>
+            <p class="doc-texto">A linha DINHEIRO tem lógica especial que difere das demais formas de pagamento:</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Sistema = Abertura + Vendas dinheiro + Suprimentos − Pagamentos em dinheiro.</b> Sangrias <b>não</b> entram no Sistema (elas retiram do caixa físico, não saem do sistema).</div>
+              <div class="doc-item"><b>Declarado = Σ sangrias conferidas.</b> Representa o que o operador retirou e entregou ao supervisor durante o turno. Quando o caixa é fechado, a sangria final equivale ao saldo restante em dinheiro.</div>
+              <div class="doc-item"><b>Diferença = Sistema − Declarado.</b> Zero = caixa bate. Positivo = falta sangriar. Negativo = sobrou declarado (erro do operador).</div>
+              <div class="doc-item"><b>Abertura conta:</b> o fundo inicial entra no grupo DINHEIRO como primeiro movimento e soma no Sistema. Sem isso, não era possível bater caixas com fundo.</div>
+            </div>
+            <p class="doc-texto"><b>Cenário exemplo:</b> Abre R$100 → vende R$33,79 dinheiro → sangra R$20 → fecha. Resultado: Sistema=R$133,79; Declarado=R$20; Diferença=R$113,79 (que é o que o operador ainda precisa sangriar no fim do turno).</p>
+
+            <div class="doc-titulo">Fluxo completo — exemplo</div>
+            <div class="doc-lista">
+              <div class="doc-item">1. Abertura do caixa com fundo R$50 → canhoto abertura</div>
+              <div class="doc-item">2. Venda dinheiro R$100 → sem canhoto (cria CaixaMovimento tipo 3)</div>
+              <div class="doc-item">3. Venda cartão R$80 → canhoto + CaixaMovimento pendente</div>
+              <div class="doc-item">4. Sangria R$140 → canhoto + status PendenteConferente</div>
+              <div class="doc-item">5. Supervisor confirma sangria → MovimentoContaBancaria Entrada no cofre (+R$140)</div>
+              <div class="doc-item">6. Ao fim do turno, sangria final R$10 restantes → +R$10 no cofre após confirmação</div>
+              <div class="doc-item">7. Fechamento (modo posse) → direto Status=Fechado</div>
+              <div class="doc-item">8. Conferente abre Financeiro → Conferência → vê movimentos pré-conferidos → confirma</div>
+              <div class="doc-item">9. Status=Conferido. Saldo dinheiro entra no cofre (se ainda não entrou)</div>
+            </div>
+
+            <div class="doc-titulo">Endpoints novos</div>
+            <div class="doc-lista">
+              <div class="doc-item"><code>POST /api/caixamovimentos/sangria</code> — cria sangria (PendenteConferente)</div>
+              <div class="doc-item"><code>POST /api/caixamovimentos/suprimento</code> — cria suprimento (Conferido) + saída do cofre</div>
+              <div class="doc-item"><code>POST /api/caixamovimentos/recebimento</code> — baixa ContaReceber (parcial ou total)</div>
+              <div class="doc-item"><code>POST /api/caixamovimentos/pagamento</code> — cria ContaPagar já paga (despesa do dia)</div>
+              <div class="doc-item"><code>POST /api/caixamovimentos/bipar</code> — marca movimento como Conferido via código</div>
+              <div class="doc-item"><code>POST /api/caixamovimentos/&#123;id&#125;/confirmar-sangria</code> — supervisor confirma recebimento do dinheiro</div>
+              <div class="doc-item"><code>GET  /api/caixamovimentos/caixa/&#123;caixaId&#125;</code> — lista movimentos do caixa</div>
+              <div class="doc-item"><code>GET  /api/caixamovimentos/sangrias-pendentes</code> — lista sangrias aguardando supervisor</div>
+              <div class="doc-item"><code>GET  /api/caixamovimentos/&#123;id&#125;/canhoto</code> — HTML térmico 80mm com Code128</div>
+              <div class="doc-item"><code>GET  /api/caixas/&#123;id&#125;/conferencia</code> — agrupamento por forma de pagamento</div>
+              <div class="doc-item"><code>POST /api/caixas/&#123;id&#125;/conferir</code> — finaliza conferência</div>
+            </div>
+
+            <div class="doc-titulo">Snapshot do modelo de fechamento</div>
+            <p class="doc-texto">Ao abrir o caixa, o sistema copia o valor da config <code>caixa.modelo.fechamento</code> para o campo <code>Caixa.ModeloFechamento</code>. Isso evita que uma mudança de config no meio do turno afete um caixa já em operação. A tela de Conferência se comporta baseada nesse snapshot.</p>
+
+            <div class="doc-titulo" style="color:#16a085;margin-top:24px">📌 Controle Bancário / Cofre</div>
+            <p class="doc-texto">Tela universal de gestão de <b>qualquer</b> ContaBancaria, incluindo contas do tipo <code>CaixaInterno</code> (cofre físico da filial). Um único componente (<code>controle-bancario.component.ts</code>) serve duas rotas: <code>/erp/controle-bancario</code> e <code>/erp/cofre</code>. Na rota <code>/cofre</code>, o sistema detecta a URL e pré-seleciona automaticamente a ContaCofre da filial do usuário logado.</p>
+
+            <div class="doc-titulo">Por que não existe tela "Cofre" separada</div>
+            <p class="doc-texto">O cofre é tecnicamente uma ContaBancaria (tipo CaixaInterno) com comportamento idêntico: tem saldo, recebe entradas (sangrias conferidas) e saídas (suprimentos). Toda a infraestrutura de movimento, extrato e saldo já existia para contas bancárias comuns. Criar uma tela separada seria duplicar código. A "tela Cofre" é apenas um atalho visual: mesmo componente, mesmos endpoints, mas entra já filtrado na conta cofre da filial.</p>
+
+            <div class="doc-titulo">Componentes da tela</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Seletor de conta:</b> dropdown com todas as contas ativas. Contas tipo CaixaInterno aparecem com sufixo <code>(Caixa Interno)</code>. Na rota /cofre, já vem travada na cofre da filial.</div>
+              <div class="doc-item"><b>Filtro de período:</b> Data Inicial e Data Final. Default = últimos 30 dias.</div>
+              <div class="doc-item"><b>Cards de saldo:</b> 4 cards coloridos — Saldo Atual (grande, azul ou verde se cofre), Entradas no Período, Saídas no Período, Saldo do Período. O card principal muda para verde com ícone de cofre quando a conta selecionada é tipo CaixaInterno.</div>
+              <div class="doc-item"><b>Grid de extrato:</b> padrão ERP (scroll, sort, resize, drag-drop, col picker) com colunas Data/Hora, Tipo, Descrição, Caixa, Movimento Origem, Usuário, Entrada, Saída. Linhas manuais (ajuste) destacadas em amarelo claro com ícone ✎.</div>
+              <div class="doc-item"><b>Sidebar:</b> 3 tiles — Atualizar (reaplica filtro), Ajuste Manual (abre modal), Sair.</div>
+            </div>
+
+            <div class="doc-titulo">Ajuste Manual (auditado)</div>
+            <p class="doc-texto">Modal com tipo (Entrada/Saída), valor, descrição obrigatória e observação. Cria um <code>MovimentoContaBancaria</code> com flag <code>Manual=true</code> para rastreabilidade. Usado para correções pontuais como estorno, erro de digitação ou ajuste de saldo inicial.</p>
+
+            <div class="doc-titulo">Saldo Inicial</div>
+            <p class="doc-texto">O saldo mostrado é calculado como <code>SaldoInicial (do cadastro da ContaBancaria) + Σ movimentos até a data final do filtro − data inicial do filtro</code>. O "Saldo Atual" é até <b>hoje</b>, independente do período filtrado. O "Saldo do Período" é Entradas − Saídas dentro do intervalo.</p>
+
+            <div class="doc-titulo">Endpoints</div>
+            <div class="doc-lista">
+              <div class="doc-item"><code>GET /api/contasbancarias/&#123;id&#125;/saldo?dataInicio&amp;dataFim</code> — retorna ContaBancariaSaldoDto (saldoAtual, saldoInicial, totalEntradasPeriodo, totalSaidasPeriodo, saldoPeriodo, ehCofre, contaBancariaNome)</div>
+              <div class="doc-item"><code>GET /api/contasbancarias/&#123;id&#125;/extrato?dataInicio&amp;dataFim</code> — lista movimentos ordenados por data decrescente</div>
+              <div class="doc-item"><code>POST /api/contasbancarias/&#123;id&#125;/ajuste-manual</code> — body: &#123; tipo (1=Entrada/2=Saida), valor, descricao, observacao? &#125;</div>
+            </div>
+
+            <div class="doc-titulo">Origens dos movimentos</div>
+            <p class="doc-texto">O campo <code>CaixaMovimentoId</code> + <code>CaixaId</code> permite rastrear a origem de cada linha:</p>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Sangria conferida:</b> Entrada no Cofre (operação do caixa → supervisor confirma)</div>
+              <div class="doc-item"><b>Suprimento:</b> Saída do Cofre (operador solicita dinheiro do cofre pro caixa)</div>
+              <div class="doc-item"><b>Conferência do caixa:</b> Entrada no Cofre com saldo de dinheiro do caixa (se não houve sangria final)</div>
+              <div class="doc-item"><b>Recebimento via adquirente:</b> Entrada na conta bancária da adquirente quando o valor for repassado (a implementar no módulo de conciliação de cartões)</div>
+              <div class="doc-item"><b>Ajuste manual:</b> Entrada ou Saída marcada com <code>Manual=true</code>, usuário gravado</div>
             </div>
 
           </div>

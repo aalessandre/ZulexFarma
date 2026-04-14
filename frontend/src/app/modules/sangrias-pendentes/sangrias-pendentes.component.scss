@@ -1,0 +1,37 @@
+.sp-scan {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; background: #e8f5e9; border: 2px solid #66bb6a;
+  border-radius: 8px; margin: 14px; color: #2e7d32;
+  input {
+    flex: 1; border: none; background: transparent; font-size: 14px;
+    font-weight: 600; outline: none; color: #1b5e20;
+    &::placeholder { color: #81c784; }
+  }
+}
+.sp-loading, .sp-vazio {
+  padding: 40px; text-align: center; color: #90a4ae; font-size: 14px;
+}
+.sp-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px; padding: 0 14px 14px;
+}
+.sp-card {
+  background: #fff; border: 2px solid #ffcc80; border-radius: 10px;
+  padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.05);
+}
+.sp-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; margin-bottom: 8px;
+  code { background: #fff3e0; padding: 2px 8px; border-radius: 4px; font-weight: 700; color: #ef6c00; }
+}
+.sp-valor { font-size: 18px; font-weight: 800; color: #c62828; }
+.sp-card-body {
+  font-size: 13px; color: #546e7a; display: flex; flex-direction: column; gap: 4px;
+  b { color: #37474f; }
+}
+.sp-card-footer {
+  display: flex; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f0f0f0;
+  button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
+}
+.sp-btn-canhoto { background: #eceff1; color: #546e7a; &:hover { background: #cfd8dc; } }
+.sp-btn-confirmar { background: #2e7d32; color: #fff; &:hover { background: #1b5e20; } }

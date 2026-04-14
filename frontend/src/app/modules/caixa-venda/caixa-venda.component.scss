@@ -435,6 +435,73 @@
   background: rgba(255,255,255,0.18); padding: 3px 14px; border-radius: 6px;
   border: 1px solid rgba(255,255,255,0.3);
 }
+/* ── Modal cartão ────────────────── */
+.cx-modal-cartao {
+  background: var(--erp-surface); border-radius: 14px; width: 720px; max-width: 94vw;
+  max-height: 90vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 56px rgba(0,0,0,0.3); animation: promoSlideIn 0.2s ease-out;
+}
+.cx-cart-body {
+  padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto; flex: 1;
+}
+.cx-cart-card {
+  border: 2px solid var(--erp-border); border-radius: 12px; padding: 14px 16px;
+  background: var(--erp-bg); display: flex; flex-direction: column; gap: 12px;
+}
+.cx-cart-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.cx-cart-card-num {
+  font-size: 13px; font-weight: 700; color: var(--erp-primary); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.cx-cart-btn-remover {
+  background: #fdecea; border: 1px solid #f5c6c3; border-radius: 6px;
+  color: #e74c3c; padding: 4px 6px; cursor: pointer;
+  &:hover { background: #fbd3cf; }
+}
+.cx-cart-section { display: flex; flex-direction: column; gap: 6px; }
+.cx-cart-label {
+  font-size: 11px; font-weight: 700; color: var(--erp-text-sec); letter-spacing: 0.5px;
+}
+.cx-cart-tiles { display: flex; flex-wrap: wrap; gap: 8px; }
+.cx-cart-tile {
+  padding: 8px 16px; border: 2px solid var(--erp-border-input);
+  border-radius: 8px; background: var(--erp-surface);
+  font-size: 13px; font-weight: 600; color: var(--erp-text);
+  cursor: pointer; transition: all 0.12s;
+  &:hover { border-color: var(--erp-primary); background: rgba(33,150,243,0.04); }
+  &.cx-cart-tile-ativo {
+    border-color: var(--erp-primary); background: var(--erp-primary); color: #fff;
+    box-shadow: 0 2px 8px rgba(33,150,243,0.3);
+  }
+}
+.cx-cart-vazio { font-size: 12px; color: #95a5a6; font-style: italic; }
+.cx-cart-fields {
+  display: flex; gap: 12px; align-items: flex-end;
+}
+.cx-cart-field {
+  display: flex; flex-direction: column; gap: 4px; flex: 0 0 180px;
+  label { font-size: 11px; font-weight: 700; color: var(--erp-text-sec); letter-spacing: 0.5px; }
+}
+.cx-cart-field-grow { flex: 1; }
+.cx-cart-input {
+  padding: 10px 12px; border: 2px solid var(--erp-border-input); border-radius: 8px;
+  font-size: 14px; color: var(--erp-text); background: var(--erp-input-bg); outline: none;
+  &:focus { border-color: var(--erp-primary); }
+}
+.cx-cart-add {
+  padding: 12px; border: 2px dashed var(--erp-border-input); border-radius: 8px;
+  background: transparent; color: var(--erp-primary); font-size: 13px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: all 0.12s;
+  &:hover { background: rgba(33,150,243,0.04); border-color: var(--erp-primary); }
+}
+.cx-cartao-erro {
+  padding: 10px 14px; background: #fdecea; border: 1px solid #f5c6c3;
+  border-radius: 8px; color: #c62828; font-size: 13px; font-weight: 600;
+}
+
 .cx-tarja-btn-cancelar {
   display: flex; align-items: center; gap: 5px;
   padding: 6px 16px; border: 2px solid rgba(255,255,255,0.5); border-radius: 6px;

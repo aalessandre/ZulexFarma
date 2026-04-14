@@ -1,0 +1,21 @@
+agora vamos tratar a venda a prazo:
+- ao clicar na codição a prazo, é obrigatorio ter um cliente informado
+- temos parametros em clientes e convenios, a ordem da hierarquia é primeiro cliente, depois convenio, os parametros são os mesmos, então primeiro leva em consideração o que esiver parametrizado em clierte
+- validar todos os parametros:
+  - Limite de credito, tem que buscar todas as pendencias do cliente(contas a receber com tipo de pagamento a prazo nao baixadas), se ultrapassar a venda só pode ser liberada com senha 
+  - bloqueados
+  - permitir venda parcelada
+  - Bloquear Desconto na Venda Parcelada
+  - Vender Somente com Senha=> se marcado, exiba uma modal solicitando a senha do cliente, é a mesma que ele cadastrou em seu cadastro de cliente
+  - checkar se a condição de pagamento esta liberada
+  - no caso de venda parcela, checkar o limite e bloqueio de desconto em relação as parcelas
+- padronize para todo o escopo do projeto, uma modal com um campo senha, acho que nao tem ainda, toda vez que precisar de senha mostre qual paremetro esta solicitando a senha e apresente um campo solicitando senha
+- com relaçao aos prazos:
+  - se modo de fechamento for dias corridos, a data do vencimento é o dia da venda  + a qtde de dias que esta configurado
+  - se o modo de fechamenrto for Fechamento:
+    - o dia do fechamento será o dia informado 
+	- o dis do vencimento sera sempre o dia informado
+	- o mes do vencimento vai depender da configuração:
+	  - se o dia de fechamento é 10, o dia do vencimento é 20, a quantidade de meses é 0, então vence no mesmo mes
+	  - se o dia de fechamento é 10, o dia do vencimento é 5, nesse caso nao pode ser colocado qtde mes igual a 0, pois dia 5 só pode ser do mes seguinte,
+	    se fecha dia 10, vence dia 5, qtde mes é 2, então o vencimento é dois meses após o mes do fechamento

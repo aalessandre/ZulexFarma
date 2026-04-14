@@ -41,6 +41,12 @@ const TILES: TileItem[] = [
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M6 15h4"/><path d="M14 15h2"/></svg>`,
     rota: '/erp/tipos-pagamento'
   },
+  {
+    label: 'Adquirentes',
+    sigla: 'AQ',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="17" cy="15" r="2"/></svg>`,
+    rota: '/erp/adquirentes'
+  },
 ];
 
 @Component({

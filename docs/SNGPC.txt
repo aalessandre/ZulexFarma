@@ -1,0 +1,31 @@
+vamos construir nosso SNGPC
+
+- nas configurações precisamos ter um accordion SNGPC, as seguintes configurações:
+ - ativar SNGPC
+ - Compras=> dropdown : Obrigatorio, Não Lancar, Misto
+ - Vendas=> dropdown : Obrigatorio, Não Lancar, Misto
+ - Enviar automaticamente? botão Switch
+ - imprimir etiqueta
+ 
+ 
+ como será o funcionamento do SNGPC
+ - um produto será considerado controlado quando sua classe terapeutica for Psicotropico ou Antibiótico, Temos que adicionar esse dropdown com as opções:Nenhum, Psicotrópico, Antibiótico
+ - no compras quando selecionar uma nota/compra, vamos criar um botão "Conferir lotes" com os seguintes campos:
+ - codigo, nome, fabricante, qtde, lote, data fabricação, data vencimento, registro MS
+ - sinalize o produto que é controlado, crie uma coluna sem cabeçalho, pode ser a primeira coluna, e coloque o icone que vou colar
+ - nessa tela de conferencia de lotes, todos os produtos que tiver lotes no xml deverão ser carregados com todos os dados, das colunas mencionadas, esses dados virão do xml 
+ - os campos lote, data fabricação, data vencimento, registro MS devem ser editaveis, caso o usuario faça alguma alteração, o dado que deverá ser gravado no banco será o dado que o usuario editar
+ - no caso de edição, seria interessante gravar ou um log ou na tabela de compras mesmo, os dados originais e os dados editados, assim temos a seguança de saber que foi editado pelo usuario
+ - crie um tile na home SNGPC, que será um submenu com as opções:
+   - inventario inicial
+   - Compras e Transferencias => mostra as compras e seus produtos lançados
+   - Receitas
+   - Perdas
+   - Estoque
+   - Mapas
+- nas configurações, Accordion SNGPC:
+  - Compras=> dropdown : Obrigatorio, Não Lancar, Misto
+    - Obrigatorio=> lança no SNGPCautomaticamente todos os produtos sinalizados como Psicotropico ou Antibiótico
+	- Não Lançar=> Ignora, nao lança nada
+	- Misto=> ao finalizar a compra, tera um botão/swicth para o usuario informar que nao quer lançar no sngpc
+	

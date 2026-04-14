@@ -74,6 +74,21 @@ export const ErpRoutes: Routes = [
           import('../produtos/produtos.component').then(m => m.ProdutosComponent),
       },
       {
+        path: 'gerenciar-produtos-menu',
+        loadComponent: () =>
+          import('../produtos-menu/produtos-menu.component').then(m => m.ProdutosMenuComponent),
+      },
+      {
+        path: 'produtos',
+        loadComponent: () =>
+          import('../produtos/produtos.component').then(m => m.ProdutosComponent),
+      },
+      {
+        path: 'gestor-tributario',
+        loadComponent: () =>
+          import('../gestor-tributario/gestor-tributario.component').then(m => m.GestorTributarioComponent),
+      },
+      {
         path: 'dicionario-dados',
         loadComponent: () =>
           import('../dicionario-dados/dicionario-dados.component').then(m => m.DicionarioDadosComponent),
@@ -189,6 +204,26 @@ export const ErpRoutes: Routes = [
           import('../adquirentes/adquirentes.component').then(m => m.AdquirentesComponent),
       },
       {
+        path: 'conferencia-caixa',
+        loadComponent: () =>
+          import('../conferencia-caixa/conferencia-caixa.component').then(m => m.ConferenciaCaixaComponent),
+      },
+      {
+        path: 'controle-bancario',
+        loadComponent: () =>
+          import('../controle-bancario/controle-bancario.component').then(m => m.ControleBancarioComponent),
+      },
+      {
+        path: 'cofre',
+        loadComponent: () =>
+          import('../controle-bancario/controle-bancario.component').then(m => m.ControleBancarioComponent),
+      },
+      {
+        path: 'sangrias-pendentes',
+        loadComponent: () =>
+          import('../sangrias-pendentes/sangrias-pendentes.component').then(m => m.SangriasPendentesComponent),
+      },
+      {
         path: 'contas-receber',
         loadComponent: () =>
           import('../contas-receber/contas-receber.component').then(m => m.ContasReceberComponent),
@@ -207,6 +242,53 @@ export const ErpRoutes: Routes = [
         path: 'clientes',
         loadComponent: () =>
           import('../clientes/clientes.component').then(m => m.ClientesComponent),
+      },
+      // ── SNGPC ────────────────────────────────────────────────────
+      {
+        path: 'sngpc',
+        loadComponent: () =>
+          import('../sngpc-menu/sngpc-menu.component').then(m => m.SngpcMenuComponent),
+      },
+      // Sub-rotas do SNGPC
+      {
+        path: 'sngpc-inventario',
+        loadComponent: () =>
+          import('../sngpc-inventario/sngpc-inventario.component').then(m => m.SngpcInventarioComponent),
+      },
+      {
+        path: 'sngpc-compras',
+        loadComponent: () =>
+          import('../sngpc-compras/sngpc-compras.component').then(m => m.SngpcComprasComponent),
+      },
+      {
+        path: 'sngpc-receitas',
+        loadComponent: () =>
+          import('../sngpc-receitas/sngpc-receitas.component').then(m => m.SngpcReceitasComponent),
+      },
+      {
+        path: 'sngpc-perdas',
+        loadComponent: () =>
+          import('../sngpc-perdas/sngpc-perdas.component').then(m => m.SngpcPerdasComponent),
+      },
+      {
+        path: 'sngpc-estoque',
+        loadComponent: () =>
+          import('../sngpc-estoque/sngpc-estoque.component').then(m => m.SngpcEstoqueComponent),
+      },
+      {
+        path: 'sngpc-mapas',
+        loadComponent: () =>
+          import('../sngpc-mapas/sngpc-mapas.component').then(m => m.SngpcMapasComponent),
+      },
+      {
+        path: 'sngpc-pendentes',
+        loadComponent: () =>
+          import('../sngpc-pendentes/sngpc-pendentes.component').then(m => m.SngpcPendentesComponent),
+      },
+      {
+        path: 'prescritores',
+        loadComponent: () =>
+          import('../prescritores/prescritores.component').then(m => m.PrescritoresComponent),
       },
       // Placeholders — módulos futuros
       {

@@ -1,0 +1,199 @@
+<div class="tela-erp">
+
+  <aside class="tela-sidebar">
+    @if (modo() === 'lista') {
+      <div class="sidebar-item tile-procurar" [class.ativo]="true">
+        <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Procurar</span></div>
+        <span class="sidebar-sub">Consulta</span>
+      </div>
+      <div class="sidebar-item tile-adicionar" (click)="novo()">
+        <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Adicionar</span></div>
+        <span class="sidebar-sub">Novo inventário</span>
+      </div>
+    } @else {
+      <div class="sidebar-item tile-salvar" [class.disabled]="salvando()" (click)="salvar()">
+        <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>{{ salvando() ? 'Salvando...' : 'Salvar' }}</span></div>
+        <span class="sidebar-sub">Gravar rascunho</span>
+      </div>
+      <div class="sidebar-item tile-voltar" (click)="voltar()">
+        <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg><span>Voltar</span></div>
+        <span class="sidebar-sub">Lista</span>
+      </div>
+    }
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    @if (modo() === 'lista') {
+      <div class="lista-header">
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header">
+                <span>Personalizar Colunas</span>
+                <button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+              </div>
+              <div class="col-picker-lista">
+                @for (col of colunas(); track col.campo) {
+                  <label class="col-picker-item">
+                    <input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" />
+                    <span>{{ col.label }}</span>
+                    @if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+                <th class="th-sort th-resize"
+                    [style.width.px]="col.largura"
+                    [style.min-width.px]="col.minLargura"
+                    (click)="ordenar(col.campo)"
+                    draggable="true"
+                    (dragstart)="onDragStartCol(i)"
+                    (dragover)="onDragOverCol($event, i)"
+                    (drop)="onDropCol()">
+                  {{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span>
+                  <div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div>
+                </th>
+              }
+              <th style="width:110px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (carregando()) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr>
+            } @else if (inventariosOrdenados().length === 0) {
+              <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum inventário cadastrado. Clique em "Adicionar" para começar.</td></tr>
+            } @else {
+              @for (inv of inventariosOrdenados(); track inv.id) {
+                <tr [class.row-finalizado]="inv.status === 2">
+                  @for (col of colunasVisiveis(); track col.campo) {
+                    @if (col.campo === 'statusNome') {
+                      <td><span class="inv-badge" [class.inv-badge-rascunho]="inv.status === 1" [class.inv-badge-finalizado]="inv.status === 2">{{ inv.statusNome }}</span></td>
+                    } @else if (col.campo === 'totalItens') {
+                      <td class="td-center">{{ inv.totalItens }}</td>
+                    } @else if (col.campo === 'quantidadeTotal') {
+                      <td class="td-valor">{{ getCellValue(inv, col.campo) }}</td>
+                    } @else {
+                      <td>{{ getCellValue(inv, col.campo) }}</td>
+                    }
+                  }
+                  <td class="td-center">
+                    @if (inv.status === 1) {
+                      <button class="btn-acao btn-editar" (click)="editar(inv); $event.stopPropagation()" title="Editar">✎</button>
+                      <button class="btn-acao btn-finalizar" (click)="finalizar(inv); $event.stopPropagation()" title="Finalizar">✓</button>
+                      <button class="btn-acao btn-excluir" (click)="excluir(inv); $event.stopPropagation()" title="Excluir">✕</button>
+                    } @else {
+                      <button class="btn-acao btn-visualizar" (click)="editar(inv); $event.stopPropagation()" title="Visualizar">👁</button>
+                    }
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Registro(s): <strong>{{ inventariosOrdenados().length }}</strong></span>
+      </div>
+    }
+
+    @if (modo() === 'form') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ editId() ? 'Editar Inventário' : 'Novo Inventário' }}</div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label>FILIAL *</label>
+            <select [value]="filialId()" (change)="filialId.set(+$any($event.target).value)" [disabled]="!!editId()">
+              @for (f of filiais(); track f.id) { <option [value]="f.id">{{ f.nomeFilial }}</option> }
+            </select>
+          </div>
+          <div class="field">
+            <label>DATA DO INVENTÁRIO *</label>
+            <input type="date" [value]="dataInventario()" (change)="dataInventario.set($any($event.target).value)" />
+          </div>
+          <div class="field field-full">
+            <label>DESCRIÇÃO</label>
+            <input type="text" [value]="descricao()" (input)="descricao.set($any($event.target).value)"
+                   placeholder="Ex: Inventário inicial SNGPC abril/2026" maxlength="200" />
+          </div>
+        </div>
+
+        <div class="add-produto">
+          <label>ADICIONAR PRODUTO (digite nome ou código)</label>
+          <div class="lookup-wrap">
+            <input type="text" [value]="produtoBusca()"
+                   (input)="onProdutoInput($any($event.target).value)"
+                   (blur)="produtoBuscaAberto.set(false)"
+                   placeholder="Buscar produto..." />
+            @if (produtoBuscaAberto() && produtoResultados().length > 0) {
+              <ul class="lookup-list">
+                @for (p of produtoResultados(); track p.id) {
+                  <li (mousedown)="selecionarProduto(p)">{{ p.texto }}</li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
+
+        <div class="itens-wrap">
+          <table class="itens-tabela">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Classe</th>
+                <th>Lote *</th>
+                <th>Fabricação</th>
+                <th>Validade</th>
+                <th class="td-valor">Qtde *</th>
+                <th>Registro MS</th>
+                <th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (itens().length === 0) {
+                <tr><td colspan="8" class="grid-vazio">Nenhum item adicionado. Use o campo acima para buscar produtos.</td></tr>
+              } @else {
+                @for (it of itens(); track $index; let idx = $index) {
+                  <tr>
+                    <td>{{ it.produtoNome }}</td>
+                    <td><span class="classe-badge">{{ it.classeTerapeutica || '—' }}</span></td>
+                    <td><input class="inp" [value]="it.numeroLote" (input)="atualizarItem(idx, 'numeroLote', $any($event.target).value)" placeholder="S/L" /></td>
+                    <td><input class="inp" type="date" [value]="it.dataFabricacao" (input)="atualizarItem(idx, 'dataFabricacao', $any($event.target).value)" /></td>
+                    <td><input class="inp" type="date" [value]="it.dataValidade" (input)="atualizarItem(idx, 'dataValidade', $any($event.target).value)" /></td>
+                    <td><input class="inp inp-qtde" type="number" min="0" step="0.001" [value]="it.quantidade" (input)="atualizarItem(idx, 'quantidade', +$any($event.target).value)" /></td>
+                    <td><input class="inp" [value]="it.registroMs || ''" (input)="atualizarItem(idx, 'registroMs', $any($event.target).value)" /></td>
+                    <td class="td-center"><button class="btn-acao btn-excluir" (click)="removerItem(idx)">✕</button></td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="field field-full" style="margin-top:14px">
+          <label>OBSERVAÇÃO</label>
+          <textarea rows="2" [value]="observacao()" (input)="observacao.set($any($event.target).value)" maxlength="500"></textarea>
+        </div>
+      </div>
+    }
+  </div>
+</div>

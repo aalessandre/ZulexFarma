@@ -61,20 +61,20 @@ const ADQUIRENTES_COLUNAS: ColunaDef[] = [
   { campo: 'criadoEm', label: 'Data Cadastro', largura: 150, minLargura: 100, padrao: true },
 ];
 
-const MODALIDADES = [
-  'Debito',
-  'Credito',
-  'Parcelado 2x',
-  'Parcelado 3x',
-  'Parcelado 4x',
-  'Parcelado 5x',
-  'Parcelado 6x',
-  'Parcelado 7x',
-  'Parcelado 8x',
-  'Parcelado 9x',
-  'Parcelado 10x',
-  'Parcelado 11x',
-  'Parcelado 12x',
+const MODALIDADES: { label: string; valor: number }[] = [
+  { label: 'Debito', valor: 1 },
+  { label: 'Credito', valor: 2 },
+  { label: 'Parcelado 2x', valor: 3 },
+  { label: 'Parcelado 3x', valor: 4 },
+  { label: 'Parcelado 4x', valor: 5 },
+  { label: 'Parcelado 5x', valor: 6 },
+  { label: 'Parcelado 6x', valor: 7 },
+  { label: 'Parcelado 7x', valor: 8 },
+  { label: 'Parcelado 8x', valor: 9 },
+  { label: 'Parcelado 9x', valor: 10 },
+  { label: 'Parcelado 10x', valor: 11 },
+  { label: 'Parcelado 11x', valor: 12 },
+  { label: 'Parcelado 12x', valor: 13 },
 ];
 
 const BANDEIRAS_SUGESTOES = ['Visa', 'Mastercard', 'Elo', 'Amex', 'Hipercard', 'Diners'];
@@ -131,6 +131,9 @@ export class AdquirentesComponent implements OnInit, OnDestroy {
   logDataFim = signal('');
   carregandoLog = signal(false);
 
+  // Contas bancárias lookup
+  contasBancarias = signal<{ id: number; nome: string }[]>([]);
+
   private apiUrl = `${environment.apiUrl}/adquirentes`;
   private tokenLiberacao: string | null = null;
 
@@ -152,7 +155,7 @@ export class AdquirentesComponent implements OnInit, OnDestroy {
     return {};
   }
 
-  ngOnInit() { this.carregar(); }
+  ngOnInit() { this.carregar(); this.carregarContasBancarias(); }
   ngOnDestroy() { sessionStorage.removeItem(this.STATE_KEY); }
 
   sairDaTela() {
@@ -202,7 +205,7 @@ export class AdquirentesComponent implements OnInit, OnDestroy {
       next: r => {
         const dados = (r.data ?? []).map((a: any) => ({
           ...a,
-          bandeiras: (a.bandeiras ?? []).map((b: any) => ({ ...b, expandida: false }))
+          bandeiras: (a.bandeiras ?? []).map((b: any) => ({ ...b, nome: b.bandeira ?? b.nome ?? '', expandida: false }))
         }));
         this.adquirentes.set(dados);
         this.carregando.set(false);
@@ -220,6 +223,13 @@ export class AdquirentesComponent implements OnInit, OnDestroy {
           });
         }
       }
+    });
+  }
+
+  private carregarContasBancarias() {
+    this.http.get<any>(`${environment.apiUrl}/contasbancarias`).subscribe({
+      next: r => this.contasBancarias.set((r.data ?? []).filter((c: any) => c.ativo).map((c: any) => ({ id: c.id, nome: c.nome || c.descricao || `Conta #${c.id}` }))),
+      error: () => {}
     });
   }
 
@@ -383,7 +393,18 @@ export class AdquirentesComponent implements OnInit, OnDestroy {
         this.carregando.set(false);
         const detail: Adquirente = {
           ...r.data,
-          bandeiras: (r.data.bandeiras ?? []).map((b: any) => ({ ...b, expandida: false }))
+          bandeiras: (r.data.bandeiras ?? []).map((b: any) => ({
+            id: b.id,
+            nome: b.bandeira ?? b.nome ?? '',
+            expandida: false,
+            tarifas: (b.tarifas ?? []).map((t: any) => ({
+              id: t.id,
+              modalidade: String(t.modalidade ?? 1),
+              tarifaPercentual: String(t.tarifa ?? t.tarifaPercentual ?? ''),
+              prazoRecebimentoDias: String(t.prazoRecebimento ?? t.prazoRecebimentoDias ?? ''),
+              contaBancariaId: t.contaBancariaId ? String(t.contaBancariaId) : ''
+            }))
+          }))
         };
         const aba: AbaEdicao = { adquirente: { ...detail }, form: this.clonar(detail), isDirty: false };
         this.abasEdicao.update(abas => [...abas, aba]);
@@ -491,12 +512,12 @@ export class AdquirentesComponent implements OnInit, OnDestroy {
       ativo: a.ativo,
       bandeiras: a.bandeiras.map(b => ({
         id: b.id,
-        nome: b.nome,
+        bandeira: b.nome,
         tarifas: b.tarifas.map(t => ({
           id: t.id,
-          modalidade: t.modalidade,
-          tarifaPercentual: t.tarifaPercentual ? parseFloat(t.tarifaPercentual) : null,
-          prazoRecebimentoDias: t.prazoRecebimentoDias ? parseInt(t.prazoRecebimentoDias, 10) : null,
+          modalidade: +t.modalidade || 1,
+          tarifa: t.tarifaPercentual ? parseFloat(String(t.tarifaPercentual).replace(',', '.')) : 0,
+          prazoRecebimento: t.prazoRecebimentoDias ? parseInt(String(t.prazoRecebimentoDias), 10) : 0,
           contaBancariaId: t.contaBancariaId ? parseInt(t.contaBancariaId, 10) : null,
         }))
       }))
@@ -511,9 +532,10 @@ export class AdquirentesComponent implements OnInit, OnDestroy {
         const adquirenteId = this.modoEdicao() ? a.id! : r.data?.id;
         this.finalizarSalvar(adquirenteId);
       },
-      error: () => {
-        this.erro.set('Erro ao salvar adquirente.');
+      error: (err: any) => {
         this.salvando.set(false);
+        const msg = err?.error?.message || 'Erro ao salvar adquirente.';
+        this.modal.erro('Erro ao Salvar', msg);
       }
     });
   }
@@ -624,7 +646,7 @@ export class AdquirentesComponent implements OnInit, OnDestroy {
 
   // ── Tarifas ────────────────────────────────────────────────────────
   adicionarTarifa(bandeiraIdx: number) {
-    const novaTarifa: Tarifa = { modalidade: 'Debito', tarifaPercentual: '', prazoRecebimentoDias: '', contaBancariaId: '' };
+    const novaTarifa: Tarifa = { modalidade: '1', tarifaPercentual: '', prazoRecebimentoDias: '', contaBancariaId: '' };
     this.adquirenteForm.update(a => {
       const bandeiras = [...a.bandeiras];
       bandeiras[bandeiraIdx] = {

@@ -18,4 +18,13 @@ public class Caixa : BaseEntity
     public decimal ValorAbertura { get; set; }
     public CaixaStatus Status { get; set; } = CaixaStatus.Aberto;
     public string? Observacao { get; set; }
+
+    /// <summary>Snapshot do modelo de fechamento no momento em que o caixa foi aberto
+    /// ("confirmacao_posse" ou "conferencia_simples"). Evita que uma mudança de config
+    /// no meio do turno afete um caixa já em operação.</summary>
+    public string? ModeloFechamento { get; set; }
+
+    // ── Navigation ─────────────────────────────────────────────
+    public ICollection<CaixaMovimento> Movimentos { get; set; } = new List<CaixaMovimento>();
+    public ICollection<CaixaFechamentoDeclarado> Declarados { get; set; } = new List<CaixaFechamentoDeclarado>();
 }

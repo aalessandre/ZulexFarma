@@ -1,4 +1,4 @@
-<div class="pv-container">
+<div class="pv-container" [hidden]="etapaVenda() !== 'venda'">
 
   <!-- ABAS DE ATENDIMENTO -->
   <div class="pv-abas">
@@ -445,7 +445,7 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <polyline points="20 6 9 17 4 12"/>
       </svg>
-      {{ salvando() ? 'Salvando...' : 'Finalizar' }}
+      {{ salvando() ? 'Salvando...' : (precisaTelaSngpc() ? 'Avançar' : 'Finalizar') }}
     </button>
   </div>
 
@@ -767,5 +767,130 @@
   }
 
 </div>
+
+<!-- ══ Tela SNGPC inline (fluxo Avançar) ══════════════════════════
+     Sempre montado (via [hidden]) pra preservar estado do preenchimento
+     quando o usuário clicar Voltar. -->
+<div class="pv-container" [hidden]="etapaVenda() !== 'sngpc'">
+  <app-sngpc-modal #sngpcScreen
+    [inline]="true"
+    [modoMisto]="cfgSngpcVendasModo() === 'Misto'"
+    (confirmar)="onSngpcConfirmado($event)"
+    (voltar)="onSngpcVoltar()">
+  </app-sngpc-modal>
+</div>
+
+<!-- ══ Modal Dados do Cartão ═══════════════════════════════════════ -->
+@if (modalCartao()) {
+  <div class="pv-modal-overlay" (click)="cancelarCartao()">
+    <div class="cx-modal-cartao" (click)="$event.stopPropagation()">
+      <div class="cx-modal-pag-header">
+        <h3>Dados do Cartão</h3>
+        <span class="cx-modal-pag-total-header">Total: <strong>R$ {{ cartaoTotalAlvo().toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</strong></span>
+        <button class="pv-modal-promo-fechar" (click)="cancelarCartao()">&times;</button>
+      </div>
+
+      <div class="cx-cart-body">
+        @for (cartao of cartoes(); track cartao.id; let idx = $index) {
+          <div class="cx-cart-card">
+            <div class="cx-cart-card-header">
+              <span class="cx-cart-card-num">Cartão #{{ idx + 1 }}</span>
+              @if (cartoes().length > 1) {
+                <button class="cx-cart-btn-remover" (click)="removerCartao(cartao.id)" title="Remover">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              }
+            </div>
+
+            <!-- BANDEIRA -->
+            <div class="cx-cart-section">
+              <label class="cx-cart-label">BANDEIRA</label>
+              <div class="cx-cart-tiles">
+                @for (b of bandeirasUnificadas(); track b.bandeiraId) {
+                  <button class="cx-cart-tile" [class.cx-cart-tile-ativo]="cartao.bandeiraId === b.bandeiraId"
+                          (click)="selecionarBandeira(cartao.id, b.bandeiraId, b.adquirenteId)">{{ b.nome }}</button>
+                }
+                @if (bandeirasUnificadas().length === 0) {
+                  <span class="cx-cart-vazio">Nenhuma bandeira cadastrada. Cadastre adquirentes em Outros Cadastros.</span>
+                }
+              </div>
+            </div>
+
+            <!-- MODALIDADE (aparece após escolher bandeira) -->
+            @if (cartao.adquirenteId && cartao.bandeiraId) {
+              <div class="cx-cart-section">
+                <label class="cx-cart-label">MODALIDADE</label>
+                <div class="cx-cart-tiles">
+                  @for (t of tarifasDaBandeira(cartao.adquirenteId, cartao.bandeiraId); track t.id) {
+                    <button class="cx-cart-tile" [class.cx-cart-tile-ativo]="cartao.modalidade === t.modalidade"
+                            (click)="selecionarModalidade(cartao.id, t.modalidade, t.modalidadeDescricao)">
+                      {{ t.modalidadeDescricao }}
+                    </button>
+                  }
+                  @if (tarifasDaBandeira(cartao.adquirenteId, cartao.bandeiraId).length === 0) {
+                    <span class="cx-cart-vazio">Nenhuma modalidade cadastrada para esta bandeira.</span>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- VALOR e NSU (aparecem após escolher modalidade) -->
+            @if (cartao.modalidade != null) {
+              <div class="cx-cart-fields">
+                <div class="cx-cart-field">
+                  <label>VALOR</label>
+                  <div class="cx-pag-input-wrap">
+                    <span class="cx-pag-prefix">R$</span>
+                    <input type="text" class="cx-pag-input"
+                           [value]="cartao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })"
+                           (blur)="atualizarValorCartao(cartao.id, $any($event.target).value)"
+                           (keydown.enter)="$any($event.target).blur()" />
+                  </div>
+                </div>
+                <div class="cx-cart-field cx-cart-field-grow">
+                  <label>CÓDIGO DE AUTORIZAÇÃO (NSU)</label>
+                  <input type="text" class="cx-cart-input"
+                         [value]="cartao.autorizacao"
+                         (input)="atualizarAutCartao(cartao.id, $any($event.target).value)"
+                         placeholder="Ex: 123456" autocomplete="off" />
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <button class="cx-cart-add" (click)="adicionarCartao()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Adicionar outro cartão
+        </button>
+
+        @if (cartaoErro()) {
+          <div class="cx-cartao-erro">{{ cartaoErro() }}</div>
+        }
+      </div>
+
+      <div class="cx-modal-pag-footer">
+        <div class="cx-pag-resumo">
+          <span>Informado: <strong>R$ {{ cartaoTotalInformado().toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</strong></span>
+          @if (cartaoFalta() > 0.001) {
+            <span class="cx-pag-falta-grande">Falta: R$ {{ cartaoFalta().toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+          } @else if (cartaoFalta() < -0.001) {
+            <span class="cx-pag-falta-grande">Excedeu: R$ {{ (-cartaoFalta()).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+          } @else {
+            <span class="cx-pag-ok">Valor exato</span>
+          }
+        </div>
+        <div class="cx-pag-btns">
+          <button class="pv-promo-btn-cancelar" (click)="cancelarCartao()">Voltar</button>
+          <button class="pv-promo-btn-aplicar" (click)="confirmarCartao()">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
 
 <app-modal-senha></app-modal-senha>

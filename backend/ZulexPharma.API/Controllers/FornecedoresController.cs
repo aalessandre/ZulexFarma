@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using ZulexPharma.Application.DTOs.Fornecedores;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.API.Filters;
+using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
 
@@ -14,11 +16,53 @@ public class FornecedoresController : ControllerBase
 {
     private readonly IFornecedorService _service;
     private readonly ILogAcaoService _log;
+    private readonly AppDbContext _db;
 
-    public FornecedoresController(IFornecedorService service, ILogAcaoService log)
+    public FornecedoresController(IFornecedorService service, ILogAcaoService log, AppDbContext db)
     {
         _service = service;
         _log = log;
+        _db = db;
+    }
+
+    [HttpGet("pesquisar")]
+    public async Task<IActionResult> Pesquisar([FromQuery] string termo, [FromQuery] int limit = 30)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(termo) || termo.Trim().Length < 2)
+                return Ok(new { success = true, data = Array.Empty<object>() });
+
+            var termoNorm = termo.Trim().ToUpper();
+            var termoDigitos = new string(termo.Where(char.IsDigit).ToArray());
+
+            var query = _db.Set<Domain.Entities.Fornecedor>()
+                .Include(f => f.Pessoa)
+                .Where(f => f.Ativo);
+
+            query = query.Where(f =>
+                (f.Codigo != null && f.Codigo.Contains(termoNorm)) ||
+                (termoDigitos.Length > 0 && f.Pessoa.CpfCnpj.Contains(termoDigitos)) ||
+                f.Pessoa.Nome.ToUpper().Contains(termoNorm) ||
+                (f.Pessoa.RazaoSocial != null && f.Pessoa.RazaoSocial.ToUpper().Contains(termoNorm))
+            );
+
+            var resultados = await query.OrderBy(f => f.Pessoa.Nome).Take(limit)
+                .Select(f => new
+                {
+                    id = f.Id,
+                    pessoaId = f.PessoaId,
+                    codigo = f.Codigo,
+                    nome = f.Pessoa.Nome,
+                    razaoSocial = f.Pessoa.RazaoSocial,
+                    cpfCnpj = f.Pessoa.CpfCnpj,
+                    ativo = f.Ativo
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = resultados });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em FornecedoresController.Pesquisar"); return StatusCode(500, new { success = false, message = "Erro ao pesquisar fornecedores." }); }
     }
 
     [HttpGet]

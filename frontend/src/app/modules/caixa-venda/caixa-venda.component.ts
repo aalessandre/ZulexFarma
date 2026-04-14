@@ -9,6 +9,7 @@ import { ModalService } from '../../core/services/modal.service';
 import { ModalSenhaService } from '../../core/services/modal-senha.service';
 import { ModalSenhaComponent } from '../../core/components/modal-senha.component';
 import { SafePipe } from '../../core/pipes/safe.pipe';
+import { SngpcModalComponent } from './sngpc-modal/sngpc-modal.component';
 import { firstValueFrom } from 'rxjs';
 
 interface ItemDesconto {
@@ -40,6 +41,8 @@ interface PreVendaItem {
   descontos: ItemDesconto[];
   colaboradorId?: number;
   temPromocao?: boolean;
+  /** SNGPC: "Psicotrópicos" ou "Antimicrobiano" quando controlado, senão null/undefined. */
+  classeTerapeutica?: string | null;
   // Conferência
   quantidadePrevenda?: number;
   origemItem?: 'prevenda' | 'adicionado';
@@ -80,6 +83,35 @@ interface TipoPagBtn {
   padraoSistema: boolean;
   planoContaId?: number;
   modalidade?: number;
+}
+
+interface AdqTarifa {
+  id: number;
+  modalidade: number;
+  modalidadeDescricao: string;
+  tarifa: number;
+  prazoRecebimento: number;
+  contaBancariaId?: number;
+}
+interface AdqBandeira {
+  id: number;
+  bandeira: string;
+  tarifas: AdqTarifa[];
+}
+interface AdqLookup {
+  id: number;
+  nome: string;
+  bandeiras: AdqBandeira[];
+}
+
+interface CartaoItem {
+  id: string; // uuid local
+  adquirenteId: number | null;
+  bandeiraId: number | null;
+  modalidade: number | null;
+  modalidadeDescricao: string;
+  valor: number;
+  autorizacao: string;
 }
 
 interface ConvenioLookup {
@@ -156,7 +188,7 @@ const CORES_PAGAMENTO = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336', 
 @Component({
   selector: 'app-caixa-venda',
   standalone: true,
-  imports: [CommonModule, FormsModule, SafePipe, ModalSenhaComponent],
+  imports: [CommonModule, FormsModule, SafePipe, ModalSenhaComponent, SngpcModalComponent],
   templateUrl: './caixa-venda.component.html',
   styleUrl: './caixa-venda.component.scss'
 })
@@ -170,6 +202,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   @ViewChild('inputCliente') inputClienteRef!: ElementRef<HTMLInputElement>;
   @ViewChild('inputVendedor') inputVendedorRef!: ElementRef<HTMLInputElement>;
   @ViewChild('inputProduto') inputProdutoRef!: ElementRef<HTMLInputElement>;
+  @ViewChild('sngpcScreen') sngpcScreenRef?: SngpcModalComponent;
   private saindo = false;
 
   // ── Configurações de venda ──────────────────────────────────────
@@ -181,7 +214,18 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   cfgPromoMultiplas = signal<'exibir' | 'menor'>('exibir');
   cfgExigirConferencia = signal(true); // padrão true até carregar config
   cfgConferenciaSoBarras = signal(false);
+  cfgSngpcAtivar = signal(false);
+  cfgSngpcVendasModo = signal<'Obrigatorio' | 'NaoLancar' | 'Misto'>('Obrigatorio');
   private configsCarregadas = signal(false);
+
+  // ── SNGPC (fluxo Avançar → tela inline) ────────────────────────
+  /** 'venda' = tela de cart normal; 'sngpc' = tela de receitas inline (ocupa o main). */
+  etapaVenda = signal<'venda' | 'sngpc'>('venda');
+  /** Body da venda preparado ao clicar Avançar — só é enviado ao backend quando clicar Finalizar. */
+  private sngpcVendaBody: any = null;
+  /** Body de finalização preparado ao clicar Avançar — aguarda o usuário preencher receitas. */
+  private sngpcFinalizarBody: any = null;
+
 
   // ── Conferência ─────────────────────────────────────────────────
   modoConferencia = signal(false);
@@ -281,6 +325,38 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   promoFixasLista = signal<PromocaoProduto[]>([]);
   promoFixasItemIdx = signal(-1);
 
+  // ── Modal dados do cartão ───────────────────────────────────────
+  modalCartao = signal(false);
+  cartoes = signal<CartaoItem[]>([]);
+  cartaoErro = signal('');
+  cartaoTotalAlvo = signal(0); // total que precisa ser distribuído nos cartões
+  adquirentes = signal<AdqLookup[]>([]);
+
+  // Mapeamento bandeira → código IBGE/SEFAZ (tBand NFC-e)
+  private readonly bandeiraCodigo: Record<string, string> = {
+    'VISA': '01', 'MASTERCARD': '02', 'MASTER': '02', 'AMERICAN EXPRESS': '03', 'AMEX': '03',
+    'SORO CREDIT': '04', 'ELO': '05', 'DINERS': '05', 'DINERS CLUB': '05',
+    'HIPERCARD': '06', 'AURA': '07', 'CABAL': '08', 'OUTROS': '99'
+  };
+
+  cartaoTotalInformado = computed(() => this.cartoes().reduce((s, c) => s + (c.valor || 0), 0));
+  cartaoFalta = computed(() => Math.round((this.cartaoTotalAlvo() - this.cartaoTotalInformado()) * 100) / 100);
+
+  /** Lista unificada de bandeiras (todas as bandeiras de todos adquirentes, dedup por nome).
+   *  Cada item aponta para o primeiro adquirente que tem essa bandeira. */
+  bandeirasUnificadas = computed(() => {
+    const mapa = new Map<string, { nome: string; adquirenteId: number; bandeiraId: number }>();
+    for (const adq of this.adquirentes()) {
+      for (const b of adq.bandeiras) {
+        const key = b.bandeira.trim().toUpperCase();
+        if (!mapa.has(key)) {
+          mapa.set(key, { nome: b.bandeira, adquirenteId: adq.id, bandeiraId: b.id });
+        }
+      }
+    }
+    return Array.from(mapa.values());
+  });
+
   // ── Abas de atendimento ─────────────────────────────────────────
   atendimentos = signal<Atendimento[]>([]);
   abaAtivaId = signal(1);
@@ -290,6 +366,20 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   preVendaId = signal<number | null>(null);
   itens = signal<PreVendaItem[]>([]);
   itensSelecionadoIdx = signal<number | null>(null);
+
+  /** True quando o cart contém pelo menos um produto com ClasseTerapeutica controlada. */
+  hasControladosNoCart = computed(() =>
+    this.itens().some(i =>
+      i.classeTerapeutica === 'Psicotrópicos' || i.classeTerapeutica === 'Antimicrobiano'
+    )
+  );
+
+  /** True quando precisa abrir a tela SNGPC ao clicar Avançar. */
+  precisaTelaSngpc = computed(() =>
+    this.cfgSngpcAtivar()
+    && this.cfgSngpcVendasModo() !== 'NaoLancar'
+    && this.hasControladosNoCart()
+  );
 
   // ── Client (ComboGrid) ──────────────────────────────────────────
   clienteId = signal<number | null>(null);
@@ -401,6 +491,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.carregarFiliais();
     this.carregarConfigs();
     this.carregarTiposPagamento();
+    this.carregarAdquirentes();
     this.restaurarEstado();
     this.buscarHierarquia();
     this.focarCliente();
@@ -436,6 +527,9 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         this.cfgInformarCesta.set(map['caixa.informar.cesta'] === 'true');
         this.cfgExigirConferencia.set(map['caixa.exigir.conferencia'] !== 'false'); // padrão true
         this.cfgConferenciaSoBarras.set(map['caixa.conferencia.codigo.barras'] === 'true');
+        this.cfgSngpcAtivar.set(map['sngpc.ativar'] === 'true');
+        const modo = (map['sngpc.vendas.modo'] ?? 'Obrigatorio') as any;
+        this.cfgSngpcVendasModo.set(modo === 'NaoLancar' || modo === 'Misto' ? modo : 'Obrigatorio');
         this.configsCarregadas.set(true);
       }
     });
@@ -818,6 +912,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       colaboradorId: vendedorAtualId ?? undefined,
       unidade: p.unidade,
       descontos: [],
+      classeTerapeutica: (p as any).classeTerapeutica ?? null,
       origemItem: this.modoConferencia() ? 'adicionado' : undefined,
       quantidadePrevenda: 0,
       permitirConferenciaDigitando: (p as any).permitirConferenciaDigitando ?? false
@@ -838,9 +933,6 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         item.componenteDesconto = desc.componente ?? undefined;
         if (desc.aplicarAutomatico && desc.descontoAplicar > 0) {
           item.percentualDesconto = desc.descontoAplicar;
-          item.precoUnitario = Math.round(item.precoVenda * (1 - desc.descontoAplicar / 100) * 100) / 100;
-          item.valorDesconto = Math.round(item.precoVenda * item.quantidade * desc.descontoAplicar / 100 * 100) / 100;
-          item.total = Math.round(item.precoUnitario * item.quantidade * 100) / 100;
           item.descontos.push({
             tipo: 1,
             percentual: desc.descontoAplicar,
@@ -849,6 +941,8 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
             origemId: desc.hierarquiaId
           });
         }
+        // Recalcula usando a SOMA de desconto manual + promoção (race-safe)
+        this.recalcularItem(item, 'percentualDesconto');
         arr[idx] = item;
         return arr;
       });
@@ -911,10 +1005,6 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       const item = { ...arr[itemIdx], descontos: [...arr[itemIdx].descontos] };
       item.percentualPromocao = promo.percentualPromocao;
       item.temPromocao = true;
-      const percTotal = item.percentualDesconto + item.percentualPromocao;
-      item.precoUnitario = Math.round(item.precoVenda * (1 - percTotal / 100) * 100) / 100;
-      item.valorDesconto = Math.round(item.precoVenda * item.quantidade * percTotal / 100 * 100) / 100;
-      item.total = Math.round(item.precoUnitario * item.quantidade * 100) / 100;
       item.descontos.push({
         tipo: 2,
         percentual: promo.percentualPromocao,
@@ -922,6 +1012,8 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         regra: promo.nome,
         origemId: promo.promocaoId
       });
+      // Recalcula usando fórmula consistente (soma desconto + promoção)
+      this.recalcularItem(item, 'percentualDesconto');
       arr[itemIdx] = item;
       return arr;
     });
@@ -950,10 +1042,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       item.quantidade = faixa.quantidade;
       item.percentualPromocao = faixa.percentualDesconto;
       item.temPromocao = true;
-      const percTotal = item.percentualDesconto + item.percentualPromocao;
-      item.precoUnitario = Math.round(item.precoVenda * (1 - percTotal / 100) * 100) / 100;
-      item.valorDesconto = Math.round(item.precoVenda * item.quantidade * percTotal / 100 * 100) / 100;
-      item.total = Math.round(item.precoUnitario * item.quantidade * 100) / 100;
+      this.recalcularItem(item, 'percentualDesconto');
       item.descontos.push({
         tipo: 2,
         percentual: faixa.percentualDesconto,
@@ -1529,48 +1618,52 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
 
   private recalcularItem(item: PreVendaItem, campoAlterado: string) {
     const r = (v: number) => Math.round(v * 100) / 100;
+    // Fórmula consistente (igual o backend): total = bruto - desconto
+    const recalcFromPercent = () => {
+      const percTotal = (item.percentualDesconto || 0) + (item.percentualPromocao || 0);
+      const valorBruto = r(item.precoVenda * item.quantidade);
+      item.valorDesconto = r(valorBruto * percTotal / 100);
+      item.total = r(valorBruto - item.valorDesconto);
+      item.precoUnitario = item.quantidade > 0 ? r(item.total / item.quantidade) : 0;
+    };
 
     switch (campoAlterado) {
       case 'precoVenda':
-        // Recalcula unitário e total mantendo o % desconto
-        item.precoUnitario = r(item.precoVenda * (1 - item.percentualDesconto / 100));
-        item.valorDesconto = r(item.precoVenda * item.quantidade * item.percentualDesconto / 100);
-        item.total = r(item.precoUnitario * item.quantidade);
-        break;
-
       case 'quantidade':
-        // Mantém % desconto, recalcula unitário e total
-        item.precoUnitario = r(item.precoVenda * (1 - item.percentualDesconto / 100));
-        item.valorDesconto = r(item.precoVenda * item.quantidade * item.percentualDesconto / 100);
-        item.total = r(item.precoUnitario * item.quantidade);
-        break;
-
       case 'percentualDesconto':
-        // Recalcula unitário e total a partir do %
-        item.precoUnitario = r(item.precoVenda * (1 - item.percentualDesconto / 100));
-        item.valorDesconto = r(item.precoVenda * item.quantidade * item.percentualDesconto / 100);
-        item.total = r(item.precoUnitario * item.quantidade);
+        recalcFromPercent();
         break;
 
       case 'precoUnitario':
-        // Recalcula % desconto e total a partir do preço unitário
-        item.percentualDesconto = item.precoVenda > 0 ? r((item.precoVenda - item.precoUnitario) / item.precoVenda * 100) : 0;
-        item.valorDesconto = r((item.precoVenda - item.precoUnitario) * item.quantidade);
-        item.total = r(item.precoUnitario * item.quantidade);
+        // Recalcula % desconto (manual) e total a partir do preço unitário
+        // Preserva a promoção, ajusta apenas o desconto manual
+        {
+          const valorBruto = r(item.precoVenda * item.quantidade);
+          const totalNovo = r(item.precoUnitario * item.quantidade);
+          const descontoTotal = r(valorBruto - totalNovo);
+          const valorPromo = r(valorBruto * (item.percentualPromocao || 0) / 100);
+          const valorDescManual = Math.max(0, descontoTotal - valorPromo);
+          item.percentualDesconto = item.precoVenda > 0 ? r(valorDescManual / valorBruto * 100) : 0;
+          item.valorDesconto = descontoTotal;
+          item.total = totalNovo;
+        }
         break;
 
       case 'total':
-        // Recalcula unitário e % a partir do total
-        item.precoUnitario = item.quantidade > 0 ? r(item.total / item.quantidade) : 0;
-        item.percentualDesconto = item.precoVenda > 0 ? r((item.precoVenda - item.precoUnitario) / item.precoVenda * 100) : 0;
-        item.valorDesconto = r((item.precoVenda - item.precoUnitario) * item.quantidade);
+        // Recalcula unitário e % manual a partir do total
+        {
+          item.precoUnitario = item.quantidade > 0 ? r(item.total / item.quantidade) : 0;
+          const valorBruto = r(item.precoVenda * item.quantidade);
+          const descontoTotal = r(valorBruto - item.total);
+          const valorPromo = r(valorBruto * (item.percentualPromocao || 0) / 100);
+          const valorDescManual = Math.max(0, descontoTotal - valorPromo);
+          item.percentualDesconto = item.precoVenda > 0 ? r(valorDescManual / valorBruto * 100) : 0;
+          item.valorDesconto = descontoTotal;
+        }
         break;
 
       default:
-        // Fallback padrão
-        item.precoUnitario = r(item.precoVenda * (1 - item.percentualDesconto / 100));
-        item.valorDesconto = r(item.precoVenda * item.quantidade * item.percentualDesconto / 100);
-        item.total = r(item.precoUnitario * item.quantidade);
+        recalcFromPercent();
         break;
     }
   }
@@ -1600,6 +1693,9 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.preVendaId.set(null);
     this.itens.set([]);
     this.itensSelecionadoIdx.set(null);
+    this.etapaVenda.set('venda');
+    this.sngpcVendaBody = null;
+    this.sngpcFinalizarBody = null;
     this.clienteId.set(null);
     this.clienteNome.set('');
     this.clienteBusca.set('');
@@ -1738,8 +1834,151 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       this.modal.aviso('Valor Insuficiente', `Falta R$ ${tf.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para completar o pagamento.`);
       return;
     }
+    // Se tem pagamento com cartão, abrir modal de dados
+    const linhaCartao = this.pagamentoValores().find(p => p.modalidade === 2 && p.valor > 0);
+    if (linhaCartao) {
+      if (this.adquirentes().length === 0) {
+        this.modal.aviso('Sem Adquirentes', 'Nenhum adquirente cadastrado. Cadastre em Outros > Adquirentes antes de usar pagamento com cartão.');
+        return;
+      }
+      this.modalPagamento.set(false);
+      this.cartaoTotalAlvo.set(linhaCartao.valor);
+      this.cartaoErro.set('');
+      // Inicializa com 1 cartão vazio com valor total
+      this.cartoes.set([this.novoCartaoItem(linhaCartao.valor)]);
+      this.modalCartao.set(true);
+      return;
+    }
     this.modalPagamento.set(false);
     this.executarFinalizacao();
+  }
+
+  private novoCartaoItem(valor: number): CartaoItem {
+    return {
+      id: Math.random().toString(36).slice(2),
+      adquirenteId: null,
+      bandeiraId: null,
+      modalidade: null,
+      modalidadeDescricao: '',
+      valor,
+      autorizacao: ''
+    };
+  }
+
+  carregarAdquirentes() {
+    this.http.get<any>(`${this.apiUrl}/adquirentes`).subscribe({
+      next: r => {
+        const ativos = (r.data ?? []).filter((a: any) => a.ativo);
+        // Precisa buscar detalhes de cada para ter bandeiras/tarifas
+        const ids: number[] = ativos.map((a: any) => a.id);
+        if (ids.length === 0) { this.adquirentes.set([]); return; }
+        Promise.all(ids.map(id => this.http.get<any>(`${this.apiUrl}/adquirentes/${id}`).toPromise()))
+          .then(results => {
+            const lista: AdqLookup[] = results.map((r: any) => ({
+              id: r.data.id,
+              nome: r.data.nome,
+              bandeiras: (r.data.bandeiras ?? []).map((b: any) => ({
+                id: b.id,
+                bandeira: b.bandeira,
+                tarifas: (b.tarifas ?? []).map((t: any) => ({
+                  id: t.id,
+                  modalidade: t.modalidade,
+                  modalidadeDescricao: t.modalidadeDescricao,
+                  tarifa: t.tarifa,
+                  prazoRecebimento: t.prazoRecebimento,
+                  contaBancariaId: t.contaBancariaId
+                }))
+              }))
+            }));
+            this.adquirentes.set(lista);
+          })
+          .catch(() => this.adquirentes.set([]));
+      },
+      error: () => this.adquirentes.set([])
+    });
+  }
+
+  // ── Helpers da modal de cartão ──────────────────────────────────
+  adquirentePorId(id: number | null): AdqLookup | null {
+    if (!id) return null;
+    return this.adquirentes().find(a => a.id === id) || null;
+  }
+
+  bandeirasDoAdquirente(adqId: number | null): AdqBandeira[] {
+    const a = this.adquirentePorId(adqId);
+    return a?.bandeiras ?? [];
+  }
+
+  tarifasDaBandeira(adqId: number | null, bandeiraId: number | null): AdqTarifa[] {
+    const bs = this.bandeirasDoAdquirente(adqId);
+    const b = bs.find(x => x.id === bandeiraId);
+    return b?.tarifas ?? [];
+  }
+
+  selecionarAdquirente(cartaoId: string, adqId: number) {
+    this.cartoes.update(lista => lista.map(c =>
+      c.id === cartaoId ? { ...c, adquirenteId: adqId, bandeiraId: null, modalidade: null, modalidadeDescricao: '' } : c
+    ));
+  }
+
+  selecionarBandeira(cartaoId: string, bandeiraId: number, adquirenteId: number) {
+    this.cartoes.update(lista => lista.map(c =>
+      c.id === cartaoId ? { ...c, adquirenteId, bandeiraId, modalidade: null, modalidadeDescricao: '' } : c
+    ));
+  }
+
+  selecionarModalidade(cartaoId: string, modalidade: number, descricao: string) {
+    this.cartoes.update(lista => lista.map(c =>
+      c.id === cartaoId ? { ...c, modalidade, modalidadeDescricao: descricao } : c
+    ));
+  }
+
+  atualizarValorCartao(cartaoId: string, valor: string) {
+    const num = parseFloat(valor.replace(',', '.')) || 0;
+    this.cartoes.update(lista => lista.map(c =>
+      c.id === cartaoId ? { ...c, valor: Math.round(num * 100) / 100 } : c
+    ));
+  }
+
+  atualizarAutCartao(cartaoId: string, aut: string) {
+    this.cartoes.update(lista => lista.map(c =>
+      c.id === cartaoId ? { ...c, autorizacao: aut } : c
+    ));
+  }
+
+  adicionarCartao() {
+    const falta = this.cartaoFalta();
+    this.cartoes.update(lista => [...lista, this.novoCartaoItem(falta > 0 ? falta : 0)]);
+  }
+
+  removerCartao(cartaoId: string) {
+    if (this.cartoes().length <= 1) return;
+    this.cartoes.update(lista => lista.filter(c => c.id !== cartaoId));
+  }
+
+  confirmarCartao() {
+    const lista = this.cartoes();
+    this.cartaoErro.set('');
+
+    for (const c of lista) {
+      if (!c.bandeiraId) { this.cartaoErro.set('Selecione a bandeira em todos os cartões.'); return; }
+      if (c.modalidade == null) { this.cartaoErro.set('Selecione a modalidade em todos os cartões.'); return; }
+      if (!c.valor || c.valor <= 0) { this.cartaoErro.set('Informe o valor em todos os cartões.'); return; }
+      if (!c.autorizacao.trim()) { this.cartaoErro.set('Informe o código de autorização (NSU) em todos os cartões.'); return; }
+    }
+
+    if (Math.abs(this.cartaoFalta()) >= 0.01) {
+      this.cartaoErro.set(`Total informado diferente do valor: falta R$ ${this.cartaoFalta().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+      return;
+    }
+
+    this.modalCartao.set(false);
+    this.executarFinalizacao();
+  }
+
+  cancelarCartao() {
+    this.modalCartao.set(false);
+    this.modalPagamento.set(true);
   }
 
   cancelarPagamento() {
@@ -1772,18 +2011,87 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         total: i.total,
         descontos: i.descontos
       })),
-      pagamentos: this.pagamentoValores().filter(p => p.valor > 0).map(p => {
+      pagamentos: this.pagamentoValores().filter(p => p.valor > 0).flatMap((p): any[] => {
         const tf = this.dinheiroTrocoFalta();
-        return {
+        if (p.modalidade === 2) {
+          // Cartão: quebra em N linhas (uma por cartão da modal)
+          return this.cartoes().filter(c => c.valor > 0).map(c => {
+            const bandeiraObj = this.bandeirasDoAdquirente(c.adquirenteId).find(b => b.id === c.bandeiraId);
+            const codigoBandeira = bandeiraObj ? (this.bandeiraCodigo[bandeiraObj.bandeira.toUpperCase()] || '99') : '99';
+            const cartaoTipo = c.modalidade === 1 ? 1 : 2; // 1=Debito, 2=Credito (parcelado também vai como crédito)
+            return {
+              tipoPagamentoId: p.tipoPagamentoId,
+              valor: c.valor,
+              troco: 0,
+              trocoPara: null,
+              cartaoBandeira: codigoBandeira,
+              cartaoTipo,
+              cartaoAutorizacao: c.autorizacao,
+              cartaoCnpjCredenciadora: null
+            };
+          });
+        }
+        return [{
           tipoPagamentoId: p.tipoPagamentoId,
           valor: p.valor,
           troco: (p.modalidade === 1 && tf?.tipo === 'troco') ? tf.valor : 0,
-          trocoPara: (p.modalidade === 1 && tf?.tipo === 'troco') ? 'Dinheiro' : null
-        };
+          trocoPara: (p.modalidade === 1 && tf?.tipo === 'troco') ? 'Dinheiro' : null,
+          cartaoBandeira: null,
+          cartaoTipo: null,
+          cartaoAutorizacao: null,
+          cartaoCnpjCredenciadora: null
+        }];
       })
     };
 
-    // Salvar (criar ou atualizar)
+    // Base do payload de finalização
+    const finalizarBody: any = {};
+    if (this.senhaClientePrazo) finalizarBody.senhaCliente = this.senhaClientePrazo;
+    if (this.tokenLiberacaoCredito) finalizarBody.tokenLiberacaoCredito = this.tokenLiberacaoCredito;
+    if (this.prazoNumeroParcelas() > 1) finalizarBody.numeroParcelas = this.prazoNumeroParcelas();
+
+    // ── Se tem controlados E SNGPC ativo E modo ≠ NaoLancar: abre tela inline de receitas ──
+    if (this.precisaTelaSngpc()) {
+      // Guarda os payloads para usar só quando o usuário clicar Finalizar na tela de receitas.
+      // Ainda NÃO salvamos nada no banco.
+      this.sngpcVendaBody = body;
+      this.sngpcFinalizarBody = finalizarBody;
+
+      // Chama o preview do backend para obter lotes disponíveis.
+      const previewPayload = {
+        filialId: this.filialId(),
+        itens: this.itens().map(i => ({ produtoId: i.produtoId, quantidade: i.quantidade }))
+      };
+      this.http.post<any>(`${this.apiUrl}/sngpc/vendas/itens-controlados-preview`, previewPayload).subscribe({
+        next: (resp: any) => {
+          const controlados = resp.data ?? [];
+          this.salvando.set(false);
+          if (controlados.length === 0) {
+            // Fail-safe: nenhum controlado no preview (divergiu do cart) → segue direto
+            this.finalizarFluxoNormal(body, finalizarBody);
+            return;
+          }
+          // Usa produtoId como chave temporária (vendaItemId=0 vem zerado)
+          const itensComChave = controlados.map((c: any) => ({ ...c, vendaItemId: c.produtoId }));
+          this.modalPagamento.set(false);
+          this.etapaVenda.set('sngpc');
+          // aguarda o @ViewChild ficar disponível (o componente está sempre montado com [hidden])
+          setTimeout(() => this.sngpcScreenRef?.atualizarItensExternos(itensComChave), 0);
+        },
+        error: (e: any) => {
+          this.salvando.set(false);
+          this.modal.erro('Erro', e?.error?.message || 'Erro ao carregar preview SNGPC.');
+        }
+      });
+      return;
+    }
+
+    this.finalizarFluxoNormal(body, finalizarBody);
+  }
+
+  /** Fluxo de finalização sem SNGPC (ou modo NaoLancar): salva venda + finaliza. */
+  private finalizarFluxoNormal(body: any, finalizarBody: any) {
+    this.salvando.set(true);
     const salvar$ = this.preVendaId()
       ? this.http.put<any>(`${this.apiUrl}/vendas/${this.preVendaId()}`, body)
       : this.http.post<any>(`${this.apiUrl}/vendas`, body);
@@ -1796,12 +2104,19 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
           this.modal.erro('Erro', 'Erro ao salvar venda.');
           return;
         }
-        // Finalizar (marcar status = Finalizada)
-        const finalizarBody: any = {};
-        if (this.senhaClientePrazo) finalizarBody.senhaCliente = this.senhaClientePrazo;
-        if (this.tokenLiberacaoCredito) finalizarBody.tokenLiberacaoCredito = this.tokenLiberacaoCredito;
-        if (this.prazoNumeroParcelas() > 1) finalizarBody.numeroParcelas = this.prazoNumeroParcelas();
-        this.http.post<any>(`${this.apiUrl}/vendas/${id}/finalizar`, finalizarBody).subscribe({
+        this.executarFinalizarHttp(id, finalizarBody);
+      },
+      error: (err: any) => {
+        this.salvando.set(false);
+        const msg = err?.error?.message || 'Erro ao salvar venda.';
+        this.modal.erro('Erro', msg);
+      }
+    });
+  }
+
+  private executarFinalizarHttp(id: number, finalizarBody: any) {
+    this.salvando.set(true);
+    this.http.post<any>(`${this.apiUrl}/vendas/${id}/finalizar`, finalizarBody).subscribe({
           next: () => {
             this.modoConferencia.set(false);
             // Emitir NFC-e
@@ -1833,17 +2148,94 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
               }
             });
           },
-          error: () => {
-            this.salvando.set(false);
-            this.modal.erro('Erro', 'Erro ao finalizar venda.');
-          }
-        });
+      error: () => {
+        this.salvando.set(false);
+        this.modal.erro('Erro', 'Erro ao finalizar venda.');
+      }
+    });
+  }
+
+  // ── SNGPC handlers (tela inline do fluxo Avançar) ──────────────
+  /** Clicou "Finalizar Venda" dentro da tela SNGPC. Agora sim salva e finaliza. */
+  onSngpcConfirmado(ev: { receitas: any[]; lancarDepois: boolean }) {
+    const body = this.sngpcVendaBody;
+    const finalizarBase = this.sngpcFinalizarBody ?? {};
+    if (!body) return;
+
+    this.salvando.set(true);
+
+    const salvar$ = this.preVendaId()
+      ? this.http.put<any>(`${this.apiUrl}/vendas/${this.preVendaId()}`, body)
+      : this.http.post<any>(`${this.apiUrl}/vendas`, body);
+
+    salvar$.subscribe({
+      next: (r: any) => {
+        const id = this.preVendaId() ?? r.data?.id;
+        const itensSalvos: Array<{ id: number; produtoId: number }> = r.data?.itens ?? [];
+        if (!id) {
+          this.salvando.set(false);
+          this.modal.erro('Erro', 'Erro ao salvar venda.');
+          return;
+        }
+        // Mapeia produtoId (chave temporária) → vendaItemId real
+        const mapa = new Map<number, number>();
+        for (const it of itensSalvos) mapa.set(it.produtoId, it.id);
+
+        const receitasMapeadas = ev.receitas.map(rec => ({
+          ...rec,
+          itens: rec.itens.map((it: any) => ({
+            ...it,
+            vendaItemId: mapa.get(it.vendaItemId) ?? it.vendaItemId
+          }))
+        }));
+
+        const finalizarBody = {
+          ...finalizarBase,
+          sngpc: { receitas: receitasMapeadas, lancarDepois: ev.lancarDepois }
+        };
+
+        // Limpa estado SNGPC e volta a etapa pro final do fluxo
+        this.sngpcVendaBody = null;
+        this.sngpcFinalizarBody = null;
+        this.etapaVenda.set('venda');
+
+        this.executarFinalizarHttp(id, finalizarBody);
       },
       error: (err: any) => {
         this.salvando.set(false);
         const msg = err?.error?.message || 'Erro ao salvar venda.';
         this.modal.erro('Erro', msg);
       }
+    });
+  }
+
+  /** Clicou "Voltar" dentro da tela SNGPC — retorna ao cart preservando receitas digitadas. */
+  onSngpcVoltar() {
+    this.etapaVenda.set('venda');
+    // sngpcVendaBody e receitas ficam preservados em memória para o próximo Avançar
+  }
+
+
+  /** Busca os movimentos gerados pela venda e imprime canhotos (exceto dinheiro). */
+  private imprimirCanhotosVenda(vendaId: number) {
+    this.http.get<any>(`${this.apiUrl}/caixamovimentos/venda/${vendaId}`).subscribe({
+      next: r => {
+        const movs = ((r.data ?? []) as any[]).filter(m => m.modalidadePagamento !== 1); // não imprime dinheiro
+        movs.forEach((m, idx) => {
+          setTimeout(() => this.imprimirCanhotoMov(m.id), idx * 400);
+        });
+      },
+      error: () => {}
+    });
+  }
+
+  private imprimirCanhotoMov(movId: number) {
+    this.http.get(`${this.apiUrl}/caixamovimentos/${movId}/canhoto`, { responseType: 'text' }).subscribe({
+      next: (html: string) => {
+        const win = window.open('', '_blank', 'width=400,height=700');
+        if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+      },
+      error: () => {}
     });
   }
 

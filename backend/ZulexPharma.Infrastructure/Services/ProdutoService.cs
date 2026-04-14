@@ -102,7 +102,8 @@ public class ProdutoService : IProdutoService
             GrupoPrincipalId = dto.GrupoPrincipalId,
             GrupoProdutoId = dto.GrupoProdutoId,
             SubGrupoId = dto.SubGrupoId,
-            NcmId = dto.NcmId
+            NcmId = dto.NcmId,
+            ClasseTerapeutica = string.IsNullOrWhiteSpace(dto.ClasseTerapeutica) ? null : dto.ClasseTerapeutica.Trim()
         };
 
         // Corrigir FilialId = 0 em sub-tabelas por filial (frontend pode enviar 0 como default)
@@ -171,6 +172,7 @@ public class ProdutoService : IProdutoService
         p.GrupoProdutoId = dto.GrupoProdutoId;
         p.SubGrupoId = dto.SubGrupoId;
         p.NcmId = dto.NcmId;
+        p.ClasseTerapeutica = string.IsNullOrWhiteSpace(dto.ClasseTerapeutica) ? null : dto.ClasseTerapeutica.Trim();
 
         SincronizarSubTabelas(p, dto);
 
@@ -349,15 +351,52 @@ public class ProdutoService : IProdutoService
         e.NcmId = d.NcmId;
         e.Cest = d.Cest?.Trim();
         e.OrigemMercadoria = d.OrigemMercadoria?.Trim();
+        e.Cfop = d.Cfop?.Trim();
+
+        // ICMS saída
         e.CstIcms = d.CstIcms?.Trim();
         e.Csosn = d.Csosn?.Trim();
         e.AliquotaIcms = d.AliquotaIcms;
+        e.AliquotaFcp = d.AliquotaFcp;
+        e.ModBc = d.ModBc?.Trim();
+        e.PercentualReducaoBc = d.PercentualReducaoBc;
+        e.CodigoBeneficio = d.CodigoBeneficio?.Trim();
+        e.DispositivoLegalIcms = d.DispositivoLegalIcms?.Trim();
+
+        // ST + entrada
+        e.TemSubstituicaoTributaria = d.TemSubstituicaoTributaria;
+        e.MvaOriginal = d.MvaOriginal;
+        e.MvaAjustado4 = d.MvaAjustado4;
+        e.MvaAjustado7 = d.MvaAjustado7;
+        e.MvaAjustado12 = d.MvaAjustado12;
+        e.AliquotaIcmsSt = d.AliquotaIcmsSt;
+        e.AliquotaFcpSt = d.AliquotaFcpSt;
+        e.AliquotaIcmsInternoEntrada = d.AliquotaIcmsInternoEntrada;
+
+        // PIS/COFINS/IPI
         e.CstPis = d.CstPis?.Trim();
         e.AliquotaPis = d.AliquotaPis;
+        e.CstPisEntrada = d.CstPisEntrada?.Trim();
+        e.NaturezaReceita = d.NaturezaReceita?.Trim();
         e.CstCofins = d.CstCofins?.Trim();
         e.AliquotaCofins = d.AliquotaCofins;
+        e.CstCofinsEntrada = d.CstCofinsEntrada?.Trim();
         e.CstIpi = d.CstIpi?.Trim();
         e.AliquotaIpi = d.AliquotaIpi;
+        e.EnquadramentoIpi = d.EnquadramentoIpi?.Trim();
+        e.CstIpiEntrada = d.CstIpiEntrada?.Trim();
+        e.AliquotaIpiEntrada = d.AliquotaIpiEntrada;
+        e.AliquotaIpiIndustria = d.AliquotaIpiIndustria;
+
+        // Reforma Tributária 2026+
+        e.CstIs = d.CstIs?.Trim();
+        e.ClassTribIs = d.ClassTribIs?.Trim();
+        e.AliquotaIs = d.AliquotaIs;
+        e.CstIbsCbs = d.CstIbsCbs?.Trim();
+        e.ClassTribIbsCbs = d.ClassTribIbsCbs?.Trim();
+        e.AliquotaIbsUf = d.AliquotaIbsUf;
+        e.AliquotaIbsMun = d.AliquotaIbsMun;
+        e.AliquotaCbs = d.AliquotaCbs;
     }
 
     private static void MapDados(ProdutoDados e, ProdutoDadosDto d)
@@ -543,21 +582,50 @@ public class ProdutoService : IProdutoService
         e.BaseCalculo = d.BaseCalculo;
     }
 
-    /// <summary>Copia valores de ProdutoFiscal do DTO para a entidade.</summary>
+    /// <summary>Copia valores de ProdutoFiscal do DTO para a entidade (para propagar a outras filiais).</summary>
     private static void CopiarFiscal(ProdutoFiscal e, ProdutoFiscalDto d)
     {
         e.NcmId = d.NcmId;
         e.Cest = d.Cest?.Trim();
         e.OrigemMercadoria = d.OrigemMercadoria?.Trim();
+        e.Cfop = d.Cfop?.Trim();
         e.CstIcms = d.CstIcms?.Trim();
         e.Csosn = d.Csosn?.Trim();
         e.AliquotaIcms = d.AliquotaIcms;
+        e.AliquotaFcp = d.AliquotaFcp;
+        e.ModBc = d.ModBc?.Trim();
+        e.PercentualReducaoBc = d.PercentualReducaoBc;
+        e.CodigoBeneficio = d.CodigoBeneficio?.Trim();
+        e.DispositivoLegalIcms = d.DispositivoLegalIcms?.Trim();
+        e.TemSubstituicaoTributaria = d.TemSubstituicaoTributaria;
+        e.MvaOriginal = d.MvaOriginal;
+        e.MvaAjustado4 = d.MvaAjustado4;
+        e.MvaAjustado7 = d.MvaAjustado7;
+        e.MvaAjustado12 = d.MvaAjustado12;
+        e.AliquotaIcmsSt = d.AliquotaIcmsSt;
+        e.AliquotaFcpSt = d.AliquotaFcpSt;
+        // Nota: AliquotaIcmsInternoEntrada não é copiada (pode variar por UF).
         e.CstPis = d.CstPis?.Trim();
         e.AliquotaPis = d.AliquotaPis;
+        e.CstPisEntrada = d.CstPisEntrada?.Trim();
+        e.NaturezaReceita = d.NaturezaReceita?.Trim();
         e.CstCofins = d.CstCofins?.Trim();
         e.AliquotaCofins = d.AliquotaCofins;
+        e.CstCofinsEntrada = d.CstCofinsEntrada?.Trim();
         e.CstIpi = d.CstIpi?.Trim();
         e.AliquotaIpi = d.AliquotaIpi;
+        e.EnquadramentoIpi = d.EnquadramentoIpi?.Trim();
+        e.CstIpiEntrada = d.CstIpiEntrada?.Trim();
+        e.AliquotaIpiEntrada = d.AliquotaIpiEntrada;
+        e.AliquotaIpiIndustria = d.AliquotaIpiIndustria;
+        e.CstIs = d.CstIs?.Trim();
+        e.ClassTribIs = d.ClassTribIs?.Trim();
+        e.AliquotaIs = d.AliquotaIs;
+        e.CstIbsCbs = d.CstIbsCbs?.Trim();
+        e.ClassTribIbsCbs = d.ClassTribIbsCbs?.Trim();
+        e.AliquotaIbsUf = d.AliquotaIbsUf;
+        e.AliquotaIbsMun = d.AliquotaIbsMun;
+        e.AliquotaCbs = d.AliquotaCbs;
     }
 
     // ── Helper genérico sync ────────────────────────────────────────
@@ -666,6 +734,7 @@ public class ProdutoService : IProdutoService
         GrupoProdutoId = p.GrupoProdutoId,
         SubGrupoId = p.SubGrupoId,
         NcmId = p.NcmId,
+        ClasseTerapeutica = p.ClasseTerapeutica,
         FabricanteNome = p.Fabricante?.Nome,
         GrupoPrincipalNome = p.GrupoPrincipal?.Nome,
         GrupoProdutoNome = p.GrupoProduto?.Nome,
@@ -688,11 +757,33 @@ public class ProdutoService : IProdutoService
         {
             Id = f.Id, FilialId = f.FilialId, NcmId = f.NcmId,
             NcmCodigo = f.Ncm?.CodigoNcm,
-            Cest = f.Cest, OrigemMercadoria = f.OrigemMercadoria,
+            Cest = f.Cest, OrigemMercadoria = f.OrigemMercadoria, Cfop = f.Cfop,
+            // ICMS saída
             CstIcms = f.CstIcms, Csosn = f.Csosn, AliquotaIcms = f.AliquotaIcms,
+            AliquotaFcp = f.AliquotaFcp, ModBc = f.ModBc,
+            PercentualReducaoBc = f.PercentualReducaoBc,
+            CodigoBeneficio = f.CodigoBeneficio, DispositivoLegalIcms = f.DispositivoLegalIcms,
+            // ST + entrada
+            TemSubstituicaoTributaria = f.TemSubstituicaoTributaria,
+            MvaOriginal = f.MvaOriginal, MvaAjustado4 = f.MvaAjustado4,
+            MvaAjustado7 = f.MvaAjustado7, MvaAjustado12 = f.MvaAjustado12,
+            AliquotaIcmsSt = f.AliquotaIcmsSt, AliquotaFcpSt = f.AliquotaFcpSt,
+            AliquotaIcmsInternoEntrada = f.AliquotaIcmsInternoEntrada,
+            // PIS/COFINS/IPI
             CstPis = f.CstPis, AliquotaPis = f.AliquotaPis,
+            CstPisEntrada = f.CstPisEntrada, NaturezaReceita = f.NaturezaReceita,
             CstCofins = f.CstCofins, AliquotaCofins = f.AliquotaCofins,
-            CstIpi = f.CstIpi, AliquotaIpi = f.AliquotaIpi
+            CstCofinsEntrada = f.CstCofinsEntrada,
+            CstIpi = f.CstIpi, AliquotaIpi = f.AliquotaIpi,
+            EnquadramentoIpi = f.EnquadramentoIpi, CstIpiEntrada = f.CstIpiEntrada,
+            AliquotaIpiEntrada = f.AliquotaIpiEntrada, AliquotaIpiIndustria = f.AliquotaIpiIndustria,
+            // Reforma Tributária
+            CstIs = f.CstIs, ClassTribIs = f.ClassTribIs, AliquotaIs = f.AliquotaIs,
+            CstIbsCbs = f.CstIbsCbs, ClassTribIbsCbs = f.ClassTribIbsCbs,
+            AliquotaIbsUf = f.AliquotaIbsUf, AliquotaIbsMun = f.AliquotaIbsMun, AliquotaCbs = f.AliquotaCbs,
+            // Auditoria
+            AtualizadoGestorTributarioEm = f.AtualizadoGestorTributarioEm,
+            AtualizadoGestorTributarioProvider = f.AtualizadoGestorTributarioProvider
         }).ToList(),
         Dados = p.Dados.OrderBy(d => d.FilialId).Select(d => new ProdutoDadosDto
         {

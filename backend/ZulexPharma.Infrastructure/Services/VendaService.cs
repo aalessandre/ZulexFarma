@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using ZulexPharma.Application.DTOs.Sngpc;
 using ZulexPharma.Application.DTOs.Vendas;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Domain.Enums;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -12,10 +14,18 @@ public class VendaService : IVendaService
 {
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
+    private readonly IProdutoLoteService _loteService;
+    private readonly IVendaReceitaService _receitaService;
     private const string TELA = "Venda";
     private const string ENTIDADE = "Venda";
 
-    public VendaService(AppDbContext db, ILogAcaoService log) { _db = db; _log = log; }
+    public VendaService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService, IVendaReceitaService receitaService)
+    {
+        _db = db;
+        _log = log;
+        _loteService = loteService;
+        _receitaService = receitaService;
+    }
 
     public async Task<List<VendaListDto>> ListarAsync(long? filialId = null, string? status = null, long? caixaId = null)
     {
@@ -134,7 +144,7 @@ public class VendaService : IVendaService
                 venda.Itens.Add(MapearItem(item, ordem++));
 
             foreach (var pag in dto.Pagamentos.Where(p => p.Valor > 0))
-                venda.Pagamentos.Add(new VendaPagamento { TipoPagamentoId = pag.TipoPagamentoId, Valor = pag.Valor, Troco = pag.Troco, TrocoPara = pag.TrocoPara });
+                venda.Pagamentos.Add(new VendaPagamento { TipoPagamentoId = pag.TipoPagamentoId, Valor = pag.Valor, Troco = pag.Troco, TrocoPara = pag.TrocoPara, CartaoBandeira = pag.CartaoBandeira, CartaoAutorizacao = pag.CartaoAutorizacao, CartaoCnpjCredenciadora = pag.CartaoCnpjCredenciadora, CartaoTipo = pag.CartaoTipo });
 
             RecalcularTotais(venda);
             _db.Set<Venda>().Add(venda);
@@ -176,7 +186,7 @@ public class VendaService : IVendaService
             foreach (var item in dto.Itens)
                 venda.Itens.Add(MapearItem(item, ordem++));
             foreach (var pag in dto.Pagamentos.Where(p => p.Valor > 0))
-                venda.Pagamentos.Add(new VendaPagamento { TipoPagamentoId = pag.TipoPagamentoId, Valor = pag.Valor, Troco = pag.Troco, TrocoPara = pag.TrocoPara });
+                venda.Pagamentos.Add(new VendaPagamento { TipoPagamentoId = pag.TipoPagamentoId, Valor = pag.Valor, Troco = pag.Troco, TrocoPara = pag.TrocoPara, CartaoBandeira = pag.CartaoBandeira, CartaoAutorizacao = pag.CartaoAutorizacao, CartaoCnpjCredenciadora = pag.CartaoCnpjCredenciadora, CartaoTipo = pag.CartaoTipo });
 
             RecalcularTotais(venda);
             await _db.SaveChangesAsync();
@@ -254,6 +264,7 @@ public class VendaService : IVendaService
             var venda = await _db.Set<Venda>()
                 .Include(v => v.Pagamentos).ThenInclude(p => p.TipoPagamento)
                 .Include(v => v.Cliente)
+                .Include(v => v.Itens).ThenInclude(i => i.Produto).ThenInclude(p => p!.GrupoProduto)
                 .FirstOrDefaultAsync(v => v.Id == id)
                 ?? throw new KeyNotFoundException($"Venda {id} não encontrada.");
             if (venda.Status != VendaStatus.Aberta) throw new ArgumentException("Venda não está aberta.");
@@ -324,6 +335,12 @@ public class VendaService : IVendaService
                         throw new ArgumentException("Senha do cliente inválida.");
                 }
             }
+
+            // ── Resolver fluxo SNGPC antes de efetivar ───────────────
+            // (avalia modo, valida receitas/saldo e define se itens controlados
+            //  devem pular o FEFO automático por serem baixados via receita)
+            var (processarReceitasSngpc, marcarSngpcPendente, itensControladosIds) =
+                await ResolverFluxoSngpcAsync(venda, opcoes?.Sngpc);
 
             // ── Finalizar e gerar contas a receber ─────────────────
             venda.Status = VendaStatus.Finalizada;
@@ -403,9 +420,152 @@ public class VendaService : IVendaService
             }
 
             await _db.SaveChangesAsync();
+
+            // ── Decrementa estoque e, para produtos rastreáveis, baixa por FEFO ─
+            int lotesBaixados = 0;
+            foreach (var item in venda.Itens.Where(i => i.Quantidade > 0))
+            {
+                var qtdeTotal = (decimal)item.Quantidade;
+
+                // Decrementa estoque global do ProdutoDados
+                var dados = await _db.ProdutosDados
+                    .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == venda.FilialId);
+                if (dados != null)
+                {
+                    dados.EstoqueAtual = Math.Max(0, dados.EstoqueAtual - qtdeTotal);
+                    dados.UltimaVendaEm = agora;
+                }
+
+                // Se o produto é rastreável, baixa lotes via FEFO automático
+                // — mas itens SNGPC que vão ser baixados pelo registro das receitas
+                //   NÃO entram no FEFO (senão baixariam em dobro).
+                if (item.Produto != null && ProdutoControleHelper.IsProdutoRastreavel(item.Produto))
+                {
+                    if (processarReceitasSngpc && itensControladosIds.Contains(item.Id))
+                        continue;
+
+                    var lotes = await _loteService.ListarLotesAtivosAsync(item.ProdutoId, venda.FilialId);
+                    var restante = qtdeTotal;
+                    foreach (var lote in lotes)
+                    {
+                        if (restante <= 0) break;
+                        var baixar = Math.Min(lote.SaldoAtual, restante);
+                        if (baixar <= 0) continue;
+                        await _loteService.RegistrarSaidaAsync(
+                            produtoLoteId: lote.Id,
+                            quantidade: baixar,
+                            tipo: TipoMovimentoLote.Saida,
+                            vendaId: venda.Id,
+                            observacao: $"Venda #{venda.Codigo ?? venda.Id.ToString()}");
+                        restante -= baixar;
+                        lotesBaixados++;
+                    }
+                    // Se sobrou saldo sem conseguir baixar, registra aviso (produto controlado sem lote suficiente)
+                    if (restante > 0)
+                    {
+                        Log.Warning("VendaService.FinalizarAsync: Produto {ProdutoId} rastreável sem saldo suficiente em lotes — Venda {VendaId}, restante {Restante}",
+                            item.ProdutoId, venda.Id, restante);
+                    }
+                }
+            }
+            await _db.SaveChangesAsync();
+
+            // ── Gera CaixaMovimento para cada VendaPagamento se a venda pertence a um caixa ──
+            if (venda.CaixaId.HasValue)
+            {
+                foreach (var pag in venda.Pagamentos)
+                {
+                    var modalidade = pag.TipoPagamento?.Modalidade;
+                    var valorLiquido = pag.Valor - pag.Troco;
+                    // Auto-conferido: só sangrias precisam de conferência manual
+                    _db.Set<CaixaMovimento>().Add(new CaixaMovimento
+                    {
+                        CaixaId = venda.CaixaId.Value,
+                        Tipo = TipoMovimentoCaixa.VendaPagamento,
+                        DataMovimento = agora,
+                        Valor = valorLiquido,
+                        TipoPagamentoId = pag.TipoPagamentoId,
+                        Descricao = $"Venda #{venda.Codigo ?? venda.Id.ToString()} — {pag.TipoPagamento?.Nome ?? ""}",
+                        VendaPagamentoId = pag.Id,
+                        UsuarioId = null,
+                        StatusConferencia = StatusConferenciaMovimento.Conferido,
+                        DataConferencia = agora
+                    });
+                }
+                await _db.SaveChangesAsync();
+            }
+
+            // ── SNGPC: registra receitas (baixa lotes específicos) ou marca pendente ──
+            if (processarReceitasSngpc && opcoes?.Sngpc?.Receitas != null)
+            {
+                await _receitaService.RegistrarReceitasAsync(venda.Id, opcoes.Sngpc.Receitas);
+            }
+            if (marcarSngpcPendente)
+            {
+                venda.SngpcPendente = true;
+                await _db.SaveChangesAsync();
+            }
+
             await _log.RegistrarAsync(TELA, "FINALIZAÇÃO", ENTIDADE, id);
         }
         catch (Exception ex) when (ex is not KeyNotFoundException and not ArgumentException) { Log.Error(ex, "Erro em VendaService.FinalizarAsync | Id: {Id}", id); throw; }
+    }
+
+    // ─── SNGPC: avalia config e valida receitas/lotes ─────────────
+    private async Task<(bool processarReceitas, bool marcarPendente, HashSet<long> itensControladosIds)>
+        ResolverFluxoSngpcAsync(Venda venda, FinalizarVendaSngpcDto? sngpc)
+    {
+        var controlados = venda.Itens
+            .Where(i => i.Produto != null && ProdutoControleHelper.IsProdutoSngpc(i.Produto))
+            .Select(i => i.Id)
+            .ToHashSet();
+
+        if (controlados.Count == 0)
+            return (false, false, controlados);
+
+        var ativar = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "sngpc.ativar");
+        var sngpcAtivo = ativar?.Valor?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+        if (!sngpcAtivo) return (false, false, controlados);
+
+        var modoCfg = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "sngpc.vendas.modo");
+        var modo = Enum.TryParse<ModoSngpc>(modoCfg?.Valor ?? "Obrigatorio", out var m) ? m : ModoSngpc.Obrigatorio;
+
+        switch (modo)
+        {
+            case ModoSngpc.NaoLancar:
+                return (false, true, controlados);
+
+            case ModoSngpc.Obrigatorio:
+                if (sngpc?.Receitas == null || sngpc.Receitas.Count == 0)
+                    throw new ArgumentException("SNGPC obrigatório: informe as receitas dos itens controlados antes de finalizar.");
+                await ValidarSaldoLotesControladosAsync(venda, controlados);
+                return (true, false, controlados);
+
+            case ModoSngpc.Misto:
+                if (sngpc?.LancarDepois == true)
+                    return (false, true, controlados);
+                if (sngpc?.Receitas != null && sngpc.Receitas.Count > 0)
+                {
+                    await ValidarSaldoLotesControladosAsync(venda, controlados);
+                    return (true, false, controlados);
+                }
+                throw new ArgumentException("SNGPC: informe as receitas ou marque 'Lançar Depois'.");
+
+            default:
+                return (false, false, controlados);
+        }
+    }
+
+    private async Task ValidarSaldoLotesControladosAsync(Venda venda, HashSet<long> controladosIds)
+    {
+        foreach (var item in venda.Itens.Where(i => controladosIds.Contains(i.Id)))
+        {
+            var saldoTotal = await _db.ProdutosLotes
+                .Where(l => l.ProdutoId == item.ProdutoId && l.FilialId == venda.FilialId && l.SaldoAtual > 0)
+                .SumAsync(l => (decimal?)l.SaldoAtual) ?? 0m;
+            if (saldoTotal < item.Quantidade)
+                throw new ArgumentException($"SNGPC: estoque de lote insuficiente para {item.ProdutoNome} (disponível {saldoTotal}, necessário {item.Quantidade}).");
+        }
     }
 
     public async Task CancelarAsync(long id)
@@ -425,16 +585,19 @@ public class VendaService : IVendaService
     private static VendaItem MapearItem(VendaItemFormDto dto, int ordem)
     {
         var percTotal = dto.PercentualDesconto + dto.PercentualPromocao;
-        var valorDesconto = dto.PrecoVenda * dto.Quantidade * percTotal / 100;
-        var precoUnit = dto.PrecoVenda * (1 - percTotal / 100);
-        var total = precoUnit * dto.Quantidade;
+        // Cálculo consistente para a NFC-e: total = bruto - desconto (evita erro de centavo
+        // onde vProd - vDesc != vNF por causa de arredondamentos separados).
+        var valorBruto = Math.Round(dto.PrecoVenda * dto.Quantidade, 2);
+        var valorDesconto = Math.Round(valorBruto * percTotal / 100, 2);
+        var total = Math.Round(valorBruto - valorDesconto, 2);
+        var precoUnit = dto.Quantidade > 0 ? Math.Round(total / dto.Quantidade, 2) : 0;
         var item = new VendaItem
         {
             ProdutoId = dto.ProdutoId, ProdutoCodigo = dto.ProdutoCodigo, ProdutoNome = dto.ProdutoNome,
             Fabricante = dto.Fabricante, PrecoVenda = dto.PrecoVenda, Quantidade = dto.Quantidade,
             PercentualDesconto = dto.PercentualDesconto, PercentualPromocao = dto.PercentualPromocao,
-            ValorDesconto = Math.Round(valorDesconto, 2),
-            PrecoUnitario = Math.Round(precoUnit, 2), Total = Math.Round(total, 2), Ordem = ordem
+            ValorDesconto = valorDesconto,
+            PrecoUnitario = precoUnit, Total = total, Ordem = ordem
         };
         foreach (var d in dto.Descontos)
         {
