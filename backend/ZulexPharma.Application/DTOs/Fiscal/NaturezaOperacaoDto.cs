@@ -1,4 +1,4 @@
-namespace ZulexPharma.Application.DTOs.Nfe;
+namespace ZulexPharma.Application.DTOs.Fiscal;
 
 public class NaturezaOperacaoListDto
 {

@@ -1,4 +1,4 @@
-using ZulexPharma.Application.DTOs.Nfe;
+using ZulexPharma.Application.DTOs.Fiscal;
 
 namespace ZulexPharma.Application.Interfaces;
 

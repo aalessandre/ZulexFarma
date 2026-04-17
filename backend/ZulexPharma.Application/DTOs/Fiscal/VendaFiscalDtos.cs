@@ -1,11 +1,17 @@
 using ZulexPharma.Domain.Enums;
 
-namespace ZulexPharma.Application.DTOs.Nfe;
+namespace ZulexPharma.Application.DTOs.Fiscal;
 
-public class NfeListDto
+/// <summary>
+/// DTOs para emissão fiscal unificada (NFe modelo 55 + NFC-e modelo 65).
+/// Substituem NfeDto.cs. Parcelas vão em ContaReceber (não em DTO de NFe).
+/// </summary>
+
+public class VendaFiscalListDto
 {
-    public long Id { get; set; }
-    public string? Codigo { get; set; }
+    public long Id { get; set; }              // VendaFiscal.Id
+    public long VendaId { get; set; }
+    public ModeloDocumento Modelo { get; set; }
     public int Numero { get; set; }
     public int Serie { get; set; }
     public string NatOp { get; set; } = string.Empty;
@@ -13,18 +19,19 @@ public class NfeListDto
     public string? DestinatarioCpfCnpj { get; set; }
     public DateTime DataEmissao { get; set; }
     public decimal ValorNota { get; set; }
-    public NfeStatus Status { get; set; }
+    public StatusFiscal Status { get; set; }
     public string ChaveAcesso { get; set; } = string.Empty;
     public int TipoNf { get; set; }
-    public FinalidadeNfe FinalidadeNfe { get; set; }
+    public FinalidadeDocumento Finalidade { get; set; }
+    public TipoOperacao TipoOperacao { get; set; }
     public DateTime CriadoEm { get; set; }
 }
 
-public class NfeDetalheDto : NfeListDto
+public class VendaFiscalDetalheDto : VendaFiscalListDto
 {
     public long FilialId { get; set; }
-    public long NaturezaOperacaoId { get; set; }
-    public string NaturezaOperacaoDescricao { get; set; } = string.Empty;
+    public long? NaturezaOperacaoId { get; set; }
+    public string? NaturezaOperacaoDescricao { get; set; }
     public long? DestinatarioPessoaId { get; set; }
     public string? Protocolo { get; set; }
     public DateTime? DataAutorizacao { get; set; }
@@ -58,11 +65,6 @@ public class NfeDetalheDto : NfeListDto
     public decimal ValorCofins { get; set; }
     public decimal ValorTotalTributos { get; set; }
 
-    // Cobranca
-    public string? NumeroFatura { get; set; }
-    public decimal? ValorOriginalFatura { get; set; }
-    public decimal? ValorLiquidoFatura { get; set; }
-
     // Referencia
     public string? ChaveNfeReferenciada { get; set; }
     public string? Observacao { get; set; }
@@ -73,13 +75,13 @@ public class NfeDetalheDto : NfeListDto
     public string? XmlCancelamento { get; set; }
     public string? XmlCartaCorrecao { get; set; }
 
-    public List<NfeItemDto> Itens { get; set; } = new();
-    public List<NfeParcelaDto> Parcelas { get; set; } = new();
+    public List<VendaItemFiscalDto> Itens { get; set; } = new();
 }
 
-public class NfeItemDto
+public class VendaItemFiscalDto
 {
     public long Id { get; set; }
+    public long VendaItemId { get; set; }
     public int NumeroItem { get; set; }
     public long ProdutoId { get; set; }
     public long? ProdutoLoteId { get; set; }
@@ -146,23 +148,19 @@ public class NfeItemDto
     public decimal ValorIpi { get; set; }
 
     public decimal ValorTotalTributos { get; set; }
+    public decimal? CustoUnitario { get; set; }
 }
 
-public class NfeParcelaDto
-{
-    public long Id { get; set; }
-    public string NumeroParcela { get; set; } = string.Empty;
-    public DateTime DataVencimento { get; set; }
-    public decimal Valor { get; set; }
-}
+// ── Form DTOs (criar/atualizar rascunho NFe) ────────────────────────
 
-// ── Form DTOs (create/update) ────────────────────────────────
-
-public class NfeFormDto
+public class VendaFiscalFormDto
 {
     public long FilialId { get; set; }
+    public TipoOperacao TipoOperacao { get; set; } = TipoOperacao.Venda;
+    public ModeloDocumento Modelo { get; set; } = ModeloDocumento.Nfe;
     public long NaturezaOperacaoId { get; set; }
     public long? DestinatarioPessoaId { get; set; }
+    public long? FilialDestinoId { get; set; }
     public DateTime? DataSaidaEntrada { get; set; }
     public string? ChaveNfeReferenciada { get; set; }
     public string? Observacao { get; set; }
@@ -177,16 +175,10 @@ public class NfeFormDto
     public decimal? VolumePesoLiquido { get; set; }
     public decimal? VolumePesoBruto { get; set; }
 
-    // Cobranca
-    public string? NumeroFatura { get; set; }
-    public decimal? ValorOriginalFatura { get; set; }
-    public decimal? ValorLiquidoFatura { get; set; }
-
-    public List<NfeItemFormDto> Itens { get; set; } = new();
-    public List<NfeParcelaFormDto> Parcelas { get; set; } = new();
+    public List<VendaItemFiscalFormDto> Itens { get; set; } = new();
 }
 
-public class NfeItemFormDto
+public class VendaItemFiscalFormDto
 {
     public long? Id { get; set; }
     public long ProdutoId { get; set; }
@@ -262,19 +254,13 @@ public class NfeItemFormDto
     public decimal ValorTotalTributos { get; set; }
 }
 
-public class NfeParcelaFormDto
-{
-    public long? Id { get; set; }
-    public string NumeroParcela { get; set; } = string.Empty;
-    public DateTime DataVencimento { get; set; }
-    public decimal Valor { get; set; }
-}
-
 // ── Result DTOs ─────────────────────────────────────────────
 
-public class NfeEmissaoResult
+public class VendaFiscalEmissaoResult
 {
-    public long NfeId { get; set; }
+    public long VendaFiscalId { get; set; }
+    public long VendaId { get; set; }
+    public ModeloDocumento Modelo { get; set; }
     public int Numero { get; set; }
     public int Serie { get; set; }
     public string ChaveAcesso { get; set; } = string.Empty;
@@ -284,7 +270,7 @@ public class NfeEmissaoResult
     public bool Autorizada { get; set; }
 }
 
-public class NfeEventoResult
+public class VendaFiscalEventoResult
 {
     public bool Sucesso { get; set; }
     public int CodigoStatus { get; set; }

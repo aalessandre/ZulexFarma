@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using ZulexPharma.Application.DTOs.Nfe;
+using ZulexPharma.Application.DTOs.Fiscal;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Infrastructure.Data;

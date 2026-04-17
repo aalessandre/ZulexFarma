@@ -25,4 +25,7 @@ public class VendaItem
 
     // ── Navigation ─────────────────────────────────────────────
     public ICollection<VendaItemDesconto> Descontos { get; set; } = new List<VendaItemDesconto>();
+
+    /// <summary>Snapshot fiscal emitido para este item (1:1, null se não emitido).</summary>
+    public VendaItemFiscal? Fiscal { get; set; }
 }

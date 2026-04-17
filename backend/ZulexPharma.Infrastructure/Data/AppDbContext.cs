@@ -1651,7 +1651,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.AliquotaCofins).HasColumnType("numeric(5,2)");
             e.Property(x => x.AliquotaIpi).HasColumnType("numeric(5,2)");
             // FKs
-            e.HasOne(x => x.VendaItem).WithOne().HasForeignKey<VendaItemFiscal>(x => x.VendaItemId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VendaItem).WithOne(x => x.Fiscal).HasForeignKey<VendaItemFiscal>(x => x.VendaItemId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.VendaItemId).IsUnique();
         });
 

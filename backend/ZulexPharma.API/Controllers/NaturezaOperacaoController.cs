@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
-using ZulexPharma.Application.DTOs.Nfe;
+using ZulexPharma.Application.DTOs.Fiscal;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.API.Filters;
 
