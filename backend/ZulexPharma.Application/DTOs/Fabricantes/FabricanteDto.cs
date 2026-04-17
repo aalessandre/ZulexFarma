@@ -1,3 +1,5 @@
+using ZulexPharma.Application.DTOs.Produtos;
+
 namespace ZulexPharma.Application.DTOs.Fabricantes;
 
 public class FabricanteListDto
@@ -12,6 +14,11 @@ public class FabricanteListDto
     public decimal DescontoMaximoComSenha { get; set; }
 }
 
+public class FabricanteDetalheDto : FabricanteListDto
+{
+    public List<ComissaoFaixaDescontoDto> ComissaoFaixas { get; set; } = new();
+}
+
 public class FabricanteFormDto
 {
     public string Nome { get; set; } = string.Empty;
@@ -19,4 +26,5 @@ public class FabricanteFormDto
     public decimal DescontoMinimo { get; set; }
     public decimal DescontoMaximo { get; set; }
     public decimal DescontoMaximoComSenha { get; set; }
+    public List<ComissaoFaixaDescontoDto> ComissaoFaixas { get; set; } = new();
 }

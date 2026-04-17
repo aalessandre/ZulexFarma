@@ -75,6 +75,8 @@ builder.Services.AddResponseCompression(opts =>
 builder.Services.AddControllers(o => o.MaxModelBindingCollectionSize = int.MaxValue)
     .AddJsonOptions(o => {
         o.JsonSerializerOptions.MaxDepth = 128;
+        // Aceita enums tanto como string ("ReceitaC1") quanto como número — o frontend envia string.
+        o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -104,6 +106,10 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPrescritorService
                             ZulexPharma.Infrastructure.Services.PrescritorService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaReceitaService,
                             ZulexPharma.Infrastructure.Services.VendaReceitaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ICampanhaFidelidadeService,
+                            ZulexPharma.Infrastructure.Services.CampanhaFidelidadeService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPremioFidelidadeService,
+                            ZulexPharma.Infrastructure.Services.PremioFidelidadeService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPlanoContaService,
                             ZulexPharma.Infrastructure.Services.PlanoContaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IContaBancariaService,
@@ -120,9 +126,13 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IClienteService,
                             ZulexPharma.Infrastructure.Services.ClienteService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IHierarquiaDescontoService,
                             ZulexPharma.Infrastructure.Services.HierarquiaDescontoService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IHierarquiaComissaoService,
+                            ZulexPharma.Infrastructure.Services.HierarquiaComissaoService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaService,
                             ZulexPharma.Infrastructure.Services.VendaService>();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.NfceService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.INfeService,
+                            ZulexPharma.Infrastructure.Services.NfeService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.IbptService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAdquirenteService,
@@ -167,8 +177,6 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoLoteServic
                             ZulexPharma.Infrastructure.Services.ProdutoLoteService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IInventarioSngpcService,
                             ZulexPharma.Infrastructure.Services.InventarioSngpcService>();
-builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IReceitaService,
-                            ZulexPharma.Infrastructure.Services.ReceitaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IPerdaService,
                             ZulexPharma.Infrastructure.Services.PerdaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEstoqueSngpcService,
@@ -190,6 +198,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAtualizacaoPrecoS
                             ZulexPharma.Infrastructure.Services.AtualizacaoPrecoService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISefazService,
                             ZulexPharma.Infrastructure.Services.SefazService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.INaturezaOperacaoService,
+                            ZulexPharma.Infrastructure.Services.NaturezaOperacaoService>();
 
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.UpdateBackgroundService>();
 builder.Services.AddHostedService<ZulexPharma.Infrastructure.Services.SyncBackgroundService>();

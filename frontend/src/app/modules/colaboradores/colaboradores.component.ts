@@ -41,9 +41,18 @@ interface Acesso {
 interface FilialOption { id: number; nomeFantasia: string; }
 interface GrupoOption { id: number; nome: string; }
 
+interface ComissaoAgrupador {
+  id?: number;
+  tipoAgrupador: number;
+  agrupadorId: number;
+  agrupadorNome: string;
+  comissaoPercentual: number;
+}
+
 interface ColaboradorDetalhe extends Colaborador {
   enderecos: Endereco[];
   contatos: Contato[];
+  comissaoAgrupadores: ComissaoAgrupador[];
   acesso?: Acesso | null;
 }
 
@@ -89,6 +98,13 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   accContatos   = signal(false);
   accAcesso     = signal(false);
   accObservacao = signal(false);
+  accComissao   = signal(false);
+
+  // Comissão por agrupador
+  comTipoAgrupador = signal(1);
+  comAgrupadores = signal<{id: number; nome: string}[]>([]);
+  comAgrupadorId = signal(0);
+  comPercentual = signal<number | null>(null);
 
   // Modais
   modalLog = signal(false);
@@ -191,7 +207,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     sessionStorage.setItem(this.STATE_KEY, JSON.stringify({
       abas: abas.map(a => ({ colaborador: a.colaborador, form: a.form, isDirty: a.isDirty })),
       abaAtivaId: this.abaAtivaId(),
-      accordions: { enderecos: this.accEnderecos(), contatos: this.accContatos(), acesso: this.accAcesso(), observacao: this.accObservacao() }
+      accordions: { enderecos: this.accEnderecos(), contatos: this.accContatos(), acesso: this.accAcesso(), observacao: this.accObservacao(), comissao: this.accComissao() }
     }));
   }
 
@@ -208,6 +224,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
         this.accContatos.set(state.accordions.contatos ?? false);
         this.accAcesso.set(state.accordions.acesso ?? false);
         this.accObservacao.set(state.accordions.observacao ?? false);
+        this.accComissao.set(state.accordions.comissao ?? false);
       }
 
       // Formato novo: abas completas com form
@@ -252,6 +269,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
           permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
+          comissaoAgrupadores: r.data.comissaoAgrupadores ?? [],
           observacao: r.data.observacao,
           cargo: r.data.cargo,
           dataAdmissao: r.data.dataAdmissao,
@@ -560,6 +578,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
           permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
+          comissaoAgrupadores: r.data.comissaoAgrupadores ?? [],
           observacao: r.data.observacao,
           cargo: r.data.cargo,
           dataAdmissao: r.data.dataAdmissao,
@@ -650,6 +669,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       salario: f.salario, observacao: f.observacao, ativo: f.ativo,
       permitirAbrirCaixa: f.permitirAbrirCaixa,
       enderecos: f.enderecos, contatos: f.contatos,
+      comissaoAgrupadores: f.comissaoAgrupadores,
       acesso
     };
 
@@ -847,6 +867,72 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
     if (this.errosCampos()[campo]) {
       this.errosCampos.update(e => { const n = { ...e }; delete n[campo]; return n; });
     }
+  }
+
+  // ── Comissão por agrupador ─────────────────────────────────────────
+  private readonly TIPO_AGRUPADOR_LABELS: Record<number, string> = {
+    1: 'Grupo Principal', 2: 'Grupo', 3: 'SubGrupo', 4: 'Seção'
+  };
+
+  tipoAgrupadorLabel(tipo: number): string {
+    return this.TIPO_AGRUPADOR_LABELS[tipo] ?? String(tipo);
+  }
+
+  carregarComAgrupadores(tipo: number) {
+    this.comTipoAgrupador.set(tipo);
+    this.comAgrupadorId.set(0);
+    this.comAgrupadores.set([]);
+    let url = '';
+    switch (tipo) {
+      case 1: url = `${environment.apiUrl}/grupos-principais`; break;
+      case 2: url = `${environment.apiUrl}/grupos-produtos`; break;
+      case 3: url = `${environment.apiUrl}/sub-grupos`; break;
+      case 4: url = `${environment.apiUrl}/secoes`; break;
+    }
+    if (!url) return;
+    this.http.get<any>(url).subscribe({
+      next: r => this.comAgrupadores.set((r.data ?? []).map((a: any) => ({ id: a.id, nome: a.nome }))),
+      error: () => this.comAgrupadores.set([])
+    });
+  }
+
+  adicionarComissaoAgrupador() {
+    const tipo = this.comTipoAgrupador();
+    const agrupadorId = this.comAgrupadorId();
+    const pct = this.comPercentual();
+    if (!agrupadorId || pct == null) return;
+
+    const agrupador = this.comAgrupadores().find(a => a.id === agrupadorId);
+    if (!agrupador) return;
+
+    // Verificar duplicata
+    const ja = this.colaboradorForm().comissaoAgrupadores.find(
+      c => c.tipoAgrupador === tipo && c.agrupadorId === agrupadorId
+    );
+    if (ja) return;
+
+    const nova: ComissaoAgrupador = {
+      tipoAgrupador: tipo,
+      agrupadorId,
+      agrupadorNome: agrupador.nome,
+      comissaoPercentual: pct
+    };
+
+    this.colaboradorForm.update(f => ({
+      ...f,
+      comissaoAgrupadores: [...f.comissaoAgrupadores, nova]
+    }));
+    this.marcarDirty();
+    this.comAgrupadorId.set(0);
+    this.comPercentual.set(null);
+  }
+
+  removerComissaoAgrupador(idx: number) {
+    this.colaboradorForm.update(f => ({
+      ...f,
+      comissaoAgrupadores: f.comissaoAgrupadores.filter((_, i) => i !== idx)
+    }));
+    this.marcarDirty();
   }
 
   // ── Endereços ─────────────────────────────────────────────────────
@@ -1252,6 +1338,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       salario: undefined, observacao: '', ativo: true, permitirAbrirCaixa: false,
       enderecos: [{ tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
       contatos: [],
+      comissaoAgrupadores: [],
       acesso: null
     };
   }
@@ -1283,6 +1370,8 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   private resetAccordions() {
     this.accEnderecos.set(false);
     this.accContatos.set(false);
+    this.accComissao.set(false);
+    this.carregarComAgrupadores(this.comTipoAgrupador());
     this.accAcesso.set(false);
     this.accObservacao.set(false);
   }

@@ -11,6 +11,14 @@ import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 interface LogCampo { campo: string; valorAnterior?: string; valorAtual?: string; }
 interface LogEntry { id: number; realizadoEm: string; acao: string; nomeUsuario: string; campos: LogCampo[]; }
 
+interface ComissaoFaixa {
+  id?: number;
+  descontoInicial: number;
+  descontoFinal: number;
+  comissaoPercentual: number;
+  ordem: number;
+}
+
 interface Fabricante {
   id?: number;
   codigo?: string;
@@ -20,6 +28,7 @@ interface Fabricante {
   descontoMinimo: number;
   descontoMaximo: number;
   descontoMaximoComSenha: number;
+  comissaoFaixas: ComissaoFaixa[];
 }
 
 interface AbaEdicao {
@@ -77,6 +86,12 @@ export class FabricantesComponent implements OnInit, OnDestroy {
   erro = signal('');
   errosCampos = signal<Record<string, string>>({});
   private formOriginal: Fabricante | null = null;
+
+  // Comissão por faixa de desconto
+  accComissao = signal(false);
+  novaFaixaDescontoInicial = signal<number | null>(null);
+  novaFaixaDescontoFinal = signal<number | null>(null);
+  novaFaixaComissao = signal<number | null>(null);
 
   // Colunas
   colunas = signal<ColunaEstado[]>(this.carregarColunas());
@@ -176,6 +191,49 @@ export class FabricantesComponent implements OnInit, OnDestroy {
     const atual = (this.fabricanteForm() as any)[campo];
     const original = (this.formOriginal as any)[campo];
     return (atual ?? '') !== (original ?? '');
+  }
+
+  // ── Comissão por faixa de desconto ──────────────────────────────
+  proximoDescontoInicial(): number | null {
+    const faixas = this.fabricanteForm().comissaoFaixas;
+    if (faixas.length === 0) return null;
+    const ultima = faixas[faixas.length - 1];
+    return +(ultima.descontoFinal + 0.01).toFixed(2);
+  }
+
+  adicionarFaixa() {
+    const faixas = this.fabricanteForm().comissaoFaixas;
+    const descInicial = faixas.length === 0
+      ? this.novaFaixaDescontoInicial()
+      : this.proximoDescontoInicial();
+    const descFinal = this.novaFaixaDescontoFinal();
+    const comissao = this.novaFaixaComissao();
+
+    if (descInicial == null || descFinal == null || comissao == null) return;
+    if (descFinal <= descInicial) return;
+
+    const nova: ComissaoFaixa = {
+      descontoInicial: descInicial,
+      descontoFinal: descFinal,
+      comissaoPercentual: comissao,
+      ordem: faixas.length
+    };
+
+    this.fabricanteForm.update(f => ({
+      ...f, comissaoFaixas: [...f.comissaoFaixas, nova]
+    }));
+    this.isDirty.set(true);
+    this.novaFaixaDescontoInicial.set(null);
+    this.novaFaixaDescontoFinal.set(null);
+    this.novaFaixaComissao.set(null);
+  }
+
+  removerFaixa(idx: number) {
+    this.fabricanteForm.update(f => {
+      const faixas = f.comissaoFaixas.filter((_, i) => i !== idx);
+      return { ...f, comissaoFaixas: faixas.map((fx, i) => ({ ...fx, ordem: i })) };
+    });
+    this.isDirty.set(true);
   }
 
   async sairDaTela() {
@@ -402,7 +460,7 @@ export class FabricantesComponent implements OnInit, OnDestroy {
     this.isDirty.set(false);
     this.erro.set(''); this.errosCampos.set({});
     this.abaAtivaId.set(this.NOVO_ID);
-    const novaAba: AbaEdicao = { fabricante: { id: this.NOVO_ID, nome: 'Novo cadastro', ativo: true, descontoMinimo: 0, descontoMaximo: 0, descontoMaximoComSenha: 0 }, form: this.clonar(novo), isDirty: false };
+    const novaAba: AbaEdicao = { fabricante: { id: this.NOVO_ID, nome: 'Novo cadastro', ativo: true, descontoMinimo: 0, descontoMaximo: 0, descontoMaximoComSenha: 0, comissaoFaixas: [] }, form: this.clonar(novo), isDirty: false };
     this.abasEdicao.update(tabs => [...tabs, novaAba]);
     this.modo.set('form');
   }
@@ -418,16 +476,34 @@ export class FabricantesComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const aba: AbaEdicao = { fabricante: { ...f }, form: this.clonar(f), isDirty: false };
-    this.abasEdicao.update(abas => [...abas, aba]);
-    this.abaAtivaId.set(f.id!);
-    this.fabricanteForm.set(this.clonar(f));
-    this.formOriginal = this.clonar(f);
-    this.modoEdicao.set(true);
-    this.isDirty.set(false);
-    this.erro.set('');
-    this.errosCampos.set({});
-    this.modo.set('form');
+    // Carregar detalhe do backend (para comissaoFaixas)
+    this.carregando.set(true);
+    this.http.get<any>(`${this.apiUrl}/${f.id}`).subscribe({
+      next: r => {
+        this.carregando.set(false);
+        const detalhe: Fabricante = {
+          ...f,
+          descontoMinimo: r.data.descontoMinimo ?? f.descontoMinimo,
+          descontoMaximo: r.data.descontoMaximo ?? f.descontoMaximo,
+          descontoMaximoComSenha: r.data.descontoMaximoComSenha ?? f.descontoMaximoComSenha,
+          comissaoFaixas: (r.data.comissaoFaixas ?? []).map((f: any) => ({
+            id: f.id, descontoInicial: f.descontoInicial, descontoFinal: f.descontoFinal,
+            comissaoPercentual: f.comissaoPercentual, ordem: f.ordem
+          }))
+        };
+        const aba: AbaEdicao = { fabricante: { ...f, comissaoFaixas: [] }, form: this.clonar(detalhe), isDirty: false };
+        this.abasEdicao.update(abas => [...abas, aba]);
+        this.abaAtivaId.set(f.id!);
+        this.fabricanteForm.set(this.clonar(detalhe));
+        this.formOriginal = this.clonar(detalhe);
+        this.modoEdicao.set(true);
+        this.isDirty.set(false);
+        this.erro.set('');
+        this.errosCampos.set({});
+        this.modo.set('form');
+      },
+      error: () => this.carregando.set(false)
+    });
   }
 
   ativarAba(id: number) {
@@ -526,7 +602,12 @@ export class FabricantesComponent implements OnInit, OnDestroy {
     this.salvando.set(true);
 
     const headers = this.headerLiberacao();
-    const body: any = { nome: f.nome, ativo: f.ativo };
+    const body: any = {
+      nome: f.nome, ativo: f.ativo,
+      descontoMinimo: f.descontoMinimo, descontoMaximo: f.descontoMaximo,
+      descontoMaximoComSenha: f.descontoMaximoComSenha,
+      comissaoFaixas: f.comissaoFaixas ?? []
+    };
 
     const salvarDados$ = this.modoEdicao()
       ? this.http.put(`${this.apiUrl}/${f.id}`, body, { headers })
@@ -650,7 +731,7 @@ export class FabricantesComponent implements OnInit, OnDestroy {
 
   // ── Utils ──────────────────────────────────────────────────────────
   private novoFabricante(): Fabricante {
-    return { nome: '', ativo: true, descontoMinimo: 0, descontoMaximo: 0, descontoMaximoComSenha: 0 };
+    return { nome: '', ativo: true, descontoMinimo: 0, descontoMaximo: 0, descontoMaximoComSenha: 0, comissaoFaixas: [] };
   }
 
   private clonar<T>(obj: T): T {

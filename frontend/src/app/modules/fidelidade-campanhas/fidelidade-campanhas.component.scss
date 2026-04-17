@@ -1,0 +1,280 @@
+@use '../erp-grid' as *;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+/* ── Layout ERP padrão ─────────────────────────────────────────────── */
+.tela-erp {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: var(--erp-bg);
+}
+
+/* ── Sidebar esquerda (tiles coloridos) ─────────────────────────────── */
+.tela-sidebar {
+  width: 180px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.sidebar-item-header { display: flex; align-items: center; gap: 8px; svg { width: 20px; height: 20px; flex-shrink: 0; } }
+
+.sidebar-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 14px 16px;
+  color: #fff;
+  cursor: pointer;
+  border-radius: var(--erp-radius-sm);
+  font-size: var(--erp-fs-body);
+  font-weight: 700;
+  text-align: left;
+  line-height: 1.3;
+  transition: filter 0.15s, transform 0.08s;
+  background: linear-gradient(135deg, #2980b9, #3498db);
+
+  > svg { width: 0; height: 0; display: none; }
+
+  .sidebar-sub { font-size: var(--erp-fs-xs); font-weight: 400; opacity: 0.85; }
+
+  &:hover { filter: brightness(1.08); }
+  &:active { transform: scale(0.98); }
+  &.ativo  { filter: brightness(0.92); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
+  &.disabled { opacity: 0.35; pointer-events: none; }
+
+  /* Cores por tipo */
+  &.tile-procurar  { background: linear-gradient(135deg, #2471a3, #2e86c1); }
+  &.tile-adicionar { background: linear-gradient(135deg, #1abc9c, #16a085); }
+  &.tile-editar    { background: linear-gradient(135deg, #2980b9, #3498db); }
+  &.tile-sair      { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+}
+
+/* ── Área principal ────────────────────────────────────────────────── */
+.tela-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.contador { font-size: 12px; color: #90a4ae; }
+
+tr.inativa { opacity: 0.55; }
+
+/* ── Formulário ────────────────────────────────────────────────────── */
+.form-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 16px;
+  padding: 24px 28px;
+  background: var(--erp-surface);
+  border-radius: 16px;
+  border: 1px solid #e8ecf1;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.form-titulo {
+  font-size: var(--erp-fs-h2); font-weight: 700; color: var(--erp-primary);
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--erp-border);
+}
+
+.form-erro {
+  background: #fde8e8;
+  border: 1px solid #e57373;
+  border-radius: 4px;
+  padding: 10px 14px;
+  color: #c0392b;
+  font-size: var(--erp-fs-md);
+  margin-bottom: 16px;
+}
+
+.form-secao {
+  font-size: var(--erp-fs-sm);
+  font-weight: 700;
+  color: var(--erp-blue);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin: 18px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--erp-border);
+}
+
+.form-grid {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 14px;
+  column-gap: 24px;
+  margin-bottom: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+
+  &.field-1 { min-width: 140px; }
+  &.field-2 { min-width: 240px; flex: 1; }
+  &.field-3 { min-width: 320px; flex: 2; }
+  &.field-4 { min-width: 100%; flex: 1; }
+
+  label {
+    font-size: var(--erp-fs-sm);
+    font-weight: 700;
+    color: var(--erp-text-muted);
+    letter-spacing: 0.7px;
+  }
+
+  input[type="text"],
+  input[type="datetime-local"],
+  input[type="time"],
+  select {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--erp-border-input);
+    border-radius: 4px;
+    font-size: var(--erp-fs-body);
+    color: var(--erp-text);
+    outline: none;
+    background: var(--erp-input-bg);
+    &:focus { border-color: var(--erp-blue); background: var(--erp-surface); }
+  }
+
+  select {
+    appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236a7888' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  small { font-size: 10px; color: #90a4ae; margin-top: 2px; }
+}
+
+.check-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: #455a64;
+  input { width: 16px; height: 16px; cursor: pointer; }
+}
+
+/* ── Toolbar inferior ──────────────────────────────────────────────── */
+.tela-toolbar {
+  height: 52px;
+  flex-shrink: 0;
+  background: var(--erp-surface);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 8px;
+}
+
+.tb-separador { flex: 1; }
+
+.tb-btn {
+  display: flex; align-items: center; gap: 8px; padding: 0 20px; height: 38px;
+  border: none; border-radius: 8px; font-size: var(--erp-fs-sm); font-weight: 600;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+  svg { width: 18px; height: 18px; flex-shrink: 0; }
+  &:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  &:active:not(:disabled) { transform: translateY(0); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+  &.tb-salvar   { background: #27ae60; color: #fff; }
+  &.tb-cancelar { background: #e67e22; color: #fff; }
+  &.tb-fechar   { background: #546e7a; color: #fff; }
+  &.tb-excluir  { background: #c0392b; color: #fff; }
+}
+
+/* ── Componentes específicos (multi-select, chips, agrupadores) ──── */
+.status-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 10px;
+  font-size: 11px; font-weight: 700;
+  &.ativo   { background: #e8f5e9; color: #2e7d32; }
+  &.inativo { background: #ffebee; color: #c62828; }
+}
+
+.btn-acao {
+  background: none; border: 1px solid transparent; width: 26px; height: 26px;
+  border-radius: 4px; cursor: pointer; font-size: 13px; margin: 0 2px;
+  &.btn-editar  { color: #1976d2; &:hover { background: #e3f2fd; } }
+  &.btn-excluir { color: #c62828; &:hover { background: #ffebee; } }
+}
+
+.sub-secao {
+  font-size: 10px; font-weight: 700; color: #ad1457;
+  letter-spacing: 0.5px; margin: 10px 0 6px;
+  small { font-weight: 400; color: #90a4ae; }
+}
+.hint { display: block; font-size: 11px; color: #90a4ae; font-style: italic; }
+
+.dia-semana-wrap {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.dia-chip {
+  padding: 6px 12px; border: 1px solid #cfd8dc; border-radius: 16px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  background: #fff;
+  input { display: none; }
+  &.ativo { background: #ad1457; color: #fff; border-color: #ad1457; }
+}
+
+.ms-wrap { position: relative; }
+.ms-trigger {
+  padding: 7px 10px; border: 1px solid #cfd8dc; border-radius: 4px;
+  cursor: pointer; font-size: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fff;
+}
+.ms-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: #fff; border: 1px solid #cfd8dc; border-radius: 4px;
+  max-height: 220px; overflow-y: auto; z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.ms-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; font-size: 12px; cursor: pointer;
+  &:hover { background: #f5f6f8; }
+}
+
+.tags-wrap {
+  display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;
+}
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; background: #fce4ec; color: #ad1457;
+  border-radius: 16px; font-size: 11px; font-weight: 600;
+  button {
+    background: none; border: none; color: #ad1457; cursor: pointer;
+    font-size: 14px; line-height: 1; padding: 0;
+  }
+}
+
+.btn-add-item {
+  padding: 7px 14px; background: #ad1457; color: #fff;
+  border: none; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;
+  &:hover { background: #880e4f; }
+}
+
+.itens-tabela {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px;
+  th { background: #eceff1; padding: 6px 10px; text-align: left; color: #455a64; font-size: 10px; font-weight: 700; }
+  td { padding: 6px 10px; border-bottom: 1px solid #eceff1; }
+}

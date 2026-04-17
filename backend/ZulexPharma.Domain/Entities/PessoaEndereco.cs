@@ -20,5 +20,8 @@ public class PessoaEndereco : BaseEntity
     public string Cidade { get; set; } = string.Empty;
     public string Uf { get; set; } = string.Empty;
 
+    /// <summary>Codigo IBGE do municipio (7 digitos, obrigatorio para NF-e).</summary>
+    public string? CodigoIbgeMunicipio { get; set; }
+
     public bool Principal { get; set; } = false;
 }

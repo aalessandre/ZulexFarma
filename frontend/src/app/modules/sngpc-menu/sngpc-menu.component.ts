@@ -55,13 +55,6 @@ const TILES: TileItem[] = [
     rota: '/erp/sngpc-mapas'
   },
   {
-    label: 'Vendas Pendentes',
-    sigla: 'VP',
-    iconKey: 'shield',
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-    rota: '/erp/sngpc-pendentes'
-  },
-  {
     label: 'Prescritores',
     sigla: 'PR',
     iconKey: 'shield',

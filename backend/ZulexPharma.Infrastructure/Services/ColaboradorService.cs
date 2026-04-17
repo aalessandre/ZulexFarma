@@ -123,6 +123,16 @@ public class ColaboradorService : IColaboradorService
             }).ToList()
         };
 
+        dto.ComissaoAgrupadores = await _db.ColaboradorComissaoAgrupadores
+            .Where(x => x.ColaboradorId == id)
+            .OrderBy(x => x.TipoAgrupador).ThenBy(x => x.AgrupadorNome)
+            .Select(x => new ComissaoAgrupadorDto
+            {
+                Id = x.Id, TipoAgrupador = x.TipoAgrupador,
+                AgrupadorId = x.AgrupadorId, AgrupadorNome = x.AgrupadorNome,
+                ComissaoPercentual = x.ComissaoPercentual
+            }).ToListAsync();
+
         if (c.Usuario != null)
         {
             var filialGrupos = await _db.UsuarioFilialGrupos
@@ -253,6 +263,9 @@ public class ColaboradorService : IColaboradorService
             _db.Colaboradores.Add(colaborador);
             await _db.SaveChangesAsync();
 
+            // Comissão por agrupador
+            await SincronizarComissaoAgrupadores(colaborador.Id, dto.ComissaoAgrupadores);
+
             // Acesso ao sistema
             if (dto.Acesso != null && !string.IsNullOrWhiteSpace(dto.Acesso.Login))
                 await CriarOuAtualizarUsuario(colaborador, dto.Acesso, pessoa);
@@ -313,6 +326,9 @@ public class ColaboradorService : IColaboradorService
 
             // Sincronizar contatos
             SincronizarContatos(pessoa, dto.Contatos);
+
+            // Comissão por agrupador
+            await SincronizarComissaoAgrupadores(id, dto.ComissaoAgrupadores);
 
             await _db.SaveChangesAsync();
 
@@ -428,6 +444,29 @@ public class ColaboradorService : IColaboradorService
                 Ativo          = c.Ativo
             })
             .FirstAsync();
+    }
+
+    private async Task SincronizarComissaoAgrupadores(long colaboradorId, List<ComissaoAgrupadorDto> dtos)
+    {
+        var existentes = await _db.ColaboradorComissaoAgrupadores
+            .Where(x => x.ColaboradorId == colaboradorId).ToListAsync();
+        _db.ColaboradorComissaoAgrupadores.RemoveRange(existentes);
+
+        if (dtos?.Count > 0)
+        {
+            foreach (var d in dtos)
+            {
+                _db.ColaboradorComissaoAgrupadores.Add(new ColaboradorComissaoAgrupador
+                {
+                    ColaboradorId = colaboradorId,
+                    TipoAgrupador = d.TipoAgrupador,
+                    AgrupadorId = d.AgrupadorId,
+                    AgrupadorNome = d.AgrupadorNome?.Trim().ToUpper() ?? string.Empty,
+                    ComissaoPercentual = d.ComissaoPercentual
+                });
+            }
+            await _db.SaveChangesAsync();
+        }
     }
 
     private void SincronizarEnderecos(Pessoa pessoa, List<EnderecoFormDto> dtos)

@@ -1,0 +1,85 @@
+precisamos criar nosso modulo de Fidelidade, será composto por 2 itens
+- Pontos => esquema de contagem de pontos
+- Chash back
+
+Pontos:
+A ideia é ter uma tela onde posso criar campanhas, para cada campanha eu quero ter os campos:
+- por venda=> se a contagem de pontos é por venda, exemplo: se foi definido que o cliente ganha 10 pontos a cada 5 reais, se a compra foi de 4,99, nao contabilizaria pontos
+- geral=> nesse caso somariam todas as compras pra contabilizar os pontos
+- condições de pagamento=> dropdown com todas as formas de pagamento e checkbox para multiseleção
+- Filiais =>  => dropdown com todas as filiais checkbox para multiseleção
+- esquema de informar quais dos agrupadores fazem parte da campanha=> mesmo esquema usado no cadastro de clientes, accordion Descontos Especiais
+- valor => valor base para a contagem de pontos
+- qtde pontos
+- Forma de retirada => Dropdown com as opções: Premio e Desconto na Venda
+- Qtde de pontos para criar alerta=> 
+
+
+- Digamos que a quantidade de pontos de alerta é 50 pontos, ao informar um cliente na venda, se o cliente atingir os 50 pontos, precisaremos mostrar o alerta, mas isso é uma regra na venda, primeiro vamos criar o esquema de cadastrar o esquema de Fidelidade, mas é bom que vc saiba pra quer servirá
+
+após criar o esquema de pontuação, iremos criar o esquema de CashBack, no bloco Movimento crie um tile Fidelidade com os submenus Pontuação e cashback
+
+me ajude a estruturar, analise, faça suas sugestões
+
+
+1. Crédito e cancelamento
+
+Pontos creditam só quando a venda é finalizada, certo?
+Se a venda é cancelada/devolvida depois, os pontos são estornados?
+R: exato, credita quando finalizar a pre-venda/venda no caixa, se houver um cancelamento tem que estornar os pontos gerados
+
+2. Vigência da campanha
+
+Campanha tem data início/fim? Dias da semana/horário? (tipo Promoção)
+Ou fica ativa até ser marcada como inativa
+R: sim, tera data de vigencia, então temos que ter campos para informar, e vamos precisar tambem de um campo para informar a vigencia dos pontos do cliente, um campo para informar a qtde de dias para expirar
+
+3. Múltiplas campanhas ativas simultâneas
+
+Se tiver 2 campanhas ativas e a venda se encaixa nas duas, soma os pontos das duas ou só a mais vantajosa (tipo Promoção hoje)?
+Minha sugestão: soma — campanha de fidelidade é "bônus".
+R: nao pode somar, vamos pegar a mais vantajosa
+
+4. Condições de pagamento na venda mista
+
+Ex: campanha restrita a "DINHEIRO e PIX". Venda R$100: R$60 dinheiro + R$40 cartão.
+(a) Só conta se 100% for em forma válida (nesse caso, não conta)
+(b) Conta o valor proporcional da forma válida (R$60 → pontos sobre R$60)
+(c) Basta ter qualquer parte nas formas válidas (conta R$100)
+Qual prefere?
+R: C
+
+5. Agrupadores (Descontos Especiais)
+
+No cadastro de cliente o accordion permite incluir/excluir fabricantes, grupos, seções etc. Na campanha de pontos, como interpretar?
+(a) Só os itens dos agrupadores geram pontos — exclui os demais da venda
+(b) A campanha só é elegível se a venda tem ao menos 1 item dos agrupadores
+Minha sugestão: (a) — calcula o valor de pontuação só sobre o subtotal dos itens que se encaixam nos agrupadores marcados. Mais granular e justo.
+R: a. Somente os produtos dos agrupadores informado contam pontos
+
+6. Validade dos pontos
+
+Expira depois de X meses? Por campanha ou geral?
+Sem validade por enquanto?
+R: respondi no item 2
+
+7. Forma de retirada — "Desconto na Venda"
+
+Qual a conversão? 1 ponto = R$0,01? Fixa na campanha?
+O cliente escolhe quanto quer trocar ou é tudo-ou-nada?
+Pode usar parcial (usa 500 dos 1200 pontos)?
+R: ao criar a campanha o uuario vai dizer para valor x o cliente recebe x pontos, por isso teremos os campos Valor e Pontos, poderemos ser flexiveis, o cliente poderá retirar parcial
+
+
+8. Forma de retirada — "Prêmio"
+
+Existe catálogo de prêmios (cadastro separado), ou é uma info livre pra operador gerenciar manualmente?
+Minha sugestão: fase 1 só registra o tipo "Prêmio" como intenção (operador gerencia fora); fase 2 criamos catálogo se precisar.
+R: Eu pensei de na propria tela ter um accordion premios, onde o usuario possa digitar "DVD Ana Castela" 10(10 pontos) + "Calça Jeans"  50, ou seja dois campos o item e a qtde de pontos, mas o ideal memso seria ter um cadastro(catalogo) e a gente ate poderia expor esse cadastro na web, o cliente poderia acessar, ver quantos pontos tem, quais são os itens da lojinha(catalogo) isso seria um baita diferencial, olha, vamos analisar, melhorar e implementar
+
+9. Saldo do cliente
+
+O saldo acumula por campanha (cliente tem X pts da campanha A + Y pts da campanha B) ou um saldo global?
+Minha sugestão: saldo global (mais simples), com histórico identificando qual campanha originou cada crédito (pra relatório).
+R: pode ser global, mais facil, se o cliente ganhou 10 pontos em uma campanha e 15 em outro, o saldo global é 25, embora seja interassante mostrar por campanha
+

@@ -532,8 +532,11 @@
                 — Grid editavel com duplicatas da nota<br>
                 — Checkboxes: Duplicatas Entregues, Nota Paga<br><br>
 
-                <strong>Sub-etapa 2 — Lotes/Vencimentos:</strong><br>
-                — Grid editavel por produto: Lote e DataValidade<br>
+                <strong>Sub-etapa 2 — Lotes/Vencimentos (rastreabilidade):</strong><br>
+                — Grid editavel por produto: NumeroLote, DataFabricacao, DataValidade, Quantidade<br>
+                — Para produtos rastreaveis (psicotropicos/antimicrobianos e grupos com ControlarLotesVencimento=true)<br>
+                — Cada linha cria um CompraProdutoLote<br>
+                — Multiplas linhas por produto (quando a NF traz o mesmo produto com lotes diferentes)<br>
                 — Botao "Finalizar" executa toda a logica<br><br>
 
                 <strong>Ao finalizar o sistema:</strong><br>
@@ -541,8 +544,9 @@
                 — Atualiza UltimaCompra* (unitario, ST, outros, IPI, FPC do XML)<br>
                 — Recalcula CustoMedio: ((estoque x CM) + (qtde x custo)) / (estoque + qtde)<br>
                 — Aplica sugestoes de preco pendentes (SugestaoVenda/Markup/Projecao)<br>
-                — Grava Lote e DataValidade em ProdutosDados<br>
+                — Cria ProdutoLote + MovimentoLote para cada lote informado (rastreabilidade)<br>
                 — Atualiza UltimaCompraEm e DataEntrada<br>
+                — Gera ContaPagar (plano de contas padrao)<br>
                 — Registra log de auditoria por produto<br>
                 — Status muda para "Finalizada"
               </span>
@@ -591,7 +595,10 @@
               <span class="cmd-obs">
                 <strong>Compras</strong> — Cabecalho: ChaveNfe (unique 44 dig), NumeroNf, SerieNf, NaturezaOperacao, DataEmissao, DataEntrada, FornecedorId, FilialId, totais, Status (enum), DuplicatasEntregues, NotaPaga, DataFinalizacao, XmlConteudo (text, JsonIgnore)<br><br>
                 <strong>ComprasProdutos</strong> — Itens: ProdutoId (nullable), dados XML, Quantidade, valores, Fracao, QtdeConferida, Sugestao* (Venda/Markup/Projecao/CustoMedio), PrecificacaoAplicada<br><br>
+                <strong>ComprasProdutosLotes</strong> — 1:N com ComprasProdutos. Grava lote conferido na finalizacao: NumeroLote, DataFabricacao, DataValidade, Quantidade, RegistroMs<br><br>
                 <strong>ComprasFiscal</strong> — Fiscal 1:1 com item: ICMS (origem, CST, base, aliq, valor, ST, FCP ST), PIS, COFINS, IBS/CBS (reforma tributaria)<br><br>
+                <strong>ProdutosLotes</strong> — Lote rastreado em estoque: FilialId, ProdutoId, NumeroLote, DataFabricacao, DataValidade, SaldoAtual, RegistroMs. FK para CompraProdutoLote que originou<br><br>
+                <strong>MovimentosLote</strong> — Historico de entrada/saida por lote: Tipo (Entrada/Saida/Ajuste/Inventario), Quantidade, DataMovimento, CompraId, VendaId, SaldoAposMovimento<br><br>
                 <strong>SefazNotas</strong> — Cache SEFAZ: ChaveNfe, NSU, dados emitente, TipoDocumento (resNFe/procNFe), XmlCompleto, Manifestada, TipoManifestacao, Importada, Lancada. NAO replica.<br><br>
                 <strong>CertificadosDigitais</strong> — Certificado A1: FilialId (unique), PfxBase64, Senha, Validade, Emissor, Cnpj
               </span>
@@ -647,6 +654,971 @@
                 — ComprasFinanceiro (sera criado junto com modulo Financeiro)
               </span>
             </div>
+          </div>
+        }
+      </section>
+
+      <!-- SNGPC -->
+      <section class="help-secao">
+        <div class="secao-header sngpc" [class.aberto]="isAberta('sngpc')" (click)="toggleSecao('sngpc')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          <span>SNGPC (Produtos Controlados)</span>
+        </div>
+        @if (isAberta('sngpc')) {
+          <div class="secao-corpo">
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Visao Geral</div>
+              <span class="cmd-obs">
+                Modulo de controle de psicotropicos e antimicrobianos conforme Portaria SVS/MS 344/1998 (psicotropicos) e RDC 20/2011 (antimicrobianos).<br>
+                Acesso pelo menu: SNGPC (/erp/sngpc) — tiles: Inventario Inicial, Compras e Transferencias, Receitas, Perdas, Estoque, Mapas, Prescritores.<br><br>
+                Um produto e SNGPC quando tem <strong>ClasseTerapeutica = "Psicotropicos" ou "Antimicrobiano"</strong> em Produtos. Helper: <code>ProdutoControleHelper.IsProdutoSngpc()</code>.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Configuracoes (Configuracoes > SNGPC)</div>
+              <span class="cmd-obs">
+                <strong>sngpc.ativar</strong> (bool) — liga/desliga todo o controle SNGPC<br>
+                <strong>sngpc.vendas.modo</strong> (enum) — comportamento na finalizacao da venda:<br>
+                &nbsp;&nbsp;• <strong>Obrigatorio</strong>: bloqueia venda se nao tiver lote disponivel; obriga receita<br>
+                &nbsp;&nbsp;• <strong>NaoLancar</strong>: finaliza venda normal e marca SngpcPendente=true (lanca depois)<br>
+                &nbsp;&nbsp;• <strong>Misto</strong>: abre tela de receitas, permite "Lancar Depois" com senha de supervisor<br>
+                <strong>sngpc.validade_receita_a_dias</strong> (int, default 30) — validade Notificacao A (amarela)<br>
+                <strong>sngpc.validade_receita_b_dias</strong> (int, default 30) — validade Notificacao B1/B2 (azul)<br>
+                <strong>sngpc.validade_receita_c_dias</strong> (int, default 30) — validade Receita C1/C2/C4/C5<br>
+                <strong>sngpc.validade_receita_antimicrob_dias</strong> (int, default 10) — validade antimicrobiano<br>
+                Todas com IDs fixos (10-15) no DatabaseSeeder, nao replicam por chave.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fluxo: Venda com controlado (Avancar → Receitas → Finalizar)</div>
+              <span class="cmd-obs">
+                <strong>Quando o cart tem produtos com classeTerapeutica controlada:</strong><br>
+                1. Botao na toolbar muda de "Finalizar" para <strong>"Avancar"</strong> (computed <code>precisaTelaSngpc</code>)<br>
+                2. Usuario clica Avancar → frontend chama <code>POST /api/sngpc/vendas/itens-controlados-preview</code><br>
+                &nbsp;&nbsp;— Body: lista de &#123;produtoId, quantidade&#125; + filialId<br>
+                &nbsp;&nbsp;— Backend SO LE (zero writes). Retorna produtos + lotes disponiveis<br>
+                3. Frontend seta <code>etapaVenda='sngpc'</code> e a tela SNGPC ocupa todo o main (via <code>[hidden]</code> no pv-container)<br>
+                4. Se algum item nao tem lote suficiente: modal "Sem estoque" → emite voltar → volta pro cart<br>
+                5. Usuario preenche receitas (prescritor, paciente, lotes)<br>
+                6. Botao "Voltar" preserva os dados digitados (estado fica no componente montado)<br>
+                7. Botao "Finalizar Venda":<br>
+                &nbsp;&nbsp;— POST /vendas (cria a venda)<br>
+                &nbsp;&nbsp;— Mapeia produtoId → vendaItemId real usando o retorno<br>
+                &nbsp;&nbsp;— POST /vendas/:id/finalizar com <code>sngpc: &#123; receitas, lancarDepois &#125;</code><br>
+                &nbsp;&nbsp;— Backend valida modo, baixa lotes, cria VendaReceita + VendaReceitaItem<br>
+                &nbsp;&nbsp;— NFC-e normal + reset do cart<br><br>
+
+                <strong>IMPORTANTE</strong>: a venda NAO e gravada no banco ate o clique final em Finalizar. Se o usuario cancelar/voltar, nada foi persistido.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Modal SNGPC — componente unico reutilizado</div>
+              <span class="cmd-obs">
+                Componente: <code>SngpcModalComponent</code> em <code>caixa-venda/sngpc-modal/</code>.<br>
+                Serve 3 cenarios via @Inputs:<br><br>
+
+                <strong>Modo inline (fluxo Avancar)</strong> — <code>[inline]=true</code>:<br>
+                — Sem overlay, ocupa o container pai<br>
+                — Recebe itens via <code>atualizarItensExternos()</code> (ViewChild)<br>
+                — Botao Voltar emite evento <code>voltar</code><br><br>
+
+                <strong>Modo retroativo (tela de Receitas pendentes)</strong>:<br>
+                — Recebe <code>[vendaId]</code>, busca <code>/sngpc/vendas/:id/itens-controlados</code><br>
+                — Usado pra vendas <code>SngpcPendente=true</code> (modo NaoLancar/Misto)<br><br>
+
+                <strong>Modo manual (sem venda)</strong> — <code>[manual]=true</code>:<br>
+                — Nao tem venda associada<br>
+                — Usuario busca produto via autocomplete (<code>/sngpc/vendas/produtos-sngpc</code>)<br>
+                — Seleciona lote + qtde<br>
+                — POST /sngpc/vendas/receita-manual (cria VendaReceita com VendaId=null)<br><br>
+
+                <strong>Estrutura da receita</strong>:<br>
+                — Tipo (Notificacao A/B1/B2, C1/C2/C4/C5, Antimicrobiano)<br>
+                — N.Notificacao (obrigatorio p/ A/B1/B2, opcional demais)<br>
+                — Data Emissao + Validade (auto-calcula pelo tipo + configs)<br>
+                — CID (opcional)<br>
+                — Prescritor (autocomplete ou cadastro inline — auto-cria no finalizar)<br>
+                — Paciente (texto livre: nome, CPF, RG, nasc, sexo, endereco, etc)<br>
+                — Checkbox "Comprador e o proprio paciente" (default true)<br>
+                — Itens: checkbox + lote + qtde (modo venda) OU busca + adicionar + remover (modo manual)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tela de Receitas (/erp/sngpc-receitas)</div>
+              <span class="cmd-obs">
+                Lista unificada de vendas SNGPC + receitas manuais, colorida por status:<br><br>
+
+                <strong>🔴 Pendente</strong> — Venda finalizada sem receita registrada (SngpcPendente=true ou ainda sem VendaReceita). Botao "Lancar Receitas" abre o modal retroativo.<br>
+                <strong>🟢 Lancada</strong> — Venda com VendaReceita(s) gravadas (sem acao, so expandir)<br>
+                <strong>🟡 Manual</strong> — Receita solta sem venda (regularizacao historica, inventario inicial)<br><br>
+
+                <strong>Filtros (abas)</strong>: Todas / Pendentes / Lancadas / Manuais<br>
+                <strong>Filtro de data</strong>: Data Inicial + Final (default ultimos 30 dias)<br>
+                <strong>Expansao inline</strong>: clique na linha → mostra produtos controlados com classe, lote, validade, qtde e origem<br>
+                <strong>Botao "+ Receita Manual"</strong> (topo direito, amarelo): abre modal em modo manual<br><br>
+
+                Endpoint: <code>GET /api/sngpc/vendas/receitas?filtro=todas|pendentes|lancadas|manuais&amp;dataInicio&amp;dataFim&amp;filialId</code><br>
+                Query unifica vendas finalizadas + receitas manuais (VendaId=null) num array ordenado por data.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Prescritores (/erp/prescritores)</div>
+              <span class="cmd-obs">
+                CRUD padrao ERP (mesmo template de Fabricantes): abas de edicao, grid com colunas, drag/resize, log de auditoria.<br><br>
+
+                <strong>Campos</strong>: Nome, TipoConselho (CRM/CRO/CRMV/CRF/CRP/CRN), NumeroConselho, UF, CPF (opcional), Especialidade, Telefone<br>
+                <strong>Permissao</strong>: <code>prescritores</code> (c/i/a/e)<br>
+                <strong>Auto-cadastro no finalizar</strong>: na modal SNGPC, se o operador digita um prescritor novo (sem selecionar no autocomplete), o sistema tenta achar por (TipoConselho + Numero + UF); se nao existe, cria na hora em <code>ResolverPrescritorAsync</code>.<br>
+                <strong>Endpoint</strong>: <code>GET/POST/PUT/DELETE /api/prescritores</code>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tabelas SNGPC — dominio</div>
+              <span class="cmd-obs">
+                <strong>Prescritores</strong> — Nome, TipoConselho, NumeroConselho, UF, CPF, Especialidade, Telefone, Ativo. Index por (TipoConselho, NumeroConselho, UF) + Nome.<br><br>
+
+                <strong>VendaReceitas</strong> — 1:N com Venda (VendaId NULLABLE — null = receita manual). Campos: FilialId, Tipo (enum TipoReceitaSngpc), NumeroNotificacao, DataEmissao, DataValidade, Cid, PrescritorId. Paciente livre (Nome, Cpf, Rg, Nascimento, Sexo, Endereco, Numero, Bairro, Cidade, Uf, Cep, Telefone). Comprador* (null quando CompradorMesmoPaciente=true).<br><br>
+
+                <strong>VendaReceitaItens</strong> — 1:N com VendaReceita. Campos: VendaItemId (NULLABLE — null em receita manual), ProdutoId (sempre preenchido), ProdutoLoteId, Quantidade.<br><br>
+
+                <strong>Venda.SngpcPendente</strong> — Novo campo bool. True quando venda com controlados foi finalizada sem receita (modos NaoLancar ou Misto com "Lancar Depois").<br><br>
+
+                <strong>Produto.ClasseTerapeutica</strong> — Novo campo string. Valores usados: "Psicotropicos", "Antimicrobiano", null (nao controlado).<br><br>
+
+                <strong>Substancia</strong> — Ganhou campos: ControleEspecialSngpc, ListaPortaria344 (A1/A2/B1/B2/C1/C5/D1/D2), TipoReceita (int), ValidadeReceitaDias, Adendo.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tabelas SNGPC — operacao (ja existentes, usadas)</div>
+              <span class="cmd-obs">
+                <strong>ProdutosLotes</strong> — Lote rastreado em estoque: NumeroLote, DataFabricacao, DataValidade, SaldoAtual, RegistroMs, FornecedorId, CompraId<br>
+                <strong>MovimentosLote</strong> — Historico de entrada/saida: Tipo, Quantidade, VendaId/CompraId, SaldoAposMovimento<br>
+                <strong>InventariosSngpc</strong> + <strong>InventariosSngpcItens</strong> — Inventario inicial (ponto de partida)<br>
+                <strong>Perdas</strong> — Baixa por furto/quebra/vencimento com Motivo enum e numero de boletim<br>
+                <strong>SngpcMapas</strong> — Mapa mensal gerado (XML consolidado)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Finalizacao da venda — fluxo SNGPC no backend</div>
+              <span class="cmd-obs">
+                <code>VendaService.FinalizarAsync</code> chama <code>ResolverFluxoSngpcAsync(venda, opcoes?.Sngpc)</code> antes do loop de estoque. Retorna tupla <code>(processarReceitas, marcarPendente, itensControladosIds)</code>:<br><br>
+
+                — Sem itens controlados: (false, false) — fluxo normal<br>
+                — sngpc.ativar=false: (false, false) — fluxo normal<br>
+                — modo <strong>NaoLancar</strong>: (false, true) — marca SngpcPendente, FEFO baixa normal<br>
+                — modo <strong>Obrigatorio</strong>: exige receitas no payload + valida saldo de lote por produto → (true, false)<br>
+                — modo <strong>Misto</strong>: se LancarDepois=true (true, true); se receitas no payload (true, false); senao erro<br><br>
+
+                <strong>No loop de estoque/FEFO</strong>, itens que estao em <code>itensControladosIds</code> e vao ser processados por receita <strong>pulam o FEFO</strong> (senao baixariam em dobro).<br><br>
+
+                <strong>Apos o loop</strong>: chama <code>VendaReceitaService.RegistrarReceitasAsync</code> que:<br>
+                — Resolve prescritor (busca por id, ou por conselho+numero+uf, ou cria novo)<br>
+                — Valida receita (campos obrigatorios, numero notificacao p/ A/B)<br>
+                — Grava VendaReceita + VendaReceitaItem<br>
+                — Baixa cada lote via <code>ProdutoLoteService.RegistrarSaidaAsync</code><br>
+                — Desmarca SngpcPendente se estava marcado
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Compras e Transferencias SNGPC (/erp/sngpc-compras)</div>
+              <span class="cmd-obs">
+                Lista compras finalizadas que envolveram produtos controlados. Mostra quantos produtos SNGPC, quantos lotes criados, qtde total e status (Lancada/Opt-out).<br>
+                <strong>Expansao inline</strong>: clique na linha → tabela com produtos, classe, lote, fabricacao, validade, quantidade<br>
+                <strong>Lancamento retroativo</strong>: botao ↗ em compras com <code>SngpcOptOut=true</code>. Cria ProdutoLote + MovimentoLote retroativamente.<br>
+                Endpoints: <code>GET /api/sngpc/compras-transferencias</code>, <code>GET /:id</code>, <code>POST /:id/lancar-retroativo</code>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Endpoints — SNGPC Vendas</div>
+              <span class="cmd-obs">
+                <strong>Preview (pre-save)</strong><br>
+                POST /api/sngpc/vendas/itens-controlados-preview — input: &#123;filialId, itens: [&#123;produtoId,quantidade&#125;]&#125;<br>
+                &nbsp;&nbsp;Retorna itens com lotes disponiveis sem persistir nada<br><br>
+
+                <strong>Linha expandida/retroativo</strong><br>
+                GET /api/sngpc/vendas/:vendaId/itens-controlados — itens controlados de uma venda especifica<br>
+                GET /api/sngpc/vendas/:vendaId/receitas — receitas ja gravadas da venda<br>
+                POST /api/sngpc/vendas/:vendaId/receitas — registra receitas retroativas em venda existente<br><br>
+
+                <strong>Lista principal (tela Receitas)</strong><br>
+                GET /api/sngpc/vendas/receitas?filtro&amp;dataInicio&amp;dataFim&amp;filialId<br>
+                GET /api/sngpc/vendas/detalhes?vendaId=X ou ?receitaId=Y — linha expandida<br><br>
+
+                <strong>Receita manual</strong><br>
+                GET /api/sngpc/vendas/produtos-sngpc?termo&amp;filialId — busca produtos controlados com lotes<br>
+                POST /api/sngpc/vendas/receita-manual — &#123;filialId, receita&#125; cria VendaReceita com VendaId=null
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Sync (SyncApplicator)</div>
+              <span class="cmd-obs">
+                — Prescritores = nivel 1<br>
+                — VendaReceitas = nivel 5 (depende de Venda nivel 4 + Prescritor)<br>
+                — VendaReceitaItens = nivel 6 (depende de VendaReceita + VendaItem + ProdutoLote)<br>
+                — Todas entram na SyncFila normalmente
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Migrations aplicadas</div>
+              <span class="cmd-obs">
+                — AddSngpcTables — Inventario, Receita (antiga, removida), Perdas, Mapas<br>
+                — AddProdutoClasseTerapeutica — campo ClasseTerapeutica em Produto<br>
+                — AddProdutoLoteRastreabilidade — ProdutosLotes + MovimentosLote<br>
+                — AddSubstanciaListaPortaria344 / AddSubstanciaPortariaTipoReceita — campos SNGPC em Substancia<br>
+                — AddSngpcVendaReceita — Prescritores, VendaReceitas, VendaReceitaItens, Venda.SngpcPendente<br>
+                — DropReceitasOrfas — removeu tabelas Receitas e ReceitasItens antigas (nao mais usadas)<br>
+                — AddVendaReceitaManual — VendaReceita.VendaId nullable + FilialId; VendaReceitaItem.VendaItemId nullable + ProdutoId
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Pendente de implementacao</div>
+              <span class="cmd-obs">
+                — Permissao <code>sngpc.lancar_depois</code> real (hoje modo Misto depende de permissao generica; precisa permissao especifica)<br>
+                — Cancelamento/devolucao de venda SNGPC — reverter lote + marcar receita como inativa<br>
+                — Validacao de validade da receita na finalizacao (rejeitar receitas vencidas)<br>
+                — Bloqueio de edicao de receita apos gerar mapa mensal
+              </span>
+            </div>
+
+          </div>
+        }
+      </section>
+
+      <!-- FIDELIDADE -->
+      <section class="help-secao">
+        <div class="secao-header fidelidade" [class.aberto]="isAberta('fidelidade')" (click)="toggleSecao('fidelidade')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Fidelidade (Pontos + Cashback + Prêmios)</span>
+        </div>
+        @if (isAberta('fidelidade')) {
+          <div class="secao-corpo">
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Visão Geral</div>
+              <span class="cmd-obs">
+                Módulo de fidelidade do cliente em 2 modalidades independentes: <strong>Pontos</strong> e <strong>Cashback</strong>. Cada uma tem componente frontend separado e regras próprias.<br>
+                Menu: Dashboard > Movimento > Fidelidade. Submenus: Campanhas de Pontos, Campanhas de Cashback, Catálogo de Prêmios.<br><br>
+
+                <strong>Pontos</strong>: cliente acumula pontos conforme regra global da campanha (ex: a cada R$5 ganha 10 pts). Troca por prêmio ou desconto em venda futura.<br>
+                <strong>Cashback</strong>: cashback definido <strong>por item</strong> (agrupador ou produto individual), com valor fixo em R$ cadastrado no sistema. Na venda, o valor de cashback usado é o que está cadastrado — sem cálculo em tempo de venda.<br>
+                <strong>Prêmios</strong>: catálogo que define os itens resgatáveis por pontos (com pontos necessários + estoque opcional).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Regras de elegibilidade comuns (Pontos e Cashback)</div>
+              <span class="cmd-obs">
+                1. Cliente informado na venda<br>
+                2. Campanha <strong>vigente</strong> (data início/fim + dia da semana)<br>
+                3. <strong>Filial</strong> da venda está entre as marcadas (vazio = todas as filiais)<br>
+                4. A venda tem <strong>ao menos uma forma de pagamento</strong> entre as marcadas (vazio = todas)<br>
+                5. Pelo menos 1 item da venda se encaixa nos agrupadores/produtos da campanha (vazio = todos os produtos)<br><br>
+
+                Quando 2+ campanhas do mesmo tipo são elegíveis, aplica a <strong>mais vantajosa</strong> (maior crédito gerado). Nunca soma campanhas.
+              </span>
+            </div>
+
+            <!-- ═══════ SEÇÃO PONTOS ═══════ -->
+            <div class="cmd-grupo" style="margin-top:16px;padding-top:12px;border-top:2px solid #e91e63">
+              <div class="cmd-label" style="font-size:15px;color:#e91e63">CAMPANHAS DE PONTOS</div>
+              <span class="cmd-obs">
+                Tela: <code>/erp/fidelidade-pontos</code> — Componente: <code>FidelidadeCampanhasComponent</code> (tipo=Pontos)<br>
+                O operador cria campanhas com regras globais que definem como os pontos são creditados.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Campos da campanha de Pontos</div>
+              <span class="cmd-obs">
+                <strong>Dados Básicos:</strong><br>
+                — <strong>Nome *</strong>: identificação da campanha<br>
+                — <strong>Descrição</strong>: detalhamento opcional<br>
+                — <strong>Modo *</strong>: "Por Venda" ou "Geral" (veja explicação abaixo)<br>
+                — <strong>Valor Base (R$) *</strong>: a cada X reais gastos, o cliente recebe os pontos definidos<br>
+                — <strong>Pontos Ganhos *</strong>: quantidade de pontos por ciclo de Valor Base<br>
+                — <strong>Forma de Retirada *</strong>: "Desconto na Venda" ou "Prêmio"<br>
+                — <strong>R$ por Ponto *</strong> (se forma = Desconto na Venda): conversão ponto→R$ no resgate (ex: 0,05 = 1 pt vale R$0,05)<br>
+                — <strong>Validade (Dias)</strong>: 0 = sem validade. Cada crédito ganha DataExpiracao = DataMovimento + DiasValidade<br>
+                — <strong>Limiar Alerta (Pts)</strong>: 0 = sem alerta. Quando saldo do cliente atinge esse valor, sistema alerta o operador no caixa<br>
+                — <strong>Ativo</strong>: flag on/off<br><br>
+
+                <strong>Vigência:</strong><br>
+                — <strong>Início *</strong>: data/hora início da campanha (datetime-local)<br>
+                — <strong>Fim</strong>: data/hora fim (null = sem fim)<br>
+                — <strong>Dias da Semana</strong>: bitmask — quais dias a campanha funciona (Dom=1, Seg=2, Ter=4, Qua=8, Qui=16, Sex=32, Sáb=64, 127=todos)<br><br>
+
+                <strong>Filiais e Formas de Pagamento:</strong><br>
+                — Multi-select de filiais (vazio = todas as filiais)<br>
+                — Multi-select de tipos de pagamento (vazio = todos)<br><br>
+
+                <strong>Agrupadores:</strong><br>
+                — Lista de agrupadores que definem quais produtos da venda contam para a campanha<br>
+                — Tipos: Fabricante, Grupo Principal, Grupo, SubGrupo, Seção, Família<br>
+                — Sem agrupadores = todos os produtos da venda contam
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Modo de contagem: Por Venda vs Geral</div>
+              <span class="cmd-obs">
+                <strong>Por Venda:</strong> cada venda é avaliada isolada. Exemplo: campanha "R$5 = 10 pts".<br>
+                — Venda de R$4,99 → 0 pts (não bateu R$5)<br>
+                — Venda de R$17,00 → 30 pts (3 × R$5)<br><br>
+
+                <strong>Geral:</strong> soma todo o histórico elegível do cliente nessa campanha.<br>
+                — Cliente compra R$3 → total acumulado 3 → 0 pts (não bateu R$5)<br>
+                — Cliente compra R$4 → total acumulado 7 → 10 pts creditados (1 × R$5)<br>
+                — Cliente compra R$8 → total acumulado 15 → mais 20 pts (diferença p/ 30 pts totais)<br><br>
+
+                No modo Geral, o sistema sempre recalcula o total de pontos que o cliente deveria ter e credita a diferença.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Resgate de pontos</div>
+              <span class="cmd-obs">
+                A campanha define a <strong>Forma de Retirada</strong>:<br><br>
+
+                <strong>Prêmio:</strong> cliente troca pontos por item do catálogo de Prêmios. Ex: "Kit Higiene — 500 pts".<br><br>
+
+                <strong>Desconto na Venda:</strong> cliente usa os pontos como desconto na próxima compra. A conversão é definida pelo campo <code>ValorPorPonto</code> (ex: 0,05 = 1 pt vale R$0,05). Independente da conversão de creditação — dá flexibilidade ao lojista.<br><br>
+
+                <strong>Resgate parcial é permitido</strong> — o cliente pode usar X dos Y pontos disponíveis.<br>
+                <strong>Débito FIFO</strong>: os pontos mais antigos saem primeiro (maximiza o uso antes de expirar).
+              </span>
+            </div>
+
+            <!-- ═══════ SEÇÃO CASHBACK ═══════ -->
+            <div class="cmd-grupo" style="margin-top:16px;padding-top:12px;border-top:2px solid #00897b">
+              <div class="cmd-label" style="font-size:15px;color:#00897b">CAMPANHAS DE CASHBACK</div>
+              <span class="cmd-obs">
+                Tela: <code>/erp/fidelidade-cashback</code> — Componente separado: <code>FidelidadeCashbackComponent</code><br>
+                A grande diferença do Cashback para Pontos é que o <strong>valor de cashback é definido por item</strong> (agrupador ou produto), não por regra global da campanha.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Campos da campanha de Cashback</div>
+              <span class="cmd-obs">
+                <strong>Dados Básicos:</strong><br>
+                — <strong>Nome *</strong>: identificação da campanha<br>
+                — <strong>Descrição</strong>: detalhamento opcional<br>
+                — <strong>Validade (Dias)</strong>: dias para expirar o cashback creditado (0 = sem validade)<br>
+                — <strong>Ativo</strong>: flag on/off<br>
+                — Sem campo "Modo" (cashback é sempre Por Venda)<br>
+                — Sem campos "Valor Base" ou "% Cashback" globais (valores são por item)<br><br>
+
+                <strong>Vigência:</strong> mesma estrutura de Pontos (Início, Fim, Dias da Semana)<br><br>
+
+                <strong>Filiais e Formas de Pagamento:</strong> mesma estrutura de Pontos
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Itens de Cashback (definição por agrupador e por produto)</div>
+              <span class="cmd-obs">
+                Cada item da campanha de cashback possui 3 campos específicos:<br><br>
+
+                — <strong>Vlr Venda</strong>: preço de venda de referência do produto (preenchido automaticamente do cadastro). <strong>Apenas para referência visual</strong> — o que importa na venda é o Valor Cash cadastrado.<br>
+                — <strong>% Cash</strong>: percentual de cashback (altera automaticamente o Valor Cash com base no Vlr Venda)<br>
+                — <strong>Valor Cash</strong>: valor fixo em R$ que será creditado ao cliente. <strong>Este é o valor usado na hora da venda</strong> — não há cálculo em tempo de venda.<br><br>
+
+                <strong>Por Agrupador:</strong> selecionar Tipo (Fabricante, Grupo Principal, Grupo, SubGrupo, Seção, Família) + Item + definir % Cash ou Valor Cash. Para agrupadores, o Vlr Venda fica zerado (agrupadores não têm preço único).<br><br>
+
+                <strong>Por Produto:</strong> buscar o produto por nome/barras (lookup com 2+ caracteres), o Vlr Venda é preenchido automaticamente do cadastro do produto. Informar % Cash ou Valor Cash — um recalcula o outro.<br><br>
+
+                <strong>Regra de prioridade:</strong> se um produto pertence a um agrupador com cashback de R$2,00 mas também está cadastrado individualmente com R$3,00, o <strong>produto específico prevalece</strong> (regra mais específica ganha).<br><br>
+
+                <strong>Múltiplos agrupadores:</strong> se um produto se encaixa em 2+ agrupadores, aplica o <strong>maior valor de cashback</strong> entre eles. Nunca acumula.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Diferenças entre Pontos e Cashback</div>
+              <span class="cmd-obs">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+                  <tr style="background:#f5f5f5"><th style="padding:6px 10px;text-align:left;border:1px solid #ddd">Aspecto</th><th style="padding:6px 10px;text-align:left;border:1px solid #ddd">Pontos</th><th style="padding:6px 10px;text-align:left;border:1px solid #ddd">Cashback</th></tr>
+                  <tr><td style="padding:6px 10px;border:1px solid #ddd">Componente frontend</td><td style="padding:6px 10px;border:1px solid #ddd">FidelidadeCampanhasComponent (tipo=Pontos)</td><td style="padding:6px 10px;border:1px solid #ddd">FidelidadeCashbackComponent (separado)</td></tr>
+                  <tr><td style="padding:6px 10px;border:1px solid #ddd">Valor do crédito</td><td style="padding:6px 10px;border:1px solid #ddd">Global na campanha (ValorBase + PontosGanhos)</td><td style="padding:6px 10px;border:1px solid #ddd">Por item (ValorCashbackItem)</td></tr>
+                  <tr><td style="padding:6px 10px;border:1px solid #ddd">Modo de contagem</td><td style="padding:6px 10px;border:1px solid #ddd">Por Venda ou Geral</td><td style="padding:6px 10px;border:1px solid #ddd">Sempre Por Venda</td></tr>
+                  <tr><td style="padding:6px 10px;border:1px solid #ddd">Cálculo na venda</td><td style="padding:6px 10px;border:1px solid #ddd">Sim (soma valor elegível, divide por ValorBase, multiplica PontosGanhos)</td><td style="padding:6px 10px;border:1px solid #ddd">Não — usa o ValorCashbackItem cadastrado diretamente</td></tr>
+                  <tr><td style="padding:6px 10px;border:1px solid #ddd">Agrupadores</td><td style="padding:6px 10px;border:1px solid #ddd">Filtram quais produtos contam (sem valor por agrupador)</td><td style="padding:6px 10px;border:1px solid #ddd">Cada agrupador/produto tem seu próprio % e R$ de cashback</td></tr>
+                  <tr><td style="padding:6px 10px;border:1px solid #ddd">Produtos individuais</td><td style="padding:6px 10px;border:1px solid #ddd">Pode adicionar como agrupador (filtro)</td><td style="padding:6px 10px;border:1px solid #ddd">Pode adicionar com lookup + Vlr Venda auto do cadastro</td></tr>
+                  <tr><td style="padding:6px 10px;border:1px solid #ddd">Forma de resgate</td><td style="padding:6px 10px;border:1px solid #ddd">Prêmio ou Desconto na Venda</td><td style="padding:6px 10px;border:1px solid #ddd">Desconto na venda (crédito em R$)</td></tr>
+                </table>
+              </span>
+            </div>
+
+            <!-- ═══════ PRÊMIOS ═══════ -->
+            <div class="cmd-grupo" style="margin-top:16px;padding-top:12px;border-top:2px solid #6a1b9a">
+              <div class="cmd-label" style="font-size:15px;color:#6a1b9a">CATÁLOGO DE PRÊMIOS</div>
+              <span class="cmd-obs">
+                Cadastro independente das campanhas. Campos:<br>
+                — <strong>Nome</strong>, Descrição, Categoria (texto livre, ex: "Perfumaria")<br>
+                — <strong>Pontos Necessários</strong> (obrigatório)<br>
+                — Estoque (nullable — null = sem controle de estoque)<br>
+                — URL da imagem (opcional — preparado para expor no portal web do cliente no futuro)<br><br>
+
+                Visão de longo prazo: <strong>API pública + portal web</strong> onde o cliente acessa com login, vê o saldo de pontos, navega o catálogo de prêmios e faz pedido de resgate. Diferencial competitivo pra farmácia.
+              </span>
+            </div>
+
+            <!-- ═══════ TABELAS ═══════ -->
+            <div class="cmd-grupo" style="margin-top:16px;padding-top:12px;border-top:2px solid #546e7a">
+              <div class="cmd-label" style="font-size:15px;color:#546e7a">ESTRUTURA TÉCNICA</div>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tabelas (Domínio)</div>
+              <span class="cmd-obs">
+                <strong>CampanhasFidelidade</strong> — Cabeçalho: Nome, Tipo (Pontos|Cashback), ModoContagem (PorVenda|Geral), ValorBase, PontosGanhos, PercentualCashback, FormaRetirada, ValorPorPonto, DiasValidadePontos, LimiarAlerta, DataHoraInicio, DataHoraFim, DiaSemana (bitmask 127=todos), Ativo<br><br>
+
+                <strong>CampanhasFidelidadeFiliais</strong> — N:N com Filial (vazio = todas)<br>
+                <strong>CampanhasFidelidadePagamentos</strong> — N:N com TipoPagamento (vazio = todos)<br>
+                <strong>CampanhasFidelidadeItens</strong> — FKs nullable (GrupoPrincipalId, GrupoProdutoId, SubGrupoId, SecaoId, ProdutoFamiliaId, FabricanteId, ProdutoId) + Incluir + <strong>ValorVendaReferencia</strong> (numeric 18,2) + <strong>PercentualCashbackItem</strong> (numeric 5,2) + <strong>ValorCashbackItem</strong> (numeric 18,2)<br><br>
+
+                <strong>PremiosFidelidade</strong> — Nome, Descricao, Categoria, PontosNecessarios, ImagemUrl, Estoque, Ativo<br><br>
+
+                <strong>Fase 2 (futuro):</strong><br>
+                <strong>MovimentoFidelidade</strong> — Crédito/Débito/Estorno por cliente: Tipo, ClienteId, CampanhaId?, VendaId?, PremioId?, Pontos, ValorCashback, SaldoApos, DataMovimento, DataExpiracao?<br>
+                <strong>ClienteCampanhaAcumulado</strong> — Controle "total acumulado" por cliente+campanha (modo Geral)<br>
+                <strong>Cliente.SaldoPontos / SaldoCashback</strong> — Denormalizados pra consulta rápida
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">API Endpoints</div>
+              <span class="cmd-obs">
+                <strong>Campanhas (Pontos e Cashback — mesma API)</strong><br>
+                GET /api/fidelidade/campanhas?tipo=Pontos|Cashback — Lista (filtro por tipo)<br>
+                GET /api/fidelidade/campanhas/:id — Detalhe com filiais, pagamentos, itens (+ campos cashback por item)<br>
+                POST /api/fidelidade/campanhas — Cria campanha + sub-tabelas<br>
+                PUT /api/fidelidade/campanhas/:id — Atualiza (recria sub-tabelas)<br>
+                DELETE /api/fidelidade/campanhas/:id — Exclui (cascade); desativa se em uso<br>
+                GET /api/fidelidade/campanhas/:id/log — Histórico de auditoria<br><br>
+
+                <strong>Prêmios</strong><br>
+                GET /api/fidelidade/premios — Lista<br>
+                POST /api/fidelidade/premios — Cria<br>
+                PUT /api/fidelidade/premios/:id — Atualiza<br>
+                DELETE /api/fidelidade/premios/:id — Exclui<br>
+                GET /api/fidelidade/premios/:id/log — Histórico<br><br>
+
+                <strong>Produtos (lookup para cashback)</strong><br>
+                GET /api/produtos?busca=&#123;termo&#125;&amp;limit=10 — Busca produtos por nome/barras (retorna id, nome, valorVenda)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Permissões</div>
+              <span class="cmd-obs">
+                Código da tela: <code>fidelidade</code> (c/i/a/e). Uma única permissão cobre campanhas (Pontos e Cashback) e catálogo de prêmios.<br>
+                Cadastrar em: Grupos de Usuário > tela "fidelidade".
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Sync (SyncApplicator)</div>
+              <span class="cmd-obs">
+                — <code>CampanhasFidelidade</code> = nível 3<br>
+                — <code>CampanhasFidelidadeItens</code> = nível 4<br>
+                — <code>PremiosFidelidade</code> = nível 1<br>
+                — N:N Filiais/Pagamentos <strong>não replicam individualmente</strong> — reconstruídos com a campanha pai.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fases de implementação</div>
+              <span class="cmd-obs">
+                <strong>Fase 1 (entregue)</strong> — Cadastro completo<br>
+                — Entidades + DbContext + Migrations<br>
+                — CRUD Campanhas de Pontos (componente <code>FidelidadeCampanhasComponent</code>)<br>
+                — CRUD Campanhas de Cashback (componente separado <code>FidelidadeCashbackComponent</code> com cashback por item)<br>
+                — CRUD Catálogo de Prêmios<br>
+                — Menu Fidelidade com 3 tiles (/erp/fidelidade)<br>
+                — Campos por item: ValorVendaReferencia, PercentualCashbackItem, ValorCashbackItem<br>
+                — Busca de produto por lookup no cashback (auto-preenche Vlr Venda do cadastro)<br><br>
+
+                <strong>Fase 2 (futuro)</strong> — Apuração na venda<br>
+                — Campos <code>SaldoPontos</code>/<code>SaldoCashback</code> em Cliente<br>
+                — Tabela <code>MovimentoFidelidade</code> + <code>ClienteCampanhaAcumulado</code><br>
+                — Hook na finalização de venda: avalia campanhas elegíveis, escolhe a melhor, credita<br>
+                — Cashback: busca o item mais específico (produto > agrupador) e credita ValorCashbackItem<br>
+                — Alerta de pontos quando cliente é informado no cart<br>
+                — Estorno automático em cancelamento/devolução<br><br>
+
+                <strong>Fase 3 (futuro)</strong> — Resgate<br>
+                — Fluxo de resgate na venda (desconto direto ou troca por prêmio)<br>
+                — Tela de extrato do cliente (histórico por campanha)<br>
+                — Expurgo de pontos/cashback expirados (background job)<br><br>
+
+                <strong>Fase 4 (futuro)</strong> — Portal Web<br>
+                — API pública autenticada<br>
+                — App/portal para o cliente consultar saldo e fazer pedidos de resgate
+              </span>
+            </div>
+
+          </div>
+        }
+      </section>
+
+      <!-- FARMÁCIA POPULAR -->
+      <section class="help-secao">
+        <div class="secao-header fp-doc" [class.aberto]="isAberta('farmacia-popular')" (click)="toggleSecao('farmacia-popular')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <span>Farmacia Popular (Integracao DATASUS)</span>
+        </div>
+        @if (isAberta('farmacia-popular')) {
+          <div class="secao-corpo">
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Visao Geral</div>
+              <span class="cmd-obs">
+                Integracao com o programa <strong>Aqui Tem Farmacia Popular</strong> do Ministerio da Saude (DATASUS).<br>
+                Permite que o estabelecimento (farmacia/drogaria) dispense medicamentos com subsidio total ou parcial do governo federal.<br><br>
+
+                <strong>Orgao responsavel:</strong> Secretaria de Ciencia, Tecnologia e Insumos Estrategicos (SCTIE) / Departamento de Assistencia Farmaceutica (DAF)<br>
+                <strong>Versao do Portal:</strong> V-4.3.1_RC15<br>
+                <strong>Documentacao fonte:</strong> <code>C:\lixos\FP\</code> (snapshot do portal farmaciapopular-portal.saude.gov.br)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Protocolo de Comunicacao</div>
+              <span class="cmd-obs">
+                <strong>Protocolo:</strong> SOAP 1.1 RPC/encoded (Apache Axis 1.4 — legado Java)<br>
+                <strong>Namespace:</strong> <code>http://service.datasus.org/</code><br>
+                <strong>Endpoint producao:</strong> <code>https://farmaciapopular-autorizador.saude.gov.br/farmaciapopular-autorizador/services/ServicoSolicitacaoWS</code><br>
+                <strong>WSDL local:</strong> <code>C:\lixos\FP\ServicoSolicitacaoWS.xml</code><br><br>
+
+                <strong>IMPORTANTE:</strong> O WCF do .NET <strong>NAO suporta</strong> SOAP RPC/encoded (estilo Axis 1.4).<br>
+                Os envelopes SOAP devem ser <strong>montados manualmente</strong> via <code>HttpClient</code>, sem usar proxy WCF.<br><br>
+
+                <strong>Autenticacao:</strong> NAO usa HTTP Basic nem WS-Security. As credenciais sao enviadas <strong>embutidas</strong> em cada chamada SOAP como parametro <code>UsuarioFarmaciaDTO</code>:<br>
+                — loginFarmacia / senhaFarmacia (do estabelecimento, cadastrado no Portal FP)<br>
+                — loginVendedor / senhaVendedor (do operador, cadastrado no Portal FP)<br><br>
+
+                <strong>Certificado Digital:</strong> A1 reutilizado da NFC-e/SEFAZ (mesma tabela <code>CertificadosDigitais</code>). HTTPS com autenticacao cliente.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fluxo Basico (3 Fases + Estorno)</div>
+              <span class="cmd-obs">
+                O ciclo completo de dispensacao segue obrigatoriamente 3 fases sequenciais:<br><br>
+
+                <strong>┌─ FASE 1: Pre-Autorizacao (no atendimento) ─────────────────────┐</strong><br>
+                Operacao: <code>executarSolicitacao(SolicitacaoDTO, UsuarioFarmaciaDTO)</code><br>
+                Momento: balcao/atendimento, antes do paciente ir ao caixa<br>
+                Dados enviados:<br>
+                — coSolicitacaoFarmacia (codigo unico gerado pelo PDV para rastrear a transacao)<br>
+                — nuCnpj (CNPJ do estabelecimento)<br>
+                — nuCpf (CPF do paciente)<br>
+                — nuCrm + sgUfCrm (CRM + UF do medico prescritor)<br>
+                — dtEmissaoReceita (data da receita — NAO pode ser superior a 180 dias)<br>
+                — <strong>dnaEstacao</strong> (identificador unico da transacao — ver secao abaixo)<br>
+                — arrMedicamentoDTO[] (lista de medicamentos):<br>
+                &nbsp;&nbsp;• coCodigoBarra (EAN da apresentacao)<br>
+                &nbsp;&nbsp;• qtSolicitada (em comprimidos ou ml)<br>
+                &nbsp;&nbsp;• vlPrecoVenda (preco unitario de venda da apresentacao)<br>
+                &nbsp;&nbsp;• qtPrescrita (posologia diaria — para INSULINA informar 1)<br><br>
+
+                Retorno: <code>AutorizacaoDTO</code><br>
+                — inAutorizacaoSolicitacao: <strong>00S</strong> (pre-autorizada) ou <strong>01S</strong> (parcialmente autorizada)<br>
+                — nuAutorizacao: numero gerado pelo DATASUS (formato <code>998.467.862.438.252</code>)<br>
+                — noPessoa: nome do paciente (validacao visual)<br>
+                — por medicamento: inAutorizacaoMedicamento (<strong>00SM</strong> = autorizado), qtAutorizada, vlPrecoSubsidiadoMS (governo paga), vlPrecoSubsidiadoPaciente (paciente paga)<br><br>
+
+                Se 00S ou 01S → paciente vai ao caixa → Fase 2. Se rejeitada → abortar.<br>
+                <strong>└──────────────────────────────────────────────────────────────────┘</strong><br><br>
+
+                <strong>┌─ FASE 2: Confirmacao da Pre-Autorizacao (no caixa) ────────────┐</strong><br>
+                Operacao: <code>confirmarAutorizacao(ConfirmacaoDTO, UsuarioFarmaciaDTO)</code><br>
+                Momento: no caixa, apos paciente confirmar a compra<br>
+                Dados enviados:<br>
+                — coSolicitacaoFarmacia (mesmo codigo da Fase 1)<br>
+                — nuAutorizacao (retorno da Fase 1)<br>
+                — nuCupomFiscal (numero do cupom fiscal/NFC-e)<br><br>
+
+                Retorno: <code>ConfirmacaoAutorizacaoDTO</code><br>
+                — Codigo <strong>00A</strong> (confirmada) ou <strong>01A</strong> (parcialmente confirmada)<br>
+                — Status da confirmacao: mensagem <strong>"4N74 - DATASUS aguarda retorno do recebimento"</strong><br>
+                — noPessoa: nome do participante<br>
+                — por medicamento: codigo retorno + EAN + qt prescrita/solicitada/autorizada + vlPrecoVenda + vlPrecoSubsidiadoMS + vlPrecoSubsidiadoPaciente<br><br>
+
+                Se 00A ou 01A → fechar cupom fiscal → Fase 3. Se NAO (00A/01A) → fluxo encerrado, pre-autorizacao nao foi confirmada.<br>
+                <strong>└──────────────────────────────────────────────────────────────────┘</strong><br><br>
+
+                <strong>┌─ FASE 3: Recebimento da Confirmacao (apos fechar cupom) ───────┐</strong><br>
+                Operacao: <code>confirmarRecebimento(RecebimentoDTO, UsuarioFarmaciaDTO)</code><br>
+                Momento: imediatamente apos emitir/fechar o cupom fiscal<br>
+                Dados enviados:<br>
+                — nuAutorizacao (mesmo da Fase 1)<br>
+                — nuCupomFiscal (mesmo da Fase 2)<br>
+                — arrMedicamentoDTO[] (SOMENTE os medicamentos efetivamente dispensados):<br>
+                &nbsp;&nbsp;• coCodigoBarra (EAN)<br>
+                &nbsp;&nbsp;• qtPrescrita (posologia)<br>
+                &nbsp;&nbsp;• qtSolicitada (pelo estabelecimento)<br>
+                &nbsp;&nbsp;• qtAutorizada (pelo DATASUS)<br>
+                &nbsp;&nbsp;• vlPrecoVenda<br>
+                &nbsp;&nbsp;• vlPrecoSubsidiadoMS + vlPrecoSubsidiadoPaciente<br><br>
+
+                Retorno: <code>ConfirmacaoRecebimentoDTO</code><br>
+                — Codigo <strong>00R</strong> (confirmado) ou <strong>01R</strong> (parcialmente confirmado)<br>
+                — Status: <strong>"00RV - DATASUS confirma o recebimento dos dados com sucesso, venda efetivada"</strong><br>
+                — Somente apos 00RV a transacao entra no <strong>Relatorio de Pagamento</strong> do estabelecimento<br><br>
+
+                Se NAO (00R/01R) ou campo 5 NAO seja "00RV" → recebimento NAO confirmado, venda NAO efetivada.<br>
+                <strong>└──────────────────────────────────────────────────────────────────┘</strong>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Estorno (B.1)</div>
+              <span class="cmd-obs">
+                Operacao: <code>executarEstorno(EstornoDTO, UsuarioFarmaciaDTO)</code><br>
+                Quando: cancelamento/devolucao de medicamentos ja dispensados<br><br>
+
+                Dados enviados:<br>
+                — nuAutorizacao (da Fase 1)<br>
+                — nuCupomFiscal (da Fase 2)<br>
+                — nuCnpj (CNPJ do estabelecimento)<br>
+                — arrMedicamentoDTO[]:<br>
+                &nbsp;&nbsp;• coCodigoBarra (EAN)<br>
+                &nbsp;&nbsp;• qtDevolvida (quantidade a estornar, em comprimidos ou ml)<br><br>
+
+                Retorno: <code>ConfirmacaoEstornoDTO</code><br>
+                — Codigo <strong>00E</strong> (estorno autorizado) ou <strong>01E</strong> (estorno parcialmente autorizado)<br>
+                — por medicamento: codigo retorno + EAN + qtDevolvida (informada) + qtEstornada (confirmada pelo DATASUS)<br><br>
+
+                Se 00E/01E → estorno efetivado. Se NAO (00R/01R) → estorno NAO efetivado, motivo na mensagem.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Consulta (SONDA)</div>
+              <span class="cmd-obs">
+                Operacao: <code>pesquisarAutorizacoes(PesquisaDTO, UsuarioFarmaciaDTO)</code><br>
+                Permite consultar o status de autorizacoes existentes no DATASUS.<br>
+                Util para: reconciliacao, verificar transacoes pendentes, auditoria.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">dnaEstacao — Modulo de Seguranca (OBSTACULO CRITICO)</div>
+              <span class="cmd-obs">
+                O campo <code>dnaEstacao</code> e um <strong>identificador unico obrigatorio por transacao</strong> (Fase 1).<br>
+                Ele e gerado por um <strong>executavel proprietario do DATASUS</strong>: <code>gbasmsb.exe</code><br>
+                Disponivel para download no Portal da Farmacia Popular (modulo de seguranca).<br><br>
+
+                <strong>Como gerar:</strong><br>
+                <code>gbasmsb.exe --solicitacao CPF CNPJ CRM UF DTEMISSAO RECEITA</code><br>
+                O resultado (stdout) e o dnaEstacao a ser enviado na requisicao.<br><br>
+
+                <strong>Caracteristicas:</strong><br>
+                — Executavel Windows x86 proprietario (DATASUS)<br>
+                — Gera hash unica combinando os parametros da transacao + fingerprint do hardware<br>
+                — Cada transacao gera um dnaEstacao diferente (nao e possivel cachear)<br>
+                — O executavel precisa estar instalado na maquina que faz a chamada<br>
+                — A maquina precisa estar <strong>cadastrada no Portal FP</strong> como estacao autorizada<br><br>
+
+                <strong>Decisao de arquitetura:</strong> rodar o <code>gbasmsb.exe</code> somente no <strong>servidor Windows</strong> (nao em cada PDV).<br>
+                — 1 unico cadastro no Portal FP (o servidor como "estacao")<br>
+                — PDVs web nao precisam de .exe local<br>
+                — Invocar via <code>Process.Start</code> capturando stdout no backend<br>
+                — Caminho configuravel por filial: ex. <code>C:\ErpPharma\FP\gbasmsb.exe</code><br><br>
+
+                <strong>Risco:</strong> se o DATASUS validar que transacoes de estacoes diferentes devem vir de hardware diferente, pode ser necessario cadastrar cada PDV. Em ambiente web com servidor centralizado, esse cenario e improvavel mas deve ser validado em testes.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Codigos de Retorno Principais</div>
+              <span class="cmd-obs">
+                <strong>Fase 1 (Solicitacao):</strong><br>
+                — <strong>00S</strong>: Solicitacao pre-autorizada (sucesso total)<br>
+                — <strong>01S</strong>: Solicitacao parcialmente pre-autorizada (alguns medicamentos rejeitados)<br>
+                — <strong>00SM</strong>: Medicamento pre-autorizado (por item)<br><br>
+
+                <strong>Fase 2 (Confirmacao):</strong><br>
+                — <strong>00A</strong>: Pre-autorizacao confirmada<br>
+                — <strong>01A</strong>: Pre-autorizacao parcialmente confirmada<br>
+                — <strong>4N74</strong>: DATASUS aguarda retorno do recebimento (status intermediario normal)<br><br>
+
+                <strong>Fase 3 (Recebimento):</strong><br>
+                — <strong>00R</strong>: Recebimento confirmado<br>
+                — <strong>01R</strong>: Recebimento parcialmente confirmado<br>
+                — <strong>00RV</strong>: Venda efetivada (sucesso final — entra no Relatorio de Pagamento)<br><br>
+
+                <strong>Estorno:</strong><br>
+                — <strong>00E</strong>: Estorno autorizado<br>
+                — <strong>01E</strong>: Estorno parcialmente autorizado<br><br>
+
+                <strong>Referencia completa:</strong> <code>C:\lixos\FP\Codigos de retorno do Web Service.pdf</code> (10MB, centenas de codigos especificos por situacao — consultar quando implementar tratamento de erros).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tipos Complexos do WSDL (DTOs do Web Service)</div>
+              <span class="cmd-obs">
+                <strong>SolicitacaoDTO</strong> (Fase 1 — envio):<br>
+                — coSolicitacaoFarmacia (string), nuCnpj (string), nuCpf (string)<br>
+                — nuCrm (string), sgUfCrm (string), dtEmissaoReceita (date)<br>
+                — dnaEstacao (string), arrMedicamentoDTO[] (lista)<br><br>
+
+                <strong>MedicamentoDTO</strong> (usado em todas as fases):<br>
+                — coCodigoBarra (string, EAN), dsUnidApresentacao (string)<br>
+                — inAutorizacaoMedicamento (string, codigo retorno por item)<br>
+                — qtPrescrita (decimal), qtSolicitada (decimal), qtAutorizada (decimal)<br>
+                — qtDevolvida (decimal, estorno), qtEstornada (decimal, confirmacao estorno)<br>
+                — vlPrecoVenda (decimal), vlPrecoSubsidiadoMS (decimal), vlPrecoSubsidiadoPaciente (decimal)<br><br>
+
+                <strong>ConfirmacaoDTO</strong> (Fase 2 — envio):<br>
+                — coSolicitacaoFarmacia (string), nuAutorizacao (string), nuCupomFiscal (string)<br>
+                — descMensagem (string, resposta)<br><br>
+
+                <strong>RecebimentoDTO</strong> (Fase 3 — envio):<br>
+                — nuAutorizacao (string), nuCupomFiscal (string), arrMedicamentoDTO[]<br><br>
+
+                <strong>EstornoDTO</strong> (Estorno — envio):<br>
+                — nuAutorizacao (string), nuCupomFiscal (string), nuCnpj (string), arrMedicamentoDTO[]<br><br>
+
+                <strong>AutorizacaoDTO</strong> (retorno Fase 1):<br>
+                — inAutorizacaoSolicitacao (string, 00S/01S), nuAutorizacao (string)<br>
+                — noPessoa (string, nome paciente), coSolicitacaoFarmacia (string)<br>
+                — descMensagemErro (string), arrMedicamentoDTO[]<br><br>
+
+                <strong>ConfirmacaoAutorizacaoDTO</strong> (retorno Fase 2):<br>
+                — inConfirmacaoPreAutorizacao (string, 00A/01A), nuAutorizacao (string)<br>
+                — noPessoa (string), statusConfirmacao (string, 4N74), arrMedicamentoDTO[]<br><br>
+
+                <strong>ConfirmacaoRecebimentoDTO</strong> (retorno Fase 3):<br>
+                — inConfirmacaoPreAutorizacao (string), nuAutorizacao (string)<br>
+                — nuCupomFiscal (string), statusRecebimento (string, 00RV), arrMedicamentoDTO[]<br><br>
+
+                <strong>ConfirmacaoEstornoDTO</strong> (retorno Estorno):<br>
+                — inRetornoEstorno (string, 00E/01E), nuAutorizacao (string)<br>
+                — mensagemRetorno (string), arrMedicamentoDTO[]<br><br>
+
+                <strong>UsuarioFarmaciaDTO</strong> (enviado em TODAS as chamadas):<br>
+                — usuarioFarmacia (string), senhaFarmacia (string)<br>
+                — usuarioVendedor (string), senhaVendedor (string)<br><br>
+
+                <strong>UsuarioDTO</strong> (base do UsuarioFarmaciaDTO):<br>
+                — cpf (string), senha (string), sistema (string)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fluxo na Venda (como se integra ao caixa)</div>
+              <span class="cmd-obs">
+                <strong>Pre-requisitos:</strong><br>
+                — Produto marcado com flag <code>ParticipaFarmaciaPopular = true</code><br>
+                — Filial com <code>FarmaciaPopularConfig.Habilitado = true</code><br>
+                — CPF do paciente informado na venda<br>
+                — Receita medica (CRM, UF, data emissao — max 180 dias)<br><br>
+
+                <strong>Momento de cada fase no fluxo de venda:</strong><br><br>
+
+                1. <strong>Atendimento/Balcao</strong> — operador identifica que produto e FP<br>
+                &nbsp;&nbsp;→ Informa CPF do paciente + dados da receita (CRM, UF, data)<br>
+                &nbsp;&nbsp;→ Sistema executa <strong>Fase 1</strong> (pre-autorizacao)<br>
+                &nbsp;&nbsp;→ Mostra ao operador: "MS paga R$X, paciente paga R$Y"<br>
+                &nbsp;&nbsp;→ Paciente confirma e vai ao caixa<br><br>
+
+                2. <strong>Caixa</strong> — paciente chega para pagar<br>
+                &nbsp;&nbsp;→ Operador abre a venda (itens ja incluidos da pre-autorizacao)<br>
+                &nbsp;&nbsp;→ Emite NFC-e (numero do cupom fiscal gerado)<br>
+                &nbsp;&nbsp;→ Sistema executa <strong>Fase 2</strong> (confirmacao com nuCupomFiscal)<br>
+                &nbsp;&nbsp;→ Fecha cupom<br>
+                &nbsp;&nbsp;→ Sistema executa <strong>Fase 3</strong> (recebimento — confirma dispensacao)<br>
+                &nbsp;&nbsp;→ Retorno 00RV = venda efetivada, entra no Relatorio de Pagamento<br><br>
+
+                3. <strong>Estorno</strong> (quando necessario)<br>
+                &nbsp;&nbsp;→ Na tela de cancelamento/devolucao, se venda tinha FP<br>
+                &nbsp;&nbsp;→ Sistema executa estorno informando qtDevolvida<br>
+                &nbsp;&nbsp;→ Retorno 00E = estorno confirmado<br><br>
+
+                <strong>Observacao:</strong> a Fase 1 pode acontecer em momento diferente da Fase 2/3. O paciente pode receber a pre-autorizacao no balcao e so ir ao caixa minutos depois. O <code>nuAutorizacao</code> conecta as fases.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tabelas Propostas (Dominio)</div>
+              <span class="cmd-obs">
+                <strong>FarmaciaPopularConfigs</strong> (1:1 com Filial — configuracao por filial):<br>
+                — FilialId (FK unique), Habilitado (bool)<br>
+                — LoginFarmacia, SenhaFarmacia (credenciais Portal FP do estabelecimento)<br>
+                — LoginVendedor, SenhaVendedor (credenciais Portal FP do operador — MVP: unico por filial)<br>
+                — CaminhoGbasmsb (string, ex: <code>C:\ErpPharma\FP\gbasmsb.exe</code>)<br>
+                — Modo (enum: Servidor | Pdv — default Servidor)<br>
+                — UrlWebService (string — permite apontar p/ homologacao)<br>
+                — UltimoTesteSucesso (DateTime?), UltimaMensagemTeste (string?)<br><br>
+
+                <strong>FarmaciaPopularTransacoes</strong> (1 por dispensacao — log completo do ciclo):<br>
+                — FilialId, VendaId (nullable), ClienteId (nullable), ColaboradorId (nullable)<br>
+                — CoSolicitacaoFarmacia (unique, gerado pelo PDV)<br>
+                — NuAutorizacao (retorno Fase 1), NuCupomFiscal (Fase 2)<br>
+                — DnaEstacao (retorno gbasmsb.exe)<br>
+                — CnpjEstabelecimento, CpfPaciente, CrmMedico, UfCrm<br>
+                — DtEmissaoReceita, NuReceita<br>
+                — Status (enum: Iniciada, PreAutorizada, PreAutorizadaParcial, Confirmada, ConfirmadaParcial, Recebida, Finalizada, Estornada, EstornadaParcial, Rejeitada, Erro)<br>
+                — FaseAtual (enum: Solicitacao, Confirmacao, Recebimento, Concluida, Estornada)<br>
+                — CodigoRetornoAtual, MensagemRetornoAtual<br>
+                — Fase1RequestXml, Fase1ResponseXml, Fase1DataHora (auditoria)<br>
+                — Fase2RequestXml, Fase2ResponseXml, Fase2DataHora<br>
+                — Fase3RequestXml, Fase3ResponseXml, Fase3DataHora<br>
+                — EstornoRequestXml, EstornoResponseXml, EstornoDataHora<br><br>
+
+                <strong>FarmaciaPopularTransacaoItens</strong> (medicamentos da transacao):<br>
+                — TransacaoId (FK cascade), ProdutoId (FK), VendaItemId (nullable)<br>
+                — CodigoBarraEAN, QtSolicitada, QtPrescrita (posologia diaria)<br>
+                — QtAutorizada (retorno DATASUS), QtDispensada (Fase 3), QtEstornada<br>
+                — VlPrecoVenda, VlPrecoSubsidiadoMS, VlPrecoSubsidiadoPaciente<br>
+                — CodigoRetornoItem, MensagemRetornoItem, InAutorizacaoMedicamento<br><br>
+
+                <strong>Flag no Produto:</strong> <code>ParticipaFarmaciaPopular (bool, default false)</code> — somente produtos marcados disparam o fluxo FP.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Implementacao Tecnica (backend .NET 9)</div>
+              <span class="cmd-obs">
+                <strong>FarmaciaPopularSoapClient</strong> (Infrastructure):<br>
+                — Monta envelope SOAP 1.1 manualmente (sem WCF)<br>
+                — <code>HttpClient</code> com certificado A1 no <code>HttpClientHandler.ClientCertificates</code><br>
+                — SOAPAction header por operacao<br>
+                — Serializa/deserializa XML (XDocument ou XmlSerializer customizado)<br>
+                — Loga request/response XML completo na transacao (auditoria)<br><br>
+
+                <strong>FarmaciaPopularService</strong> (Infrastructure):<br>
+                — Orquestra as 4 operacoes (solicitar, confirmar, receber, estornar)<br>
+                — Chama <code>gbasmsb.exe</code> via <code>Process.Start</code> capturando stdout<br>
+                — Gerencia transicoes de status da transacao<br>
+                — Valida regras de negocio (receita < 180 dias, produto participante, etc.)<br><br>
+
+                <strong>Accordion em Configuracoes:</strong><br>
+                — Dentro da tela de Configuracoes existente, novo accordion "Farmacia Popular"<br>
+                — Campos: Habilitado, Login/Senha Farmacia, Login/Senha Vendedor, Caminho gbasmsb.exe, URL WS<br>
+                — Botao "Testar Conexao" (chama pesquisarAutorizacoes com params dummy — smoke test)
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Envelope SOAP (exemplo Fase 1)</div>
+              <span class="cmd-obs">
+                O envelope deve seguir o formato RPC/encoded do Axis 1.4:<br><br>
+
+                <code>&lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"</code><br>
+                <code>&nbsp;&nbsp;xmlns:ser="http://service.datasus.org/"</code><br>
+                <code>&nbsp;&nbsp;xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/"&gt;</code><br>
+                <code>&lt;soapenv:Body&gt;</code><br>
+                <code>&nbsp;&nbsp;&lt;ser:executarSolicitacao</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&lt;in0 xsi:type="ser:SolicitacaoDTO"&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;coSolicitacaoFarmacia&gt;FRM001&lt;/coSolicitacaoFarmacia&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;nuCnpj&gt;12345678000199&lt;/nuCnpj&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;nuCpf&gt;12345678901&lt;/nuCpf&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;nuCrm&gt;12345&lt;/nuCrm&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;sgUfCrm&gt;SP&lt;/sgUfCrm&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;dtEmissaoReceita&gt;2026-04-10&lt;/dtEmissaoReceita&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;dnaEstacao&gt;...hash...&lt;/dnaEstacao&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;arrMedicamentoDTO&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;item xsi:type="ser:MedicamentoDTO"&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;coCodigoBarra&gt;7891234567890&lt;/coCodigoBarra&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;qtSolicitada&gt;30&lt;/qtSolicitada&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;vlPrecoVenda&gt;25.50&lt;/vlPrecoVenda&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;qtPrescrita&gt;2&lt;/qtPrescrita&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/item&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/arrMedicamentoDTO&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&lt;/in0&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&lt;in1 xsi:type="ser:UsuarioFarmaciaDTO"&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;usuarioFarmacia&gt;LOGIN&lt;/usuarioFarmacia&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;senhaFarmacia&gt;SENHA&lt;/senhaFarmacia&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;usuarioVendedor&gt;VEND&lt;/usuarioVendedor&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;senhaVendedor&gt;SVEND&lt;/senhaVendedor&gt;</code><br>
+                <code>&nbsp;&nbsp;&nbsp;&nbsp;&lt;/in1&gt;</code><br>
+                <code>&nbsp;&nbsp;&lt;/ser:executarSolicitacao&gt;</code><br>
+                <code>&lt;/soapenv:Body&gt;</code><br>
+                <code>&lt;/soapenv:Envelope&gt;</code><br><br>
+
+                <strong>Nota:</strong> o formato exato pode precisar de ajustes (xsi:type, encoding, namespaces) baseado em testes reais com o endpoint do DATASUS. O exemplo acima e uma aproximacao baseada no WSDL.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Perguntas em Aberto (resolver antes de implementar)</div>
+              <span class="cmd-obs">
+                1. <strong>Login vendedor:</strong> unico por filial (MVP) ou por colaborador? Se por colaborador, precisa tabela extra <code>FarmaciaPopularCredencialColaborador</code>.<br>
+                2. <strong>Flag no Produto:</strong> ja existe campo que indica "medicamento FP"? Se sim, reaproveitar em vez de criar novo.<br>
+                3. <strong>Preco subsidiado:</strong> cadastrar manualmente no produto ou confiar no retorno da Fase 1 e exibir ao operador?<br>
+                4. <strong>Co-pagamento:</strong> quando paciente paga parte (01S parcial), como representar na venda? Item normal + desconto FP? Dois itens?<br>
+                5. <strong>gbasmsb.exe no servidor:</strong> validar se o DATASUS aceita todas as transacoes vindas da mesma estacao (mesmo hardware) ou se exige cadastro por PDV.<br>
+                6. <strong>Certificado A1:</strong> o endpoint FP exige mTLS (client certificate) ou so HTTPS normal? Testar.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fases de Implementacao</div>
+              <span class="cmd-obs">
+                <strong>Fase 1 — Infraestrutura + Config</strong><br>
+                — Entidades Domain (FarmaciaPopularConfig, Transacao, TransacaoItem)<br>
+                — Migration + DbContext<br>
+                — Flag ParticipaFarmaciaPopular no Produto<br>
+                — Accordion nas Configuracoes (login, senha, caminho exe, URL WS, habilitado)<br>
+                — Smoke test: endpoint <code>POST /api/farmacia-popular/testar-conexao</code><br><br>
+
+                <strong>Fase 2 — SOAP Client + dnaEstacao</strong><br>
+                — <code>FarmaciaPopularSoapClient</code> (monta envelopes, HttpClient, parse XML response)<br>
+                — Integracao com <code>gbasmsb.exe</code> via Process.Start<br>
+                — Implementar <code>executarSolicitacao</code> (Fase 1) completa<br>
+                — Tela/modal de pre-autorizacao no atendimento<br><br>
+
+                <strong>Fase 3 — Fluxo completo no caixa</strong><br>
+                — Hook na finalizacao de venda: Fase 2 (confirmar) + Fase 3 (recebimento)<br>
+                — Tratamento de erros e codigos de retorno<br>
+                — Log de XML request/response completo<br>
+                — Tela de consulta/historico de transacoes FP<br><br>
+
+                <strong>Fase 4 — Estorno + SONDA</strong><br>
+                — Estorno vinculado ao cancelamento/devolucao<br>
+                — Consulta de autorizacoes (pesquisarAutorizacoes)<br>
+                — Reconciliacao automatica
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Arquivos de Referencia</div>
+              <span class="cmd-obs">
+                Todos em <code>C:\lixos\FP\</code>:<br>
+                — <strong>ServicoSolicitacaoWS.xml</strong>: WSDL completo com 5 operacoes e 13 tipos complexos<br>
+                — <strong>complexTypw.xml</strong>: copia do WSDL (mesmo conteudo)<br>
+                — <strong>visaoGeral.pdf</strong>: visao geral do sistema (tecnologia, fluxos, exemplos de log)<br>
+                — <strong>01.pdf</strong>: Fluxo Basico (diagrama 3 fases)<br>
+                — <strong>02.pdf</strong>: Fase 1 — Processo de Solicitacao de Pre-Autorizacao (detalhado)<br>
+                — <strong>03.pdf</strong>: Fase 2 — Confirmacao da Pre-Autorizacao (detalhado)<br>
+                — <strong>04.pdf</strong>: Fase 3 — Recebimento da Confirmacao (detalhado)<br>
+                — <strong>05.pdf</strong>: Processo de Estorno (detalhado)<br>
+                — <strong>A.1) Processo de Solicitacao de Pre-Autorizacao 1a FASE.pdf/.html</strong>: versao expandida da Fase 1<br>
+                — <strong>Codigos de retorno do Web Service.pdf</strong>: tabela completa de codigos (10MB)<br>
+                — <strong>protocolo.png</strong>: imagem do protocolo de comunicacao
+              </span>
+            </div>
+
           </div>
         }
       </section>

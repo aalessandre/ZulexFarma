@@ -1020,3 +1020,69 @@
   vertical-align: middle;
 }
 
+/* ── Comissão por agrupador ──────────────────────────────────────── */
+.comissao-agrup-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 12px;
+
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--erp-text-muted, #6a7888);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--erp-border, #e8ecf1);
+    background: var(--erp-bg, #f0f2f5);
+  }
+
+  .th-acao { width: 40px; text-align: center; }
+
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--erp-border, #e8ecf1);
+    color: var(--erp-text, #333);
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--erp-row-hover, #f8f9fa); }
+}
+
+/* ── Accordion Comissão (padrão <details>) ──────────────────────── */
+.prod-accordion {
+  border: 1px solid #e8ecf1; border-radius: 8px; overflow: hidden;
+  background: var(--erp-surface, #fff);
+  transition: box-shadow 0.15s;
+  &[open] { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+}
+
+.comissao-accordion { margin-top: 14px; }
+
+summary.prod-acc-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; cursor: pointer;
+  font-size: 14px; font-weight: 700;
+  list-style: none;
+  transition: filter 0.12s;
+  &:hover { filter: brightness(1.08); }
+  &::-webkit-details-marker { display: none; }
+
+  &.acc-comissao { background: linear-gradient(135deg, #d4a017, #f1c40f); color: #333; }
+}
+
+.prod-acc-body { padding: 16px 20px; }
+
+.comissao-agrup-add {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px dashed var(--erp-border, #e8ecf1);
+  flex-wrap: wrap;
+}
+

@@ -903,3 +903,140 @@
 
   &:hover { background: #fde8e8; color: #c0392b; }
 }
+
+/* ── Accordion Comissão (padrão <details>) ───────────────────────── */
+.prod-accordion {
+  border: 1px solid #e8ecf1; border-radius: 8px; overflow: hidden;
+  background: var(--erp-surface, #fff);
+  transition: box-shadow 0.15s;
+  &[open] { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+}
+
+.comissao-accordion { margin-top: 18px; }
+
+summary.prod-acc-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; cursor: pointer;
+  font-size: 14px; font-weight: 700;
+  list-style: none;
+  transition: filter 0.12s;
+  &:hover { filter: brightness(1.08); }
+  &::-webkit-details-marker { display: none; }
+
+  &.acc-comissao { background: linear-gradient(135deg, #d4a017, #f1c40f); color: #333; }
+}
+
+.prod-acc-body { padding: 16px 20px; }
+
+.comissao-info {
+  font-size: 12px;
+  color: var(--erp-text-muted, #6a7888);
+  font-style: italic;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: #fffde7;
+  border-left: 3px solid #f1c40f;
+  border-radius: 4px;
+}
+
+.comissao-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 14px;
+
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--erp-text-muted, #6a7888);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--erp-border, #e8ecf1);
+    background: #fafbfc;
+  }
+
+  .th-desc { width: 30%; }
+  .th-comissao { width: 30%; }
+  .th-acao { width: 40px; text-align: center; }
+
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--erp-border, #e8ecf1);
+    color: var(--erp-text, #333);
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #f8f9fa; }
+}
+
+.comissao-vazio {
+  text-align: center;
+  padding: 20px;
+  color: var(--erp-text-muted, #6a7888);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.comissao-add-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px dashed var(--erp-border, #e8ecf1);
+}
+
+.comissao-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 100px;
+
+  label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--erp-text-muted, #6a7888);
+    letter-spacing: 0.5px;
+  }
+
+  input {
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--erp-border-input, #d1d5db);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--erp-text, #333);
+    outline: none;
+    background: var(--erp-input-bg, #f8f9fa);
+    width: 100%;
+    &:focus { border-color: var(--erp-blue, #5a7fa8); background: var(--erp-surface, #fff); }
+    &:disabled { background: var(--erp-bg, #f0f2f5) !important; color: var(--erp-text-muted) !important; cursor: not-allowed; font-weight: 600; }
+  }
+}
+
+.btn-add-faixa {
+  height: 34px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, #d4a017, #f1c40f);
+  color: #333;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.12s;
+  &:hover:not(:disabled) { filter: brightness(1.08); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btn-remove-row {
+  background: none; border: none; color: var(--erp-text-muted);
+  font-size: 15px; cursor: pointer; padding: 1px 3px;
+  border-radius: 3px; transition: background 0.12s, color 0.12s;
+  &:hover { background: #fde8e8; color: #c0392b; }
+}

@@ -6,7 +6,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
         </svg>
-        SNGPC — Preenchimento de Receitas
+        {{ manual ? 'SNGPC — Receita Manual' : 'SNGPC — Preenchimento de Receitas' }}
       </div>
       @if (!inline) {
         <button class="sng-btn-fechar" (click)="cancelarModal()" title="Fechar">×</button>
@@ -15,28 +15,36 @@
 
     <div class="sng-body">
       @if (carregando()) {
-        <div class="sng-loading">Carregando itens controlados...</div>
+        <div class="sng-loading">Carregando...</div>
       } @else {
-        <!-- Lista de itens controlados (cabeçalho) -->
-        <div class="sng-itens-header">
-          <span class="sng-sub-titulo">Itens controlados ({{ itensControlados().length }})</span>
-        </div>
-        <div class="sng-itens-chips">
-          @for (item of itensControlados(); track item.vendaItemId) {
-            <span class="sng-chip" [class.sng-chip-ok]="itensCobertos().has(item.vendaItemId)">
-              {{ item.produtoNome }} — {{ item.quantidade }}x
-              @if (item.classeTerapeutica) { <small>({{ item.classeTerapeutica }})</small> }
-              @if (itensCobertos().has(item.vendaItemId)) { <span class="sng-chip-check">✓</span> }
-            </span>
-          }
-        </div>
+        @if (!manual) {
+          <!-- Lista de itens controlados (cabeçalho) — só no modo venda -->
+          <div class="sng-itens-header">
+            <span class="sng-sub-titulo">Itens controlados ({{ itensControlados().length }})</span>
+          </div>
+          <div class="sng-itens-chips">
+            @for (item of itensControlados(); track item.vendaItemId) {
+              <span class="sng-chip" [class.sng-chip-ok]="itensCobertos().has(item.vendaItemId)">
+                {{ item.produtoNome }} — {{ item.quantidade }}x
+                @if (item.classeTerapeutica) { <small>({{ item.classeTerapeutica }})</small> }
+                @if (itensCobertos().has(item.vendaItemId)) { <span class="sng-chip-check">✓</span> }
+              </span>
+            }
+          </div>
+        } @else {
+          <div class="sng-itens-header">
+            <span class="sng-sub-titulo">Receita manual — sem vínculo com venda</span>
+          </div>
+        }
 
-        <!-- Botão adicionar receita -->
-        <div class="sng-add-receita-wrap">
-          <button class="sng-btn-add" (click)="adicionarReceita()">
-            + Adicionar Receita
-          </button>
-        </div>
+        <!-- Botão adicionar receita (só no modo venda; no manual o modal já começa com 1 receita) -->
+        @if (!manual) {
+          <div class="sng-add-receita-wrap">
+            <button class="sng-btn-add" (click)="adicionarReceita()">
+              + Adicionar Receita
+            </button>
+          </div>
+        }
 
         <!-- Lista de receitas (cards) -->
         @for (rec of receitas(); track $index; let idx = $index) {
@@ -253,37 +261,75 @@
                 <!-- SEÇÃO 4: Itens -->
                 <div class="sng-secao">
                   <div class="sng-secao-titulo">ITENS COBERTOS POR ESTA RECEITA</div>
+
+                  @if (manual) {
+                    <div class="sng-prescritor-busca" style="margin-bottom:8px">
+                      <input type="text" placeholder="Digite nome ou código do produto controlado..."
+                             [value]="rec._produtoBusca"
+                             (input)="onProdutoBusca(idx, $any($event.target).value)" />
+                      @if (rec._produtoDropdown && rec._produtoResultados.length > 0) {
+                        <div class="sng-dropdown">
+                          @for (p of rec._produtoResultados; track p.produtoId) {
+                            <div class="sng-dropdown-item" (click)="adicionarItemManual(idx, p)">
+                              <strong>{{ p.produtoNome }}</strong>
+                              <small>{{ p.classeTerapeutica }} · {{ p.lotesDisponiveis.length }} lote(s)</small>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+
                   <table class="sng-tabela-itens">
                     <thead>
                       <tr>
-                        <th style="width:30px"></th>
+                        @if (!manual) { <th style="width:30px"></th> }
                         <th>Produto</th>
-                        <th style="width:160px">Lote *</th>
+                        <th style="width:180px">Lote *</th>
                         <th style="width:90px">Qtde</th>
+                        @if (manual) { <th style="width:40px"></th> }
                       </tr>
                     </thead>
                     <tbody>
                       @for (it of rec.itens; track it.vendaItemId) {
-                        <tr [class.sng-item-desabilitado]="itemJaCoberto(it.vendaItemId, idx)">
-                          <td>
-                            <input type="checkbox" [checked]="it._incluido"
-                                   [disabled]="itemJaCoberto(it.vendaItemId, idx)"
-                                   (change)="toggleItem(idx, it.vendaItemId)" />
-                          </td>
-                          <td>{{ labelItem(it.vendaItemId) }}</td>
+                        <tr [class.sng-item-desabilitado]="!manual && itemJaCoberto(it.vendaItemId, idx)">
+                          @if (!manual) {
+                            <td>
+                              <input type="checkbox" [checked]="it._incluido"
+                                     [disabled]="itemJaCoberto(it.vendaItemId, idx)"
+                                     (change)="toggleItem(idx, it.vendaItemId)" />
+                            </td>
+                          }
+                          <td>{{ manual ? it.produtoNome : labelItem(it.vendaItemId) }}</td>
                           <td>
                             <select [value]="it.produtoLoteId"
-                                    [disabled]="!it._incluido"
+                                    [disabled]="!manual && !it._incluido"
                                     (change)="updItemLote(idx, it.vendaItemId, $any($event.target).value)">
-                              @for (lote of lotesItem(it.vendaItemId); track lote.produtoLoteId) {
+                              @for (lote of (manual ? lotesItemManual(it) : lotesItem(it.vendaItemId)); track lote.produtoLoteId) {
                                 <option [value]="lote.produtoLoteId">
                                   {{ lote.numeroLote }} · {{ lote.dataValidade ? (lote.dataValidade | date:'dd/MM/yyyy') : 's/val' }} · saldo {{ lote.saldoAtual }}
                                 </option>
                               }
                             </select>
                           </td>
-                          <td>{{ it.quantidade }}</td>
+                          <td>
+                            @if (manual) {
+                              <input type="number" min="1" [value]="it.quantidade"
+                                     (input)="updItemQuantidade(idx, it.vendaItemId, +$any($event.target).value)"
+                                     style="width:70px" />
+                            } @else {
+                              {{ it.quantidade }}
+                            }
+                          </td>
+                          @if (manual) {
+                            <td style="text-align:center">
+                              <button class="sng-btn-remover" (click)="removerItemManual(idx, it.vendaItemId)" title="Remover">×</button>
+                            </td>
+                          }
                         </tr>
+                      }
+                      @if (manual && rec.itens.length === 0) {
+                        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:12px;font-style:italic">Busque e adicione produtos controlados acima.</td></tr>
                       }
                     </tbody>
                   </table>
@@ -304,14 +350,14 @@
       @if (inline) {
         <button class="sng-btn sng-btn-voltar" (click)="voltar.emit()">◀ Voltar</button>
       } @else {
-        <button class="sng-btn sng-btn-cancel" (click)="cancelarModal()">Cancelar venda</button>
+        <button class="sng-btn sng-btn-cancel" (click)="cancelarModal()">{{ manual ? 'Cancelar' : 'Cancelar venda' }}</button>
       }
       @if (modoMisto) {
         <button class="sng-btn sng-btn-depois" (click)="lancarDepois()">Lançar Depois</button>
       }
-      <button class="sng-btn sng-btn-ok" [disabled]="!todosCobertos() || receitas().length === 0"
+      <button class="sng-btn sng-btn-ok" [disabled]="(!manual && !todosCobertos()) || receitas().length === 0"
               (click)="confirmarFinalizacao()">
-        Finalizar Venda
+        {{ manual ? 'Salvar Receita' : 'Finalizar Venda' }}
       </button>
     </div>
 

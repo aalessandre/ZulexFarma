@@ -41,6 +41,7 @@ public class ColaboradorDetalheDto
 
     public List<EnderecoFormDto> Enderecos { get; set; } = new();
     public List<ContatoFormDto>  Contatos  { get; set; } = new();
+    public List<ComissaoAgrupadorDto> ComissaoAgrupadores { get; set; } = new();
 
     public AcessoDetalheDto? Acesso { get; set; }
 }
@@ -64,6 +65,9 @@ public class ColaboradorFormDto
     // Endereços e contatos
     public List<EnderecoFormDto> Enderecos { get; set; } = new();
     public List<ContatoFormDto>  Contatos  { get; set; } = new();
+
+    // Comissão por agrupador
+    public List<ComissaoAgrupadorDto> ComissaoAgrupadores { get; set; } = new();
 
     // Acesso ao sistema (opcional)
     public AcessoFormDto? Acesso  { get; set; }
@@ -140,4 +144,13 @@ public class ContatoFormDto
     public string Valor     { get; set; } = string.Empty;
     public string? Descricao { get; set; }
     public bool   Principal { get; set; }
+}
+
+public class ComissaoAgrupadorDto
+{
+    public long?   Id                { get; set; }
+    public int     TipoAgrupador     { get; set; }
+    public long    AgrupadorId        { get; set; }
+    public string  AgrupadorNome      { get; set; } = string.Empty;
+    public decimal ComissaoPercentual { get; set; }
 }

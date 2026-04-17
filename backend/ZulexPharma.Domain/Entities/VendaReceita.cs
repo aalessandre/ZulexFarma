@@ -10,8 +10,16 @@ namespace ZulexPharma.Domain.Entities;
 /// </summary>
 public class VendaReceita : BaseEntity
 {
-    public long VendaId { get; set; }
-    public Venda Venda { get; set; } = null!;
+    /// <summary>
+    /// Venda associada à receita. Pode ser null para receitas manuais soltas
+    /// (regularização histórica ou inventário inicial) — aparecem em amarelo na lista.
+    /// </summary>
+    public long? VendaId { get; set; }
+    public Venda? Venda { get; set; }
+
+    /// <summary>Filial da receita. Quando tem venda, herda de <c>Venda.FilialId</c>; senão é preenchida direto.</summary>
+    public long FilialId { get; set; }
+    public Filial? Filial { get; set; }
 
     public TipoReceitaSngpc Tipo { get; set; }
 

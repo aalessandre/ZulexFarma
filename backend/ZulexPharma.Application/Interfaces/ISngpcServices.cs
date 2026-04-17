@@ -12,15 +12,6 @@ public interface IInventarioSngpcService
     Task ExcluirAsync(long id);
 }
 
-public interface IReceitaService
-{
-    Task<List<ReceitaListDto>> ListarAsync(long? filialId = null, DateTime? dataInicio = null, DateTime? dataFim = null);
-    Task<ReceitaDetalheDto> ObterAsync(long id);
-    Task<ReceitaListDto> CriarAsync(ReceitaFormDto dto);
-    Task AtualizarAsync(long id, ReceitaFormDto dto);
-    Task ExcluirAsync(long id);
-}
-
 public interface IPerdaService
 {
     Task<List<PerdaListDto>> ListarAsync(long? filialId = null, DateTime? dataInicio = null, DateTime? dataFim = null);

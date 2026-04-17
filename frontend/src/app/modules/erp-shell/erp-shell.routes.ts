@@ -159,6 +159,21 @@ export const ErpRoutes: Routes = [
           import('../ibptax/ibptax.component').then(m => m.IbptaxComponent),
       },
       {
+        path: 'natureza-operacao',
+        loadComponent: () =>
+          import('../natureza-operacao/natureza-operacao.component').then(m => m.NaturezaOperacaoComponent),
+      },
+      {
+        path: 'nfe-lista',
+        loadComponent: () =>
+          import('../nfe-lista/nfe-lista.component').then(m => m.NfeListaComponent),
+      },
+      {
+        path: 'nfe-emissao',
+        loadComponent: () =>
+          import('../nfe-emissao/nfe-emissao.component').then(m => m.NfeEmissaoComponent),
+      },
+      {
         path: 'atualizacao-precos',
         loadComponent: () =>
           import('../atualizacao-precos/atualizacao-precos.component').then(m => m.AtualizacaoPrecosComponent),
@@ -197,6 +212,16 @@ export const ErpRoutes: Routes = [
         path: 'hierarquia-descontos',
         loadComponent: () =>
           import('../hierarquia-descontos/hierarquia-descontos.component').then(m => m.HierarquiaDescontosComponent),
+      },
+      {
+        path: 'hierarquia-comissoes',
+        loadComponent: () =>
+          import('../hierarquia-comissoes/hierarquia-comissoes.component').then(m => m.HierarquiaComissoesComponent),
+      },
+      {
+        path: 'hierarquias',
+        loadComponent: () =>
+          import('../hierarquias-menu/hierarquias-menu.component').then(m => m.HierarquiasMenuComponent),
       },
       {
         path: 'adquirentes',
@@ -281,14 +306,31 @@ export const ErpRoutes: Routes = [
           import('../sngpc-mapas/sngpc-mapas.component').then(m => m.SngpcMapasComponent),
       },
       {
-        path: 'sngpc-pendentes',
-        loadComponent: () =>
-          import('../sngpc-pendentes/sngpc-pendentes.component').then(m => m.SngpcPendentesComponent),
-      },
-      {
         path: 'prescritores',
         loadComponent: () =>
           import('../prescritores/prescritores.component').then(m => m.PrescritoresComponent),
+      },
+      // ── Fidelidade ────────────────────────────────────────────
+      {
+        path: 'fidelidade',
+        loadComponent: () =>
+          import('../fidelidade-menu/fidelidade-menu.component').then(m => m.FidelidadeMenuComponent),
+      },
+      {
+        path: 'fidelidade-pontos',
+        loadComponent: () =>
+          import('../fidelidade-campanhas/fidelidade-campanhas.component').then(m => m.FidelidadeCampanhasComponent),
+        data: { tipo: 'Pontos' }
+      },
+      {
+        path: 'fidelidade-cashback',
+        loadComponent: () =>
+          import('../fidelidade-cashback/fidelidade-cashback.component').then(m => m.FidelidadeCashbackComponent),
+      },
+      {
+        path: 'fidelidade-premios',
+        loadComponent: () =>
+          import('../fidelidade-premios/fidelidade-premios.component').then(m => m.FidelidadePremiosComponent),
       },
       // Placeholders — módulos futuros
       {

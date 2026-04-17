@@ -79,58 +79,6 @@ public class InventariosSngpcController : ControllerBase
     }
 }
 
-// ══ Receitas ═══════════════════════════════════════════════════════
-[Authorize]
-[ApiController]
-[Route("api/sngpc/receitas")]
-public class ReceitasController : ControllerBase
-{
-    private readonly IReceitaService _service;
-    public ReceitasController(IReceitaService s) { _service = s; }
-
-    [HttpGet]
-    [Permissao("sngpc", "c")]
-    public async Task<IActionResult> Listar([FromQuery] long? filialId = null, [FromQuery] DateTime? dataInicio = null, [FromQuery] DateTime? dataFim = null)
-    {
-        try { return Ok(new { success = true, data = await _service.ListarAsync(filialId, dataInicio, dataFim) }); }
-        catch (Exception ex) { Log.Error(ex, "Erro Receitas.Listar"); return StatusCode(500, new { success = false, message = "Erro." }); }
-    }
-
-    [HttpGet("{id:long}")]
-    [Permissao("sngpc", "c")]
-    public async Task<IActionResult> Obter(long id)
-    {
-        try { return Ok(new { success = true, data = await _service.ObterAsync(id) }); }
-        catch (KeyNotFoundException e) { return NotFound(new { success = false, message = e.Message }); }
-    }
-
-    [HttpPost]
-    [Permissao("sngpc", "i")]
-    public async Task<IActionResult> Criar([FromBody] ReceitaFormDto dto)
-    {
-        try { return Created("", new { success = true, data = await _service.CriarAsync(dto) }); }
-        catch (ArgumentException e) { return BadRequest(new { success = false, message = e.Message }); }
-        catch (Exception ex) { Log.Error(ex, "Erro Receitas.Criar"); return StatusCode(500, new { success = false, message = "Erro." }); }
-    }
-
-    [HttpPut("{id:long}")]
-    [Permissao("sngpc", "a")]
-    public async Task<IActionResult> Atualizar(long id, [FromBody] ReceitaFormDto dto)
-    {
-        try { await _service.AtualizarAsync(id, dto); return Ok(new { success = true }); }
-        catch (KeyNotFoundException e) { return NotFound(new { success = false, message = e.Message }); }
-        catch (ArgumentException e) { return BadRequest(new { success = false, message = e.Message }); }
-    }
-
-    [HttpDelete("{id:long}")]
-    [Permissao("sngpc", "e")]
-    public async Task<IActionResult> Excluir(long id)
-    {
-        try { await _service.ExcluirAsync(id); return Ok(new { success = true }); }
-        catch (KeyNotFoundException e) { return NotFound(new { success = false, message = e.Message }); }
-    }
-}
-
 // ══ Perdas ═════════════════════════════════════════════════════════
 [Authorize]
 [ApiController]
@@ -333,13 +281,17 @@ public class SngpcVendasController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro SngpcVendas.RegistrarReceitas"); return StatusCode(500, new { success = false, message = "Erro ao registrar receitas." }); }
     }
 
-    /// <summary>Lista vendas com receitas SNGPC pendentes de lançamento.</summary>
-    [HttpGet("pendentes")]
+    /// <summary>Lista unificada de vendas SNGPC (pendentes/lançadas/todas).</summary>
+    [HttpGet("receitas")]
     [Permissao("sngpc", "c")]
-    public async Task<IActionResult> ListarPendentes([FromQuery] long? filialId = null)
+    public async Task<IActionResult> ListarVendasSngpc(
+        [FromQuery] string? filtro = null,
+        [FromQuery] long? filialId = null,
+        [FromQuery] DateTime? dataInicio = null,
+        [FromQuery] DateTime? dataFim = null)
     {
-        try { return Ok(new { success = true, data = await _service.ListarPendentesAsync(filialId) }); }
-        catch (Exception ex) { Log.Error(ex, "Erro SngpcVendas.ListarPendentes"); return StatusCode(500, new { success = false, message = "Erro ao listar pendentes." }); }
+        try { return Ok(new { success = true, data = await _service.ListarVendasSngpcAsync(filtro, filialId, dataInicio, dataFim) }); }
+        catch (Exception ex) { Log.Error(ex, "Erro SngpcVendas.ListarVendasSngpc"); return StatusCode(500, new { success = false, message = "Erro ao listar vendas." }); }
     }
 
     /// <summary>Lista receitas já gravadas de uma venda.</summary>
@@ -350,4 +302,42 @@ public class SngpcVendasController : ControllerBase
         try { return Ok(new { success = true, data = await _service.ListarReceitasAsync(vendaId) }); }
         catch (Exception ex) { Log.Error(ex, "Erro SngpcVendas.ListarReceitas"); return StatusCode(500, new { success = false, message = "Erro ao listar receitas." }); }
     }
+
+    /// <summary>Pesquisa produtos SNGPC (para modal de receita manual).</summary>
+    [HttpGet("produtos-sngpc")]
+    [Permissao("sngpc", "c")]
+    public async Task<IActionResult> PesquisarProdutosSngpc([FromQuery] string termo, [FromQuery] long filialId)
+    {
+        try { return Ok(new { success = true, data = await _service.PesquisarProdutosSngpcAsync(termo, filialId) }); }
+        catch (Exception ex) { Log.Error(ex, "Erro SngpcVendas.PesquisarProdutosSngpc"); return StatusCode(500, new { success = false, message = "Erro ao pesquisar." }); }
+    }
+
+    /// <summary>Detalhes (produto + lote) de uma linha da tela Receitas — usado na expansão inline.</summary>
+    [HttpGet("detalhes")]
+    [Permissao("sngpc", "c")]
+    public async Task<IActionResult> ObterDetalhes([FromQuery] long? vendaId = null, [FromQuery] long? receitaId = null)
+    {
+        try { return Ok(new { success = true, data = await _service.ObterDetalhesAsync(vendaId, receitaId) }); }
+        catch (Exception ex) { Log.Error(ex, "Erro SngpcVendas.ObterDetalhes"); return StatusCode(500, new { success = false, message = "Erro ao obter detalhes." }); }
+    }
+
+    /// <summary>Registra uma receita manual (sem venda).</summary>
+    [HttpPost("receita-manual")]
+    [Permissao("sngpc", "i")]
+    public async Task<IActionResult> RegistrarReceitaManual([FromBody] RegistrarReceitaManualRequest request)
+    {
+        try
+        {
+            var id = await _service.RegistrarReceitaManualAsync(request.Receita, request.FilialId, UsuarioId);
+            return Created("", new { success = true, data = new { id } });
+        }
+        catch (ArgumentException e) { return BadRequest(new { success = false, message = e.Message }); }
+        catch (Exception ex) { Log.Error(ex, "Erro SngpcVendas.RegistrarReceitaManual"); return StatusCode(500, new { success = false, message = "Erro ao registrar receita manual." }); }
+    }
+}
+
+public class RegistrarReceitaManualRequest
+{
+    public long FilialId { get; set; }
+    public VendaReceitaFormDto Receita { get; set; } = new();
 }

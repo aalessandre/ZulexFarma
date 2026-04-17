@@ -25,6 +25,15 @@ public class FabricantesController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro em FabricantesController.Listar"); return StatusCode(500, new { success = false, message = "Erro ao listar fabricantes." }); }
     }
 
+    [HttpGet("{id:long}")]
+    [Permissao("fabricantes", "c")]
+    public async Task<IActionResult> Obter(long id)
+    {
+        try { return Ok(new { success = true, data = await _service.ObterAsync(id) }); }
+        catch (KeyNotFoundException) { return NotFound(new { success = false, message = "Fabricante não encontrado." }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em FabricantesController.Obter | Id: {Id}", id); return StatusCode(500, new { success = false, message = "Erro ao obter fabricante." }); }
+    }
+
     [HttpPost]
     [Permissao("fabricantes", "i")]
     public async Task<IActionResult> Criar([FromBody] FabricanteFormDto dto)

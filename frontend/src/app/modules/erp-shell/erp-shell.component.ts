@@ -120,8 +120,11 @@ export class ErpShellComponent {
         { label: 'SNGPC - Perdas',  sigla: 'SP', iconKey: 'shield',    rota: '/erp/sngpc-perdas' },
         { label: 'SNGPC - Estoque', sigla: 'SE', iconKey: 'shield',    rota: '/erp/sngpc-estoque' },
         { label: 'SNGPC - Mapas',   sigla: 'SM', iconKey: 'shield',    rota: '/erp/sngpc-mapas' },
-        { label: 'SNGPC - Vendas Pendentes', sigla: 'VP', iconKey: 'shield', rota: '/erp/sngpc-pendentes' },
         { label: 'Prescritores',    sigla: 'PR', iconKey: 'shield',    rota: '/erp/prescritores' },
+        { label: 'Fidelidade',           sigla: 'FD', iconKey: 'star',  rota: '/erp/fidelidade' },
+        { label: 'Fidelidade - Pontos',  sigla: 'FP', iconKey: 'star',  rota: '/erp/fidelidade-pontos' },
+        { label: 'Fidelidade - Cashback',sigla: 'FC', iconKey: 'dollar',rota: '/erp/fidelidade-cashback' },
+        { label: 'Catálogo de Prêmios',  sigla: 'CT', iconKey: 'gift',  rota: '/erp/fidelidade-premios' },
       ]
     },
     {
@@ -164,7 +167,7 @@ export class ErpShellComponent {
         { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
         { label: 'Configuracoes',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
         { label: 'Atual. Precos',    sigla: 'AP', iconKey: 'dollar',   rota: '/erp/atualizacao-precos' },
-        { label: 'Hierarquia Descontos', sigla: 'HD', iconKey: 'wrench', rota: '/erp/hierarquia-descontos' },
+        { label: 'Hierarquias', sigla: 'HQ', iconKey: 'hierarquia', rota: '/erp/hierarquias' },
       ]
     },
     {

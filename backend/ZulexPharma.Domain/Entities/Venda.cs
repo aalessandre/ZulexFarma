@@ -22,6 +22,35 @@ public class Venda : BaseEntity
     /// <summary>Origem: PreVenda ou Caixa.</summary>
     public VendaOrigem Origem { get; set; } = VendaOrigem.PreVenda;
 
+    // ── Tipo de operação e documento fiscal ────────────────────
+    /// <summary>Venda comercial, transferência, perda, ajuste, etc.</summary>
+    public TipoOperacao TipoOperacao { get; set; } = TipoOperacao.Venda;
+
+    /// <summary>Modelo de documento fiscal a emitir (ou já emitido).</summary>
+    public ModeloDocumento ModeloDocumento { get; set; } = ModeloDocumento.SemDocumento;
+
+    /// <summary>Status do documento fiscal. NaoEmitido = sem emissão.</summary>
+    public StatusFiscal StatusFiscal { get; set; } = StatusFiscal.NaoEmitido;
+
+    /// <summary>Natureza de operação (define CFOP/CST padrão na emissão).</summary>
+    public long? NaturezaOperacaoId { get; set; }
+    public NaturezaOperacao? NaturezaOperacao { get; set; }
+
+    /// <summary>Destinatário do documento fiscal quando diferente do Cliente (ex: outra filial, empresa).</summary>
+    public long? DestinatarioPessoaId { get; set; }
+    public Pessoa? DestinatarioPessoa { get; set; }
+
+    // ── Campos de movimento de estoque (preenchidos conforme TipoOperacao) ──
+    /// <summary>Filial de destino (apenas Transferencia).</summary>
+    public long? FilialDestinoId { get; set; }
+    public Filial? FilialDestino { get; set; }
+
+    /// <summary>Motivo da perda (apenas TipoOperacao=Perda).</summary>
+    public MotivoPerda? Motivo { get; set; }
+
+    /// <summary>Número do Boletim de Ocorrência (obrigatório para Furto/Roubo).</summary>
+    public string? NumeroBoletim { get; set; }
+
     // ── Totais ──────────────────────────────────────────────────
     public decimal TotalBruto { get; set; }
     public decimal TotalDesconto { get; set; }
@@ -53,4 +82,7 @@ public class Venda : BaseEntity
     public ICollection<VendaItem> Itens { get; set; } = new List<VendaItem>();
     public ICollection<VendaPagamento> Pagamentos { get; set; } = new List<VendaPagamento>();
     public ICollection<VendaReceita> Receitas { get; set; } = new List<VendaReceita>();
+
+    /// <summary>Dados do documento fiscal emitido (1:1, null se não emitido).</summary>
+    public VendaFiscal? Fiscal { get; set; }
 }

@@ -58,7 +58,10 @@ public class PrescritorInlineDto
 
 public class VendaReceitaItemFormDto
 {
+    /// <summary>Id do VendaItem. Pode ser 0 em receitas manuais (sem venda).</summary>
     public long VendaItemId { get; set; }
+    /// <summary>Id do produto — obrigatório em receitas manuais; ignorado se VendaItemId > 0.</summary>
+    public long? ProdutoId { get; set; }
     public long ProdutoLoteId { get; set; }
     public decimal Quantidade { get; set; }
 }
@@ -80,7 +83,7 @@ public class FinalizarVendaSngpcDto
 public class VendaReceitaListDto
 {
     public long Id { get; set; }
-    public long VendaId { get; set; }
+    public long? VendaId { get; set; }
     public TipoReceitaSngpc Tipo { get; set; }
     public string? NumeroNotificacao { get; set; }
     public DateTime DataEmissao { get; set; }
@@ -93,12 +96,19 @@ public class VendaReceitaListDto
 
 public class VendaSngpcPendenteDto
 {
-    public long VendaId { get; set; }
+    /// <summary>Id da venda. Null quando origem = "Manual" (receita avulsa).</summary>
+    public long? VendaId { get; set; }
+    /// <summary>Id da receita manual (preenchido apenas quando Origem = "Manual").</summary>
+    public long? ReceitaId { get; set; }
     public string? Codigo { get; set; }
     public DateTime? DataFinalizacao { get; set; }
     public string? ClienteNome { get; set; }
     public int QtdeItensControlados { get; set; }
     public decimal QtdeTotal { get; set; }
+    /// <summary>"Pendente" (venda sem receita) | "Lançada" (venda c/ receita) | "Manual" (receita solta).</summary>
+    public string Status { get; set; } = "Pendente";
+    /// <summary>Quantidade de receitas já gravadas.</summary>
+    public int QtdeReceitas { get; set; }
 }
 
 public class ItemControladoDto
@@ -109,6 +119,18 @@ public class ItemControladoDto
     public string? ClasseTerapeutica { get; set; }
     public int Quantidade { get; set; }
     public List<LoteDisponivelDto> LotesDisponiveis { get; set; } = new();
+}
+
+/// <summary>Item detalhado exibido ao expandir uma linha na tela de Receitas.</summary>
+public class DetalheReceitaItemDto
+{
+    public string ProdutoNome { get; set; } = string.Empty;
+    public string? ClasseTerapeutica { get; set; }
+    public decimal Quantidade { get; set; }
+    public string? NumeroLote { get; set; }
+    public DateTime? DataValidade { get; set; }
+    /// <summary>"Vendido" (saiu pelo cart), "Na receita" (cobre a venda), "Manual" (receita avulsa).</summary>
+    public string Origem { get; set; } = "Vendido";
 }
 
 /// <summary>Request de preview: recebe itens do cart antes da venda existir no banco.</summary>

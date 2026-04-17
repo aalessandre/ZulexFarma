@@ -1,0 +1,213 @@
+<div class="tela-erp">
+
+  <!-- SIDEBAR ESQUERDA -->
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-salvar" [class.disabled]="!isDirty() || salvando()" (click)="salvarRascunho()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>{{ salvando() ? 'Salvando...' : 'Salvar' }}</span></div>
+      <span class="sidebar-sub">Rascunho</span>
+    </div>
+    <div class="sidebar-item tile-emitir" [class.disabled]="!form().id || emitindo()" (click)="emitirNfe()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg><span>{{ emitindo() ? 'Emitindo...' : 'Emitir' }}</span></div>
+      <span class="sidebar-sub">Enviar SEFAZ</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Fechar</span></div>
+      <span class="sidebar-sub">Voltar</span>
+    </div>
+  </aside>
+
+  <!-- AREA PRINCIPAL -->
+  <div class="tela-main">
+    <div class="form-wrapper">
+
+      <div class="form-titulo-wrap">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar NF-e' : 'Nova NF-e' }}</div>
+        <button class="btn-fechar-form" (click)="fechar()" title="Fechar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      @if (erro()) {
+        <div class="form-erro">{{ erro() }}</div>
+      }
+
+      @if (carregando()) {
+        <div class="form-loading">Carregando NF-e...</div>
+      } @else {
+
+        <!-- ══════ SECAO 1: IDENTIFICACAO ══════ -->
+        <div class="form-secao">Identificacao</div>
+        <div class="form-grid">
+          <div class="field field-3" [class.field-invalido]="erroCampo('naturezaOperacaoId')">
+            <label>NATUREZA DE OPERACAO *</label>
+            <select [value]="form().naturezaOperacaoId || ''" (change)="onNaturezaChange($any($event.target).value)">
+              <option value="" disabled>Selecione...</option>
+              @for (nat of naturezas(); track nat.id) {
+                <option [value]="nat.id">{{ nat.descricao }}</option>
+              }
+            </select>
+            @if (erroCampo('naturezaOperacaoId')) { <span class="field-erro">{{ erroCampo('naturezaOperacaoId') }}</span> }
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field field-3 lookup-wrap" [class.field-invalido]="erroCampo('destinatarioPessoaId')">
+            <label>DESTINATARIO *</label>
+            <input type="text" placeholder="Buscar por CNPJ/CPF ou nome..."
+                   [value]="destinatarioBusca()"
+                   (input)="onDestinatarioBusca($any($event.target).value)"
+                   (blur)="fecharDestinatarioDropdown()" />
+            @if (destinatarioAberto() && destinatarioResultados().length > 0) {
+              <div class="lookup-dropdown">
+                @for (p of destinatarioResultados(); track p.id) {
+                  <div class="lookup-item" (mousedown)="selecionarDestinatario(p)">
+                    <span class="lookup-cpf">{{ p.cpfCnpj }}</span>
+                    <span class="lookup-nome">{{ p.nome }}</span>
+                  </div>
+                }
+              </div>
+            }
+            @if (erroCampo('destinatarioPessoaId')) { <span class="field-erro">{{ erroCampo('destinatarioPessoaId') }}</span> }
+          </div>
+        </div>
+
+        @if (naturezaSelecionada()?.relacionarDocumentoFiscal) {
+          <div class="form-grid">
+            <div class="field field-3">
+              <label>NF-E REFERENCIADA (chave 44 digitos)</label>
+              <input type="text" maxlength="44" [value]="form().chaveNfeReferenciada ?? ''"
+                     (input)="upd('chaveNfeReferenciada', $any($event.target).value)" />
+            </div>
+          </div>
+        }
+
+        <div class="form-grid">
+          <div class="field field-3">
+            <label>OBSERVACAO</label>
+            <textarea rows="2" [value]="form().observacao ?? ''"
+                      (input)="upd('observacao', $any($event.target).value)"></textarea>
+          </div>
+        </div>
+
+        <!-- ══════ SECAO 2: ITENS ══════ -->
+        <div class="form-secao">Itens</div>
+
+        <div class="item-add-row">
+          <div class="field field-2 lookup-wrap">
+            <label>PRODUTO</label>
+            <input type="text" placeholder="Buscar produto..."
+                   [value]="produtoBusca()"
+                   (input)="onProdutoBusca($any($event.target).value)"
+                   (blur)="fecharProdutoDropdown()" />
+            @if (produtoAberto() && produtoResultados().length > 0) {
+              <div class="lookup-dropdown">
+                @for (p of produtoResultados(); track p.id) {
+                  <div class="lookup-item" (mousedown)="selecionarProduto(p)">
+                    <span class="lookup-cpf">{{ p.codigo }}</span>
+                    <span class="lookup-nome">{{ p.nome }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+          <div class="field" style="min-width:90px">
+            <label>QUANTIDADE</label>
+            <input type="text" inputmode="numeric" [value]="novoItemQtd()"
+                   (input)="novoItemQtd.set($any($event.target).value)" />
+          </div>
+          <div class="field" style="min-width:110px">
+            <label>VLR UNITARIO</label>
+            <input type="text" inputmode="numeric" [value]="novoItemVlrUnit()"
+                   (input)="novoItemVlrUnit.set($any($event.target).value)" />
+          </div>
+          <button class="btn-add-item" (click)="adicionarItem()" [disabled]="!produtoBusca()">
+            + Adicionar
+          </button>
+        </div>
+
+        @if (form().itens.length > 0) {
+          <div class="itens-grid-wrap">
+            <table class="itens-grid">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>NCM</th>
+                  <th>CFOP</th>
+                  <th class="th-num">Qtde</th>
+                  <th class="th-num">Vlr Unit</th>
+                  <th class="th-num">Vlr Total</th>
+                  <th class="th-acao"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of form().itens; track $index; let i = $index) {
+                  <tr>
+                    <td>{{ item.descricaoProduto }}</td>
+                    <td>{{ item.ncm }}</td>
+                    <td>{{ item.cfop }}</td>
+                    <td class="td-num">{{ item.quantidade }}</td>
+                    <td class="td-num">{{ formatMoney(item.valorUnitario) }}</td>
+                    <td class="td-num">{{ formatMoney(item.valorTotal) }}</td>
+                    <td><button class="btn-remove-row" (click)="removerItem(i)" title="Remover item">&#10005;</button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="itens-vazio">Nenhum item adicionado.</div>
+        }
+
+        <!-- ══════ SECAO 3: TRANSPORTE ══════ -->
+        <div class="form-secao">Transporte</div>
+        <div class="form-grid">
+          <div class="field field-2">
+            <label>MODALIDADE FRETE</label>
+            <select [value]="form().modFrete" (change)="upd('modFrete', +$any($event.target).value)">
+              <option [value]="0">0 - Por conta do emitente</option>
+              <option [value]="1">1 - Por conta do destinatario</option>
+              <option [value]="2">2 - Por conta de terceiros</option>
+              <option [value]="9">9 - Sem frete</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ══════ SECAO 4: TOTAIS ══════ -->
+        <div class="form-secao">Totais</div>
+        <div class="totais-wrap">
+          <div class="total-item">
+            <span class="total-label">Vlr Produtos</span>
+            <span class="total-valor">{{ formatMoney(totalProdutos()) }}</span>
+          </div>
+          <div class="total-item total-destaque">
+            <span class="total-label">Vlr Nota</span>
+            <span class="total-valor">{{ formatMoney(totalNota()) }}</span>
+          </div>
+        </div>
+
+      }
+    </div>
+
+    <!-- TOOLBAR FORM -->
+    <footer class="tela-toolbar">
+      @if (isDirty()) {
+        <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvarRascunho()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          {{ salvando() ? 'Salvando...' : 'Salvar Rascunho' }}
+        </button>
+      }
+      @if (form().id) {
+        <button class="tb-btn tb-emitir" [disabled]="emitindo()" (click)="emitirNfe()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          {{ emitindo() ? 'Emitindo...' : 'Emitir NF-e' }}
+        </button>
+      }
+      <button class="tb-btn tb-fechar" (click)="fechar()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Fechar
+      </button>
+    </footer>
+  </div>
+</div>

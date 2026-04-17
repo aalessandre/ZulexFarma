@@ -40,7 +40,17 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
     public async Task<ClassificacaoDetalheDto> ObterAsync(long id)
     {
         var e = await Set.FindAsync(id) ?? throw new KeyNotFoundException($"{_entidade} {id} não encontrado.");
-        return MapToDetalhe(e);
+        var dto = MapToDetalhe(e);
+        dto.ComissaoFaixas = await _db.ComissaoFaixasDesconto
+            .Where(f => f.TipoEntidade == _entidade && f.EntidadeId == id)
+            .OrderBy(f => f.Ordem)
+            .Select(f => new ComissaoFaixaDescontoDto
+            {
+                Id = f.Id, DescontoInicial = f.DescontoInicial,
+                DescontoFinal = f.DescontoFinal, ComissaoPercentual = f.ComissaoPercentual,
+                Ordem = f.Ordem
+            }).ToListAsync();
+        return dto;
     }
 
     public async Task<ClassificacaoListDto> CriarAsync(ClassificacaoFormDto dto)
@@ -50,6 +60,7 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
         MapFromDto(e, dto);
         Set.Add(e);
         await _db.SaveChangesAsync();
+        await SalvarFaixasAsync(e.Id, dto.ComissaoFaixas);
         await _log.RegistrarAsync(_tela, "CRIAÇÃO", _entidade, e.Id, novo: ParaDict(e));
         return new ClassificacaoListDto { Id = e.Id, Nome = e.Nome, ComissaoPercentual = e.ComissaoPercentual, MarkupPadrao = e.MarkupPadrao, ProjecaoLucro = e.ProjecaoLucro, CriadoEm = e.CriadoEm, Ativo = e.Ativo };
     }
@@ -61,6 +72,7 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
         bool controleLotesAntes = e.ControlarLotesVencimento;
         MapFromDto(e, dto);
         await _db.SaveChangesAsync();
+        await SalvarFaixasAsync(id, dto.ComissaoFaixas);
         var novo = ParaDict(e);
         if (!DictsIguais(anterior, novo))
             await _log.RegistrarAsync(_tela, "ALTERAÇÃO", _entidade, id, anterior: anterior, novo: novo);
@@ -89,6 +101,9 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
     {
         var e = await Set.FindAsync(id) ?? throw new KeyNotFoundException($"{_entidade} {id} não encontrado.");
         var dados = ParaDict(e);
+        var faixas = await _db.ComissaoFaixasDesconto
+            .Where(f => f.TipoEntidade == _entidade && f.EntidadeId == id).ToListAsync();
+        _db.ComissaoFaixasDesconto.RemoveRange(faixas);
         Set.Remove(e);
         try
         {
@@ -104,6 +119,33 @@ public class ClassificacaoProdutoService<T> where T : ClassificacaoProdutoBase, 
             await _db.SaveChangesAsync();
             await _log.RegistrarAsync(_tela, "DESATIVAÇÃO", _entidade, id);
             return "desativado";
+        }
+    }
+
+    private async Task SalvarFaixasAsync(long entidadeId, List<ComissaoFaixaDescontoDto> faixasDto)
+    {
+        var existentes = await _db.ComissaoFaixasDesconto
+            .Where(f => f.TipoEntidade == _entidade && f.EntidadeId == entidadeId)
+            .ToListAsync();
+
+        _db.ComissaoFaixasDesconto.RemoveRange(existentes);
+
+        if (faixasDto?.Count > 0)
+        {
+            for (int i = 0; i < faixasDto.Count; i++)
+            {
+                var fd = faixasDto[i];
+                _db.ComissaoFaixasDesconto.Add(new ComissaoFaixaDesconto
+                {
+                    TipoEntidade = _entidade,
+                    EntidadeId = entidadeId,
+                    DescontoInicial = fd.DescontoInicial,
+                    DescontoFinal = fd.DescontoFinal,
+                    ComissaoPercentual = fd.ComissaoPercentual,
+                    Ordem = i
+                });
+            }
+            await _db.SaveChangesAsync();
         }
     }
 

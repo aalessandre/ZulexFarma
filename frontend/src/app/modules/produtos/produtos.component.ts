@@ -20,6 +20,14 @@ interface AbaConfig {
   cor: string;
 }
 
+interface ComissaoFaixaDesconto {
+  id?: number;
+  descontoInicial: number;
+  descontoFinal: number;
+  comissaoPercentual: number;
+  ordem: number;
+}
+
 interface Classificacao {
   id?: number;
   nome: string;
@@ -39,6 +47,7 @@ interface Classificacao {
   atualizarAbcFarma: boolean;
   ativo: boolean;
   criadoEm?: string;
+  comissaoFaixas: ComissaoFaixaDesconto[];
 }
 
 interface ColunaDef {
@@ -740,7 +749,11 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           permitirPromocao: d.permitirPromocao ?? false,
           permitirDescontosProgressivos: d.permitirDescontosProgressivos ?? false,
           atualizarAbcFarma: d.atualizarAbcFarma ?? true,
-          ativo: d.ativo, criadoEm: d.criadoEm
+          ativo: d.ativo, criadoEm: d.criadoEm,
+          comissaoFaixas: (d.comissaoFaixas ?? []).map((f: any) => ({
+            id: f.id, descontoInicial: f.descontoInicial, descontoFinal: f.descontoFinal,
+            comissaoPercentual: f.comissaoPercentual, ordem: f.ordem
+          }))
         };
         this.registroForm.set(form);
         this.formOriginal = { ...form };
@@ -886,6 +899,54 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.isDirty.set(true);
   }
 
+  // ── Comissão Faixas ──────────────────────────────────────────────
+  novaFaixaDescontoInicial = signal<number | null>(null);
+  novaFaixaDescontoFinal = signal<number | null>(null);
+  novaFaixaComissao = signal<number | null>(null);
+
+  proximoDescontoInicial(): number | null {
+    const faixas = this.registroForm().comissaoFaixas;
+    if (faixas.length === 0) return null;
+    const ultima = faixas[faixas.length - 1];
+    return +(ultima.descontoFinal + 0.01).toFixed(2);
+  }
+
+  adicionarFaixa() {
+    const faixas = this.registroForm().comissaoFaixas;
+    const descInicial = faixas.length === 0
+      ? this.novaFaixaDescontoInicial()
+      : this.proximoDescontoInicial();
+    const descFinal = this.novaFaixaDescontoFinal();
+    const comissao = this.novaFaixaComissao();
+
+    if (descInicial == null || descFinal == null || comissao == null) return;
+    if (descFinal <= descInicial) return;
+
+    const nova: ComissaoFaixaDesconto = {
+      descontoInicial: descInicial,
+      descontoFinal: descFinal,
+      comissaoPercentual: comissao,
+      ordem: faixas.length
+    };
+
+    this.registroForm.update(f => ({
+      ...f,
+      comissaoFaixas: [...f.comissaoFaixas, nova]
+    }));
+    this.isDirty.set(true);
+    this.novaFaixaDescontoInicial.set(null);
+    this.novaFaixaDescontoFinal.set(null);
+    this.novaFaixaComissao.set(null);
+  }
+
+  removerFaixa(idx: number) {
+    this.registroForm.update(f => {
+      const faixas = f.comissaoFaixas.filter((_, i) => i !== idx);
+      return { ...f, comissaoFaixas: faixas.map((fx, i) => ({ ...fx, ordem: i })) };
+    });
+    this.isDirty.set(true);
+  }
+
   private validar(): boolean {
     const f = this.registroForm();
     if (!f.nome?.trim()) {
@@ -902,7 +963,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       descontoMaximoComSenha: 0, projecaoLucro: 30, markupPadrao: 50,
       baseCalculo: 'CUSTO_COMPRA', controlarLotesVencimento: false, informarPrescritorVenda: false,
       imprimirEtiqueta: false, permitirDescontoPrazo: false, permitirPromocao: false,
-      permitirDescontosProgressivos: false, atualizarAbcFarma: true, ativo: true
+      permitirDescontosProgressivos: false, atualizarAbcFarma: true, ativo: true,
+      comissaoFaixas: []
     };
   }
 

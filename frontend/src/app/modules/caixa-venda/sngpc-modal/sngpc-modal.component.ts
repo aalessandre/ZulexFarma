@@ -65,10 +65,19 @@ interface ReceitaForm {
 
   itens: {
     vendaItemId: number;
+    produtoId?: number;
+    produtoNome?: string;
     produtoLoteId: number;
     quantidade: number;
     _incluido: boolean;
+    /** Lotes disponíveis — no modo manual, cada item carrega os seus próprios. */
+    _lotesDisponiveis?: LoteDisponivel[];
   }[];
+
+  // Campos só usados no modo manual (busca de produto)
+  _produtoBusca: string;
+  _produtoResultados: ItemControlado[];
+  _produtoDropdown: boolean;
 
   _aberta: boolean;
 }
@@ -92,6 +101,12 @@ export class SngpcModalComponent implements OnInit {
 
   /** Quando passado, usa esta lista direto em vez de buscar por vendaId. Usado no fluxo "Avançar" antes da venda existir. */
   @Input() itensControladosInput: ItemControlado[] | null = null;
+
+  /** Modo receita manual (sem venda associada). No modo manual, o usuário busca produtos direto via autocomplete. */
+  @Input() manual = false;
+
+  /** Filial — obrigatório no modo manual para buscar produtos e lotes. */
+  @Input() filialId: number | null = null;
 
   @Output() confirmar = new EventEmitter<{ receitas: any[]; lancarDepois: boolean }>();
   @Output() cancelar = new EventEmitter<void>();
@@ -137,6 +152,12 @@ export class SngpcModalComponent implements OnInit {
   constructor(private http: HttpClient, private modal: ModalService) {}
 
   ngOnInit() {
+    // Modo Manual: nenhuma venda, começa vazio e adiciona uma receita em branco
+    if (this.manual) {
+      this.carregando.set(false);
+      if (this.receitas().length === 0) this.adicionarReceita();
+      return;
+    }
     // Modo 1: itens já passados pelo pai (fluxo Avançar — venda ainda não existe)
     if (this.itensControladosInput !== null) {
       this.aplicarItens(this.itensControladosInput);
@@ -162,7 +183,7 @@ export class SngpcModalComponent implements OnInit {
     });
   }
 
-  private aplicarItens(itens: ItemControlado[]) {
+  private async aplicarItens(itens: ItemControlado[]) {
     this.itensControlados.set(itens);
     this.carregando.set(false);
 
@@ -173,11 +194,17 @@ export class SngpcModalComponent implements OnInit {
     });
     if (semLote.length > 0) {
       const nomes = semLote.map(i => i.produtoNome).join(', ');
-      this.modal.erro('Sem estoque de lote', `Os produtos abaixo não possuem saldo de lote suficiente para venda SNGPC:\n\n${nomes}\n\nRegularize os lotes antes de prosseguir.`);
+      await this.modal.erro('Sem estoque de lote', `Os produtos abaixo não possuem saldo de lote suficiente para venda SNGPC:\n\n${nomes}\n\nRegularize os lotes antes de prosseguir.`);
+      // Fecha a modal/tela pois não há como prosseguir sem estoque.
+      // No fluxo inline (Avançar da venda) emite "voltar" pra voltar ao cart.
+      // No fluxo modal (tela pendentes) emite "cancelar" pra fechar.
+      if (this.inline) this.voltar.emit();
+      else this.cancelar.emit();
+      return;
     }
 
     // Pré-cria 1 receita se só há 1 item e ainda não existem receitas
-    if (itens.length > 0 && this.receitas().length === 0) this.adicionarReceita();
+    if (itens.length > 0 && this.receitas().length === 0) this.adicionarReceita(itens);
   }
 
   /** Chamado externamente quando o pai fornece/atualiza os itens controlados. */
@@ -197,8 +224,25 @@ export class SngpcModalComponent implements OnInit {
     })));
   }
 
-  adicionarReceita() {
+  adicionarReceita(itensFonte?: ItemControlado[]) {
     const hoje = new Date().toISOString().slice(0, 10);
+    // No modo manual, começa sem itens. No modo venda, pré-popula com os controlados do cart.
+    // Prioriza itensFonte passado direto (evita problema de timing com signal ainda não propagado).
+    const base = itensFonte ?? this.itensControlados();
+    const ehPrimeiraReceita = this.receitas().length === 0;
+    const itensIniciais = this.manual
+      ? []
+      : base.map(i => ({
+          vendaItemId: i.vendaItemId,
+          produtoId: i.produtoId,
+          produtoNome: i.produtoNome,
+          produtoLoteId: i.lotesDisponiveis[0]?.produtoLoteId ?? 0,
+          quantidade: i.quantidade,
+          // Primeira receita: já marca todos (fluxo comum, cobre tudo de uma vez).
+          // Receitas seguintes: desmarca (operador escolhe quais itens vão aqui).
+          _incluido: ehPrimeiraReceita
+        }));
+
     const r: ReceitaForm = {
       tipo: 'ReceitaC1',
       numeroNotificacao: '',
@@ -224,12 +268,10 @@ export class SngpcModalComponent implements OnInit {
       pacienteTelefone: '',
       compradorMesmoPaciente: true,
       compradorNome: '', compradorCpf: '', compradorRg: '', compradorEndereco: '',
-      itens: this.itensControlados().map(i => ({
-        vendaItemId: i.vendaItemId,
-        produtoLoteId: i.lotesDisponiveis[0]?.produtoLoteId ?? 0,
-        quantidade: i.quantidade,
-        _incluido: false
-      })),
+      itens: itensIniciais,
+      _produtoBusca: '',
+      _produtoResultados: [],
+      _produtoDropdown: false,
       _aberta: true
     };
     this.receitas.update(list => [...list.map(x => ({ ...x, _aberta: false })), r]);
@@ -321,6 +363,75 @@ export class SngpcModalComponent implements OnInit {
     }));
   }
 
+  // ── Busca de produto (modo manual) ───────────────────────────────
+  private produtoBuscaTimer: any = null;
+
+  onProdutoBusca(idx: number, valor: string) {
+    this.updReceita(idx, '_produtoBusca', valor);
+    if (this.produtoBuscaTimer) clearTimeout(this.produtoBuscaTimer);
+    if (valor.trim().length < 2) {
+      this.updReceita(idx, '_produtoResultados', []);
+      this.updReceita(idx, '_produtoDropdown', false);
+      return;
+    }
+    this.produtoBuscaTimer = setTimeout(() => {
+      const params = `termo=${encodeURIComponent(valor.trim())}&filialId=${this.filialId ?? 0}`;
+      this.http.get<any>(`${this.api}/sngpc/vendas/produtos-sngpc?${params}`).subscribe({
+        next: r => {
+          this.updReceita(idx, '_produtoResultados', r.data ?? []);
+          this.updReceita(idx, '_produtoDropdown', (r.data ?? []).length > 0);
+        }
+      });
+    }, 300);
+  }
+
+  adicionarItemManual(idx: number, prod: ItemControlado) {
+    if (!prod.lotesDisponiveis || prod.lotesDisponiveis.length === 0) {
+      this.modal.aviso('Sem lote', `Produto ${prod.produtoNome} não possui lote disponível.`);
+      return;
+    }
+    this.receitas.update(list => list.map((r, i) => {
+      if (i !== idx) return r;
+      // Evita duplicar
+      if (r.itens.some(it => it.produtoId === prod.produtoId && it._incluido)) return r;
+      return {
+        ...r,
+        itens: [
+          ...r.itens,
+          {
+            vendaItemId: -Math.floor(Math.random() * 1_000_000),
+            produtoId: prod.produtoId,
+            produtoNome: prod.produtoNome,
+            produtoLoteId: prod.lotesDisponiveis[0].produtoLoteId,
+            quantidade: 1,
+            _incluido: true,
+            _lotesDisponiveis: prod.lotesDisponiveis
+          }
+        ],
+        _produtoBusca: '',
+        _produtoResultados: [],
+        _produtoDropdown: false
+      };
+    }));
+  }
+
+  removerItemManual(idx: number, vendaItemId: number) {
+    this.receitas.update(list => list.map((r, i) => {
+      if (i !== idx) return r;
+      return { ...r, itens: r.itens.filter(it => it.vendaItemId !== vendaItemId) };
+    }));
+  }
+
+  updItemQuantidade(idx: number, vendaItemId: number, qtde: number) {
+    this.receitas.update(list => list.map((r, i) => {
+      if (i !== idx) return r;
+      return {
+        ...r,
+        itens: r.itens.map(it => it.vendaItemId === vendaItemId ? { ...it, quantidade: Math.max(1, qtde) } : it)
+      };
+    }));
+  }
+
   // ── Itens vinculados ─────────────────────────────────────────────
   toggleItem(idx: number, vendaItemId: number) {
     this.receitas.update(list => list.map((r, i) => {
@@ -360,6 +471,11 @@ export class SngpcModalComponent implements OnInit {
     return this.itensControlados().find(i => i.vendaItemId === vendaItemId)?.lotesDisponiveis ?? [];
   }
 
+  /** No modo manual, os lotes vêm do próprio item adicionado (via busca), não do itensControlados global. */
+  lotesItemManual(item: any): LoteDisponivel[] {
+    return item?._lotesDisponiveis ?? [];
+  }
+
   // ── Finalização ──────────────────────────────────────────────────
   validarReceita(r: ReceitaForm): string | null {
     if (!r.prescritorId && !r.prescritorNovo) return 'Informe o prescritor.';
@@ -374,16 +490,18 @@ export class SngpcModalComponent implements OnInit {
     if (precisaNotificacao && !r.numeroNotificacao?.trim()) return 'Nº da notificação obrigatório para A/B1/B2.';
     if (!r.compradorMesmoPaciente && !r.compradorNome?.trim()) return 'Nome do comprador é obrigatório.';
     const inclusos = r.itens.filter(i => i._incluido);
-    if (inclusos.length === 0) return 'Selecione ao menos 1 item da venda.';
+    if (inclusos.length === 0) return this.manual ? 'Adicione ao menos 1 produto à receita.' : 'Selecione ao menos 1 item da venda.';
     for (const it of inclusos) {
-      if (!it.produtoLoteId) return `Selecione o lote do item ${this.labelItem(it.vendaItemId)}.`;
-      if (!it.quantidade || it.quantidade <= 0) return `Quantidade inválida no item ${this.labelItem(it.vendaItemId)}.`;
+      const label = this.manual ? (it.produtoNome ?? '') : this.labelItem(it.vendaItemId);
+      if (!it.produtoLoteId) return `Selecione o lote do item ${label}.`;
+      if (!it.quantidade || it.quantidade <= 0) return `Quantidade inválida no item ${label}.`;
     }
     return null;
   }
 
   async confirmarFinalizacao() {
-    if (!this.todosCobertos()) {
+    // No modo manual não exige cobertura do cart (não há cart)
+    if (!this.manual && !this.todosCobertos()) {
       await this.modal.aviso('Itens faltando', 'Todos os produtos controlados precisam estar em alguma receita antes de confirmar.');
       return;
     }
@@ -422,6 +540,7 @@ export class SngpcModalComponent implements OnInit {
       compradorEndereco: r.compradorMesmoPaciente ? null : (r.compradorEndereco || null),
       itens: r.itens.filter(it => it._incluido).map(it => ({
         vendaItemId: it.vendaItemId,
+        produtoId: it.produtoId ?? null,
         produtoLoteId: it.produtoLoteId,
         quantidade: it.quantidade
       }))

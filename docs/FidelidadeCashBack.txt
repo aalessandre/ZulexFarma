@@ -1,0 +1,14 @@
+precisamos criar nosso modulo de Fidelidade, será composto por 2 itens
+- Pontos => esquema de contagem de pontos
+- Chash back
+
+CashBack:
+voce criou a tela de cashback igual a tela de pontos, mas é diferente, agora iremos criar o esquema de cashback.
+- remova o campo modo, pois cashback semre será por venda
+- remova os campos:
+  - VALOR BASE (R$) *
+  - % CASHBACK *
+- acrescente os campos Vlr Venda, %Cash e Valor Cash logo após ITEM, quando o usuario selecionar um item, ele precisa informar ou o percentual ou o valor do cashbach, e um deve recalcular outro em relação ao preço de venda
+- alem de possibilitar inserir um agrupador, vamos tambem dar a passibilidade de inserir por produto, igual ja tem na tela de clientes, na parte de comissão, mas mantendo os campos Vlr Venda, %Cash e Valor Cash
+
+Lembre-se a tela de cashback não será a mesma tela de pontos, são telas separadas

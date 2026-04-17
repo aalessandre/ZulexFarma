@@ -11,6 +11,15 @@ public class ClassificacaoListDto
     public bool Ativo { get; set; }
 }
 
+public class ComissaoFaixaDescontoDto
+{
+    public long? Id { get; set; }
+    public decimal DescontoInicial { get; set; }
+    public decimal DescontoFinal { get; set; }
+    public decimal ComissaoPercentual { get; set; }
+    public int Ordem { get; set; }
+}
+
 public class ClassificacaoFormDto
 {
     public string Nome { get; set; } = string.Empty;
@@ -29,6 +38,7 @@ public class ClassificacaoFormDto
     public bool PermitirDescontosProgressivos { get; set; } = false;
     public bool AtualizarAbcFarma { get; set; } = true;
     public bool Ativo { get; set; } = true;
+    public List<ComissaoFaixaDescontoDto> ComissaoFaixas { get; set; } = new();
 }
 
 public class ClassificacaoDetalheDto : ClassificacaoFormDto

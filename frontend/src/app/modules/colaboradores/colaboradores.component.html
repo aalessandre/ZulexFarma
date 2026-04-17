@@ -610,6 +610,80 @@
           </div>
         </div>
 
+        <!-- ══════ ACCORDION COMISSÃO ══════ -->
+        <details class="prod-accordion comissao-accordion">
+          <summary class="prod-acc-header acc-comissao">Comissão por Agrupador ({{ colaboradorForm().comissaoAgrupadores.length }})</summary>
+          <div class="prod-acc-body">
+
+            <div class="comissao-agrup-add">
+              <div class="field">
+                <label>TIPO</label>
+                <select [value]="comTipoAgrupador()" (change)="carregarComAgrupadores(+$any($event.target).value)">
+                  <option [value]="1">Grupo Principal</option>
+                  <option [value]="2">Grupo</option>
+                  <option [value]="3">SubGrupo</option>
+                  <option [value]="4">Seção</option>
+                </select>
+              </div>
+              <div class="field field-2">
+                <label>AGRUPADOR</label>
+                <select [value]="comAgrupadorId()" (change)="comAgrupadorId.set(+$any($event.target).value)">
+                  <option [value]="0">-- Selecione --</option>
+                  @for (a of comAgrupadores(); track a.id) {
+                    <option [value]="a.id">{{ a.nome }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label>% COMISSÃO</label>
+                <input type="text" inputmode="numeric"
+                       [value]="comPercentual()"
+                       (input)="comPercentual.set(+$any($event.target).value)"
+                       placeholder="0,00" />
+              </div>
+              <div style="align-self:flex-end">
+                <button class="btn-add-item" (click)="adicionarComissaoAgrupador()"
+                        [disabled]="!comAgrupadorId() || comPercentual() == null">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Adicionar
+                </button>
+              </div>
+            </div>
+
+            @if (colaboradorForm().comissaoAgrupadores.length > 0) {
+              <table class="comissao-agrup-grid">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Agrupador</th>
+                    <th>% Comissão</th>
+                    <th class="th-acao"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (ca of colaboradorForm().comissaoAgrupadores; track $index; let i = $index) {
+                    <tr>
+                      <td>{{ tipoAgrupadorLabel(ca.tipoAgrupador) }}</td>
+                      <td>{{ ca.agrupadorNome }}</td>
+                      <td>{{ ca.comissaoPercentual | number:'1.2-2':'pt-BR' }}</td>
+                      <td><button class="btn-remove-item" (click)="removerComissaoAgrupador(i)" title="Remover">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <div class="item-vazio">Nenhuma comissão por agrupador definida.</div>
+            }
+
+          </div>
+        </details>
+
         <!-- ══════ ACCORDION OBSERVAÇÃO ══════ -->
         <div class="accordion" [class.aberto]="accObservacao()">
           <div class="accordion-header" (click)="accObservacao.update(v => !v)">

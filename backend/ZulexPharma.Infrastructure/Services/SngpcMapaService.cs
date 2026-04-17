@@ -107,10 +107,12 @@ public class SngpcMapaService : ISngpcMapaService
                  || p.Produto.ClasseTerapeutica == ProdutoControleHelper.CLASSE_ANTIMICROBIANO))
             .ToListAsync();
 
-        // Receitas
-        var receitas = await _db.Receitas
-            .Include(r => r.Itens).ThenInclude(i => i.Produto)
-            .Where(r => r.FilialId == req.FilialId
+        // Receitas (VendaReceita — ligadas a vendas finalizadas)
+        var receitas = await _db.VendaReceitas
+            .Include(r => r.Venda)
+            .Include(r => r.Prescritor)
+            .Include(r => r.Itens).ThenInclude(i => i.VendaItem).ThenInclude(vi => vi.Produto)
+            .Where(r => r.Venda.FilialId == req.FilialId
                 && r.DataEmissao >= inicio && r.DataEmissao < fim)
             .ToListAsync();
 
@@ -167,12 +169,13 @@ public class SngpcMapaService : ISngpcMapaService
                     new XAttribute("total", receitas.Count),
                     receitas.Select(r => new XElement(ns + "receita",
                         new XElement(ns + "data", r.DataEmissao.ToString("yyyy-MM-dd")),
-                        new XElement(ns + "numero", r.NumeroReceita ?? ""),
-                        new XElement(ns + "tipo", r.TipoReceita ?? ""),
-                        new XElement(ns + "medico",
-                            new XElement(ns + "nome", r.MedicoNome),
-                            new XElement(ns + "crm", r.MedicoCrm ?? ""),
-                            new XElement(ns + "uf", r.MedicoUf ?? "")
+                        new XElement(ns + "numero", r.NumeroNotificacao ?? ""),
+                        new XElement(ns + "tipo", r.Tipo.ToString()),
+                        new XElement(ns + "prescritor",
+                            new XElement(ns + "nome", r.Prescritor.Nome),
+                            new XElement(ns + "tipoConselho", r.Prescritor.TipoConselho),
+                            new XElement(ns + "numero", r.Prescritor.NumeroConselho),
+                            new XElement(ns + "uf", r.Prescritor.Uf)
                         ),
                         new XElement(ns + "paciente",
                             new XElement(ns + "nome", r.PacienteNome),
@@ -180,7 +183,7 @@ public class SngpcMapaService : ISngpcMapaService
                         ),
                         new XElement(ns + "itens",
                             r.Itens.Select(i => new XElement(ns + "item",
-                                new XElement(ns + "produto", i.Produto.Nome),
+                                new XElement(ns + "produto", i.VendaItem.Produto.Nome),
                                 new XElement(ns + "quantidade", i.Quantidade.ToString("0.####"))
                             ))
                         )

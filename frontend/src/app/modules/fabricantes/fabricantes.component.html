@@ -211,6 +211,71 @@
             <input type="text" inputmode="numeric" [value]="fabricanteForm().descontoMaximoComSenha" (input)="upd('descontoMaximoComSenha', +$any($event.target).value)" />
           </div>
         </div>
+
+        <!-- ══════ ACCORDION COMISSÃO POR FAIXA DE DESCONTO ══════ -->
+        <details class="prod-accordion comissao-accordion">
+          <summary class="prod-acc-header acc-comissao">Comissão por Faixa de Desconto ({{ fabricanteForm().comissaoFaixas.length }})</summary>
+          <div class="prod-acc-body">
+            <div class="comissao-info">Quanto maior o desconto concedido, menor a comissão do vendedor.</div>
+
+            <div class="comissao-add-row">
+              <div class="comissao-field">
+                <label>% DESC. INICIAL</label>
+                @if (fabricanteForm().comissaoFaixas.length === 0) {
+                  <input type="text" inputmode="numeric"
+                         [value]="novaFaixaDescontoInicial()"
+                         (input)="novaFaixaDescontoInicial.set(+$any($event.target).value)"
+                         placeholder="0,00" />
+                } @else {
+                  <input type="text" [value]="proximoDescontoInicial() | number:'1.2-2':'pt-BR'" disabled class="field-disabled" />
+                }
+              </div>
+              <div class="comissao-field">
+                <label>% DESC. FINAL</label>
+                <input type="text" inputmode="numeric"
+                       [value]="novaFaixaDescontoFinal()"
+                       (input)="novaFaixaDescontoFinal.set(+$any($event.target).value)"
+                       placeholder="0,00" />
+              </div>
+              <div class="comissao-field">
+                <label>% COMISSÃO</label>
+                <input type="text" inputmode="numeric"
+                       [value]="novaFaixaComissao()"
+                       (input)="novaFaixaComissao.set(+$any($event.target).value)"
+                       placeholder="0,00" />
+              </div>
+              <button class="btn-add-faixa" (click)="adicionarFaixa()"
+                      [disabled]="novaFaixaDescontoFinal() == null || novaFaixaComissao() == null || (fabricanteForm().comissaoFaixas.length === 0 && novaFaixaDescontoInicial() == null)">
+                + Adicionar
+              </button>
+            </div>
+
+            @if (fabricanteForm().comissaoFaixas.length > 0) {
+              <table class="comissao-grid">
+                <thead>
+                  <tr>
+                    <th class="th-desc">% Desc. Inicial</th>
+                    <th class="th-desc">% Desc. Final</th>
+                    <th class="th-comissao">% Comissão</th>
+                    <th class="th-acao"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (fx of fabricanteForm().comissaoFaixas; track $index; let i = $index) {
+                    <tr>
+                      <td>{{ fx.descontoInicial | number:'1.2-2':'pt-BR' }}</td>
+                      <td>{{ fx.descontoFinal | number:'1.2-2':'pt-BR' }}</td>
+                      <td>{{ fx.comissaoPercentual | number:'1.2-2':'pt-BR' }}</td>
+                      <td><button class="btn-remove-row" (click)="removerFaixa(i)" title="Remover faixa">✕</button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <div class="comissao-vazio">Nenhuma faixa de comissão definida.</div>
+            }
+          </div>
+        </details>
       </div>
 
       <!-- TOOLBAR FORM -->

@@ -143,6 +143,7 @@ public class VendaReceitaService : IVendaReceitaService
                 var receita = new VendaReceita
                 {
                     VendaId = vendaId,
+                    FilialId = venda.FilialId,
                     Tipo = rec.Tipo,
                     NumeroNotificacao = string.IsNullOrWhiteSpace(rec.NumeroNotificacao) ? null : rec.NumeroNotificacao.Trim(),
                     DataEmissao = rec.DataEmissao,
@@ -201,6 +202,7 @@ public class VendaReceitaService : IVendaReceitaService
                     {
                         VendaReceitaId = receita.Id,
                         VendaItemId = vendaItem.Id,
+                        ProdutoId = vendaItem.ProdutoId,
                         ProdutoLoteId = lote.Id,
                         Quantidade = itForm.Quantidade
                     });
@@ -230,33 +232,84 @@ public class VendaReceitaService : IVendaReceitaService
         }
     }
 
-    public async Task<List<VendaSngpcPendenteDto>> ListarPendentesAsync(long? filialId = null)
+    public async Task<List<VendaSngpcPendenteDto>> ListarVendasSngpcAsync(string? filtro = null, long? filialId = null, DateTime? dataInicio = null, DateTime? dataFim = null)
     {
         try
         {
-            var q = _db.Vendas
-                .Include(v => v.Cliente).ThenInclude(c => c!.Pessoa)
-                .Include(v => v.Itens).ThenInclude(i => i.Produto)
-                .Where(v => v.SngpcPendente);
-            if (filialId.HasValue) q = q.Where(v => v.FilialId == filialId.Value);
+            var f = (filtro ?? "todas").ToLower();
 
-            var vendas = await q.OrderByDescending(v => v.DataFinalizacao ?? v.DataPreVenda).ToListAsync();
+            // ── 1) Vendas finalizadas com controlados ─────────────
+            var resultado = new List<VendaSngpcPendenteDto>();
 
-            return vendas.Select(v =>
+            if (f != "manuais")
             {
-                var controlados = v.Itens.Where(i => i.Produto != null && ProdutoControleHelper.IsProdutoSngpc(i.Produto)).ToList();
-                return new VendaSngpcPendenteDto
+                var q = _db.Vendas
+                    .Include(v => v.Cliente).ThenInclude(c => c!.Pessoa)
+                    .Include(v => v.Itens).ThenInclude(i => i.Produto)
+                    .Include(v => v.Receitas)
+                    .Where(v => v.Status == Domain.Enums.VendaStatus.Finalizada
+                        && v.Itens.Any(i => i.Produto != null
+                            && (i.Produto.ClasseTerapeutica == ProdutoControleHelper.CLASSE_PSICOTROPICOS
+                             || i.Produto.ClasseTerapeutica == ProdutoControleHelper.CLASSE_ANTIMICROBIANO)));
+
+                if (f == "pendentes") q = q.Where(v => v.SngpcPendente || !v.Receitas.Any());
+                else if (f == "lancadas") q = q.Where(v => !v.SngpcPendente && v.Receitas.Any());
+
+                if (filialId.HasValue) q = q.Where(v => v.FilialId == filialId.Value);
+                if (dataInicio.HasValue) q = q.Where(v => v.DataFinalizacao >= dataInicio.Value.Date);
+                if (dataFim.HasValue) { var fim = dataFim.Value.Date.AddDays(1); q = q.Where(v => v.DataFinalizacao < fim); }
+
+                var vendas = await q.OrderByDescending(v => v.DataFinalizacao ?? v.DataPreVenda).ToListAsync();
+
+                resultado.AddRange(vendas.Select(v =>
                 {
-                    VendaId = v.Id,
-                    Codigo = v.Codigo,
-                    DataFinalizacao = v.DataFinalizacao,
-                    ClienteNome = v.Cliente?.Pessoa?.Nome,
-                    QtdeItensControlados = controlados.Count,
-                    QtdeTotal = controlados.Sum(i => (decimal)i.Quantidade)
-                };
-            }).ToList();
+                    var controlados = v.Itens.Where(i => i.Produto != null && ProdutoControleHelper.IsProdutoSngpc(i.Produto)).ToList();
+                    var temReceita = v.Receitas.Any();
+                    return new VendaSngpcPendenteDto
+                    {
+                        VendaId = v.Id,
+                        ReceitaId = null,
+                        Codigo = v.Codigo,
+                        DataFinalizacao = v.DataFinalizacao,
+                        ClienteNome = v.Cliente?.Pessoa?.Nome,
+                        QtdeItensControlados = controlados.Count,
+                        QtdeTotal = controlados.Sum(i => (decimal)i.Quantidade),
+                        Status = temReceita ? "Lançada" : "Pendente",
+                        QtdeReceitas = v.Receitas.Count
+                    };
+                }));
+            }
+
+            // ── 2) Receitas manuais (sem venda) — linhas amarelas ──
+            if (f != "pendentes" && f != "lancadas")
+            {
+                var qm = _db.VendaReceitas
+                    .Include(r => r.Itens).ThenInclude(i => i.Produto)
+                    .Where(r => r.VendaId == null);
+
+                if (filialId.HasValue) qm = qm.Where(r => r.FilialId == filialId.Value);
+                if (dataInicio.HasValue) qm = qm.Where(r => r.DataEmissao >= dataInicio.Value.Date);
+                if (dataFim.HasValue) { var fimM = dataFim.Value.Date.AddDays(1); qm = qm.Where(r => r.DataEmissao < fimM); }
+
+                var manuais = await qm.OrderByDescending(r => r.DataEmissao).ToListAsync();
+
+                resultado.AddRange(manuais.Select(r => new VendaSngpcPendenteDto
+                {
+                    VendaId = null,
+                    ReceitaId = r.Id,
+                    Codigo = $"M-{r.Id}",
+                    DataFinalizacao = r.DataEmissao,
+                    ClienteNome = r.PacienteNome,
+                    QtdeItensControlados = r.Itens.Count,
+                    QtdeTotal = r.Itens.Sum(i => i.Quantidade),
+                    Status = "Manual",
+                    QtdeReceitas = 1
+                }));
+            }
+
+            return resultado.OrderByDescending(x => x.DataFinalizacao).ToList();
         }
-        catch (Exception ex) { Log.Error(ex, "Erro em VendaReceitaService.ListarPendentesAsync"); throw; }
+        catch (Exception ex) { Log.Error(ex, "Erro em VendaReceitaService.ListarVendasSngpcAsync"); throw; }
     }
 
     public async Task<List<VendaReceitaListDto>> ListarReceitasAsync(long vendaId)
@@ -284,6 +337,213 @@ public class VendaReceitaService : IVendaReceitaService
                 .ToListAsync();
         }
         catch (Exception ex) { Log.Error(ex, "Erro em VendaReceitaService.ListarReceitasAsync | VendaId: {VendaId}", vendaId); throw; }
+    }
+
+    // ─── Receita Manual (sem venda) ──────────────────────────────
+
+    public async Task<long> RegistrarReceitaManualAsync(VendaReceitaFormDto rec, long filialId, long? usuarioId = null)
+    {
+        try
+        {
+            if (rec == null) throw new ArgumentException("Informe os dados da receita.");
+            ValidarReceita(rec);
+
+            var prescritorId = await ResolverPrescritorAsync(rec);
+
+            var receita = new VendaReceita
+            {
+                VendaId = null,
+                FilialId = filialId,
+                Tipo = rec.Tipo,
+                NumeroNotificacao = string.IsNullOrWhiteSpace(rec.NumeroNotificacao) ? null : rec.NumeroNotificacao.Trim(),
+                DataEmissao = rec.DataEmissao,
+                DataValidade = rec.DataValidade,
+                Cid = string.IsNullOrWhiteSpace(rec.Cid) ? null : rec.Cid.Trim().ToUpper(),
+                PrescritorId = prescritorId,
+                PacienteNome = rec.PacienteNome.Trim().ToUpper(),
+                PacienteCpf = SoDigitosOuNull(rec.PacienteCpf),
+                PacienteRg = SoDigitosOuNull(rec.PacienteRg),
+                PacienteNascimento = rec.PacienteNascimento,
+                PacienteSexo = rec.PacienteSexo?.Trim().ToUpper(),
+                PacienteEndereco = rec.PacienteEndereco?.Trim().ToUpper(),
+                PacienteNumero = rec.PacienteNumero?.Trim(),
+                PacienteBairro = rec.PacienteBairro?.Trim().ToUpper(),
+                PacienteCidade = rec.PacienteCidade?.Trim().ToUpper(),
+                PacienteUf = rec.PacienteUf?.Trim().ToUpper(),
+                PacienteCep = rec.PacienteCep?.Trim(),
+                PacienteTelefone = rec.PacienteTelefone?.Trim(),
+                CompradorMesmoPaciente = rec.CompradorMesmoPaciente,
+                CompradorNome = rec.CompradorMesmoPaciente ? null : rec.CompradorNome?.Trim().ToUpper(),
+                CompradorCpf = rec.CompradorMesmoPaciente ? null : SoDigitosOuNull(rec.CompradorCpf),
+                CompradorRg = rec.CompradorMesmoPaciente ? null : SoDigitosOuNull(rec.CompradorRg),
+                CompradorEndereco = rec.CompradorMesmoPaciente ? null : rec.CompradorEndereco?.Trim().ToUpper(),
+                CompradorNumero = rec.CompradorMesmoPaciente ? null : rec.CompradorNumero?.Trim(),
+                CompradorBairro = rec.CompradorMesmoPaciente ? null : rec.CompradorBairro?.Trim().ToUpper(),
+                CompradorCidade = rec.CompradorMesmoPaciente ? null : rec.CompradorCidade?.Trim().ToUpper(),
+                CompradorUf = rec.CompradorMesmoPaciente ? null : rec.CompradorUf?.Trim().ToUpper(),
+                CompradorCep = rec.CompradorMesmoPaciente ? null : rec.CompradorCep?.Trim(),
+                CompradorTelefone = rec.CompradorMesmoPaciente ? null : rec.CompradorTelefone?.Trim()
+            };
+            _db.VendaReceitas.Add(receita);
+            await _db.SaveChangesAsync();
+
+            foreach (var itForm in rec.Itens)
+            {
+                if (!itForm.ProdutoId.HasValue || itForm.ProdutoId.Value <= 0)
+                    throw new ArgumentException("Item da receita manual precisa de ProdutoId.");
+
+                var produto = await _db.Produtos.FindAsync(itForm.ProdutoId.Value)
+                    ?? throw new ArgumentException($"Produto {itForm.ProdutoId} não encontrado.");
+                if (!ProdutoControleHelper.IsProdutoSngpc(produto))
+                    throw new ArgumentException($"Produto {produto.Nome} não é controlado SNGPC.");
+
+                var lote = await _db.ProdutosLotes.FindAsync(itForm.ProdutoLoteId)
+                    ?? throw new ArgumentException($"Lote {itForm.ProdutoLoteId} não encontrado.");
+                if (lote.ProdutoId != produto.Id || lote.FilialId != filialId)
+                    throw new ArgumentException($"Lote {lote.NumeroLote} não pertence ao produto {produto.Nome} nessa filial.");
+                if (lote.SaldoAtual < itForm.Quantidade)
+                    throw new ArgumentException($"Saldo insuficiente no lote {lote.NumeroLote}: {lote.SaldoAtual} disponível.");
+
+                await _loteService.RegistrarSaidaAsync(
+                    produtoLoteId: lote.Id,
+                    quantidade: itForm.Quantidade,
+                    tipo: TipoMovimentoLote.Saida,
+                    vendaId: null,
+                    usuarioId: usuarioId,
+                    observacao: $"Receita manual #{receita.Id} — SNGPC");
+
+                _db.VendaReceitaItens.Add(new VendaReceitaItem
+                {
+                    VendaReceitaId = receita.Id,
+                    VendaItemId = null,
+                    ProdutoId = produto.Id,
+                    ProdutoLoteId = lote.Id,
+                    Quantidade = itForm.Quantidade
+                });
+            }
+            await _db.SaveChangesAsync();
+
+            await _log.RegistrarAsync(TELA, "LANÇAMENTO RECEITA MANUAL", "VendaReceita", receita.Id, novo: new Dictionary<string, string?>
+            {
+                ["Tipo"] = rec.Tipo.ToString(),
+                ["Paciente"] = receita.PacienteNome,
+                ["Itens"] = rec.Itens.Count.ToString()
+            });
+            return receita.Id;
+        }
+        catch (Exception ex) when (ex is not ArgumentException)
+        {
+            Log.Error(ex, "Erro em VendaReceitaService.RegistrarReceitaManualAsync");
+            throw;
+        }
+    }
+
+    public async Task<List<DetalheReceitaItemDto>> ObterDetalhesAsync(long? vendaId, long? receitaId)
+    {
+        try
+        {
+            var resultado = new List<DetalheReceitaItemDto>();
+
+            if (vendaId.HasValue)
+            {
+                // Linha de venda — mostra os itens controlados da venda + lotes baixados (se houver receita)
+                var venda = await _db.Vendas
+                    .Include(v => v.Itens).ThenInclude(i => i.Produto)
+                    .Include(v => v.Receitas).ThenInclude(r => r.Itens).ThenInclude(i => i.ProdutoLote)
+                    .FirstOrDefaultAsync(v => v.Id == vendaId.Value);
+                if (venda == null) return resultado;
+
+                var temReceita = venda.Receitas.Any();
+                // Map produtoId → lote dispensado (primeiro encontrado) e quantidade acumulada
+                var lotesPorProduto = new Dictionary<long, (string? num, DateTime? val, decimal qtde)>();
+                foreach (var r in venda.Receitas)
+                    foreach (var it in r.Itens)
+                    {
+                        var key = it.ProdutoId;
+                        if (lotesPorProduto.TryGetValue(key, out var atual))
+                            lotesPorProduto[key] = (atual.num ?? it.ProdutoLote.NumeroLote, atual.val ?? it.ProdutoLote.DataValidade, atual.qtde + it.Quantidade);
+                        else
+                            lotesPorProduto[key] = (it.ProdutoLote.NumeroLote, it.ProdutoLote.DataValidade, it.Quantidade);
+                    }
+
+                foreach (var item in venda.Itens.Where(i => i.Produto != null && ProdutoControleHelper.IsProdutoSngpc(i.Produto)))
+                {
+                    lotesPorProduto.TryGetValue(item.ProdutoId, out var dados);
+                    resultado.Add(new DetalheReceitaItemDto
+                    {
+                        ProdutoNome = item.ProdutoNome,
+                        ClasseTerapeutica = item.Produto!.ClasseTerapeutica,
+                        Quantidade = item.Quantidade,
+                        NumeroLote = dados.num,
+                        DataValidade = dados.val,
+                        Origem = temReceita ? "Na receita" : "Pendente"
+                    });
+                }
+            }
+            else if (receitaId.HasValue)
+            {
+                // Receita manual — pega os itens direto
+                var receita = await _db.VendaReceitas
+                    .Include(r => r.Itens).ThenInclude(i => i.Produto)
+                    .Include(r => r.Itens).ThenInclude(i => i.ProdutoLote)
+                    .FirstOrDefaultAsync(r => r.Id == receitaId.Value);
+                if (receita == null) return resultado;
+
+                resultado.AddRange(receita.Itens.Select(i => new DetalheReceitaItemDto
+                {
+                    ProdutoNome = i.Produto.Nome,
+                    ClasseTerapeutica = i.Produto.ClasseTerapeutica,
+                    Quantidade = i.Quantidade,
+                    NumeroLote = i.ProdutoLote.NumeroLote,
+                    DataValidade = i.ProdutoLote.DataValidade,
+                    Origem = "Manual"
+                }));
+            }
+
+            return resultado;
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em VendaReceitaService.ObterDetalhesAsync"); throw; }
+    }
+
+    public async Task<List<ItemControladoDto>> PesquisarProdutosSngpcAsync(string termo, long filialId)
+    {
+        try
+        {
+            var termoNorm = (termo ?? "").Trim().ToUpper();
+            if (termoNorm.Length < 2) return new List<ItemControladoDto>();
+
+            var produtos = await _db.Produtos
+                .Where(p => p.Ativo
+                    && (p.ClasseTerapeutica == ProdutoControleHelper.CLASSE_PSICOTROPICOS
+                     || p.ClasseTerapeutica == ProdutoControleHelper.CLASSE_ANTIMICROBIANO)
+                    && (p.Nome.ToUpper().Contains(termoNorm) || (p.Codigo != null && p.Codigo.Contains(termoNorm))))
+                .OrderBy(p => p.Nome)
+                .Take(30)
+                .ToListAsync();
+
+            var resultado = new List<ItemControladoDto>();
+            foreach (var p in produtos)
+            {
+                var lotes = await _loteService.ListarLotesAtivosAsync(p.Id, filialId);
+                resultado.Add(new ItemControladoDto
+                {
+                    VendaItemId = 0,
+                    ProdutoId = p.Id,
+                    ProdutoNome = p.Nome,
+                    ClasseTerapeutica = p.ClasseTerapeutica,
+                    Quantidade = 1,
+                    LotesDisponiveis = lotes.Select(l => new LoteDisponivelDto
+                    {
+                        ProdutoLoteId = l.Id,
+                        NumeroLote = l.NumeroLote,
+                        DataValidade = l.DataValidade,
+                        SaldoAtual = l.SaldoAtual
+                    }).ToList()
+                });
+            }
+            return resultado;
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em VendaReceitaService.PesquisarProdutosSngpcAsync"); throw; }
     }
 
     // ─── Helpers ──────────────────────────────────────────────────
