@@ -97,15 +97,29 @@ public class SngpcMapaService : ISngpcMapaService
                  || m.ProdutoLote.Produto.ClasseTerapeutica == ProdutoControleHelper.CLASSE_ANTIMICROBIANO))
             .ToListAsync();
 
-        // Perdas
-        var perdas = await _db.Perdas
-            .Include(p => p.Produto)
-            .Include(p => p.ProdutoLote)
-            .Where(p => p.FilialId == req.FilialId
-                && p.DataPerda >= inicio && p.DataPerda < fim
-                && (p.Produto.ClasseTerapeutica == ProdutoControleHelper.CLASSE_PSICOTROPICOS
-                 || p.Produto.ClasseTerapeutica == ProdutoControleHelper.CLASSE_ANTIMICROBIANO))
+        // Perdas — agora são Vendas(TipoOperacao=Perda); lote vem via MovimentoLote
+        var perdasVendas = await _db.Vendas
+            .Include(v => v.Itens).ThenInclude(i => i.Produto)
+            .Where(v => v.TipoOperacao == TipoOperacao.Perda
+                && v.FilialId == req.FilialId
+                && v.DataFinalizacao >= inicio && v.DataFinalizacao < fim
+                && v.Itens.Any(i => i.Produto.ClasseTerapeutica == ProdutoControleHelper.CLASSE_PSICOTROPICOS
+                                 || i.Produto.ClasseTerapeutica == ProdutoControleHelper.CLASSE_ANTIMICROBIANO))
             .ToListAsync();
+
+        var perdaVendaIds = perdasVendas.Select(v => v.Id).ToList();
+        var perdaMovs = await _db.MovimentosLote
+            .Include(m => m.ProdutoLote)
+            .Where(m => m.VendaId != null && perdaVendaIds.Contains(m.VendaId.Value) && m.Tipo == TipoMovimentoLote.Perda)
+            .ToListAsync();
+        var movPorVendaPerda = perdaMovs.GroupBy(m => m.VendaId!.Value).ToDictionary(g => g.Key, g => g.First());
+
+        var perdas = perdasVendas.Select(v => new
+        {
+            Venda = v,
+            Item = v.Itens.FirstOrDefault(),
+            Mov = movPorVendaPerda.GetValueOrDefault(v.Id)
+        }).Where(x => x.Item != null).ToList();
 
         // Receitas (VendaReceita — ligadas a vendas finalizadas)
         var receitas = await _db.VendaReceitas
@@ -157,12 +171,12 @@ public class SngpcMapaService : ISngpcMapaService
                 new XElement(ns + "perdas",
                     new XAttribute("total", perdas.Count),
                     perdas.Select(p => new XElement(ns + "perda",
-                        new XElement(ns + "data", p.DataPerda.ToString("yyyy-MM-dd")),
-                        new XElement(ns + "produto", p.Produto.Nome),
-                        new XElement(ns + "lote", p.ProdutoLote.NumeroLote),
-                        new XElement(ns + "quantidade", p.Quantidade.ToString("0.####")),
-                        new XElement(ns + "motivo", p.Motivo.ToString()),
-                        new XElement(ns + "boletim", p.NumeroBoletim ?? "")
+                        new XElement(ns + "data", (p.Venda.DataFinalizacao ?? p.Venda.CriadoEm).ToString("yyyy-MM-dd")),
+                        new XElement(ns + "produto", p.Item!.Produto.Nome),
+                        new XElement(ns + "lote", p.Mov?.ProdutoLote?.NumeroLote ?? ""),
+                        new XElement(ns + "quantidade", (p.Mov?.Quantidade ?? p.Item.Quantidade).ToString("0.####")),
+                        new XElement(ns + "motivo", (p.Venda.Motivo ?? MotivoPerda.Outro).ToString()),
+                        new XElement(ns + "boletim", p.Venda.NumeroBoletim ?? "")
                     ))
                 ),
                 new XElement(ns + "receitas",

@@ -77,7 +77,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   private resizeState: { campo: string; startX: number; startWidth: number } | null = null;
   private dragColIdx: number | null = null;
 
-  private apiUrl = `${environment.apiUrl}/nfe`;
+  private apiUrl = `${environment.apiUrl}/venda-fiscal`;
   private tokenLiberacao: string | null = null;
 
   constructor(
@@ -263,7 +263,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   abrirDanfe(id?: number) {
     const nfeId = id ?? this.notaSelecionada()?.id;
     if (!nfeId) return;
-    window.open(`${environment.apiUrl}/nfe/${nfeId}/danfe`, '_blank');
+    window.open(`${environment.apiUrl}/venda-fiscal/${nfeId}/danfe`, '_blank');
   }
 
   async cancelarNfe() {

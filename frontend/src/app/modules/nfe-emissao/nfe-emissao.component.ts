@@ -128,7 +128,7 @@ export class NfeEmissaoComponent implements OnInit, OnDestroy {
   totalProdutos = computed(() => this.form().itens.reduce((s, i) => s + i.valorTotal, 0));
   totalNota = computed(() => this.totalProdutos());
 
-  private apiUrl = `${environment.apiUrl}/nfe`;
+  private apiUrl = `${environment.apiUrl}/venda-fiscal`;
   private tokenLiberacao: string | null = null;
   private nfeId: number | null = null;
 
@@ -430,8 +430,8 @@ export class NfeEmissaoComponent implements OnInit, OnDestroy {
     const body = this.buildBody();
 
     const req$ = f.id
-      ? this.http.put(`${this.apiUrl}/${f.id}`, body, { headers })
-      : this.http.post<any>(this.apiUrl, body, { headers });
+      ? this.http.put(`${this.apiUrl}/rascunho-nfe/${f.id}`, body, { headers })
+      : this.http.post<any>(`${this.apiUrl}/rascunho-nfe`, body, { headers });
 
     req$.subscribe({
       next: (r: any) => {
@@ -473,7 +473,7 @@ export class NfeEmissaoComponent implements OnInit, OnDestroy {
     this.emitindo.set(true);
     this.erro.set('');
 
-    this.http.post<any>(`${this.apiUrl}/${f.id}/emitir`, {}).subscribe({
+    this.http.post<any>(`${this.apiUrl}/emitir-nfe/${f.id}`, {}).subscribe({
       next: (r: any) => {
         this.emitindo.set(false);
         this.modal.aviso('NF-e Emitida', r.message ?? 'NF-e emitida com sucesso.');

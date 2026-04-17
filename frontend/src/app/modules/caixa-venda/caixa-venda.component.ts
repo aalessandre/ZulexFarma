@@ -244,7 +244,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   danfeUrl = signal('');
 
   abrirDanfe(nfceId: number) {
-    this.danfeUrl.set(`${this.apiUrl}/nfce/danfe/${nfceId}`);
+    this.danfeUrl.set(`${this.apiUrl}/venda-fiscal/${nfceId}/danfe`);
     this.modalDanfe.set(true);
   }
 
@@ -2121,13 +2121,13 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
             this.modoConferencia.set(false);
             // Emitir NFC-e
             this.emitindoNfce.set(true);
-            this.http.post<any>(`${this.apiUrl}/nfce/emitir/${id}`, {}).subscribe({
+            this.http.post<any>(`${this.apiUrl}/venda-fiscal/emitir-nfce/${id}`, {}).subscribe({
               next: (nfceRes: any) => {
                 this.emitindoNfce.set(false);
                 this.salvando.set(false);
                 if (nfceRes.success && nfceRes.data?.autorizada) {
                   // Abrir DANFE na modal (resetTudo será chamado ao fechar)
-                  const nfceId = nfceRes.data.nfceId;
+                  const nfceId = nfceRes.data.vendaFiscalId;
                   if (nfceId) {
                     this.abrirDanfe(nfceId);
                   } else {

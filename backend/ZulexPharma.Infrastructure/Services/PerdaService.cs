@@ -3,10 +3,15 @@ using ZulexPharma.Application.DTOs.Sngpc;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Domain.Enums;
+using ZulexPharma.Domain.Helpers;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
 
+/// <summary>
+/// Registra perdas de estoque como Vendas com <see cref="TipoOperacao.Perda"/>.
+/// O lote afetado é rastreado via <see cref="MovimentoLote.VendaId"/> (criado pelo IProdutoLoteService).
+/// </summary>
 public class PerdaService : IPerdaService
 {
     private readonly AppDbContext _db;
@@ -24,34 +29,51 @@ public class PerdaService : IPerdaService
 
     public async Task<List<PerdaListDto>> ListarAsync(long? filialId = null, DateTime? dataInicio = null, DateTime? dataFim = null)
     {
-        var q = _db.Perdas
-            .Include(p => p.Produto)
-            .Include(p => p.ProdutoLote)
-            .Include(p => p.Usuario)
-            .AsQueryable();
+        var vendasQ = _db.Vendas
+            .Include(v => v.Itens).ThenInclude(i => i.Produto)
+            .Where(v => v.TipoOperacao == TipoOperacao.Perda);
 
-        if (filialId.HasValue) q = q.Where(p => p.FilialId == filialId.Value);
-        if (dataInicio.HasValue) q = q.Where(p => p.DataPerda >= dataInicio.Value);
-        if (dataFim.HasValue) q = q.Where(p => p.DataPerda <= dataFim.Value);
+        if (filialId.HasValue) vendasQ = vendasQ.Where(v => v.FilialId == filialId.Value);
+        if (dataInicio.HasValue) vendasQ = vendasQ.Where(v => v.DataFinalizacao >= dataInicio.Value);
+        if (dataFim.HasValue) vendasQ = vendasQ.Where(v => v.DataFinalizacao <= dataFim.Value);
 
-        return await q.OrderByDescending(p => p.DataPerda)
-            .Select(p => new PerdaListDto
+        var vendas = await vendasQ.OrderByDescending(v => v.DataFinalizacao).ToListAsync();
+        if (vendas.Count == 0) return new();
+
+        var vendaIds = vendas.Select(v => v.Id).ToList();
+
+        // MovimentoLote rastreia o lote baixado e o usuário que registrou a perda
+        var movs = await _db.MovimentosLote
+            .Include(m => m.ProdutoLote)
+            .Include(m => m.Usuario)
+            .Where(m => m.VendaId != null && vendaIds.Contains(m.VendaId.Value) && m.Tipo == TipoMovimentoLote.Perda)
+            .ToListAsync();
+
+        var movPorVenda = movs.GroupBy(m => m.VendaId!.Value).ToDictionary(g => g.Key, g => g.First());
+
+        return vendas.Select(v =>
+        {
+            var item = v.Itens.FirstOrDefault();
+            var mov = movPorVenda.GetValueOrDefault(v.Id);
+            var lote = mov?.ProdutoLote;
+            return new PerdaListDto
             {
-                Id = p.Id,
-                FilialId = p.FilialId,
-                ProdutoId = p.ProdutoId,
-                ProdutoNome = p.Produto.Nome,
-                ProdutoLoteId = p.ProdutoLoteId,
-                NumeroLote = p.ProdutoLote.NumeroLote,
-                DataValidade = p.ProdutoLote.DataValidade,
-                Quantidade = p.Quantidade,
-                DataPerda = p.DataPerda,
-                Motivo = (int)p.Motivo,
-                MotivoNome = p.Motivo.ToString(),
-                NumeroBoletim = p.NumeroBoletim,
-                Observacao = p.Observacao,
-                UsuarioNome = p.Usuario != null ? p.Usuario.Login : null
-            }).ToListAsync();
+                Id = v.Id,
+                FilialId = v.FilialId,
+                ProdutoId = item?.ProdutoId ?? 0,
+                ProdutoNome = item?.Produto?.Nome,
+                ProdutoLoteId = lote?.Id ?? 0,
+                NumeroLote = lote?.NumeroLote,
+                DataValidade = lote?.DataValidade,
+                Quantidade = mov?.Quantidade ?? (item?.Quantidade ?? 0),
+                DataPerda = v.DataFinalizacao ?? v.CriadoEm,
+                Motivo = (int)(v.Motivo ?? MotivoPerda.Outro),
+                MotivoNome = (v.Motivo ?? MotivoPerda.Outro).ToString(),
+                NumeroBoletim = v.NumeroBoletim,
+                Observacao = v.Observacao,
+                UsuarioNome = mov?.Usuario?.Login
+            };
+        }).ToList();
     }
 
     public async Task<PerdaListDto> CriarAsync(PerdaFormDto dto, long? usuarioId)
@@ -72,29 +94,52 @@ public class PerdaService : IPerdaService
             throw new ArgumentException("Informe o número do Boletim de Ocorrência para Furto ou Roubo.");
         }
 
-        // 1. Cria o registro de perda
-        var perda = new Perda
+        var produto = await _db.Produtos.FirstOrDefaultAsync(p => p.Id == dto.ProdutoId)
+            ?? throw new KeyNotFoundException($"Produto {dto.ProdutoId} não encontrado.");
+
+        var dataPerda = DateTime.SpecifyKind(dto.DataPerda, DateTimeKind.Utc);
+
+        // 1. Cria a Venda com TipoOperacao=Perda (cabeçalho) + VendaItem (produto perdido)
+        var venda = new Venda
         {
             FilialId = dto.FilialId,
-            ProdutoId = dto.ProdutoId,
-            ProdutoLoteId = dto.ProdutoLoteId,
-            Quantidade = dto.Quantidade,
-            DataPerda = DateTime.SpecifyKind(dto.DataPerda, DateTimeKind.Utc),
+            TipoOperacao = TipoOperacao.Perda,
+            ModeloDocumento = ModeloDocumento.SemDocumento,
+            StatusFiscal = StatusFiscal.NaoEmitido,
+            Status = VendaStatus.Finalizada,
+            Origem = VendaOrigem.Caixa,
+            DataPreVenda = DataHoraHelper.Agora(),
+            DataFinalizacao = dataPerda,
             Motivo = motivo,
             NumeroBoletim = dto.NumeroBoletim,
             Observacao = dto.Observacao,
-            UsuarioId = usuarioId
+            TotalBruto = 0,
+            TotalDesconto = 0,
+            TotalLiquido = 0,
+            TotalItens = 1
         };
-        _db.Perdas.Add(perda);
+        venda.Itens.Add(new VendaItem
+        {
+            ProdutoId = dto.ProdutoId,
+            ProdutoCodigo = produto.Codigo ?? string.Empty,
+            ProdutoNome = produto.Nome,
+            Quantidade = (int)dto.Quantidade,
+            PrecoVenda = 0,
+            PrecoUnitario = 0,
+            Total = 0,
+            Ordem = 1
+        });
+        _db.Vendas.Add(venda);
         await _db.SaveChangesAsync();
 
-        // 2. Baixa o lote via movimento
+        // 2. Baixa o lote via movimento (MovimentoLote rastreia VendaId + UsuarioId)
         await _loteService.RegistrarSaidaAsync(
             produtoLoteId: dto.ProdutoLoteId,
             quantidade: dto.Quantidade,
             tipo: TipoMovimentoLote.Perda,
+            vendaId: venda.Id,
             usuarioId: usuarioId,
-            observacao: $"Perda #{perda.Id} — {motivo}{(string.IsNullOrEmpty(dto.NumeroBoletim) ? "" : $" BO {dto.NumeroBoletim}")}");
+            observacao: $"Perda #{venda.Id} — {motivo}{(string.IsNullOrEmpty(dto.NumeroBoletim) ? "" : $" BO {dto.NumeroBoletim}")}");
 
         // 3. Baixa estoque do ProdutoDados (mantém sincronizado com lotes)
         var dados = await _db.ProdutosDados
@@ -105,7 +150,7 @@ public class PerdaService : IPerdaService
             await _db.SaveChangesAsync();
         }
 
-        await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, perda.Id, novo: new Dictionary<string, string?>
+        await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, venda.Id, novo: new Dictionary<string, string?>
         {
             ["Produto"] = dto.ProdutoId.ToString(),
             ["Lote"] = lote.NumeroLote,
@@ -114,31 +159,42 @@ public class PerdaService : IPerdaService
             ["BO"] = dto.NumeroBoletim
         });
 
-        return (await ListarAsync(dto.FilialId)).First(x => x.Id == perda.Id);
+        return (await ListarAsync(dto.FilialId)).First(x => x.Id == venda.Id);
     }
 
     public async Task ExcluirAsync(long id)
     {
-        var p = await _db.Perdas.FindAsync(id)
+        var venda = await _db.Vendas
+            .Include(v => v.Itens)
+            .FirstOrDefaultAsync(v => v.Id == id && v.TipoOperacao == TipoOperacao.Perda)
             ?? throw new KeyNotFoundException($"Perda {id} não encontrada.");
+
+        // Recupera movimento de lote (pra saber qual lote estornar)
+        var mov = await _db.MovimentosLote
+            .Include(m => m.ProdutoLote)
+            .FirstOrDefaultAsync(m => m.VendaId == id && m.Tipo == TipoMovimentoLote.Perda)
+            ?? throw new InvalidOperationException($"Movimento de lote da perda {id} não encontrado.");
+
+        var item = venda.Itens.FirstOrDefault()
+            ?? throw new InvalidOperationException($"Perda {id} sem item associado.");
 
         // Reversão: devolve saldo ao lote e ao estoque
         await _loteService.RegistrarEntradaAsync(
-            produtoId: p.ProdutoId,
-            filialId: p.FilialId,
-            numeroLote: (await _db.ProdutosLotes.FindAsync(p.ProdutoLoteId))!.NumeroLote,
+            produtoId: item.ProdutoId,
+            filialId: venda.FilialId,
+            numeroLote: mov.ProdutoLote.NumeroLote,
             dataFabricacao: null,
             dataValidade: null,
-            quantidade: p.Quantidade,
+            quantidade: mov.Quantidade,
             tipo: TipoMovimentoLote.Estorno,
             observacao: $"Estorno perda #{id}");
 
-        var dados = await _db.ProdutosDados.FirstOrDefaultAsync(d => d.ProdutoId == p.ProdutoId && d.FilialId == p.FilialId);
+        var dados = await _db.ProdutosDados.FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == venda.FilialId);
         if (dados != null)
         {
-            dados.EstoqueAtual += p.Quantidade;
+            dados.EstoqueAtual += mov.Quantidade;
         }
-        _db.Perdas.Remove(p);
+        _db.Vendas.Remove(venda);
         await _db.SaveChangesAsync();
         await _log.RegistrarAsync(TELA, "EXCLUSÃO", ENTIDADE, id);
     }
