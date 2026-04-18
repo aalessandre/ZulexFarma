@@ -389,6 +389,36 @@
                          placeholder="0" />
                 </div>
               </div>
+
+              <div class="cfg-sub-titulo" style="margin-top:16px">
+                Responsável Técnico (CSRT)
+                <span class="cfg-info" title="Obrigatório quando o CNPJ do desenvolvedor do software está credenciado no portal SEFAZ. Gera-se no portal da SEFAZ-UF como desenvolvedor: um ID numérico (1-99) e um código alfanumérico (CSRT)."
+                  style="margin-left:6px">i</span>
+              </div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field" style="max-width:120px">
+                  <label>ID CSRT</label>
+                  <input type="text" maxlength="2" [value]="getConfig('fiscal.csrt.id', '')"
+                         (input)="setConfig('fiscal.csrt.id', $any($event.target).value)"
+                         placeholder="1-99" />
+                </div>
+                <div class="cfg-field">
+                  <label>CÓDIGO CSRT</label>
+                  <input type="text" maxlength="36" [value]="getConfig('fiscal.csrt.codigo', '')"
+                         (input)="setConfig('fiscal.csrt.codigo', $any($event.target).value)"
+                         placeholder="Código de 36 caracteres fornecido pelo portal SEFAZ" />
+                </div>
+                <div class="cfg-field" style="flex-basis:100%">
+                  <button type="button" class="cfg-btn-secundario"
+                          (click)="gerarCsrtHomologacao()"
+                          style="padding:6px 12px;font-size:12px">
+                    Gerar CSRT fake para homologação
+                  </button>
+                  <span style="margin-left:8px;font-size:11px;color:#888">
+                    Use apenas em ambiente de testes — em produção, cadastre o CSRT real no portal SEFAZ.
+                  </span>
+                </div>
+              </div>
             </div>
           }
         </div>

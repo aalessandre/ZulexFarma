@@ -100,6 +100,26 @@ export class ConfiguracoesComponent implements OnInit {
     this.configs.update(c => ({ ...c, [chave]: valor }));
   }
 
+  /**
+   * Gera um CSRT fake (36 chars alfanuméricos) e ID=1 pra uso em HOMOLOGAÇÃO.
+   * Em produção o código deve ser cadastrado no portal SEFAZ-UF pelo desenvolvedor.
+   */
+  gerarCsrtHomologacao() {
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let csrt = '';
+    const crypto = window.crypto;
+    if (crypto?.getRandomValues) {
+      const bytes = new Uint8Array(36);
+      crypto.getRandomValues(bytes);
+      for (let i = 0; i < 36; i++) csrt += charset[bytes[i] % charset.length];
+    } else {
+      for (let i = 0; i < 36; i++) csrt += charset[Math.floor(Math.random() * charset.length)];
+    }
+    this.setConfig('fiscal.csrt.id', '1');
+    this.setConfig('fiscal.csrt.codigo', csrt);
+    this.toastr.info('CSRT fake gerado. Válido apenas em homologação — não esqueça de Salvar.');
+  }
+
   async salvar() {
     this.salvando.set(true);
     const items: ConfigItem[] = Object.entries(this.configs()).map(([chave, valor]) => ({ chave, valor }));
