@@ -17,7 +17,7 @@ interface NfeList {
   destinatarioNome?: string;
   dataEmissao: string;
   valorNota: number;
-  status: number; // 0=Rascunho, 1=Enviada, 2=Autorizada, 3=Rejeitada, 4=Cancelada, 5=Inutilizada
+  status: number; // 0=NaoEmitido, 1=Rascunho, 2=Enviado, 3=Autorizado, 4=Rejeitado, 5=Cancelado, 6=Inutilizado
   chaveAcesso: string;
 }
 
@@ -44,12 +44,13 @@ const COLUNAS: ColunaDef[] = [
 ];
 
 const STATUS_LABELS: Record<number, string> = {
-  0: 'Rascunho',
-  1: 'Enviada',
-  2: 'Autorizada',
-  3: 'Rejeitada',
-  4: 'Cancelada',
-  5: 'Inutilizada',
+  0: 'Nao Emitido',
+  1: 'Rascunho',
+  2: 'Enviada',
+  3: 'Autorizada',
+  4: 'Rejeitada',
+  5: 'Cancelada',
+  6: 'Inutilizada',
 };
 
 @Component({
@@ -66,7 +67,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   notaSelecionada = signal<NfeList | null>(null);
   carregando = signal(false);
   busca = signal('');
-  filtroStatus = signal<'todos' | '0' | '1' | '2' | '3' | '4' | '5'>('todos');
+  filtroStatus = signal<'todos' | '0' | '1' | '2' | '3' | '4' | '5' | '6'>('todos');
   sortColuna = signal<string>('numero');
   sortDirecao = signal<'asc' | 'desc'>('desc');
 
@@ -212,11 +213,12 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   getStatusClass(n: NfeList): string {
     const map: Record<number, string> = {
       0: 'status-rascunho',
-      1: 'status-enviada',
-      2: 'status-autorizada',
-      3: 'status-rejeitada',
-      4: 'status-cancelada',
-      5: 'status-inutilizada',
+      1: 'status-rascunho',
+      2: 'status-enviada',
+      3: 'status-autorizada',
+      4: 'status-rejeitada',
+      5: 'status-cancelada',
+      6: 'status-inutilizada',
     };
     return map[n.status] ?? '';
   }
@@ -224,9 +226,11 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   selecionar(n: NfeList) { this.notaSelecionada.set(n); }
 
   onDblClick(n: NfeList) {
-    if (n.status === 0) {
+    if (n.status === 1 || n.status === 4) {
+      // Rascunho ou Rejeitado → edita
       this.navegarEmissao(n.id);
-    } else if (n.status === 2) {
+    } else if (n.status === 3) {
+      // Autorizado → DANFE
       this.abrirDanfe(n.id);
     }
   }
@@ -244,8 +248,8 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   editarNfe() {
     const n = this.notaSelecionada();
     if (!n) return;
-    if (n.status !== 0) {
-      this.modal.aviso('Acao nao permitida', 'Somente notas em rascunho podem ser editadas.');
+    if (n.status !== 1 && n.status !== 4) {
+      this.modal.aviso('Acao nao permitida', 'Somente notas em rascunho ou rejeitadas podem ser editadas.');
       return;
     }
     this.navegarEmissao(n.id);
@@ -269,7 +273,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   async cancelarNfe() {
     const n = this.notaSelecionada();
     if (!n) return;
-    if (n.status !== 2) {
+    if (n.status !== 3) {
       this.modal.aviso('Acao nao permitida', 'Somente notas autorizadas podem ser canceladas.');
       return;
     }

@@ -197,14 +197,17 @@ public class VendaFiscalService : IVendaFiscalService
             .FirstOrDefaultAsync(v => v.Id == vendaId)
             ?? throw new KeyNotFoundException("Venda não encontrada.");
 
-        if (venda.StatusFiscal != StatusFiscal.Rascunho)
-            throw new InvalidOperationException("Somente documento em rascunho pode ser alterado.");
+        if (venda.StatusFiscal != StatusFiscal.Rascunho && venda.StatusFiscal != StatusFiscal.Rejeitado)
+            throw new InvalidOperationException("Somente rascunho ou rejeitado pode ser alterado.");
 
         var vf = venda.Fiscal
             ?? throw new InvalidOperationException("VendaFiscal não encontrada para esta venda.");
 
         var natOp = await _db.Set<NaturezaOperacao>().FindAsync(dto.NaturezaOperacaoId)
             ?? throw new KeyNotFoundException("Natureza de operação não encontrada.");
+
+        // Rejeitado volta pra Rascunho ao salvar (permite re-emitir)
+        venda.StatusFiscal = StatusFiscal.Rascunho;
 
         // Atualizar Venda
         venda.FilialId = dto.FilialId;
@@ -284,8 +287,8 @@ public class VendaFiscalService : IVendaFiscalService
             .FirstOrDefaultAsync(v => v.Id == vendaId)
             ?? throw new KeyNotFoundException("Venda não encontrada.");
 
-        if (venda.StatusFiscal != StatusFiscal.Rascunho)
-            throw new InvalidOperationException("Somente documento em rascunho pode ser excluído.");
+        if (venda.StatusFiscal != StatusFiscal.Rascunho && venda.StatusFiscal != StatusFiscal.Rejeitado)
+            throw new InvalidOperationException("Somente rascunho ou rejeitado pode ser excluído.");
 
         foreach (var i in venda.Itens)
         {
@@ -2230,10 +2233,15 @@ public class VendaFiscalService : IVendaFiscalService
 
     private static VendaItemFiscal BuildVendaItemFiscal(VendaItemFiscalFormDto dto, int numeroItem)
     {
+        // cProd SEFAZ: obrigatório, min 1 char não-espaço. Fallback: ProdutoId se vazio.
+        var codigoProduto = string.IsNullOrWhiteSpace(dto.CodigoProduto)
+            ? dto.ProdutoId.ToString()
+            : dto.CodigoProduto.Trim();
+
         return new VendaItemFiscal
         {
             NumeroItem = numeroItem,
-            CodigoProduto = dto.CodigoProduto,
+            CodigoProduto = codigoProduto,
             CodigoBarras = dto.CodigoBarras,
             DescricaoProduto = dto.DescricaoProduto,
             Ncm = dto.Ncm,
