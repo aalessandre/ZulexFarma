@@ -924,12 +924,14 @@ public class VendaFiscalService : IVendaFiscalService
 
             sb.Append($"<det nItem=\"{nItem}\">");
             sb.Append("<prod>");
-            sb.Append($"<cProd>{fiscal.CodigoProduto}</cProd>");
+            var cProdEmit = string.IsNullOrWhiteSpace(fiscal.CodigoProduto) ? item.ProdutoId.ToString() : fiscal.CodigoProduto;
+            var cfopEmit = string.IsNullOrWhiteSpace(fiscal.Cfop) ? "5102" : fiscal.Cfop;
+            sb.Append($"<cProd>{cProdEmit}</cProd>");
             sb.Append($"<cEAN>{Esc(fiscal.CodigoBarras)}</cEAN>");
             sb.Append($"<xProd>{xProd}</xProd>");
             sb.Append($"<NCM>{ncmRaw}</NCM>");
             if (!string.IsNullOrEmpty(fiscal.Cest)) sb.Append($"<CEST>{fiscal.Cest}</CEST>");
-            sb.Append($"<CFOP>{fiscal.Cfop}</CFOP>");
+            sb.Append($"<CFOP>{cfopEmit}</CFOP>");
             sb.Append($"<uCom>{Esc(fiscal.Unidade)}</uCom>");
             sb.Append($"<qCom>{D4(quantidade)}</qCom>");
             sb.Append($"<vUnCom>{D4(valorUnitario)}</vUnCom>");
@@ -1157,7 +1159,7 @@ public class VendaFiscalService : IVendaFiscalService
     // ── ICMS por CST/CSOSN ──
     private static void AppendIcms(StringBuilder sb, VendaItemFiscal item, int crt)
     {
-        var orig = item.OrigemMercadoria;
+        var orig = string.IsNullOrWhiteSpace(item.OrigemMercadoria) ? "0" : item.OrigemMercadoria;
 
         if (crt <= 2)
         {
@@ -1485,7 +1487,7 @@ public class VendaFiscalService : IVendaFiscalService
     // ── PIS ──
     private static void AppendPis(StringBuilder sb, VendaItemFiscal item)
     {
-        var cstPis = item.CstPis;
+        var cstPis = string.IsNullOrWhiteSpace(item.CstPis) ? "49" : item.CstPis;
         sb.Append("<PIS>");
         if (cstPis == "01" || cstPis == "02")
         {
@@ -1517,7 +1519,7 @@ public class VendaFiscalService : IVendaFiscalService
     // ── COFINS ──
     private static void AppendCofins(StringBuilder sb, VendaItemFiscal item)
     {
-        var cstCofins = item.CstCofins;
+        var cstCofins = string.IsNullOrWhiteSpace(item.CstCofins) ? "49" : item.CstCofins;
         sb.Append("<COFINS>");
         if (cstCofins == "01" || cstCofins == "02")
         {
