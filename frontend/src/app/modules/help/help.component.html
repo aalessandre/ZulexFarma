@@ -2604,7 +2604,7 @@ precoUnitario = round(total / Quantidade, 2)
               <div class="doc-item"><code>PUT /api/vendas/&#123;id&#125;</code> — atualiza venda aberta (itens, pagamentos)</div>
               <div class="doc-item"><code>POST /api/vendas/&#123;id&#125;/finalizar</code> — finaliza, gera ContasReceber. Body: &#123; senhaCliente?, tokenLiberacaoCredito?, numeroParcelas? &#125;</div>
               <div class="doc-item"><code>POST /api/vendas/validar-prazo</code> — valida condição a prazo para cliente+convênio+tipoPagamento+valor</div>
-              <div class="doc-item"><code>POST /api/nfce/emitir/&#123;vendaId&#125;</code> — emite NFC-e após finalização</div>
+              <div class="doc-item"><code>POST /api/venda-fiscal/emitir-nfce/&#123;vendaId&#125;</code> — emite NFC-e após finalização</div>
               <div class="doc-item"><code>GET /api/adquirentes</code> — lista adquirentes (usado na modal de cartão)</div>
               <div class="doc-item"><code>GET /api/adquirentes/&#123;id&#125;</code> — detalhes com bandeiras/tarifas</div>
             </div>
@@ -2799,40 +2799,68 @@ precoUnitario = round(total / Quantidade, 2)
       <section class="help-secao">
         <div class="secao-header fiscal" [class.aberto]="isAberta('fiscal')" (click)="toggleSecao('fiscal')" style="background:#1e8449">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          <span>Fiscal / NFC-e</span>
+          <span>Fiscal / NFe e NFC-e</span>
         </div>
         @if (isAberta('fiscal')) {
           <div class="secao-corpo">
 
             <div class="doc-titulo">Visão geral</div>
-            <p class="doc-texto">O módulo fiscal emite NFC-e (Nota Fiscal de Consumidor Eletrônica) modelo 65 layout 4.00 diretamente para a SEFAZ. A implementação é manual (XML montado via StringBuilder), sem bibliotecas externas. O XML é assinado digitalmente com certificado A1 (PFX) e transmitido via SOAP.</p>
+            <p class="doc-texto">Emissão fiscal unificada de NFe modelo 55 (saída de mercadoria entre contribuintes) e NFC-e modelo 65 (venda ao consumidor) sob um único modelo de dados: <b>Venda</b> (cabeçalho) + <b>VendaFiscal</b> (1:1, dados SEFAZ) + <b>VendaItemFiscal</b> (1:1 snapshot fiscal). Implementação manual (XML via StringBuilder + assinatura RSA-SHA1 + SOAP) — sem libs externas. Todo o fluxo passa pelo controller único <code>/api/venda-fiscal</code>.</p>
 
-            <div class="doc-titulo">Fluxo de emissão</div>
+            <div class="doc-titulo">Fluxo NFC-e (modelo 65 — venda ao consumidor)</div>
             <div class="doc-lista">
-              <div class="doc-item">1. Venda finalizada → <code>POST /api/vendas/&#123;id&#125;/finalizar</code></div>
-              <div class="doc-item">2. Emissão NFC-e → <code>POST /api/nfce/emitir/&#123;vendaId&#125;</code></div>
-              <div class="doc-item">3. NfceService monta XML, assina (RSA-SHA1), envia SOAP à SEFAZ</div>
-              <div class="doc-item">4. Resposta processada → protNFe/infProt/cStat (100=Autorizada)</div>
-              <div class="doc-item">5. NFC-e salva no banco (XmlEnvio + XmlRetorno + protocolo)</div>
-              <div class="doc-item">6. DANFE exibido em modal com botões Imprimir / WhatsApp / OK</div>
+              <div class="doc-item">1. Venda finalizada no Caixa → <code>POST /api/vendas/&#123;id&#125;/finalizar</code></div>
+              <div class="doc-item">2. Emissão direta → <code>POST /api/venda-fiscal/emitir-nfce/&#123;vendaId&#125;</code></div>
+              <div class="doc-item">3. Backend monta XML, assina, envia SEFAZ autorização síncrona</div>
+              <div class="doc-item">4. Autorizada → cria <code>VendaFiscal</code> com chave/protocolo/XMLs, seta <code>venda.StatusFiscal = Autorizado</code> e <code>venda.ModeloDocumento = Nfce</code></div>
+              <div class="doc-item">5. DANFE térmico 80mm em modal (QR Code por UF)</div>
             </div>
 
-            <div class="doc-titulo">Configurações necessárias (Configurações > Fiscal)</div>
+            <div class="doc-titulo">Fluxo NFe (modelo 55 — venda entre contribuintes)</div>
             <div class="doc-lista">
-              <div class="doc-item"><b>fiscal.regime.tributario</b> — 1=Simples Nacional, 2=SN Excesso, 3=Regime Normal</div>
-              <div class="doc-item"><b>fiscal.ambiente</b> — 1=Produção, 2=Homologação</div>
-              <div class="doc-item"><b>fiscal.nfce.csc</b> — Código de Segurança do Contribuinte (obtido na SEFAZ)</div>
-              <div class="doc-item"><b>fiscal.nfce.csc.id</b> — ID numérico do CSC</div>
-              <div class="doc-item"><b>fiscal.nfce.serie</b> — Série da NFC-e (default 1)</div>
-              <div class="doc-item"><b>fiscal.nfce.numero.atual</b> — Último número emitido (auto-incrementa)</div>
+              <div class="doc-item">1. Cadastro de rascunho → <code>POST /api/venda-fiscal/rascunho-nfe</code> (cria Venda com StatusFiscal=Rascunho + VendaFiscal + VendaItemFiscais)</div>
+              <div class="doc-item">2. Edição/ajuste → <code>PUT /api/venda-fiscal/rascunho-nfe/&#123;vendaId&#125;</code> (permitido em Rascunho e Rejeitado)</div>
+              <div class="doc-item">3. Emissão → <code>POST /api/venda-fiscal/emitir-nfe/&#123;vendaId&#125;</code> (numera, XML, assina, SEFAZ)</div>
+              <div class="doc-item">4. SEFAZ autoriza → DANFE A4 disponível em <code>/api/venda-fiscal/&#123;vendaId&#125;/danfe</code></div>
+              <div class="doc-item">5. SEFAZ rejeita → StatusFiscal=Rejeitado, volta a permitir edição e reemissão</div>
+              <div class="doc-item">6. Cancelamento até 24h pós-autorização → evento SEFAZ + XmlCancelamento + StatusFiscal=Cancelado</div>
+              <div class="doc-item">7. Carta de correção (CC-e) → <code>POST /api/venda-fiscal/&#123;vendaId&#125;/carta-correcao</code> (exceto para campos proibidos: valores, CNPJ, data)</div>
+            </div>
+
+            <div class="doc-titulo">Configurações necessárias (Configurações &gt; Fiscal / NFC-e)</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>Regime Tributário</b> (<code>fiscal.regime.tributario</code>) — 1=Simples Nacional, 2=SN Excesso, 3=Regime Normal. Afeta uso de CST (regime normal) vs CSOSN (Simples).</div>
+              <div class="doc-item"><b>Ambiente</b> (<code>fiscal.ambiente</code>) — 1=Produção, 2=Homologação. Homologação usa xProd e xNome fixos para não gerar valor fiscal.</div>
+              <div class="doc-item"><b>CSC NFC-e</b> (<code>fiscal.nfce.csc</code>) + <b>ID CSC</b> (<code>fiscal.nfce.csc.id</code>) — Código de Segurança do Contribuinte (SEFAZ-UF). Usado no cálculo do QR Code.</div>
+              <div class="doc-item"><b>Série NFC-e</b> (<code>fiscal.nfce.serie</code>) e <b>Série NFe</b> (<code>fiscal.nfe.serie</code>) — default 1. Série 1 é a mais comum.</div>
+              <div class="doc-item"><b>CSRT</b> (<code>fiscal.csrt.id</code> + <code>fiscal.csrt.codigo</code>) — Código de Segurança do Responsável Técnico. Obrigatório em UFs como PR quando o CNPJ do responsável está credenciado no portal SEFAZ. Backend calcula o hashCSRT dinamicamente: <code>Base64(SHA1(csrt + chaveAcesso))</code>.</div>
+              <div class="doc-item"><b>Responsável Técnico</b> (<code>fiscal.resptec.cnpj</code>, <code>.contato</code>, <code>.email</code>, <code>.fone</code>) — dados da software house (dona do CSRT). Fallback para cadastro da filial quando vazios.</div>
+              <div class="doc-item"><b>IBPTax</b> (<code>ibpt.token</code> + <code>ibpt.cnpj</code>) — para cálculo de vTotTrib (Lei 12.741). Veja seção específica abaixo.</div>
             </div>
 
             <div class="doc-titulo">Pré-requisitos</div>
             <div class="doc-lista">
-              <div class="doc-item">Certificado digital A1 (.pfx) cadastrado em Configurações > Certificado Digital</div>
-              <div class="doc-item">Código IBGE do Município preenchido na Filial</div>
-              <div class="doc-item">CSC e ID do CSC obtidos no portal da SEFAZ do estado</div>
-              <div class="doc-item">Produtos com NCM, CFOP e CSOSN/CST cadastrados (aba Fiscal do produto)</div>
+              <div class="doc-item"><b>Certificado digital A1 (.pfx)</b> cadastrado em Configurações &gt; Certificado Digital. CNPJ do certificado precisa bater com o CNPJ da filial (rej 593 se divergir).</div>
+              <div class="doc-item"><b>Município IBGE preenchido</b> na Filial e nos endereços de destinatários. A tabela <code>Municipios</code> vem com seed IBGE (5571 municípios) na migration AddMunicipios. Backend resolve automaticamente via FK ou por nome+UF no <code>VendaFiscalService.GarantirCodigoIbgeAsync</code>.</div>
+              <div class="doc-item"><b>CSRT cadastrado no portal SEFAZ</b> (UFs PR/SP/etc.) — software house se credencia em Receita-UF, gera CSRT, configura em Configurações &gt; CSRT. Precisa também vincular cada emitente (farmácia cliente) ao sistema credenciado.</div>
+              <div class="doc-item"><b>Produtos com fiscal completo</b> — NCM válido (8 dígitos, não 00000000), CFOP, CSOSN/CST ICMS, CST PIS/COFINS, Origem Mercadoria. Campos vazios usam fallback: CFOP → 5102, CST PIS/COFINS → 49, Origem → 0.</div>
+              <div class="doc-item"><b>Natureza de Operação</b> cadastrada com regras por cenário tributário (CFOP interno/interestadual, CST por UF).</div>
+              <div class="doc-item"><b>Destinatário NFe</b> com CNPJ, IE (ou isento), endereço completo + Município IBGE.</div>
+            </div>
+
+            <div class="doc-titulo">Rejeições SEFAZ comuns e como resolver</div>
+            <div class="doc-lista">
+              <div class="doc-item"><b>225 Falha no Schema XML</b> — campo obrigatório vazio ou fora do pattern. Veja a mensagem de detalhe (nome do campo). Checar cadastro do produto/filial/destinatário.</div>
+              <div class="doc-item"><b>207 IE inválida / razão social divergente</b> — IE do emitente errada ou razão social difere do cadastro SEFAZ. Atualizar cadastro da filial.</div>
+              <div class="doc-item"><b>229 CEP/município inválido</b> — Município IBGE da filial ou destinatário vazio ou incorreto. Usar o autocomplete em Cadastros.</div>
+              <div class="doc-item"><b>539 Duplicidade de NF-e</b> — número já utilizado (emissão concorrente sem lock). Em NFe raro; em NFC-e em pico pode acontecer.</div>
+              <div class="doc-item"><b>593 CNPJ-base do certificado difere do emitente</b> — certificado digital cadastrado é de outra empresa. Importar .pfx da filial correta.</div>
+              <div class="doc-item"><b>610 vNF diverge da soma dos itens</b> — arredondamento inconsistente. Backend calcula a soma em ordem fixa (vProd − vDesc + vFrete + vSeg + vOutro + vST + vIpi).</div>
+              <div class="doc-item"><b>778 NCM inexistente</b> — NCM não está na tabela TIPI. Corrigir no cadastro do produto.</div>
+              <div class="doc-item"><b>840 Medicamento sem grupo &lt;med&gt;</b> — NCM 3001–3006 exige cProdANVISA + vPMC. Preencher no cadastro Fiscal do produto.</div>
+              <div class="doc-item"><b>892 CSRT obrigatório ausente</b> — UF exige CSRT e os campos Configurações &gt; CSRT estão vazios. Cadastrar ID + Código do CSRT gerado no portal SEFAZ.</div>
+              <div class="doc-item"><b>899/900 CNPJ do responsável técnico diverge do cadastrado</b> — CNPJ em Configurações &gt; Responsável Técnico não bate com o dono do CSRT no portal SEFAZ, OU o emitente (cliente) não está vinculado ao sistema do responsável técnico no portal. Revisar vinculação + aguardar propagação (até 2h).</div>
+              <div class="doc-item"><b>Value " " is not facet-valid</b> — erro de pattern em campo específico. Mensagem SEFAZ diz qual: <code>#AnonType_cProd...</code>, <code>#AnonType_CFOP...</code>, etc. Backend aplica fallbacks para CFOP (5102), CST PIS/COFINS (49), Origem (0), Código Produto (ProdutoId), mas NCM e endereço precisam vir corretos do cadastro.</div>
             </div>
 
             <div class="doc-titulo">Estrutura do XML NFC-e</div>
@@ -2865,7 +2893,7 @@ precoUnitario = round(total / Quantidade, 2)
 
             <div class="doc-titulo">DANFE NFC-e</div>
             <div class="doc-lista">
-              <div class="doc-item">Endpoint: <code>GET /api/nfce/danfe/&#123;nfceId&#125;</code> (AllowAnonymous)</div>
+              <div class="doc-item">Endpoint: <code>GET /api/venda-fiscal/&#123;vendaId&#125;/danfe</code> (AllowAnonymous) — retorna DANFE A4 (Modelo 55) ou 80mm (NFC-e) conforme o modelo</div>
               <div class="doc-item">HTML estilizado para impressora térmica 80mm</div>
               <div class="doc-item">Exibido em modal no caixa após autorização (iframe + SafePipe)</div>
               <div class="doc-item">Botões: Imprimir (iframe.contentWindow.print), WhatsApp (futuro), OK</div>
@@ -2887,14 +2915,21 @@ precoUnitario = round(total / Quantidade, 2)
 
             <div class="doc-titulo">Entidades</div>
             <div class="doc-lista">
-              <div class="doc-item"><b>Nfce</b> — FilialId, VendaId, Numero, Serie, ChaveAcesso (44 dig), Protocolo, Ambiente, CodigoStatus, MotivoStatus, XmlEnvio, XmlRetorno, ValorTotal</div>
+              <div class="doc-item"><b>Venda</b> (cabeçalho unificado) — TipoOperacao (Venda/Devolucao/Transferencia/Perda/Ajuste/Bonificacao/Inventario), ModeloDocumento (NFe/NFCe/SemDocumento), StatusFiscal (NaoEmitido/Rascunho/Enviado/Autorizado/Rejeitado/Cancelado/Inutilizado), NaturezaOperacaoId, DestinatarioPessoaId, FilialDestinoId, Motivo, NumeroBoletim</div>
+              <div class="doc-item"><b>VendaFiscal</b> (1:1 com Venda — só existe quando emite) — Modelo (55/65), Finalidade, Numero, Serie, ChaveAcesso (44 dig), Protocolo, Ambiente, CodigoStatus, MotivoStatus, NatOp, transporte (ModFrete/TransportadoraPessoaId/Placa), totais tributários (ValorIcms/St/Ipi/Pis/Cofins), XmlEnvio, XmlRetorno, XmlCancelamento, XmlCartaCorrecao</div>
+              <div class="doc-item"><b>VendaItemFiscal</b> (1:1 com VendaItem — snapshot fiscal) — CFOP, CST ICMS/PIS/COFINS/IPI, CSOSN, BaseIcms, AliquotaIcms, Cest, NCM, rastro medicamento (CodigoAnvisa, RastroLote, RastroValidade), vTotTrib</div>
+              <div class="doc-item"><b>Municipio</b> — CodigoIbge (7 dig), Nome, NomeNormalizado, Uf. Seed IBGE com 5571 municípios. FK usada em PessoaEndereco.MunicipioId e Filial.MunicipioId</div>
               <div class="doc-item"><b>IbptTax</b> — Ncm, Ex, Tipo, Descricao, AliqNacional, AliqImportado, AliqEstadual, AliqMunicipal, VigenciaInicio, VigenciaFim, Versao, Uf</div>
               <div class="doc-item"><b>CertificadoDigital</b> — FilialId, PfxBase64, Senha, Validade, Emitente, Serial</div>
             </div>
 
             <div class="doc-titulo">API Endpoints</div>
-            <div class="cmd-grupo"><div class="cmd-label">Emitir NFC-e</div><code class="cmd">POST /api/nfce/emitir/&#123;vendaId&#125;</code></div>
-            <div class="cmd-grupo"><div class="cmd-label">DANFE HTML</div><code class="cmd">GET /api/nfce/danfe/&#123;nfceId&#125;</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">Emitir NFC-e</div><code class="cmd">POST /api/venda-fiscal/emitir-nfce/&#123;vendaId&#125;</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">Emitir NFe 55</div><code class="cmd">POST /api/venda-fiscal/emitir-nfe/&#123;vendaId&#125;</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">Criar Rascunho NFe</div><code class="cmd">POST /api/venda-fiscal/rascunho-nfe</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">DANFE HTML</div><code class="cmd">GET /api/venda-fiscal/&#123;vendaId&#125;/danfe</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">Cancelar NFe/NFC-e</div><code class="cmd">POST /api/venda-fiscal/&#123;vendaId&#125;/cancelar</code></div>
+            <div class="cmd-grupo"><div class="cmd-label">Carta de Correção</div><code class="cmd">POST /api/venda-fiscal/&#123;vendaId&#125;/carta-correcao</code></div>
             <div class="cmd-grupo"><div class="cmd-label">Importar IBPTax</div><code class="cmd">POST /api/ibpt/importar</code></div>
             <div class="cmd-grupo"><div class="cmd-label">Status IBPTax</div><code class="cmd">GET /api/ibpt/status</code></div>
             <div class="cmd-grupo"><div class="cmd-label">Vigência IBPTax</div><code class="cmd">GET /api/ibpt/vigencia</code></div>
