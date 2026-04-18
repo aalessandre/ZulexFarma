@@ -2238,6 +2238,10 @@ public class VendaFiscalService : IVendaFiscalService
             ? dto.ProdutoId.ToString()
             : dto.CodigoProduto.Trim();
 
+        // CFOP SEFAZ: pattern '[1,2,3,5,6,7]{1}[0-9]{3}'. Fallback 5102 (venda dentro UF)
+        // quando o cadastro do produto não trouxe CFOP — operador deve ajustar na natureza de operação.
+        var cfop = string.IsNullOrWhiteSpace(dto.Cfop) ? "5102" : dto.Cfop.Trim();
+
         return new VendaItemFiscal
         {
             NumeroItem = numeroItem,
@@ -2246,7 +2250,7 @@ public class VendaFiscalService : IVendaFiscalService
             DescricaoProduto = dto.DescricaoProduto,
             Ncm = dto.Ncm,
             Cest = dto.Cest,
-            Cfop = dto.Cfop,
+            Cfop = cfop,
             Unidade = dto.Unidade,
             ValorFrete = dto.ValorFrete,
             ValorSeguro = dto.ValorSeguro,

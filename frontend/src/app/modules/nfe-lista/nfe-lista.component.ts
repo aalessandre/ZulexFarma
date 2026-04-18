@@ -17,7 +17,9 @@ interface NfeList {
   destinatarioNome?: string;
   dataEmissao: string;
   valorNota: number;
-  status: number; // 0=NaoEmitido, 1=Rascunho, 2=Enviado, 3=Autorizado, 4=Rejeitado, 5=Cancelado, 6=Inutilizado
+  // Backend serializa enum como string (JsonStringEnumConverter global).
+  // Valores possíveis: 'NaoEmitido' | 'Rascunho' | 'Enviado' | 'Autorizado' | 'Rejeitado' | 'Cancelado' | 'Inutilizado'
+  status: string;
   chaveAcesso: string;
 }
 
@@ -43,14 +45,14 @@ const COLUNAS: ColunaDef[] = [
   { campo: 'status', label: 'Status', largura: 100, minLargura: 70, padrao: true },
 ];
 
-const STATUS_LABELS: Record<number, string> = {
-  0: 'Nao Emitido',
-  1: 'Rascunho',
-  2: 'Enviada',
-  3: 'Autorizada',
-  4: 'Rejeitada',
-  5: 'Cancelada',
-  6: 'Inutilizada',
+const STATUS_LABELS: Record<string, string> = {
+  NaoEmitido: 'Nao Emitido',
+  Rascunho: 'Rascunho',
+  Enviado: 'Enviada',
+  Autorizado: 'Autorizada',
+  Rejeitado: 'Rejeitada',
+  Cancelado: 'Cancelada',
+  Inutilizado: 'Inutilizada',
 };
 
 @Component({
@@ -67,7 +69,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   notaSelecionada = signal<NfeList | null>(null);
   carregando = signal(false);
   busca = signal('');
-  filtroStatus = signal<'todos' | '0' | '1' | '2' | '3' | '4' | '5' | '6'>('todos');
+  filtroStatus = signal<'todos' | 'Rascunho' | 'Enviado' | 'Autorizado' | 'Rejeitado' | 'Cancelado' | 'Inutilizado'>('todos');
   sortColuna = signal<string>('numero');
   sortDirecao = signal<'asc' | 'desc'>('desc');
 
@@ -172,7 +174,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
     const dir = this.sortDirecao();
 
     const lista = this.notas().filter(n => {
-      if (statusFiltro !== 'todos' && n.status !== +statusFiltro) return false;
+      if (statusFiltro !== 'todos' && n.status !== statusFiltro) return false;
       if (termo.length < 2) return true;
       return this.normalizar(n.natOp).includes(termo)
         || this.normalizar(n.destinatarioNome ?? '').includes(termo)
@@ -211,14 +213,14 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   }
 
   getStatusClass(n: NfeList): string {
-    const map: Record<number, string> = {
-      0: 'status-rascunho',
-      1: 'status-rascunho',
-      2: 'status-enviada',
-      3: 'status-autorizada',
-      4: 'status-rejeitada',
-      5: 'status-cancelada',
-      6: 'status-inutilizada',
+    const map: Record<string, string> = {
+      NaoEmitido: 'status-rascunho',
+      Rascunho: 'status-rascunho',
+      Enviado: 'status-enviada',
+      Autorizado: 'status-autorizada',
+      Rejeitado: 'status-rejeitada',
+      Cancelado: 'status-cancelada',
+      Inutilizado: 'status-inutilizada',
     };
     return map[n.status] ?? '';
   }
@@ -226,13 +228,19 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   selecionar(n: NfeList) { this.notaSelecionada.set(n); }
 
   onDblClick(n: NfeList) {
-    if (n.status === 1 || n.status === 4) {
-      // Rascunho ou Rejeitado → edita
+    if (n.status === 'Rascunho' || n.status === 'Rejeitado') {
       this.navegarEmissao(n.id);
-    } else if (n.status === 3) {
-      // Autorizado → DANFE
+    } else if (n.status === 'Autorizado') {
       this.abrirDanfe(n.id);
     }
+  }
+
+  podeEditar(n: NfeList | null): boolean {
+    return !!n && (n.status === 'Rascunho' || n.status === 'Rejeitado');
+  }
+
+  podeDanfe(n: NfeList | null): boolean {
+    return !!n && n.status === 'Autorizado';
   }
 
   // ── Sidebar actions ────────────────────────────────────────────────
@@ -248,7 +256,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   editarNfe() {
     const n = this.notaSelecionada();
     if (!n) return;
-    if (n.status !== 1 && n.status !== 4) {
+    if (!this.podeEditar(n)) {
       this.modal.aviso('Acao nao permitida', 'Somente notas em rascunho ou rejeitadas podem ser editadas.');
       return;
     }
@@ -270,10 +278,38 @@ export class NfeListaComponent implements OnInit, OnDestroy {
     window.open(`${environment.apiUrl}/venda-fiscal/${nfeId}/danfe`, '_blank');
   }
 
+  async excluirNfe() {
+    const n = this.notaSelecionada();
+    if (!n) return;
+    if (!this.podeEditar(n)) {
+      this.modal.aviso('Acao nao permitida', 'Somente notas em rascunho ou rejeitadas podem ser excluidas.');
+      return;
+    }
+    const resultado = await this.modal.confirmar(
+      'Excluir NF-e',
+      `Deseja excluir esta NF-e? Esta acao e irreversivel.`,
+      'Sim, excluir',
+      'Nao, manter'
+    );
+    if (!resultado.confirmado) return;
+
+    if (!await this.verificarPermissao('e')) return;
+    const headers = this.headerLiberacao();
+    this.http.delete<any>(`${this.apiUrl}/rascunho-nfe/${n.id}`, { headers }).subscribe({
+      next: () => {
+        this.notaSelecionada.set(null);
+        this.carregar();
+      },
+      error: (err) => {
+        this.modal.aviso('Erro', err.error?.message ?? 'Erro ao excluir NF-e.');
+      }
+    });
+  }
+
   async cancelarNfe() {
     const n = this.notaSelecionada();
     if (!n) return;
-    if (n.status !== 3) {
+    if (!this.podeDanfe(n)) {
       this.modal.aviso('Acao nao permitida', 'Somente notas autorizadas podem ser canceladas.');
       return;
     }
