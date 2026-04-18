@@ -44,7 +44,7 @@ public class VendaFiscalService : IVendaFiscalService
             .OrderByDescending(vf => vf.CriadoEm)
             .Select(vf => new VendaFiscalListDto
             {
-                Id = vf.Id,
+                Id = vf.VendaId,
                 VendaId = vf.VendaId,
                 Modelo = vf.Modelo,
                 Numero = vf.Numero,
@@ -68,14 +68,14 @@ public class VendaFiscalService : IVendaFiscalService
             .ToListAsync();
     }
 
-    public async Task<VendaFiscalDetalheDto> ObterAsync(long vendaFiscalId)
+    public async Task<VendaFiscalDetalheDto> ObterAsync(long vendaId)
     {
         var vf = await _db.VendaFiscais
             .Include(x => x.NaturezaOperacao).ThenInclude(no => no!.Regras)
             .Include(x => x.TransportadoraPessoa)
             .Include(x => x.Venda).ThenInclude(v => v.DestinatarioPessoa).ThenInclude(p => p!.Enderecos)
             .Include(x => x.Venda).ThenInclude(v => v.Itens).ThenInclude(i => i.Fiscal)
-            .FirstOrDefaultAsync(x => x.Id == vendaFiscalId)
+            .FirstOrDefaultAsync(x => x.VendaId == vendaId)
             ?? throw new KeyNotFoundException("Documento fiscal não encontrado.");
 
         return MapToDetalhe(vf);
@@ -172,7 +172,7 @@ public class VendaFiscalService : IVendaFiscalService
 
         return new VendaFiscalListDto
         {
-            Id = vf.Id,
+            Id = venda.Id,
             VendaId = venda.Id,
             Modelo = vf.Modelo,
             Numero = vf.Numero,
@@ -633,14 +633,14 @@ public class VendaFiscalService : IVendaFiscalService
     //  EVENTOS (Cancelamento, CC-e, Inutilização)
     // ═══════════════════════════════════════════════════════════════════
 
-    public async Task<VendaFiscalEventoResult> CancelarAsync(long vendaFiscalId, string justificativa)
+    public async Task<VendaFiscalEventoResult> CancelarAsync(long vendaId, string justificativa)
     {
         if (string.IsNullOrWhiteSpace(justificativa) || justificativa.Length < 15)
             throw new ArgumentException("Justificativa deve ter no mínimo 15 caracteres.");
 
         var vf = await _db.VendaFiscais
             .Include(x => x.Venda)
-            .FirstOrDefaultAsync(x => x.Id == vendaFiscalId)
+            .FirstOrDefaultAsync(x => x.VendaId == vendaId)
             ?? throw new KeyNotFoundException("Documento fiscal não encontrado.");
 
         if (vf.Venda.StatusFiscal != StatusFiscal.Autorizado)
@@ -679,8 +679,8 @@ public class VendaFiscalService : IVendaFiscalService
 
         var resultado = ProcessarRetornoEvento(xmlRetorno);
 
-        Log.Information("Documento Fiscal Cancelamento | VendaFiscalId={Id} | cStat={CodStatus} | xMotivo={Motivo}",
-            vendaFiscalId, resultado.CodigoStatus, resultado.MotivoStatus);
+        Log.Information("Documento Fiscal Cancelamento | VendaId={Id} | cStat={CodStatus} | xMotivo={Motivo}",
+            vendaId, resultado.CodigoStatus, resultado.MotivoStatus);
 
         if (resultado.Sucesso)
         {
@@ -695,14 +695,14 @@ public class VendaFiscalService : IVendaFiscalService
         return resultado;
     }
 
-    public async Task<VendaFiscalEventoResult> CartaCorrecaoAsync(long vendaFiscalId, string textoCorrecao)
+    public async Task<VendaFiscalEventoResult> CartaCorrecaoAsync(long vendaId, string textoCorrecao)
     {
         if (string.IsNullOrWhiteSpace(textoCorrecao) || textoCorrecao.Length < 15)
             throw new ArgumentException("Texto da correção deve ter no mínimo 15 caracteres.");
 
         var vf = await _db.VendaFiscais
             .Include(x => x.Venda)
-            .FirstOrDefaultAsync(x => x.Id == vendaFiscalId)
+            .FirstOrDefaultAsync(x => x.VendaId == vendaId)
             ?? throw new KeyNotFoundException("Documento fiscal não encontrado.");
 
         if (vf.Venda.StatusFiscal != StatusFiscal.Autorizado)
@@ -743,8 +743,8 @@ public class VendaFiscalService : IVendaFiscalService
 
         var resultado = ProcessarRetornoEvento(xmlRetorno);
 
-        Log.Information("Documento Fiscal CC-e | VendaFiscalId={Id} | cStat={CodStatus} | xMotivo={Motivo}",
-            vendaFiscalId, resultado.CodigoStatus, resultado.MotivoStatus);
+        Log.Information("Documento Fiscal CC-e | VendaId={Id} | cStat={CodStatus} | xMotivo={Motivo}",
+            vendaId, resultado.CodigoStatus, resultado.MotivoStatus);
 
         if (resultado.Sucesso)
         {
@@ -2325,7 +2325,7 @@ public class VendaFiscalService : IVendaFiscalService
 
         return new VendaFiscalDetalheDto
         {
-            Id = vf.Id,
+            Id = vf.VendaId,
             VendaId = vf.VendaId,
             Modelo = vf.Modelo,
             Numero = vf.Numero,

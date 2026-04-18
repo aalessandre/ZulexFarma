@@ -10,7 +10,7 @@ public interface IVendaFiscalService
 {
     // ── Listagem / leitura ──────────────────────────────────────
     Task<List<VendaFiscalListDto>> ListarAsync(long? filialId = null);
-    Task<VendaFiscalDetalheDto> ObterAsync(long vendaFiscalId);
+    Task<VendaFiscalDetalheDto> ObterAsync(long vendaId);
 
     // ── NFe modelo 55 (fluxo: cria rascunho → emite) ────────────
     Task<VendaFiscalListDto> CriarRascunhoNfeAsync(VendaFiscalFormDto dto);
@@ -22,7 +22,7 @@ public interface IVendaFiscalService
     Task<VendaFiscalEmissaoResult> EmitirNfceAsync(long vendaId);
 
     // ── Eventos (cancelamento, CC-e, inutilização) ──────────────
-    Task<VendaFiscalEventoResult> CancelarAsync(long vendaFiscalId, string justificativa);
-    Task<VendaFiscalEventoResult> CartaCorrecaoAsync(long vendaFiscalId, string textoCorrecao);
+    Task<VendaFiscalEventoResult> CancelarAsync(long vendaId, string justificativa);
+    Task<VendaFiscalEventoResult> CartaCorrecaoAsync(long vendaId, string textoCorrecao);
     Task<VendaFiscalEventoResult> InutilizarAsync(long filialId, int serie, int numInicial, int numFinal, string justificativa);
 }

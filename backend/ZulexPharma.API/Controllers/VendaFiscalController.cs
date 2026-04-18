@@ -176,13 +176,13 @@ public class VendaFiscalController : ControllerBase
     //  Eventos (cancelamento, CC-e, inutilização)
     // ═══════════════════════════════════════════════════════════════════
 
-    [HttpPost("{vendaFiscalId:long}/cancelar")]
-    public async Task<IActionResult> Cancelar(long vendaFiscalId, [FromBody] CancelamentoRequest request)
+    [HttpPost("{vendaId:long}/cancelar")]
+    public async Task<IActionResult> Cancelar(long vendaId, [FromBody] CancelamentoRequest request)
     {
         try
         {
-            var resultado = await _service.CancelarAsync(vendaFiscalId, request.Justificativa);
-            await _log.RegistrarAsync("venda-fiscal", "cancelou", "VendaFiscal", vendaFiscalId);
+            var resultado = await _service.CancelarAsync(vendaId, request.Justificativa);
+            await _log.RegistrarAsync("venda-fiscal", "cancelou", "VendaFiscal", vendaId);
             if (resultado.Sucesso)
                 return Ok(new { success = true, data = resultado, message = "Documento fiscal cancelado com sucesso." });
             return Ok(new { success = false, data = resultado, message = $"Cancelamento rejeitado: {resultado.MotivoStatus}" });
@@ -192,18 +192,18 @@ public class VendaFiscalController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { success = false, message = ex.Message }); }
         catch (Exception ex)
         {
-            Log.Error(ex, "Erro ao cancelar documento fiscal {Id}", vendaFiscalId);
+            Log.Error(ex, "Erro ao cancelar documento fiscal {Id}", vendaId);
             return StatusCode(500, new { success = false, message = ex.Message });
         }
     }
 
-    [HttpPost("{vendaFiscalId:long}/carta-correcao")]
-    public async Task<IActionResult> CartaCorrecao(long vendaFiscalId, [FromBody] CartaCorrecaoRequest request)
+    [HttpPost("{vendaId:long}/carta-correcao")]
+    public async Task<IActionResult> CartaCorrecao(long vendaId, [FromBody] CartaCorrecaoRequest request)
     {
         try
         {
-            var resultado = await _service.CartaCorrecaoAsync(vendaFiscalId, request.TextoCorrecao);
-            await _log.RegistrarAsync("venda-fiscal", "carta-correcao", "VendaFiscal", vendaFiscalId);
+            var resultado = await _service.CartaCorrecaoAsync(vendaId, request.TextoCorrecao);
+            await _log.RegistrarAsync("venda-fiscal", "carta-correcao", "VendaFiscal", vendaId);
             if (resultado.Sucesso)
                 return Ok(new { success = true, data = resultado, message = "Carta de correção registrada com sucesso." });
             return Ok(new { success = false, data = resultado, message = $"CC-e rejeitada: {resultado.MotivoStatus}" });
@@ -213,7 +213,7 @@ public class VendaFiscalController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { success = false, message = ex.Message }); }
         catch (Exception ex)
         {
-            Log.Error(ex, "Erro ao enviar CC-e para documento fiscal {Id}", vendaFiscalId);
+            Log.Error(ex, "Erro ao enviar CC-e para documento fiscal {Id}", vendaId);
             return StatusCode(500, new { success = false, message = ex.Message });
         }
     }
@@ -244,17 +244,17 @@ public class VendaFiscalController : ControllerBase
     //  Log de auditoria
     // ═══════════════════════════════════════════════════════════════════
 
-    [HttpGet("{vendaFiscalId:long}/log")]
-    public async Task<IActionResult> LogAuditoria(long vendaFiscalId)
+    [HttpGet("{vendaId:long}/log")]
+    public async Task<IActionResult> LogAuditoria(long vendaId)
     {
         try
         {
-            var logs = await _log.ListarPorRegistroAsync("VendaFiscal", vendaFiscalId);
+            var logs = await _log.ListarPorRegistroAsync("VendaFiscal", vendaId);
             return Ok(new { success = true, data = logs });
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Erro ao listar logs do documento fiscal {Id}", vendaFiscalId);
+            Log.Error(ex, "Erro ao listar logs do documento fiscal {Id}", vendaId);
             return StatusCode(500, new { success = false, message = ex.Message });
         }
     }
@@ -267,9 +267,9 @@ public class VendaFiscalController : ControllerBase
     /// Gera o DANFE em HTML. Modelo 55 → layout A4 retrato; Modelo 65 → layout térmico 80mm.
     /// [AllowAnonymous] para permitir abrir em nova aba sem token.
     /// </summary>
-    [HttpGet("{vendaFiscalId:long}/danfe")]
+    [HttpGet("{vendaId:long}/danfe")]
     [AllowAnonymous]
-    public async Task<IActionResult> Danfe(long vendaFiscalId)
+    public async Task<IActionResult> Danfe(long vendaId)
     {
         try
         {
@@ -281,7 +281,7 @@ public class VendaFiscalController : ControllerBase
                 .Include(vf => vf.Venda).ThenInclude(v => v.Cliente).ThenInclude(c => c!.Pessoa)
                 .Include(vf => vf.Venda).ThenInclude(v => v.DestinatarioPessoa).ThenInclude(p => p!.Enderecos)
                 .Include(vf => vf.TransportadoraPessoa).ThenInclude(p => p!.Enderecos)
-                .FirstOrDefaultAsync(vf => vf.Id == vendaFiscalId);
+                .FirstOrDefaultAsync(vf => vf.VendaId == vendaId);
 
             if (vendaFiscal == null) return NotFound("Documento fiscal não encontrado.");
 
@@ -307,7 +307,7 @@ public class VendaFiscalController : ControllerBase
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Erro ao gerar DANFE do documento fiscal {Id}", vendaFiscalId);
+            Log.Error(ex, "Erro ao gerar DANFE do documento fiscal {Id}", vendaId);
             return StatusCode(500, "Erro ao gerar DANFE.");
         }
     }

@@ -2127,7 +2127,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
                 this.salvando.set(false);
                 if (nfceRes.success && nfceRes.data?.autorizada) {
                   // Abrir DANFE na modal (resetTudo será chamado ao fechar)
-                  const nfceId = nfceRes.data.vendaFiscalId;
+                  const nfceId = nfceRes.data.vendaId;
                   if (nfceId) {
                     this.abrirDanfe(nfceId);
                   } else {
