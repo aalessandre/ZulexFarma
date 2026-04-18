@@ -40,6 +40,19 @@
         <!-- ══════ SECAO 1: IDENTIFICACAO ══════ -->
         <div class="form-secao">Identificacao</div>
         <div class="form-grid">
+          <div class="field field-3" [class.field-invalido]="erroCampo('filialId')">
+            <label>FILIAL *</label>
+            <select [value]="form().filialId || ''" (change)="upd('filialId', +$any($event.target).value)">
+              <option value="" disabled>Selecione...</option>
+              @for (fil of filiais(); track fil.id) {
+                <option [value]="fil.id">{{ fil.nome }}</option>
+              }
+            </select>
+            @if (erroCampo('filialId')) { <span class="field-erro">{{ erroCampo('filialId') }}</span> }
+          </div>
+        </div>
+
+        <div class="form-grid">
           <div class="field field-3" [class.field-invalido]="erroCampo('naturezaOperacaoId')">
             <label>NATUREZA DE OPERACAO *</label>
             <select [value]="form().naturezaOperacaoId || ''" (change)="onNaturezaChange($any($event.target).value)">

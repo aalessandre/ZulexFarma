@@ -104,6 +104,7 @@ export class NfeEmissaoComponent implements OnInit, OnDestroy {
   modoEdicao = signal(false);
 
   // ── Lookups ────────────────────────────────────────────────────────
+  filiais = signal<Array<{ id: number; nome: string }>>([]);
   naturezas = signal<NaturezaOp[]>([]);
   naturezaSelecionada = signal<NaturezaOp | null>(null);
 
@@ -159,6 +160,7 @@ export class NfeEmissaoComponent implements OnInit, OnDestroy {
   private readonly TAB_ID = '/erp/nfe-emissao';
 
   ngOnInit() {
+    this.carregarFiliais();
     this.carregarNaturezas();
 
     // Check if editing existing NF-e
@@ -200,6 +202,34 @@ export class NfeEmissaoComponent implements OnInit, OnDestroy {
     this.http.get<any>(`${environment.apiUrl}/natureza-operacao`).subscribe({
       next: r => this.naturezas.set(r.data ?? []),
       error: () => {}
+    });
+  }
+
+  private carregarFiliais() {
+    const usuario = this.auth.usuarioLogado();
+    const filialIdUsuario = parseInt(usuario?.filialId || '0', 10);
+    // Default pra filial do usuário logado enquanto a lista carrega
+    if (filialIdUsuario > 0 && !this.form().filialId) {
+      this.form.update(f => ({ ...f, filialId: filialIdUsuario }));
+    }
+    this.http.get<any>(`${environment.apiUrl}/filiais`).subscribe({
+      next: r => {
+        const lista = (r.data ?? []).map((f: any) => ({
+          id: f.id,
+          nome: f.nomeFilial ?? f.nomeFantasia ?? f.nome ?? `Filial ${f.id}`
+        }));
+        this.filiais.set(lista);
+        // Se ainda não tinha filial no form e o usuário tem só uma, seleciona-a
+        if (!this.form().filialId && lista.length === 1) {
+          this.form.update(f => ({ ...f, filialId: lista[0].id }));
+        }
+      },
+      error: () => {
+        // Sem permissão pra listar — usa só a filial do usuário
+        if (filialIdUsuario > 0) {
+          this.filiais.set([{ id: filialIdUsuario, nome: usuario?.nomeFilial ?? `Filial ${filialIdUsuario}` }]);
+        }
+      }
     });
   }
 
@@ -416,6 +446,7 @@ export class NfeEmissaoComponent implements OnInit, OnDestroy {
 
     const erros: Record<string, string> = {};
     const f = this.form();
+    if (!f.filialId) erros['filialId'] = 'Filial e obrigatoria.';
     if (!f.naturezaOperacaoId) erros['naturezaOperacaoId'] = 'Natureza de operacao e obrigatoria.';
     if (!f.destinatarioPessoaId) erros['destinatarioPessoaId'] = 'Destinatario e obrigatorio.';
     if (Object.keys(erros).length) {
