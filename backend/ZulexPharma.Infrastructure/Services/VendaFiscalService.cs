@@ -356,6 +356,8 @@ public class VendaFiscalService : IVendaFiscalService
         var ambiente = int.Parse(configs.GetValueOrDefault("fiscal.ambiente", "2"));
         var serie = int.Parse(configs.GetValueOrDefault("fiscal.nfe.serie", "1"));
         var regimeTributario = int.Parse(configs.GetValueOrDefault("fiscal.regime.tributario", "1"));
+        var csrtId = configs.GetValueOrDefault("fiscal.csrt.id", "");
+        var csrtCodigo = configs.GetValueOrDefault("fiscal.csrt.codigo", "");
 
         var ultimoNumero = await _db.VendaFiscais
             .Where(x => x.Venda.FilialId == filial.Id
@@ -372,7 +374,7 @@ public class VendaFiscalService : IVendaFiscalService
         var chaveAcesso = GerarChaveAcesso(ufCodigo, agora, cnpj, 55, serie, numero, 1, codigoNumerico);
 
         var xml = MontarXmlNfe(venda, vf, filial, chaveAcesso, numero, serie, ambiente, regimeTributario,
-            ufCodigo, cnpj, agora, codigoNumerico, ibptDict);
+            ufCodigo, cnpj, agora, codigoNumerico, ibptDict, csrtId, csrtCodigo);
 
         var pfxBytes = Convert.FromBase64String(certDb.PfxBase64);
         var cert = new X509Certificate2(pfxBytes, certDb.Senha, X509KeyStorageFlags.Exportable);
@@ -477,6 +479,8 @@ public class VendaFiscalService : IVendaFiscalService
         var cscId = configs.GetValueOrDefault("fiscal.nfce.csc.id", "1");
         var serie = int.Parse(configs.GetValueOrDefault("fiscal.nfce.serie", "1"));
         var regimeTributario = int.Parse(configs.GetValueOrDefault("fiscal.regime.tributario", "1"));
+        var csrtIdNfce = configs.GetValueOrDefault("fiscal.csrt.id", "");
+        var csrtCodigoNfce = configs.GetValueOrDefault("fiscal.csrt.codigo", "");
 
         var ultimoNumero = await _db.VendaFiscais
             .Where(x => x.Venda.FilialId == filial.Id && x.Serie == serie && x.Modelo == ModeloDocumento.Nfce)
@@ -490,7 +494,7 @@ public class VendaFiscalService : IVendaFiscalService
         var chaveAcesso = GerarChaveAcesso(ufCodigo, agora, cnpj, 65, serie, numero, 1, codigoNumerico);
 
         var xml = MontarXmlNfce(venda, filial, chaveAcesso, numero, serie, ambiente, regimeTributario,
-            ufCodigo, cnpj, agora, codigoNumerico, fiscais, produtos, ibptDict);
+            ufCodigo, cnpj, agora, codigoNumerico, fiscais, produtos, ibptDict, csrtIdNfce, csrtCodigoNfce);
 
         var pfxBytes = Convert.FromBase64String(certDb.PfxBase64);
         var cert = new X509Certificate2(pfxBytes, certDb.Senha, X509KeyStorageFlags.Exportable);
@@ -834,7 +838,7 @@ public class VendaFiscalService : IVendaFiscalService
 
     private string MontarXmlNfe(Venda venda, VendaFiscal vf, Filial filial, string chaveAcesso, int numero, int serie,
         int ambiente, int crt, int ufCodigo, string cnpj, DateTime agora, int codigoNumerico,
-        Dictionary<string, IbptTax> ibptDict)
+        Dictionary<string, IbptTax> ibptDict, string csrtId = "", string csrtCodigo = "")
     {
         var sb = new StringBuilder();
         sb.Append("<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\">");
@@ -1106,11 +1110,25 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append($"<email>{filial.Email}</email>");
         var foneTec = filial.Telefone.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "");
         sb.Append($"<fone>{foneTec}</fone>");
+        // CSRT (obrigatório quando o desenvolvedor do software é credenciado na SEFAZ).
+        // Se configurado, hash = Base64(SHA1(csrtCodigo + chaveAcesso))
+        if (!string.IsNullOrWhiteSpace(csrtId) && !string.IsNullOrWhiteSpace(csrtCodigo))
+        {
+            sb.Append($"<idCSRT>{csrtId}</idCSRT>");
+            sb.Append($"<hashCSRT>{CalcularHashCsrt(csrtCodigo, chaveAcesso)}</hashCSRT>");
+        }
         sb.Append("</infRespTec>");
 
         sb.Append("</infNFe>");
         sb.Append("</NFe>");
         return sb.ToString();
+    }
+
+    private static string CalcularHashCsrt(string csrt, string chaveAcesso)
+    {
+        using var sha1 = System.Security.Cryptography.SHA1.Create();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csrt + chaveAcesso);
+        return Convert.ToBase64String(sha1.ComputeHash(bytes));
     }
 
     // ── Destinatário NF-e 55 ──
@@ -1564,7 +1582,7 @@ public class VendaFiscalService : IVendaFiscalService
     private string MontarXmlNfce(Venda venda, Filial filial, string chaveAcesso, int numero, int serie,
         int ambiente, int crt, int ufCodigo, string cnpj, DateTime agora, int codigoNumerico,
         Dictionary<long, ProdutoFiscal> fiscais, Dictionary<long, Produto> produtos,
-        Dictionary<string, IbptTax> ibptDict)
+        Dictionary<string, IbptTax> ibptDict, string csrtId = "", string csrtCodigo = "")
     {
         var sb = new StringBuilder();
         sb.Append("<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\">");
@@ -1833,6 +1851,11 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append($"<email>{filial.Email}</email>");
         var foneTec = filial.Telefone.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "");
         sb.Append($"<fone>{foneTec}</fone>");
+        if (!string.IsNullOrWhiteSpace(csrtId) && !string.IsNullOrWhiteSpace(csrtCodigo))
+        {
+            sb.Append($"<idCSRT>{csrtId}</idCSRT>");
+            sb.Append($"<hashCSRT>{CalcularHashCsrt(csrtCodigo, chaveAcesso)}</hashCSRT>");
+        }
         sb.Append("</infRespTec>");
         sb.Append("</infNFe>");
         sb.Append("</NFe>");
