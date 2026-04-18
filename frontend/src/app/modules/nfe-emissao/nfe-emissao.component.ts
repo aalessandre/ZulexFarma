@@ -507,12 +507,20 @@ export class NfeEmissaoComponent implements OnInit, OnDestroy {
     this.http.post<any>(`${this.apiUrl}/emitir-nfe/${f.id}`, {}).subscribe({
       next: (r: any) => {
         this.emitindo.set(false);
-        this.modal.aviso('NF-e Emitida', r.message ?? 'NF-e emitida com sucesso.');
-        this.fechar();
+        if (r.success) {
+          this.modal.aviso('NF-e Emitida', r.message ?? 'NF-e emitida com sucesso.');
+          this.fechar();
+        } else {
+          const motivo = r.data?.motivoStatus ?? r.message ?? 'Rejeitada pela SEFAZ.';
+          this.modal.aviso('NF-e Rejeitada', motivo);
+          this.erro.set(motivo);
+        }
       },
       error: (err) => {
         this.emitindo.set(false);
-        this.erro.set(err.error?.message ?? 'Erro ao emitir NF-e.');
+        const msg = err.error?.message ?? 'Erro ao emitir NF-e.';
+        this.modal.aviso('Erro ao emitir NF-e', msg);
+        this.erro.set(msg);
       }
     });
   }
