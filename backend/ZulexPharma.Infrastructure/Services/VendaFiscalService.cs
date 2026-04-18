@@ -358,6 +358,10 @@ public class VendaFiscalService : IVendaFiscalService
         var regimeTributario = int.Parse(configs.GetValueOrDefault("fiscal.regime.tributario", "1"));
         var csrtId = configs.GetValueOrDefault("fiscal.csrt.id", "");
         var csrtCodigo = configs.GetValueOrDefault("fiscal.csrt.codigo", "");
+        var respTecCnpj = configs.GetValueOrDefault("fiscal.resptec.cnpj", "");
+        var respTecContato = configs.GetValueOrDefault("fiscal.resptec.contato", "");
+        var respTecEmail = configs.GetValueOrDefault("fiscal.resptec.email", "");
+        var respTecFone = configs.GetValueOrDefault("fiscal.resptec.fone", "");
 
         var ultimoNumero = await _db.VendaFiscais
             .Where(x => x.Venda.FilialId == filial.Id
@@ -374,7 +378,8 @@ public class VendaFiscalService : IVendaFiscalService
         var chaveAcesso = GerarChaveAcesso(ufCodigo, agora, cnpj, 55, serie, numero, 1, codigoNumerico);
 
         var xml = MontarXmlNfe(venda, vf, filial, chaveAcesso, numero, serie, ambiente, regimeTributario,
-            ufCodigo, cnpj, agora, codigoNumerico, ibptDict, csrtId, csrtCodigo);
+            ufCodigo, cnpj, agora, codigoNumerico, ibptDict, csrtId, csrtCodigo,
+            respTecCnpj, respTecContato, respTecEmail, respTecFone);
 
         var pfxBytes = Convert.FromBase64String(certDb.PfxBase64);
         var cert = new X509Certificate2(pfxBytes, certDb.Senha, X509KeyStorageFlags.Exportable);
@@ -481,6 +486,10 @@ public class VendaFiscalService : IVendaFiscalService
         var regimeTributario = int.Parse(configs.GetValueOrDefault("fiscal.regime.tributario", "1"));
         var csrtIdNfce = configs.GetValueOrDefault("fiscal.csrt.id", "");
         var csrtCodigoNfce = configs.GetValueOrDefault("fiscal.csrt.codigo", "");
+        var respTecCnpjNfce = configs.GetValueOrDefault("fiscal.resptec.cnpj", "");
+        var respTecContatoNfce = configs.GetValueOrDefault("fiscal.resptec.contato", "");
+        var respTecEmailNfce = configs.GetValueOrDefault("fiscal.resptec.email", "");
+        var respTecFoneNfce = configs.GetValueOrDefault("fiscal.resptec.fone", "");
 
         var ultimoNumero = await _db.VendaFiscais
             .Where(x => x.Venda.FilialId == filial.Id && x.Serie == serie && x.Modelo == ModeloDocumento.Nfce)
@@ -494,7 +503,8 @@ public class VendaFiscalService : IVendaFiscalService
         var chaveAcesso = GerarChaveAcesso(ufCodigo, agora, cnpj, 65, serie, numero, 1, codigoNumerico);
 
         var xml = MontarXmlNfce(venda, filial, chaveAcesso, numero, serie, ambiente, regimeTributario,
-            ufCodigo, cnpj, agora, codigoNumerico, fiscais, produtos, ibptDict, csrtIdNfce, csrtCodigoNfce);
+            ufCodigo, cnpj, agora, codigoNumerico, fiscais, produtos, ibptDict, csrtIdNfce, csrtCodigoNfce,
+            respTecCnpjNfce, respTecContatoNfce, respTecEmailNfce, respTecFoneNfce);
 
         var pfxBytes = Convert.FromBase64String(certDb.PfxBase64);
         var cert = new X509Certificate2(pfxBytes, certDb.Senha, X509KeyStorageFlags.Exportable);
@@ -838,7 +848,8 @@ public class VendaFiscalService : IVendaFiscalService
 
     private string MontarXmlNfe(Venda venda, VendaFiscal vf, Filial filial, string chaveAcesso, int numero, int serie,
         int ambiente, int crt, int ufCodigo, string cnpj, DateTime agora, int codigoNumerico,
-        Dictionary<string, IbptTax> ibptDict, string csrtId = "", string csrtCodigo = "")
+        Dictionary<string, IbptTax> ibptDict, string csrtId = "", string csrtCodigo = "",
+        string respTecCnpj = "", string respTecContato = "", string respTecEmail = "", string respTecFone = "")
     {
         var sb = new StringBuilder();
         sb.Append("<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\">");
@@ -1104,14 +1115,33 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append($"<infAdic><infCpl>{Esc(infCpl)}</infCpl></infAdic>");
 
         // ── infRespTec ──
+        // CNPJ do responsável técnico precisa bater com o CNPJ cadastrado no portal SEFAZ como
+        // dono do CSRT (normalmente a software house). Fallback pros dados da filial quando vazio.
+        AppendInfRespTec(sb, filial, cnpj, chaveAcesso, csrtId, csrtCodigo,
+            respTecCnpj, respTecContato, respTecEmail, respTecFone);
+
+        sb.Append("</infNFe>");
+        sb.Append("</NFe>");
+        return sb.ToString();
+    }
+
+    private static void AppendInfRespTec(StringBuilder sb, Filial filial, string emitCnpj, string chaveAcesso,
+        string csrtId, string csrtCodigo,
+        string respTecCnpj, string respTecContato, string respTecEmail, string respTecFone)
+    {
+        var cnpjTec = !string.IsNullOrWhiteSpace(respTecCnpj)
+            ? CpfCnpjHelper.SomenteDigitos(respTecCnpj) : emitCnpj;
+        var contatoTec = !string.IsNullOrWhiteSpace(respTecContato) ? respTecContato : filial.RazaoSocial;
+        var emailTec = !string.IsNullOrWhiteSpace(respTecEmail) ? respTecEmail : filial.Email;
+        var foneTecRaw = !string.IsNullOrWhiteSpace(respTecFone) ? respTecFone : (filial.Telefone ?? "");
+        var foneTec = foneTecRaw.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "");
+
         sb.Append("<infRespTec>");
-        sb.Append($"<CNPJ>{cnpj}</CNPJ>");
-        sb.Append($"<xContato>{Esc(filial.RazaoSocial)}</xContato>");
-        sb.Append($"<email>{filial.Email}</email>");
-        var foneTec = filial.Telefone.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "");
+        sb.Append($"<CNPJ>{cnpjTec}</CNPJ>");
+        sb.Append($"<xContato>{Esc(contatoTec)}</xContato>");
+        sb.Append($"<email>{Esc(emailTec)}</email>");
         sb.Append($"<fone>{foneTec}</fone>");
-        // CSRT (obrigatório quando o desenvolvedor do software é credenciado na SEFAZ).
-        // Se configurado, hash = Base64(SHA1(csrtCodigo + chaveAcesso))
+        // CSRT (obrigatório quando o CNPJ do resp. técnico está credenciado na SEFAZ).
         if (!string.IsNullOrWhiteSpace(csrtId) && !string.IsNullOrWhiteSpace(csrtCodigo))
         {
             // idCSRT tem pattern [0-9]{2} — sempre 2 dígitos (ex: "1" → "01")
@@ -1120,10 +1150,6 @@ public class VendaFiscalService : IVendaFiscalService
             sb.Append($"<hashCSRT>{CalcularHashCsrt(csrtCodigo, chaveAcesso)}</hashCSRT>");
         }
         sb.Append("</infRespTec>");
-
-        sb.Append("</infNFe>");
-        sb.Append("</NFe>");
-        return sb.ToString();
     }
 
     private static string CalcularHashCsrt(string csrt, string chaveAcesso)
@@ -1584,7 +1610,8 @@ public class VendaFiscalService : IVendaFiscalService
     private string MontarXmlNfce(Venda venda, Filial filial, string chaveAcesso, int numero, int serie,
         int ambiente, int crt, int ufCodigo, string cnpj, DateTime agora, int codigoNumerico,
         Dictionary<long, ProdutoFiscal> fiscais, Dictionary<long, Produto> produtos,
-        Dictionary<string, IbptTax> ibptDict, string csrtId = "", string csrtCodigo = "")
+        Dictionary<string, IbptTax> ibptDict, string csrtId = "", string csrtCodigo = "",
+        string respTecCnpj = "", string respTecContato = "", string respTecEmail = "", string respTecFone = "")
     {
         var sb = new StringBuilder();
         sb.Append("<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\">");
@@ -1847,20 +1874,8 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append("<infAdic><infCpl>Documento emitido por ZulexPharma ERP</infCpl></infAdic>");
 
         // infRespTec (obrigatório no PR e outros estados)
-        sb.Append("<infRespTec>");
-        sb.Append($"<CNPJ>{cnpj}</CNPJ>");
-        sb.Append($"<xContato>{Esc(filial.RazaoSocial)}</xContato>");
-        sb.Append($"<email>{filial.Email}</email>");
-        var foneTec = filial.Telefone.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "");
-        sb.Append($"<fone>{foneTec}</fone>");
-        if (!string.IsNullOrWhiteSpace(csrtId) && !string.IsNullOrWhiteSpace(csrtCodigo))
-        {
-            // idCSRT tem pattern [0-9]{2} — sempre 2 dígitos (ex: "1" → "01")
-            var idCsrtPadded = csrtId.Trim().PadLeft(2, '0');
-            sb.Append($"<idCSRT>{idCsrtPadded}</idCSRT>");
-            sb.Append($"<hashCSRT>{CalcularHashCsrt(csrtCodigo, chaveAcesso)}</hashCSRT>");
-        }
-        sb.Append("</infRespTec>");
+        AppendInfRespTec(sb, filial, cnpj, chaveAcesso, csrtId, csrtCodigo,
+            respTecCnpj, respTecContato, respTecEmail, respTecFone);
         sb.Append("</infNFe>");
         sb.Append("</NFe>");
         return sb.ToString();

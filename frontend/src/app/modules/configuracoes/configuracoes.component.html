@@ -391,8 +391,42 @@
               </div>
 
               <div class="cfg-sub-titulo" style="margin-top:16px">
-                Responsável Técnico (CSRT)
-                <span class="cfg-info" title="Obrigatório quando o CNPJ do desenvolvedor do software está credenciado no portal SEFAZ. Gera-se no portal da SEFAZ-UF como desenvolvedor: um ID numérico (1-99) e um código alfanumérico (CSRT)."
+                Responsável Técnico
+                <span class="cfg-info" title="Dados da software house (desenvolvedor do ERP). O CNPJ precisa bater com o cadastrado no portal SEFAZ como dono do CSRT."
+                  style="margin-left:6px">i</span>
+              </div>
+              <div class="cfg-grid cfg-grid-compact">
+                <div class="cfg-field">
+                  <label>CNPJ RESP. TÉCNICO
+                    <span class="cfg-info" title="CNPJ da empresa desenvolvedora do software. Se vazio, usa o CNPJ da filial.">i</span>
+                  </label>
+                  <input type="text" maxlength="18" [value]="getConfig('fiscal.resptec.cnpj', '')"
+                         (input)="setConfig('fiscal.resptec.cnpj', $any($event.target).value)"
+                         placeholder="00.000.000/0000-00" />
+                </div>
+                <div class="cfg-field">
+                  <label>CONTATO</label>
+                  <input type="text" maxlength="60" [value]="getConfig('fiscal.resptec.contato', '')"
+                         (input)="setConfig('fiscal.resptec.contato', $any($event.target).value)"
+                         placeholder="Nome do contato técnico (se vazio, usa razão social da filial)" />
+                </div>
+                <div class="cfg-field">
+                  <label>E-MAIL</label>
+                  <input type="text" maxlength="60" [value]="getConfig('fiscal.resptec.email', '')"
+                         (input)="setConfig('fiscal.resptec.email', $any($event.target).value)"
+                         placeholder="email@empresa.com.br (se vazio, usa o da filial)" />
+                </div>
+                <div class="cfg-field" style="max-width:160px">
+                  <label>TELEFONE</label>
+                  <input type="text" maxlength="14" [value]="getConfig('fiscal.resptec.fone', '')"
+                         (input)="setConfig('fiscal.resptec.fone', $any($event.target).value)"
+                         placeholder="4133334444" />
+                </div>
+              </div>
+
+              <div class="cfg-sub-titulo" style="margin-top:16px">
+                CSRT (Código de Segurança do Responsável Técnico)
+                <span class="cfg-info" title="Obrigatório quando o CNPJ do responsável técnico está credenciado no portal SEFAZ. Gera-se no portal da SEFAZ-UF: um ID numérico (1-99) e um código alfanumérico (CSRT)."
                   style="margin-left:6px">i</span>
               </div>
               <div class="cfg-grid cfg-grid-compact">
