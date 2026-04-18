@@ -132,6 +132,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaService,
                             ZulexPharma.Infrastructure.Services.VendaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaFiscalService,
                             ZulexPharma.Infrastructure.Services.VendaFiscalService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IMunicipioService,
+                            ZulexPharma.Infrastructure.Services.MunicipioService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.IbptService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAdquirenteService,

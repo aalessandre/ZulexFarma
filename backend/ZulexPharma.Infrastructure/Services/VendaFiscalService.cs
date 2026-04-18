@@ -329,6 +329,12 @@ public class VendaFiscalService : IVendaFiscalService
         var filial = venda.Filial ?? await _db.Filiais.FindAsync(venda.FilialId)
             ?? throw new KeyNotFoundException("Filial não encontrada.");
 
+        // Garante que código IBGE do emitente e destinatário estejam preenchidos (NFe exige cMun válido 7 dígitos)
+        await GarantirCodigoIbgeFilialAsync(filial);
+        var destEndereco = venda.DestinatarioPessoa?.Enderecos?.FirstOrDefault(e => e.Principal)
+                        ?? venda.DestinatarioPessoa?.Enderecos?.FirstOrDefault();
+        if (destEndereco != null) await GarantirCodigoIbgeEnderecoAsync(destEndereco);
+
         var certDb = await _db.CertificadosDigitais.FirstOrDefaultAsync(c => c.FilialId == filial.Id)
             ?? throw new ArgumentException("Certificado digital não configurado.");
 
@@ -440,6 +446,9 @@ public class VendaFiscalService : IVendaFiscalService
 
         var filial = await _db.Filiais.FindAsync(venda.FilialId)
             ?? throw new KeyNotFoundException("Filial não encontrada.");
+
+        // Garante código IBGE da filial (cMunFG)
+        await GarantirCodigoIbgeFilialAsync(filial);
 
         var certDb = await _db.CertificadosDigitais.FirstOrDefaultAsync(c => c.FilialId == filial.Id)
             ?? throw new ArgumentException("Certificado digital não configurado.");
@@ -2185,6 +2194,73 @@ public class VendaFiscalService : IVendaFiscalService
     private static string D3(decimal v) => v.ToString("F3", CultureInfo.InvariantCulture);
     private static string D4(decimal v) => v.ToString("F4", CultureInfo.InvariantCulture);
     private static string Esc(string? s) => s == null ? "" : s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
+
+    // ── Resolução de código IBGE do município ──────────────────────
+    // Prioridade: FK MunicipioId → CodigoIbgeMunicipio já preenchido → lookup por Cidade+UF (fallback)
+    // Se nenhum resolver, lança erro claro (evita rejeição SEFAZ "cMun inexistente" ou "0000000")
+
+    private async Task GarantirCodigoIbgeFilialAsync(Filial filial)
+    {
+        var codigo = await ResolverCodigoIbgeAsync(filial.MunicipioId, filial.CodigoIbgeMunicipio, filial.Cidade, filial.Uf);
+        if (string.IsNullOrEmpty(codigo))
+            throw new InvalidOperationException(
+                $"Município da filial não encontrado na tabela IBGE ({filial.Cidade}/{filial.Uf}). Atualize o cadastro da filial.");
+        if (filial.CodigoIbgeMunicipio != codigo)
+        {
+            filial.CodigoIbgeMunicipio = codigo;
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    private async Task GarantirCodigoIbgeEnderecoAsync(PessoaEndereco endereco)
+    {
+        var codigo = await ResolverCodigoIbgeAsync(endereco.MunicipioId, endereco.CodigoIbgeMunicipio, endereco.Cidade, endereco.Uf);
+        if (string.IsNullOrEmpty(codigo))
+            throw new InvalidOperationException(
+                $"Código do município do destinatário ({endereco.Cidade}/{endereco.Uf}) não encontrado na tabela IBGE. Atualize o cadastro.");
+        if (endereco.CodigoIbgeMunicipio != codigo)
+        {
+            endereco.CodigoIbgeMunicipio = codigo;
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    private async Task<string?> ResolverCodigoIbgeAsync(long? municipioId, string? codigoAtual, string? cidade, string? uf)
+    {
+        // 1. FK preenchida: busca o código IBGE
+        if (municipioId.HasValue)
+        {
+            var mun = await _db.Municipios.FindAsync(municipioId.Value);
+            if (mun != null) return mun.CodigoIbge;
+        }
+
+        // 2. Código já preenchido válido (7 dígitos, não é placeholder)
+        if (!string.IsNullOrWhiteSpace(codigoAtual) && codigoAtual.Length == 7 && codigoAtual != "0000000" && codigoAtual.All(char.IsDigit))
+            return codigoAtual;
+
+        // 3. Fallback: resolver por nome + UF
+        if (!string.IsNullOrWhiteSpace(cidade) && !string.IsNullOrWhiteSpace(uf))
+        {
+            var nomeNorm = NormalizarMunicipio(cidade);
+            var ufNorm = uf.Trim().ToUpperInvariant();
+            var match = await _db.Municipios.FirstOrDefaultAsync(m => m.Uf == ufNorm && m.NomeNormalizado == nomeNorm);
+            if (match != null) return match.CodigoIbge;
+        }
+
+        return null;
+    }
+
+    private static string NormalizarMunicipio(string s)
+    {
+        var decomposed = s.Trim().Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new StringBuilder(decomposed.Length);
+        foreach (var c in decomposed)
+        {
+            var cat = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+            if (cat != System.Globalization.UnicodeCategory.NonSpacingMark) sb.Append(c);
+        }
+        return sb.ToString().ToUpperInvariant();
+    }
 
     private static string GerarChaveAcesso(int uf, DateTime data, string cnpj, int modelo, int serie, int numero, int tipoEmissao, int codigoNumerico)
     {

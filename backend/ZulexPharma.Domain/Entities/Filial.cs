@@ -13,8 +13,14 @@ public class Filial : BaseEntity
     public string Bairro { get; set; } = string.Empty;
     public string Cidade { get; set; } = string.Empty;
     public string Uf { get; set; } = string.Empty;
-    /// <summary>Código IBGE do município (7 dígitos, obrigatório para NFC-e).</summary>
+    /// <summary>Código IBGE do município (7 dígitos, obrigatório para NFC-e).
+    /// Snapshot denormalizado — valor autoritativo vem de <see cref="Municipio"/> via <see cref="MunicipioId"/>.</summary>
     public string? CodigoIbgeMunicipio { get; set; }
+
+    /// <summary>FK para Municipio — garante código IBGE válido na emissão fiscal.</summary>
+    public long? MunicipioId { get; set; }
+    public Municipio? Municipio { get; set; }
+
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
 

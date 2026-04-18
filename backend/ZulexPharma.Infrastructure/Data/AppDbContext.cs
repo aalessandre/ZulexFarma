@@ -131,6 +131,7 @@ public class AppDbContext : DbContext
     public DbSet<PremioFidelidade> PremiosFidelidade => Set<PremioFidelidade>();
     public DbSet<NaturezaOperacao> NaturezasOperacao => Set<NaturezaOperacao>();
     public DbSet<NaturezaOperacaoRegra> NaturezaOperacaoRegras => Set<NaturezaOperacaoRegra>();
+    public DbSet<Municipio> Municipios => Set<Municipio>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -156,7 +157,22 @@ public class AppDbContext : DbContext
             e.Property(x => x.Telefone).HasMaxLength(20).IsRequired();
             e.Property(x => x.Email).HasMaxLength(150).IsRequired();
             e.Property(x => x.AliquotaIcms).HasColumnType("numeric(5,2)");
+            e.Property(x => x.CodigoIbgeMunicipio).HasMaxLength(10);
             e.HasOne(x => x.ContaCofre).WithMany().HasForeignKey(x => x.ContaCofreId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Municipio).WithMany().HasForeignKey(x => x.MunicipioId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── Municipio (tabela IBGE seed) ─────────────────────────────
+        modelBuilder.Entity<Municipio>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CodigoIbge).HasMaxLength(7).IsRequired();
+            e.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+            e.Property(x => x.NomeNormalizado).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
+            e.HasIndex(x => x.CodigoIbge).IsUnique();
+            e.HasIndex(x => new { x.Uf, x.NomeNormalizado });
         });
 
         // ── IcmsUf ────────────────────────────────────────────────────
@@ -378,6 +394,7 @@ public class AppDbContext : DbContext
              .WithMany(x => x.Enderecos)
              .HasForeignKey(x => x.PessoaId)
              .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Municipio).WithMany().HasForeignKey(x => x.MunicipioId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // ── Fabricante ──────────────────────────────────────────────
