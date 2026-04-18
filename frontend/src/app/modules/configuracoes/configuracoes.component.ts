@@ -115,7 +115,7 @@ export class ConfiguracoesComponent implements OnInit {
     } else {
       for (let i = 0; i < 36; i++) csrt += charset[Math.floor(Math.random() * charset.length)];
     }
-    this.setConfig('fiscal.csrt.id', '1');
+    this.setConfig('fiscal.csrt.id', '01');
     this.setConfig('fiscal.csrt.codigo', csrt);
     this.toastr.info('CSRT fake gerado. Válido apenas em homologação — não esqueça de Salvar.');
   }

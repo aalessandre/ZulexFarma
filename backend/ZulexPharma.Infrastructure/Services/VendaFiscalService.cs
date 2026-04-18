@@ -1114,7 +1114,9 @@ public class VendaFiscalService : IVendaFiscalService
         // Se configurado, hash = Base64(SHA1(csrtCodigo + chaveAcesso))
         if (!string.IsNullOrWhiteSpace(csrtId) && !string.IsNullOrWhiteSpace(csrtCodigo))
         {
-            sb.Append($"<idCSRT>{csrtId}</idCSRT>");
+            // idCSRT tem pattern [0-9]{2} — sempre 2 dígitos (ex: "1" → "01")
+            var idCsrtPadded = csrtId.Trim().PadLeft(2, '0');
+            sb.Append($"<idCSRT>{idCsrtPadded}</idCSRT>");
             sb.Append($"<hashCSRT>{CalcularHashCsrt(csrtCodigo, chaveAcesso)}</hashCSRT>");
         }
         sb.Append("</infRespTec>");
@@ -1853,7 +1855,9 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append($"<fone>{foneTec}</fone>");
         if (!string.IsNullOrWhiteSpace(csrtId) && !string.IsNullOrWhiteSpace(csrtCodigo))
         {
-            sb.Append($"<idCSRT>{csrtId}</idCSRT>");
+            // idCSRT tem pattern [0-9]{2} — sempre 2 dígitos (ex: "1" → "01")
+            var idCsrtPadded = csrtId.Trim().PadLeft(2, '0');
+            sb.Append($"<idCSRT>{idCsrtPadded}</idCSRT>");
             sb.Append($"<hashCSRT>{CalcularHashCsrt(csrtCodigo, chaveAcesso)}</hashCSRT>");
         }
         sb.Append("</infRespTec>");
