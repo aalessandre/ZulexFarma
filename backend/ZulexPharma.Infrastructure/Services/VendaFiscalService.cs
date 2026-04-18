@@ -2242,6 +2242,10 @@ public class VendaFiscalService : IVendaFiscalService
         // quando o cadastro do produto não trouxe CFOP — operador deve ajustar na natureza de operação.
         var cfop = string.IsNullOrWhiteSpace(dto.Cfop) ? "5102" : dto.Cfop.Trim();
 
+        // CST PIS/COFINS: enumeração [49,50..56,60..67,70,71,90,98,99]. Fallback "49" (outras op.)
+        var cstPis = string.IsNullOrWhiteSpace(dto.CstPis) ? "49" : dto.CstPis.Trim();
+        var cstCofins = string.IsNullOrWhiteSpace(dto.CstCofins) ? "49" : dto.CstCofins.Trim();
+
         return new VendaItemFiscal
         {
             NumeroItem = numeroItem,
@@ -2288,12 +2292,12 @@ public class VendaFiscalService : IVendaFiscalService
             AliquotaFcpSt = dto.AliquotaFcpSt,
             ValorFcpSt = dto.ValorFcpSt,
 
-            CstPis = dto.CstPis,
+            CstPis = cstPis,
             BasePis = dto.BasePis,
             AliquotaPis = dto.AliquotaPis,
             ValorPis = dto.ValorPis,
 
-            CstCofins = dto.CstCofins,
+            CstCofins = cstCofins,
             BaseCofins = dto.BaseCofins,
             AliquotaCofins = dto.AliquotaCofins,
             ValorCofins = dto.ValorCofins,

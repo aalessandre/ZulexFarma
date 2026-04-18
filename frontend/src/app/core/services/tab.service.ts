@@ -47,7 +47,7 @@ export class TabService {
     }
     this.pushHistorico(tab.id);
     this.tabAtiva.set(tab.id);
-    this.router.navigate([tab.rota]);
+    this.router.navigateByUrl(tab.rota);
   }
 
   async fecharTab(id: string, event?: MouseEvent): Promise<void> {
@@ -72,7 +72,7 @@ export class TabService {
       if (novaLista.length > 0) {
         const proxima = novaLista[Math.min(idx, novaLista.length - 1)];
         this.tabAtiva.set(proxima.id);
-        this.router.navigate([proxima.rota]);
+        this.router.navigateByUrl(proxima.rota);
       } else {
         this.tabAtiva.set('');
         this.router.navigate(['/erp']);
@@ -89,7 +89,7 @@ export class TabService {
   ativarTab(id: string, rota: string): void {
     this.pushHistorico(id);
     this.tabAtiva.set(id);
-    this.router.navigate([rota]);
+    this.router.navigateByUrl(rota);
   }
 
   /** Volta para a aba visitada anteriormente, ou para a home se for a última */
@@ -106,7 +106,7 @@ export class TabService {
     const tab = this.tabs().find(t => t.id === anteriorId);
     if (tab) {
       this.tabAtiva.set(tab.id);
-      this.router.navigate([tab.rota]);
+      this.router.navigateByUrl(tab.rota);
     }
   }
 
