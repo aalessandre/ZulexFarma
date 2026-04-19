@@ -60,6 +60,18 @@ public class EntregaFormDto
     public long? EnderecoEntregaId { get; set; }
     public string? Observacao { get; set; }
     public DateTime? DataPrevista { get; set; }
+    /// <summary>Se true, cria entrega já com Status=SaiuParaEntrega e EntregadorId atribuído.</summary>
+    public bool DespacharAgora { get; set; }
+    /// <summary>Obrigatório quando DespacharAgora=true.</summary>
+    public long? EntregadorId { get; set; }
+}
+
+/// <summary>DTO para baixar (confirmar entrega). Se venda não tinha PagamentoRecebido, contabiliza no caixa atual.</summary>
+public class EntregaBaixarDto
+{
+    /// <summary>Caixa atual onde o CaixaMovimento de recebimento será lançado (se aplicável).</summary>
+    public long? CaixaAtualId { get; set; }
+    public string? Observacao { get; set; }
 }
 
 public class EntregaMudarStatusDto

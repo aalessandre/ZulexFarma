@@ -1060,9 +1060,12 @@ public class AppDbContext : DbContext
             e.Property(x => x.TotalLiquido).HasPrecision(18, 2);
             e.Property(x => x.Observacao).HasMaxLength(500);
             e.Property(x => x.NumeroBoletim).HasMaxLength(50);
+            e.Property(x => x.EntregaObservacao).HasMaxLength(500);
             e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.FilialDestino).WithMany().HasForeignKey(x => x.FilialDestinoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Caixa).WithMany().HasForeignKey(x => x.CaixaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.CaixaRecebimento).WithMany().HasForeignKey(x => x.CaixaRecebimentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.EntregaEndereco).WithMany().HasForeignKey(x => x.EntregaEnderecoId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Colaborador).WithMany().HasForeignKey(x => x.ColaboradorId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.SetNull);

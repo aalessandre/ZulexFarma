@@ -16,15 +16,18 @@ public class VendaService : IVendaService
     private readonly ILogAcaoService _log;
     private readonly IProdutoLoteService _loteService;
     private readonly IVendaReceitaService _receitaService;
+    private readonly IEntregaService _entregaService;
     private const string TELA = "Venda";
     private const string ENTIDADE = "Venda";
 
-    public VendaService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService, IVendaReceitaService receitaService)
+    public VendaService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService,
+        IVendaReceitaService receitaService, IEntregaService entregaService)
     {
         _db = db;
         _log = log;
         _loteService = loteService;
         _receitaService = receitaService;
+        _entregaService = entregaService;
     }
 
     public async Task<List<VendaListDto>> ListarAsync(long? filialId = null, string? status = null, long? caixaId = null)
@@ -471,28 +474,54 @@ public class VendaService : IVendaService
             await _db.SaveChangesAsync();
 
             // ── Gera CaixaMovimento para cada VendaPagamento se a venda pertence a um caixa ──
-            if (venda.CaixaId.HasValue)
+            // Só contabiliza agora se pagamentoRecebido=true. Se for entrega com contabilização diferida,
+            // os CaixaMovimentos serão criados pelo EntregaService.BaixarAsync.
+            var pagamentoRecebido = opcoes?.PagamentoRecebido ?? true;
+            venda.PagamentoRecebido = pagamentoRecebido;
+            if (pagamentoRecebido)
             {
-                foreach (var pag in venda.Pagamentos)
+                venda.DataPagamentoRecebido = agora;
+                venda.CaixaRecebimentoId = venda.CaixaId;
+
+                if (venda.CaixaId.HasValue)
                 {
-                    var modalidade = pag.TipoPagamento?.Modalidade;
-                    var valorLiquido = pag.Valor - pag.Troco;
-                    // Auto-conferido: só sangrias precisam de conferência manual
-                    _db.Set<CaixaMovimento>().Add(new CaixaMovimento
+                    foreach (var pag in venda.Pagamentos)
                     {
-                        CaixaId = venda.CaixaId.Value,
-                        Tipo = TipoMovimentoCaixa.VendaPagamento,
-                        DataMovimento = agora,
-                        Valor = valorLiquido,
-                        TipoPagamentoId = pag.TipoPagamentoId,
-                        Descricao = $"Venda #{venda.Codigo ?? venda.Id.ToString()} — {pag.TipoPagamento?.Nome ?? ""}",
-                        VendaPagamentoId = pag.Id,
-                        UsuarioId = null,
-                        StatusConferencia = StatusConferenciaMovimento.Conferido,
-                        DataConferencia = agora
-                    });
+                        var valorLiquido = pag.Valor - pag.Troco;
+                        // Auto-conferido: só sangrias precisam de conferência manual
+                        _db.Set<CaixaMovimento>().Add(new CaixaMovimento
+                        {
+                            CaixaId = venda.CaixaId.Value,
+                            Tipo = TipoMovimentoCaixa.VendaPagamento,
+                            DataMovimento = agora,
+                            Valor = valorLiquido,
+                            TipoPagamentoId = pag.TipoPagamentoId,
+                            Descricao = $"Venda #{venda.Codigo ?? venda.Id.ToString()} — {pag.TipoPagamento?.Nome ?? ""}",
+                            VendaPagamentoId = pag.Id,
+                            UsuarioId = null,
+                            StatusConferencia = StatusConferenciaMovimento.Conferido,
+                            DataConferencia = agora
+                        });
+                    }
+                    await _db.SaveChangesAsync();
                 }
-                await _db.SaveChangesAsync();
+            }
+            else
+            {
+                await _db.SaveChangesAsync(); // persiste PagamentoRecebido=false
+            }
+
+            // ── Entrega (se marcada na finalização) ───────────────
+            if (opcoes?.Entrega != null)
+            {
+                await _entregaService.CriarAsync(new Application.DTOs.Entregas.EntregaFormDto
+                {
+                    VendaId = venda.Id,
+                    EnderecoEntregaId = opcoes.Entrega.EnderecoEntregaId,
+                    Observacao = opcoes.Entrega.Observacao,
+                    DespacharAgora = opcoes.Entrega.DespacharAgora,
+                    EntregadorId = opcoes.Entrega.EntregadorId
+                }, usuarioId: null);
             }
 
             // ── SNGPC: registra receitas (baixa lotes específicos) ou marca pendente ──

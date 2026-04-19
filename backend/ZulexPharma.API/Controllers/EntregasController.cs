@@ -70,6 +70,23 @@ public class EntregasController : ControllerBase
         catch (InvalidOperationException e) { return BadRequest(new { success = false, message = e.Message }); }
     }
 
+    [HttpPost("{id:long}/baixar")]
+    public async Task<IActionResult> Baixar(long id, [FromBody] EntregaBaixarDto dto)
+    {
+        try { await _service.BaixarAsync(id, dto, UsuarioId); return Ok(new { success = true }); }
+        catch (KeyNotFoundException e) { return NotFound(new { success = false, message = e.Message }); }
+        catch (ArgumentException e) { return BadRequest(new { success = false, message = e.Message }); }
+        catch (InvalidOperationException e) { return BadRequest(new { success = false, message = e.Message }); }
+    }
+
+    [HttpPost("{id:long}/cancelar")]
+    public async Task<IActionResult> Cancelar(long id, [FromBody] EntregaMudarStatusDto dto)
+    {
+        try { await _service.CancelarAsync(id, UsuarioId, dto?.Observacao); return Ok(new { success = true }); }
+        catch (KeyNotFoundException e) { return NotFound(new { success = false, message = e.Message }); }
+        catch (InvalidOperationException e) { return BadRequest(new { success = false, message = e.Message }); }
+    }
+
     /// <summary>Endpoint público do cliente — sem autenticação, identificado pelo token.</summary>
     [AllowAnonymous]
     [HttpGet("/api/rastreio/{token:guid}")]

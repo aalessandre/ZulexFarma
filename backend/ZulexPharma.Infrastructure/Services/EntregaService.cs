@@ -1,4 +1,7 @@
+using System.Globalization;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using ZulexPharma.Application.DTOs.Entregas;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
@@ -13,14 +16,17 @@ public class EntregaService : IEntregaService
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
     private readonly IGeocodingService _geocoding;
+    private readonly IHttpClientFactory _httpFactory;
     private const string TELA = "Entregas";
     private const string ENTIDADE = "Entrega";
+    private const string OsrmBaseUrl = "https://router.project-osrm.org";
 
-    public EntregaService(AppDbContext db, ILogAcaoService log, IGeocodingService geocoding)
+    public EntregaService(AppDbContext db, ILogAcaoService log, IGeocodingService geocoding, IHttpClientFactory httpFactory)
     {
         _db = db;
         _log = log;
         _geocoding = geocoding;
+        _httpFactory = httpFactory;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -74,6 +80,21 @@ public class EntregaService : IEntregaService
 
         var (distancia, endereco, faixa) = await CalcularDistanciaEFaixaAsync(venda.FilialId, enderecoId);
 
+        // DespacharAgora: já cria como SaiuParaEntrega com entregador atribuído
+        var statusInicial = StatusEntrega.Pendente;
+        long? entregadorId = null;
+        DateTime? dataSaida = null;
+        if (dto.DespacharAgora)
+        {
+            if (!dto.EntregadorId.HasValue)
+                throw new ArgumentException("Entregador é obrigatório quando 'Despachar agora' está marcado.");
+            var colaborador = await _db.Set<Colaborador>().FindAsync(dto.EntregadorId.Value)
+                ?? throw new KeyNotFoundException($"Colaborador {dto.EntregadorId} não encontrado.");
+            statusInicial = StatusEntrega.SaiuParaEntrega;
+            entregadorId = dto.EntregadorId;
+            dataSaida = DataHoraHelper.Agora();
+        }
+
         var entrega = new Entrega
         {
             VendaId = venda.Id,
@@ -95,8 +116,10 @@ public class EntregaService : IEntregaService
             DistanciaKm = distancia,
             EntregaFaixaId = faixa.Id,
             ValorEntrega = faixa.Valor,
-            Status = StatusEntrega.Pendente,
+            Status = statusInicial,
+            EntregadorId = entregadorId,
             DataPedido = DataHoraHelper.Agora(),
+            DataSaida = dataSaida,
             DataPrevista = dto.DataPrevista,
             Observacao = dto.Observacao
         };
@@ -107,6 +130,16 @@ public class EntregaService : IEntregaService
             Texto = "Entrega criada.",
             UsuarioId = usuarioId
         });
+        if (statusInicial == StatusEntrega.SaiuParaEntrega)
+        {
+            entrega.Eventos.Add(new EntregaEvento
+            {
+                Tipo = TipoEntregaEvento.StatusChange,
+                Status = StatusEntrega.SaiuParaEntrega,
+                Texto = "Despachada na finalização da venda.",
+                UsuarioId = usuarioId
+            });
+        }
         _db.Entregas.Add(entrega);
         await _db.SaveChangesAsync();
 
@@ -306,6 +339,92 @@ public class EntregaService : IEntregaService
         await _log.RegistrarAsync(TELA, $"STATUS → {novoStatus}", ENTIDADE, id);
     }
 
+    public async Task BaixarAsync(long id, EntregaBaixarDto dto, long? usuarioId)
+    {
+        var entrega = await _db.Entregas
+            .Include(e => e.Venda).ThenInclude(v => v.Pagamentos).ThenInclude(p => p.TipoPagamento)
+            .FirstOrDefaultAsync(e => e.Id == id)
+            ?? throw new KeyNotFoundException($"Entrega {id} não encontrada.");
+
+        if (entrega.Status == StatusEntrega.Entregue)
+            throw new InvalidOperationException("Entrega já foi baixada.");
+        if (entrega.Status == StatusEntrega.Cancelada || entrega.Status == StatusEntrega.Devolvida)
+            throw new InvalidOperationException($"Entrega está {entrega.Status} e não pode ser baixada.");
+
+        var agora = DataHoraHelper.Agora();
+        entrega.Status = StatusEntrega.Entregue;
+        entrega.DataEntrega = agora;
+        _db.EntregaEventos.Add(new EntregaEvento
+        {
+            EntregaId = entrega.Id,
+            Tipo = TipoEntregaEvento.StatusChange,
+            Status = StatusEntrega.Entregue,
+            Texto = dto.Observacao ?? "Entrega baixada.",
+            UsuarioId = usuarioId
+        });
+
+        // Contabilização diferida: se venda não tinha pagamento recebido, gera CaixaMovimentos no caixa atual
+        var venda = entrega.Venda;
+        if (venda != null && !venda.PagamentoRecebido)
+        {
+            if (!dto.CaixaAtualId.HasValue)
+                throw new ArgumentException("Informe o caixa atual para contabilizar o recebimento (caixa aberto da filial).");
+
+            foreach (var pag in venda.Pagamentos)
+            {
+                var valorLiquido = pag.Valor - pag.Troco;
+                _db.Set<CaixaMovimento>().Add(new CaixaMovimento
+                {
+                    CaixaId = dto.CaixaAtualId.Value,
+                    Tipo = TipoMovimentoCaixa.VendaPagamento,
+                    DataMovimento = agora,
+                    Valor = valorLiquido,
+                    TipoPagamentoId = pag.TipoPagamentoId,
+                    Descricao = $"Venda #{venda.Codigo ?? venda.Id.ToString()} (recebimento via entrega) — {pag.TipoPagamento?.Nome ?? ""}",
+                    VendaPagamentoId = pag.Id,
+                    UsuarioId = usuarioId,
+                    StatusConferencia = StatusConferenciaMovimento.Conferido,
+                    DataConferencia = agora
+                });
+            }
+            venda.PagamentoRecebido = true;
+            venda.DataPagamentoRecebido = agora;
+            venda.CaixaRecebimentoId = dto.CaixaAtualId;
+        }
+
+        await _db.SaveChangesAsync();
+        await _log.RegistrarAsync(TELA, "BAIXA", ENTIDADE, id);
+    }
+
+    public async Task CancelarAsync(long id, long? usuarioId, string? motivo = null)
+    {
+        var entrega = await _db.Entregas
+            .Include(e => e.Venda)
+            .FirstOrDefaultAsync(e => e.Id == id)
+            ?? throw new KeyNotFoundException($"Entrega {id} não encontrada.");
+
+        if (entrega.Status == StatusEntrega.Entregue || entrega.Status == StatusEntrega.Cancelada
+         || entrega.Status == StatusEntrega.Devolvida)
+            throw new InvalidOperationException($"Entrega está {entrega.Status} e não pode ser cancelada.");
+
+        // Se a venda já teve pagamento recebido, orienta cancelar a venda (estorna tudo junto)
+        if (entrega.Venda != null && entrega.Venda.PagamentoRecebido)
+            throw new InvalidOperationException(
+                "Esta venda já foi recebida no caixa. Para cancelar a entrega você precisa cancelar/estornar a venda primeiro.");
+
+        entrega.Status = StatusEntrega.Cancelada;
+        _db.EntregaEventos.Add(new EntregaEvento
+        {
+            EntregaId = entrega.Id,
+            Tipo = TipoEntregaEvento.StatusChange,
+            Status = StatusEntrega.Cancelada,
+            Texto = motivo ?? "Entrega cancelada.",
+            UsuarioId = usuarioId
+        });
+        await _db.SaveChangesAsync();
+        await _log.RegistrarAsync(TELA, "CANCELAMENTO", ENTIDADE, id, novo: new() { ["Motivo"] = motivo });
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     //  Helpers internos
     // ═══════════════════════════════════════════════════════════════════
@@ -341,7 +460,7 @@ public class EntregaService : IEntregaService
             await _db.SaveChangesAsync();
         }
 
-        var distancia = (decimal)HaversineKm(
+        var distancia = await CalcularDistanciaKmAsync(
             (double)filial.Latitude.Value, (double)filial.Longitude.Value,
             (double)endereco.Latitude.Value, (double)endereco.Longitude.Value);
 
@@ -353,10 +472,51 @@ public class EntregaService : IEntregaService
             throw new InvalidOperationException(
                 $"Endereço está a {distancia:0.##} km, fora da área de entrega. Ajuste as faixas ou informe lat/lng manualmente.");
 
-        return (Math.Round(distancia, 3), endereco, faixa);
+        return (distancia, endereco, faixa);
     }
 
-    /// <summary>Distância em km entre dois pontos (fórmula de Haversine).</summary>
+    /// <summary>
+    /// Distância de rota real (km) entre dois pontos. Tenta OSRM público (servidor aberto
+    /// do OpenStreetMap) com timeout de 5s; em caso de falha cai pra Haversine × 1.4
+    /// (fator empírico que aproxima distância real urbana a partir da linha reta).
+    /// </summary>
+    private async Task<decimal> CalcularDistanciaKmAsync(double lat1, double lon1, double lat2, double lon2)
+    {
+        // Formato OSRM: lon,lat (invertido do usual)
+        var url = $"{OsrmBaseUrl}/route/v1/driving/{lon1.ToString(CultureInfo.InvariantCulture)},{lat1.ToString(CultureInfo.InvariantCulture)};{lon2.ToString(CultureInfo.InvariantCulture)},{lat2.ToString(CultureInfo.InvariantCulture)}?overview=false&alternatives=false&steps=false";
+
+        try
+        {
+            using var client = _httpFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(5);
+            client.DefaultRequestHeaders.Add("User-Agent", "ZulexPharma-ERP/1.0");
+
+            var resp = await client.GetAsync(url);
+            if (resp.IsSuccessStatusCode)
+            {
+                var json = await resp.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("routes", out var rotas) && rotas.ValueKind == JsonValueKind.Array
+                 && rotas.GetArrayLength() > 0
+                 && rotas[0].TryGetProperty("distance", out var dEl))
+                {
+                    var metros = dEl.GetDouble();
+                    return Math.Round((decimal)(metros / 1000.0), 3);
+                }
+            }
+            Log.Warning("OSRM respondeu {Status} — usando fallback Haversine × 1.4", resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Falha OSRM — usando fallback Haversine × 1.4");
+        }
+
+        // Fallback: Haversine com fator de ajuste urbano
+        var haversine = HaversineKm(lat1, lon1, lat2, lon2);
+        return Math.Round((decimal)(haversine * 1.4), 3);
+    }
+
+    /// <summary>Distância em km entre dois pontos (linha reta — fórmula de Haversine).</summary>
     private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
     {
         const double R = 6371.0;

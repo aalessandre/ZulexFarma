@@ -31,6 +31,26 @@ public class FinalizarVendaDto
 
     /// <summary>Payload SNGPC quando a venda tem itens controlados (psicotrópicos/antimicrobianos).</summary>
     public ZulexPharma.Application.DTOs.Sngpc.FinalizarVendaSngpcDto? Sngpc { get; set; }
+
+    /// <summary>Dados de entrega. Se preenchido, cria Entrega vinculada à venda.</summary>
+    public EntregaFinalizacaoDto? Entrega { get; set; }
+
+    /// <summary>
+    /// True = caixa contabiliza agora (cliente pagou); false = contabilização diferida (contabiliza na baixa da entrega).
+    /// Default true. Só faz sentido false quando há entrega.
+    /// </summary>
+    public bool PagamentoRecebido { get; set; } = true;
+}
+
+public class EntregaFinalizacaoDto
+{
+    /// <summary>Endereço escolhido (obrigatório; vem do modal de entrega).</summary>
+    public long EnderecoEntregaId { get; set; }
+    public string? Observacao { get; set; }
+    /// <summary>Se true, já cria entrega com status SaiuParaEntrega + entregador atribuído.</summary>
+    public bool DespacharAgora { get; set; }
+    /// <summary>Obrigatório quando DespacharAgora=true.</summary>
+    public long? EntregadorId { get; set; }
 }
 
 /// <summary>Request para POST api/vendas/validar-prazo.</summary>

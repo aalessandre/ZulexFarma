@@ -78,6 +78,20 @@ public class Venda : BaseEntity
     /// </summary>
     public bool SngpcPendente { get; set; }
 
+    // ── Entrega (solicitação na pré-venda; Entrega efetiva criada no caixa ao finalizar) ──
+    public bool EntregaSolicitada { get; set; }
+    public long? EntregaEnderecoId { get; set; }
+    public PessoaEndereco? EntregaEndereco { get; set; }
+    public string? EntregaObservacao { get; set; }
+
+    // ── Pagamento diferido (entregas: caixa contabiliza só na baixa) ──
+    /// <summary>True quando o caixa já contabilizou (CaixaMovimentos criados). Default true em venda sem entrega.</summary>
+    public bool PagamentoRecebido { get; set; } = true;
+    public DateTime? DataPagamentoRecebido { get; set; }
+    /// <summary>Caixa que contabilizou o recebimento (pode diferir do CaixaId original).</summary>
+    public long? CaixaRecebimentoId { get; set; }
+    public Caixa? CaixaRecebimento { get; set; }
+
     // ── Navigation ─────────────────────────────────────────────
     public ICollection<VendaItem> Itens { get; set; } = new List<VendaItem>();
     public ICollection<VendaPagamento> Pagamentos { get; set; } = new List<VendaPagamento>();

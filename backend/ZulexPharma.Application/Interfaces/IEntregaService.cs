@@ -20,5 +20,11 @@ public interface IEntregaService
 
     Task MudarStatusAsync(long id, StatusEntrega novoStatus, long? usuarioId, string? observacao = null);
 
+    /// <summary>Confirma entrega (Status=Entregue). Se a venda tinha PagamentoRecebido=false, contabiliza CaixaMovimentos agora no caixa atual.</summary>
+    Task BaixarAsync(long id, EntregaBaixarDto dto, long? usuarioId);
+
+    /// <summary>Cancela a entrega. Bloqueia se a venda já foi recebida (oriente a cancelar a venda).</summary>
+    Task CancelarAsync(long id, long? usuarioId, string? motivo = null);
+
     Task<EntregaRastreioPublicoDto> ObterPorTokenAsync(Guid tokenRastreamento);
 }
