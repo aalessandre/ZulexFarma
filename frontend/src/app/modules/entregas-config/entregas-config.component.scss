@@ -1,3 +1,87 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+/* ── Layout ERP padrão ─────────────────────────────────────────────── */
+.tela-erp {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: var(--erp-bg);
+}
+
+.tela-sidebar {
+  width: 180px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.sidebar-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  svg { width: 20px; height: 20px; flex-shrink: 0; }
+}
+
+.sidebar-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 14px 16px;
+  color: #fff;
+  cursor: pointer;
+  border-radius: var(--erp-radius-sm);
+  font-size: var(--erp-fs-body);
+  font-weight: 700;
+  text-align: left;
+  line-height: 1.3;
+  transition: filter 0.15s, transform 0.08s;
+  background: linear-gradient(135deg, #2980b9, #3498db);
+
+  > svg { width: 0; height: 0; display: none; }
+  .sidebar-sub { font-size: var(--erp-fs-xs); font-weight: 400; opacity: 0.85; }
+
+  &:hover { filter: brightness(1.08); }
+  &:active { transform: scale(0.98); }
+
+  &.tile-procurar  { background: linear-gradient(135deg, #2471a3, #2e86c1); }
+  &.tile-adicionar { background: linear-gradient(135deg, #1abc9c, #16a085); }
+  &.tile-editar    { background: linear-gradient(135deg, #2980b9, #3498db); }
+  &.tile-sair      { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+}
+
+.tela-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.form-wrapper {
+  flex: 1; overflow-y: auto; margin: 0 16px; padding: 24px 28px;
+  background: var(--erp-surface); border-radius: 16px;
+  border: 1px solid #e8ecf1; box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.form-titulo {
+  font-size: var(--erp-fs-h2); font-weight: 700; color: var(--erp-primary);
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--erp-border);
+}
+
 .ec-filial-sel {
   display: flex;
   flex-direction: column;
