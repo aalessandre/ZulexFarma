@@ -57,6 +57,13 @@ public class Venda : BaseEntity
     public decimal TotalLiquido { get; set; }
     public int TotalItens { get; set; }
 
+    /// <summary>
+    /// Outras Despesas Acessórias (RN-13 da spec entregas-precificacao).
+    /// Hoje preenchido só pela taxa de entrega vinda de EntregaService.CalcularAsync.
+    /// Entra em vNF do NFC-e via &lt;vOutro&gt;. TotalLiquido NÃO inclui — é derivado.
+    /// </summary>
+    public decimal ValorOutrasDespesas { get; set; }
+
     // ── Datas do ciclo de vida ────────────────────────────────
     /// <summary>Data da pré-venda (quando o registro foi criado). Igual a CriadoEm.</summary>
     public DateTime DataPreVenda { get; set; } = Helpers.DataHoraHelper.Agora();

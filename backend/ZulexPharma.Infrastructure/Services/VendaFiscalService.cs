@@ -1813,6 +1813,10 @@ public class VendaFiscalService : IVendaFiscalService
         }
 
         // total
+        // RN-13 da spec entregas: taxa de entrega entra em <vOutro> e soma em <vNF>.
+        var vOutro = venda.ValorOutrasDespesas;
+        var vNF = venda.TotalLiquido + vOutro;
+
         sb.Append("<total><ICMSTot>");
         sb.Append("<vBC>0.00</vBC><vICMS>0.00</vICMS><vICMSDeson>0.00</vICMSDeson>");
         sb.Append("<vFCPUFDest>0.00</vFCPUFDest><vICMSUFDest>0.00</vICMSUFDest><vICMSUFRemet>0.00</vICMSUFRemet>");
@@ -1820,8 +1824,8 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append($"<vProd>{D2(totalProdutos)}</vProd>");
         sb.Append("<vFrete>0.00</vFrete><vSeg>0.00</vSeg>");
         sb.Append($"<vDesc>{D2(totalDesconto)}</vDesc>");
-        sb.Append("<vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS><vOutro>0.00</vOutro>");
-        sb.Append($"<vNF>{D2(venda.TotalLiquido)}</vNF>");
+        sb.Append($"<vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS><vOutro>{D2(vOutro)}</vOutro>");
+        sb.Append($"<vNF>{D2(vNF)}</vNF>");
         sb.Append($"<vTotTrib>{D2(totalTributos)}</vTotTrib>");
         sb.Append("</ICMSTot></total>");
 
@@ -1831,7 +1835,7 @@ public class VendaFiscalService : IVendaFiscalService
         // pag — REGRA SEFAZ: soma(vPag) = vNF + vTroco
         var pagamentos = venda.Pagamentos.Where(p => p.Valor > 0).ToList();
         var trocoReal = pagamentos.Sum(p => p.Troco);
-        var totalNF = venda.TotalLiquido;
+        var totalNF = vNF;
 
         // LOG DIAGNÓSTICO: listar todos os pagamentos e suas modalidades
         foreach (var p in pagamentos)
@@ -1871,7 +1875,10 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append($"<vTroco>{D2(trocoReal)}</vTroco>");
         sb.Append("</pag>");
 
-        sb.Append("<infAdic><infCpl>Documento emitido por ZulexPharma ERP</infCpl></infAdic>");
+        // infCpl: frase base + Taxa de Entrega (RN-15) quando aplicável
+        var infCplNfce = "Documento emitido por ZulexPharma ERP";
+        if (vOutro > 0) infCplNfce += $" | Taxa de Entrega: R$ {vOutro:N2}".Replace('.', ',');
+        sb.Append($"<infAdic><infCpl>{Esc(infCplNfce)}</infCpl></infAdic>");
 
         // infRespTec (obrigatório no PR e outros estados)
         AppendInfRespTec(sb, filial, cnpj, chaveAcesso, csrtId, csrtCodigo,
