@@ -8,6 +8,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { TabService } from '../../core/services/tab.service';
 import { ErpSettingsService, FonteEscala, Tema } from '../../core/services/erp-settings.service';
 import { ModalGlobalComponent } from '../../core/components/modal-global.component';
+import { ModalEntregaComponent } from '../../core/components/modal-entrega.component';
 import { CassiComponent } from '../cassi/cassi.component';
 import { ModalService } from '../../core/services/modal.service';
 import { environment } from '../../../environments/environment';
@@ -35,7 +36,7 @@ interface ResultadoBusca {
 @Component({
   selector: 'app-erp-shell',
   standalone: true,
-  imports: [RouterOutlet, CommonModule, FormsModule, ModalGlobalComponent, CassiComponent],
+  imports: [RouterOutlet, CommonModule, FormsModule, ModalGlobalComponent, ModalEntregaComponent, CassiComponent],
   templateUrl: './erp-shell.component.html',
   styleUrl: './erp-shell.component.scss'
 })

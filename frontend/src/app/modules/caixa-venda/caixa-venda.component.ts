@@ -8,6 +8,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
 import { ModalSenhaService } from '../../core/services/modal-senha.service';
 import { ModalSenhaComponent } from '../../core/components/modal-senha.component';
+import { ModalEntregaService, EntregaResultado } from '../../core/services/modal-entrega.service';
 import { SafePipe } from '../../core/pipes/safe.pipe';
 import { SngpcModalComponent } from './sngpc-modal/sngpc-modal.component';
 import { firstValueFrom } from 'rxjs';
@@ -484,8 +485,18 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     private tabService: TabService,
     private auth: AuthService,
     private modal: ModalService,
-    public modalSenha: ModalSenhaService
+    public modalSenha: ModalSenhaService,
+    private modalEntrega: ModalEntregaService
   ) {}
+
+  // ── Entrega ─────────────────────────────────────────────────────
+  ehEntrega = signal(false);
+  private dadosEntrega: EntregaResultado | null = null;
+
+  toggleEntrega(checked: boolean) {
+    this.ehEntrega.set(checked);
+    if (!checked) this.dadosEntrega = null;
+  }
 
   ngOnInit() {
     this.carregarFiliais();
@@ -1750,6 +1761,20 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Se é entrega, exige cliente e abre modal de configuração
+    if (this.ehEntrega()) {
+      if (!this.clienteId()) {
+        await this.modal.aviso('Cliente obrigatório', 'Para venda com entrega, informe o cliente antes de finalizar.');
+        return;
+      }
+      const filialId = this.filialId();
+      const resultado = await this.modalEntrega.abrir(this.clienteId()!, filialId);
+      if (!resultado) return; // cancelou
+      this.dadosEntrega = resultado;
+    } else {
+      this.dadosEntrega = null;
+    }
+
     // Validar plano de contas no tipo de pagamento
     const tipoPag = this.tiposPagamento().find(t => t.id === this.tipoPagamentoId());
     if (tipoPag && !tipoPag.planoContaId) {
@@ -2119,6 +2144,19 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.http.post<any>(`${this.apiUrl}/vendas/${id}/finalizar`, finalizarBody).subscribe({
           next: () => {
             this.modoConferencia.set(false);
+            // Se marcado como entrega, criar Entrega vinculada à venda
+            if (this.dadosEntrega) {
+              this.http.post(`${this.apiUrl}/entregas`, {
+                vendaId: id,
+                enderecoEntregaId: this.dadosEntrega.enderecoEntregaId,
+                observacao: this.dadosEntrega.observacao
+              }).subscribe({
+                error: e => this.modal.erro('Entrega',
+                  `Venda finalizada, mas houve erro ao criar a entrega: ${e?.error?.message ?? ''}. Cadastre manualmente no Dashboard de Entregas.`)
+              });
+              this.dadosEntrega = null;
+              this.ehEntrega.set(false);
+            }
             // Emitir NFC-e
             this.emitindoNfce.set(true);
             this.http.post<any>(`${this.apiUrl}/venda-fiscal/emitir-nfce/${id}`, {}).subscribe({

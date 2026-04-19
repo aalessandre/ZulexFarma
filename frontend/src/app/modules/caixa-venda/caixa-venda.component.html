@@ -139,6 +139,11 @@
           {{ tp.nome }}
         </button>
       }
+      <label class="pv-check-entrega" title="Marque para entregar esta venda no endereço do cliente">
+        <input type="checkbox" [checked]="ehEntrega()"
+               (change)="toggleEntrega($any($event.target).checked)" />
+        <span>Entrega</span>
+      </label>
     </div>
 
     <!-- Produto (+ tarja edição) -->

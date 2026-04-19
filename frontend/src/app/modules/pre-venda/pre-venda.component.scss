@@ -180,6 +180,29 @@
   filter: brightness(1.1);
 }
 
+.pv-check-entrega {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c3e50;
+  background: #eef4fb;
+  border: 1px solid #c9dcf4;
+  border-radius: 16px;
+  cursor: pointer;
+  user-select: none;
+  margin-left: 8px;
+
+  input { cursor: pointer; }
+  &:has(input:checked) {
+    background: #d4edda;
+    border-color: #a3d9a5;
+    color: #155724;
+  }
+}
+
 /* ── Grid area ───────────────────────────────────────────────────── */
 .pv-grid {
   flex: 1;

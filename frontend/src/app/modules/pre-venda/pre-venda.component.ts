@@ -8,6 +8,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
 import { ModalSenhaService } from '../../core/services/modal-senha.service';
 import { ModalSenhaComponent } from '../../core/components/modal-senha.component';
+import { ModalEntregaService, EntregaResultado } from '../../core/services/modal-entrega.service';
 import { firstValueFrom } from 'rxjs';
 
 interface ItemDesconto {
@@ -343,8 +344,18 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     private tabService: TabService,
     private auth: AuthService,
     private modal: ModalService,
-    public modalSenha: ModalSenhaService
+    public modalSenha: ModalSenhaService,
+    private modalEntrega: ModalEntregaService
   ) {}
+
+  // ── Entrega ─────────────────────────────────────────────────────
+  ehEntrega = signal(false);
+  private dadosEntrega: EntregaResultado | null = null;
+
+  toggleEntrega(checked: boolean) {
+    this.ehEntrega.set(checked);
+    if (!checked) this.dadosEntrega = null;
+  }
 
   ngOnInit() {
     this.carregarFiliais();
@@ -1453,6 +1464,19 @@ export class PreVendaComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Se é entrega, exige cliente e abre modal de configuração
+    if (this.ehEntrega()) {
+      if (!this.clienteId()) {
+        await this.modal.aviso('Cliente obrigatório', 'Para venda com entrega, informe o cliente antes de finalizar.');
+        return;
+      }
+      const resultado = await this.modalEntrega.abrir(this.clienteId()!, this.filialId());
+      if (!resultado) return; // cancelou
+      this.dadosEntrega = resultado;
+    } else {
+      this.dadosEntrega = null;
+    }
+
     // Informar cesta (se habilitado)
     if (this.cfgInformarCesta()) {
       if (!this.cestaNumero()) {
@@ -1519,6 +1543,19 @@ export class PreVendaComponent implements OnInit, OnDestroy {
           return;
         }
         this.preVendaId.set(id);
+        // Se é entrega, cria registro vinculado à pré-venda
+        if (this.dadosEntrega) {
+          this.http.post(`${this.apiUrl}/entregas`, {
+            vendaId: id,
+            enderecoEntregaId: this.dadosEntrega.enderecoEntregaId,
+            observacao: this.dadosEntrega.observacao
+          }).subscribe({
+            error: e => this.modal.erro('Entrega',
+              `Pré-venda salva, mas houve erro ao criar a entrega: ${e?.error?.message ?? ''}. Cadastre manualmente no Dashboard de Entregas.`)
+          });
+          this.dadosEntrega = null;
+          this.ehEntrega.set(false);
+        }
         this.modal.sucesso('Salvo', 'Pré-venda salva com sucesso.');
         this.resetTudo();
       },
