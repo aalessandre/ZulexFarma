@@ -1,0 +1,220 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="carregarPerfis(); carregarAgenda()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Atualizar</span></div>
+      <span class="sidebar-sub">Recarregar</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="form-wrapper">
+      <div class="form-titulo">Entregas — Faixas e Regras</div>
+
+      <!-- Seletor de filial -->
+      <div class="ec-filial-sel">
+        <label>FILIAL</label>
+        <select [value]="filialId()" (change)="trocarFilial(+$any($event.target).value)">
+          <option value="0" disabled>Selecione...</option>
+          @for (f of filiaisAtivas(); track f.id) {
+            <option [value]="f.id">{{ f.nomeFilial }}</option>
+          }
+        </select>
+      </div>
+
+      @if (filialId() > 0) {
+        <!-- Abas -->
+        <div class="ec-abas">
+          <button [class.ec-aba-ativa]="abaAtiva() === 'perfis'" (click)="abaAtiva.set('perfis')">Perfis de Preço</button>
+          <button [class.ec-aba-ativa]="abaAtiva() === 'agenda'" (click)="abaAtiva.set('agenda')">Agenda Semanal</button>
+        </div>
+
+        <!-- Aba Perfis -->
+        @if (abaAtiva() === 'perfis') {
+          <div class="ec-acao-topo">
+            <button class="ec-btn-novo" (click)="novoPerfil()">+ Novo Perfil</button>
+          </div>
+
+          @if (carregando()) {
+            <div class="ec-loading">Carregando perfis...</div>
+          } @else if (perfis().length === 0) {
+            <div class="ec-vazio">Nenhum perfil cadastrado pra essa filial. Clique em <strong>Novo Perfil</strong>.</div>
+          } @else {
+            <div class="ec-perfis-grid">
+              @for (p of perfis(); track p.id) {
+                <div class="ec-perfil-card" [class.ec-perfil-inativo]="!p.ativo">
+                  <div class="ec-perfil-header">
+                    <strong>{{ p.nome }}</strong>
+                    @if (!p.ativo) { <span class="ec-badge-inativo">Inativo</span> }
+                    <div class="ec-perfil-acoes">
+                      <button (click)="editarPerfil(p)" title="Editar">✎</button>
+                      <button class="ec-btn-del" (click)="excluirPerfil(p)" title="Excluir">✕</button>
+                    </div>
+                  </div>
+                  <table class="ec-faixas-tabela">
+                    <thead>
+                      <tr><th>Raio até</th><th>Valor</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (f of p.faixas; track f.id) {
+                        <tr>
+                          <td>{{ f.raioMaxKm | number:'1.2-3' }} km</td>
+                          <td>R$ {{ f.valor | number:'1.2-2' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          }
+        }
+
+        <!-- Aba Agenda -->
+        @if (abaAtiva() === 'agenda') {
+          <div class="ec-agenda-info">
+            Pra cada combinação (dia da semana × turno), escolha qual perfil de preço aplicar.
+            <strong>Turnos:</strong> Diurno 06:00–17:59, Noturno 18:00–05:59.
+            <strong>Feriados</strong> têm precedência — ignoram o dia da semana.
+          </div>
+
+          <table class="ec-agenda-grid">
+            <thead>
+              <tr>
+                <th>Dia da Semana</th>
+                <th>Diurno</th>
+                <th>Noturno</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (dia of diasSemana; track $index) {
+                <tr>
+                  <td><strong>{{ dia }}</strong></td>
+                  <td>
+                    <select [value]="perfilDoSlot($index + 1, 'Diurno', false) ?? ''"
+                            (change)="setPerfilSlot($index + 1, 'Diurno', false, +$any($event.target).value)">
+                      <option value="" disabled>Selecione...</option>
+                      @for (p of perfisAtivos(); track p.id) {
+                        <option [value]="p.id">{{ p.nome }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>
+                    <select [value]="perfilDoSlot($index + 1, 'Noturno', false) ?? ''"
+                            (change)="setPerfilSlot($index + 1, 'Noturno', false, +$any($event.target).value)">
+                      <option value="" disabled>Selecione...</option>
+                      @for (p of perfisAtivos(); track p.id) {
+                        <option [value]="p.id">{{ p.nome }}</option>
+                      }
+                    </select>
+                  </td>
+                </tr>
+              }
+              <tr class="ec-agenda-feriado">
+                <td><strong>⭐ Feriado</strong></td>
+                <td>
+                  <select [value]="perfilDoSlot(null, 'Diurno', true) ?? ''"
+                          (change)="setPerfilSlot(null, 'Diurno', true, +$any($event.target).value)">
+                    <option value="" disabled>Selecione...</option>
+                    @for (p of perfisAtivos(); track p.id) {
+                      <option [value]="p.id">{{ p.nome }}</option>
+                    }
+                  </select>
+                </td>
+                <td>
+                  <select [value]="perfilDoSlot(null, 'Noturno', true) ?? ''"
+                          (change)="setPerfilSlot(null, 'Noturno', true, +$any($event.target).value)">
+                    <option value="" disabled>Selecione...</option>
+                    @for (p of perfisAtivos(); track p.id) {
+                      <option [value]="p.id">{{ p.nome }}</option>
+                    }
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="ec-agenda-rodape">
+            <button class="ec-btn-salvar" [disabled]="salvando() || !agendaCompleta()" (click)="salvarAgenda()">
+              {{ salvando() ? 'Salvando...' : 'Salvar Agenda' }}
+            </button>
+            @if (!agendaCompleta()) {
+              <span class="ec-aviso">⚠ Todos os slots precisam ter um perfil antes de salvar.</span>
+            }
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Modal Perfil -->
+@if (modalPerfil() && perfilEditando(); as pf) {
+  <div class="ec-overlay" (click)="fecharModalPerfil()">
+    <div class="ec-box" (click)="$event.stopPropagation()">
+      <div class="ec-titulo">{{ pf.id ? 'Editar Perfil' : 'Novo Perfil' }}</div>
+
+      <div class="ec-campo">
+        <label>NOME DO PERFIL *</label>
+        <input type="text" [value]="pf.nome"
+               (input)="updatePerfilForm('nome', $any($event.target).value)"
+               placeholder="Ex: DIURNO ÚTIL, NOTURNO, FERIADO" />
+      </div>
+
+      <div class="ec-campo-toggle">
+        <label class="erp-toggle erp-toggle-ativo">
+          <input type="checkbox" [checked]="pf.ativo" (change)="updatePerfilForm('ativo', $any($event.target).checked)" />
+          <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+          <span class="erp-toggle-label">{{ pf.ativo ? 'Ativo' : 'Inativo' }}</span>
+        </label>
+      </div>
+
+      <div class="ec-subtitulo">Faixas de Preço (raio × valor)</div>
+      <table class="ec-faixas-edit">
+        <thead>
+          <tr>
+            <th style="width:80px">Ordem</th>
+            <th>Raio Máx (km)</th>
+            <th>Valor (R$)</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (f of pf.faixas; track $index; let i = $index) {
+            <tr>
+              <td>
+                <input type="text" inputmode="numeric" [value]="f.ordem"
+                       (input)="atualizarFaixaCampo(i, 'ordem', +$any($event.target).value)"
+                       style="width:60px" />
+              </td>
+              <td>
+                <input type="text" inputmode="decimal" [value]="f.raioStr ?? ''"
+                       (input)="atualizarFaixaCampo(i, 'raioStr', $any($event.target).value)"
+                       placeholder="Ex: 3,500" />
+              </td>
+              <td>
+                <input type="text" inputmode="decimal" [value]="f.valorStr ?? ''"
+                       (input)="atualizarFaixaCampo(i, 'valorStr', $any($event.target).value)"
+                       placeholder="Ex: 5,00" />
+              </td>
+              <td>
+                <button class="ec-btn-del-faixa" (click)="removerFaixa(i)" title="Remover">✕</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <button class="ec-btn-add-faixa" (click)="addFaixa()">+ Adicionar faixa</button>
+
+      <div class="ec-botoes">
+        <button class="ec-btn-cancelar" (click)="fecharModalPerfil()">Cancelar</button>
+        <button class="ec-btn-salvar" [disabled]="salvando()" (click)="salvarPerfil()">
+          {{ salvando() ? 'Salvando...' : 'Salvar Perfil' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

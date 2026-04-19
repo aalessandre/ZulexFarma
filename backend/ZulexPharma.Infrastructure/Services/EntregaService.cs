@@ -17,25 +17,31 @@ public class EntregaService : IEntregaService
     private readonly ILogAcaoService _log;
     private readonly IGeocodingService _geocoding;
     private readonly IHttpClientFactory _httpFactory;
+    private readonly IEntregaAgendaService _agenda;
+    private readonly IFeriadoService _feriados;
     private const string TELA = "Entregas";
     private const string ENTIDADE = "Entrega";
     private const string OsrmBaseUrl = "https://router.project-osrm.org";
 
-    public EntregaService(AppDbContext db, ILogAcaoService log, IGeocodingService geocoding, IHttpClientFactory httpFactory)
+    public EntregaService(AppDbContext db, ILogAcaoService log, IGeocodingService geocoding,
+        IHttpClientFactory httpFactory, IEntregaAgendaService agenda, IFeriadoService feriados)
     {
         _db = db;
         _log = log;
         _geocoding = geocoding;
         _httpFactory = httpFactory;
+        _agenda = agenda;
+        _feriados = feriados;
     }
 
     // ═══════════════════════════════════════════════════════════════════
     //  Preview / Criar
     // ═══════════════════════════════════════════════════════════════════
 
-    public async Task<EntregaPreviewDto> CalcularAsync(long filialId, long enderecoEntregaId)
+    public async Task<EntregaPreviewDto> CalcularAsync(long filialId, long enderecoEntregaId, DateTime? dataHora = null)
     {
-        var (distancia, endereco, faixa) = await CalcularDistanciaEFaixaAsync(filialId, enderecoEntregaId);
+        var (distancia, endereco, faixa, perfil, ehFeriado, turno) =
+            await CalcularDistanciaEFaixaAsync(filialId, enderecoEntregaId, dataHora);
 
         return new EntregaPreviewDto
         {
@@ -45,7 +51,12 @@ public class EntregaService : IEntregaService
             Bairro = endereco.Bairro,
             Cidade = endereco.Cidade,
             Latitude = endereco.Latitude!.Value,
-            Longitude = endereco.Longitude!.Value
+            Longitude = endereco.Longitude!.Value,
+            PerfilId = perfil.Id,
+            PerfilNome = perfil.Nome,
+            FaixaDescricao = $"até {faixa.RaioMaxKm:0.##} km",
+            EhFeriado = ehFeriado,
+            TurnoDescricao = turno.ToString()
         };
     }
 
@@ -78,7 +89,8 @@ public class EntregaService : IEntregaService
             enderecoId = enderecoPrincipal;
         }
 
-        var (distancia, endereco, faixa) = await CalcularDistanciaEFaixaAsync(venda.FilialId, enderecoId);
+        var (distancia, endereco, faixa, _perfil, _ehFeriado, _turno) =
+            await CalcularDistanciaEFaixaAsync(venda.FilialId, enderecoId, null);
 
         // DespacharAgora: já cria como SaiuParaEntrega com entregador atribuído
         var statusInicial = StatusEntrega.Pendente;
@@ -429,14 +441,15 @@ public class EntregaService : IEntregaService
     //  Helpers internos
     // ═══════════════════════════════════════════════════════════════════
 
-    private async Task<(decimal Distancia, PessoaEndereco Endereco, EntregaFaixa Faixa)>
-        CalcularDistanciaEFaixaAsync(long filialId, long enderecoId)
+    private async Task<(decimal Distancia, PessoaEndereco Endereco, EntregaFaixa Faixa,
+                        EntregaPerfil Perfil, bool EhFeriado, TurnoEntrega Turno)>
+        CalcularDistanciaEFaixaAsync(long filialId, long enderecoId, DateTime? dataHora)
     {
         var filial = await _db.Filiais.FindAsync(filialId)
             ?? throw new KeyNotFoundException("Filial não encontrada.");
         if (filial.Latitude == null || filial.Longitude == null)
             throw new InvalidOperationException(
-                "Filial sem coordenadas cadastradas. Vá em Configurações → Filial e clique em 'Buscar Coordenadas'.");
+                "Filial sem coordenadas cadastradas. Vá em Cadastros → Filial e clique em 'Buscar Coordenadas'.");
 
         var endereco = await _db.Set<PessoaEndereco>().FindAsync(enderecoId)
             ?? throw new KeyNotFoundException("Endereço não encontrado.");
@@ -464,15 +477,25 @@ public class EntregaService : IEntregaService
             (double)filial.Latitude.Value, (double)filial.Longitude.Value,
             (double)endereco.Latitude.Value, (double)endereco.Longitude.Value);
 
+        // Resolver perfil via agenda (RN-06)
+        var quando = dataHora ?? DataHoraHelper.Agora();
+        var ehFeriado = await _feriados.IsFeriadoAsync(DateOnly.FromDateTime(quando), filialId);
+        var turno = TurnoHelper.Resolver(quando);
+
+        var perfil = await _agenda.ResolverPerfilAsync(filialId, quando, ehFeriado)
+            ?? throw new InvalidOperationException(
+                "Agenda de entrega incompleta para essa filial. Configure perfis e agenda em 'Outros Cadastros → Entregas - Faixas e Regras'.");
+
+        // Faixa dentro do perfil resolvido
         var faixa = await _db.EntregaFaixas
-            .Where(f => f.FilialId == filialId && f.RaioMaxKm >= distancia)
+            .Where(f => f.PerfilId == perfil.Id && f.RaioMaxKm >= distancia)
             .OrderBy(f => f.RaioMaxKm)
             .FirstOrDefaultAsync();
         if (faixa == null)
             throw new InvalidOperationException(
-                $"Endereço está a {distancia:0.##} km, fora da área de entrega. Ajuste as faixas ou informe lat/lng manualmente.");
+                $"Endereço está a {distancia:0.##} km, fora da área de entrega no perfil \"{perfil.Nome}\". Ajuste as faixas.");
 
-        return (distancia, endereco, faixa);
+        return (distancia, endereco, faixa, perfil, ehFeriado, turno);
     }
 
     /// <summary>

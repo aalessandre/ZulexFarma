@@ -143,8 +143,12 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IMunicipioService,
                             ZulexPharma.Infrastructure.Services.MunicipioService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IGeocodingService,
                             ZulexPharma.Infrastructure.Services.GeocodingService>();
-builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEntregaFaixaService,
-                            ZulexPharma.Infrastructure.Services.EntregaFaixaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEntregaPerfilService,
+                            ZulexPharma.Infrastructure.Services.EntregaPerfilService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEntregaAgendaService,
+                            ZulexPharma.Infrastructure.Services.EntregaAgendaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFeriadoService,
+                            ZulexPharma.Infrastructure.Services.FeriadoService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEntregaService,
                             ZulexPharma.Infrastructure.Services.EntregaService>();
 builder.Services.AddHttpClient();
