@@ -454,6 +454,12 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.itens().reduce((sum, i) => sum + i.total, 0)
   );
 
+  // Total a pagar incluindo taxa de entrega (quando há entrega configurada).
+  // Usado no modal de pagamento; o totalLiquido "puro" continua sendo só produtos.
+  totalComEntrega = computed(() =>
+    this.totalLiquido() + (this.dadosEntrega?.valorEntrega ?? 0)
+  );
+
   // ── Item info (selected) ────────────────────────────────────────
   itemSelecionado = computed(() => {
     const idx = this.itensSelecionadoIdx();
@@ -1833,8 +1839,8 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       valor: 0,
       modalidade: (t as any).modalidade ?? 0
     })));
-    // Se já tem tipo selecionado, pré-preencher com o total
-    const total = this.totalLiquido();
+    // Se já tem tipo selecionado, pré-preencher com o total (inclui taxa de entrega)
+    const total = this.totalComEntrega();
     const selecionado = this.tipoPagamentoId();
     if (selecionado) {
       this.pagamentoValores.update(vals => vals.map(v =>
@@ -1849,7 +1855,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   }
 
   pagamentoTrocoFalta(): { tipo: 'troco' | 'falta' | 'ok'; valor: number } {
-    const total = this.totalLiquido();
+    const total = this.totalComEntrega();
     const pago = this.pagamentoTotal();
     if (Math.abs(pago - total) < 0.01) return { tipo: 'ok', valor: 0 };
     if (pago > total) return { tipo: 'troco', valor: Math.round((pago - total) * 100) / 100 };
@@ -1860,7 +1866,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   dinheiroTrocoFalta(): { tipo: 'troco' | 'falta' | 'ok'; valor: number } | null {
     const dinheiroItem = this.pagamentoValores().find(v => v.modalidade === 1);
     if (!dinheiroItem || dinheiroItem.valor === 0) return null;
-    const total = this.totalLiquido();
+    const total = this.totalComEntrega();
     const outrosValores = this.pagamentoValores().filter(v => v.modalidade !== 1).reduce((s, v) => s + v.valor, 0);
     const restante = total - outrosValores;
     if (dinheiroItem.valor > restante) return { tipo: 'troco', valor: Math.round((dinheiroItem.valor - restante) * 100) / 100 };

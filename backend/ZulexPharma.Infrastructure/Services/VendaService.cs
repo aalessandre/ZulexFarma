@@ -480,6 +480,22 @@ public class VendaService : IVendaService
             }
             await _db.SaveChangesAsync();
 
+            // ── Entrega (criar PRIMEIRO pra saber o valor antes de contabilizar no caixa) ──
+            if (opcoes?.Entrega != null)
+            {
+                var entregaCriada = await _entregaService.CriarAsync(new Application.DTOs.Entregas.EntregaFormDto
+                {
+                    VendaId = venda.Id,
+                    EnderecoEntregaId = opcoes.Entrega.EnderecoEntregaId,
+                    Observacao = opcoes.Entrega.Observacao,
+                    DespacharAgora = opcoes.Entrega.DespacharAgora,
+                    EntregadorId = opcoes.Entrega.EntregadorId
+                }, usuarioId: null);
+                // RN-13/RN-17: taxa de entrega vira Outras Despesas Acessórias da venda (entra em vOutro do XML)
+                venda.ValorOutrasDespesas = entregaCriada.ValorEntrega;
+                await _db.SaveChangesAsync();
+            }
+
             // ── Gera CaixaMovimento para cada VendaPagamento se a venda pertence a um caixa ──
             // Só contabiliza agora se pagamentoRecebido=true. Se for entrega com contabilização diferida,
             // os CaixaMovimentos serão criados pelo EntregaService.BaixarAsync.
@@ -516,19 +532,6 @@ public class VendaService : IVendaService
             else
             {
                 await _db.SaveChangesAsync(); // persiste PagamentoRecebido=false
-            }
-
-            // ── Entrega (se marcada na finalização) ───────────────
-            if (opcoes?.Entrega != null)
-            {
-                await _entregaService.CriarAsync(new Application.DTOs.Entregas.EntregaFormDto
-                {
-                    VendaId = venda.Id,
-                    EnderecoEntregaId = opcoes.Entrega.EnderecoEntregaId,
-                    Observacao = opcoes.Entrega.Observacao,
-                    DespacharAgora = opcoes.Entrega.DespacharAgora,
-                    EntregadorId = opcoes.Entrega.EntregadorId
-                }, usuarioId: null);
             }
 
             // ── SNGPC: registra receitas (baixa lotes específicos) ou marca pendente ──

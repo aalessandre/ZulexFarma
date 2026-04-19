@@ -725,9 +725,10 @@ public class VendaFiscalController : ControllerBase
   <tr><td>Qtde. itens</td><td style='text-align:right'><b>{v.TotalItens}</b></td></tr>
   <tr><td>Subtotal</td><td style='text-align:right'>{v.TotalBruto:N2}</td></tr>
   <tr><td>Desconto</td><td style='text-align:right'>-{v.TotalDesconto:N2}</td></tr>
-  <tr><td style='font-size:14px'><b>TOTAL</b></td><td style='text-align:right;font-size:14px'><b>R$ {v.TotalLiquido:N2}</b></td></tr>
+  {(v.ValorOutrasDespesas > 0 ? $"<tr><td>Entrega</td><td style='text-align:right'>{v.ValorOutrasDespesas:N2}</td></tr>" : "")}
+  <tr><td style='font-size:14px'><b>TOTAL</b></td><td style='text-align:right;font-size:14px'><b>R$ {(v.TotalLiquido + v.ValorOutrasDespesas):N2}</b></td></tr>
 </table>
-{(vTotTrib > 0 ? $"<div style='font-size:9px;text-align:center;padding:4px 0;color:#555'>Val. aprox. tributos R$ {vTotTrib:N2} ({(vTotTrib / (v.TotalLiquido > 0 ? v.TotalLiquido : 1) * 100):N1}%) Fonte: IBPT</div>" : "")}
+{(vTotTrib > 0 ? $"<div style='font-size:9px;text-align:center;padding:4px 0;color:#555'>Val. aprox. tributos R$ {vTotTrib:N2} ({(vTotTrib / ((v.TotalLiquido + v.ValorOutrasDespesas) > 0 ? (v.TotalLiquido + v.ValorOutrasDespesas) : 1) * 100):N1}%) Fonte: IBPT</div>" : "")}
 
 <div class='line'></div>
 <div class='titulo'>FORMA DE PAGAMENTO</div>
