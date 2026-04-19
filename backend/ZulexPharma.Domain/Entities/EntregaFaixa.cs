@@ -1,14 +1,15 @@
 namespace ZulexPharma.Domain.Entities;
 
 /// <summary>
-/// Faixa de preço de entrega por raio (em km) a partir da filial.
-/// Ex: até 3km = R$5; até 5km = R$8; até 10km = R$15.
-/// Busca: a primeira faixa cujo RaioMaxKm &gt;= distancia calculada (ordenado crescente).
+/// Faixa de preço de entrega por raio (em km) dentro de um perfil.
+/// Ex: perfil "NOTURNO": até 3km = R$7; até 6km = R$11; até 10km = R$16.
+/// Busca: menor faixa do perfil onde RaioMaxKm &gt;= distancia (ordenado crescente).
 /// </summary>
 public class EntregaFaixa : BaseEntity
 {
-    public long FilialId { get; set; }
-    public Filial? Filial { get; set; }
+    /// <summary>FK pro perfil. Filial é derivada via Perfil.FilialId.</summary>
+    public long PerfilId { get; set; }
+    public EntregaPerfil? Perfil { get; set; }
 
     /// <summary>Raio máximo em km que essa faixa cobre.</summary>
     public decimal RaioMaxKm { get; set; }

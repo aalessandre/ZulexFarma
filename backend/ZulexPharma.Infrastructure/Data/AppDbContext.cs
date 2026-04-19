@@ -135,6 +135,9 @@ public class AppDbContext : DbContext
     public DbSet<Entrega> Entregas => Set<Entrega>();
     public DbSet<EntregaEvento> EntregaEventos => Set<EntregaEvento>();
     public DbSet<EntregaFaixa> EntregaFaixas => Set<EntregaFaixa>();
+    public DbSet<EntregaPerfil> EntregaPerfis => Set<EntregaPerfil>();
+    public DbSet<EntregaAgenda> EntregaAgendas => Set<EntregaAgenda>();
+    public DbSet<Feriado> Feriados => Set<Feriado>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -181,14 +184,45 @@ public class AppDbContext : DbContext
         });
 
         // ── Entregas ─────────────────────────────────────────────────
+        modelBuilder.Entity<EntregaPerfil>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(60).IsRequired();
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.FilialId, x.Nome }).IsUnique();
+        });
+
         modelBuilder.Entity<EntregaFaixa>(e =>
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.Property(x => x.RaioMaxKm).HasColumnType("numeric(8,3)");
             e.Property(x => x.Valor).HasColumnType("numeric(10,2)");
+            e.HasOne(x => x.Perfil).WithMany(p => p.Faixas).HasForeignKey(x => x.PerfilId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.PerfilId, x.RaioMaxKm }).IsUnique();
+        });
+
+        modelBuilder.Entity<EntregaAgenda>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Cascade);
-            e.HasIndex(x => new { x.FilialId, x.RaioMaxKm });
+            e.HasOne(x => x.Perfil).WithMany().HasForeignKey(x => x.PerfilId).OnDelete(DeleteBehavior.Restrict);
+            // Unique (FilialId, DiaSemana, Turno, EhFeriado) — Postgres trata NULL corretamente via indice parcial
+            e.HasIndex(x => new { x.FilialId, x.DiaSemana, x.Turno, x.EhFeriado }).IsUnique();
+        });
+
+        modelBuilder.Entity<Feriado>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Data).HasColumnType("date");
+            e.Property(x => x.Nome).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Uf).HasMaxLength(2);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.Data, x.Ambito, x.Uf, x.FilialId }).IsUnique();
+            e.HasIndex(x => x.Data);
         });
 
         modelBuilder.Entity<Entrega>(e =>

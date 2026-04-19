@@ -15,19 +15,6 @@ interface CertificadoInfo {
   id: number; filialId: number; cnpj: string; razaoSocial: string;
   validade: string; emissor: string; valido: boolean; diasParaVencer: number;
 }
-interface EntregaFaixa {
-  id: number;
-  filialId: number;
-  raioMaxKm: number;
-  valor: number;
-  ordem: number;
-  // UI helpers (não enviados pro backend)
-  raioMaxKmStr?: string;
-  valorStr?: string;
-  dirty?: boolean;
-  salvando?: boolean;
-}
-
 @Component({
   selector: 'app-configuracoes',
   standalone: true,
@@ -54,14 +41,8 @@ export class ConfiguracoesComponent implements OnInit {
   certificado = signal<CertificadoInfo | null>(null);
   uploadandoCert = signal(false);
 
-  // ── Entregas ──────────────────────────────────────────────────
-  faixas = signal<EntregaFaixa[]>([]);
-  faixasCarregando = signal(false);
-  private faixasCarregadas = false;
-
   private apiUrl = `${environment.apiUrl}/configuracoes`;
   private sefazUrl = `${environment.apiUrl}/sefaz`;
-  private entregaFaixasUrl = `${environment.apiUrl}/entrega-faixas`;
 
   constructor(
     private http: HttpClient,
@@ -80,131 +61,6 @@ export class ConfiguracoesComponent implements OnInit {
 
   toggleAccordion(id: string) {
     this.accordionAberto.set(this.accordionAberto() === id ? '' : id);
-    if (id === 'entregas' && this.accordionAberto() === 'entregas' && !this.faixasCarregadas) {
-      this.carregarFaixas();
-    }
-  }
-
-  // ── Entregas — CRUD de faixas ────────────────────────────────
-  private filialIdAtual(): number {
-    const u = this.auth.usuarioLogado();
-    return parseInt(u?.filialId || '0', 10);
-  }
-
-  carregarFaixas() {
-    const filialId = this.filialIdAtual();
-    if (filialId <= 0) {
-      this.toastr.warning('Usuário sem filial associada.');
-      return;
-    }
-    this.faixasCarregando.set(true);
-    this.http.get<any>(`${this.entregaFaixasUrl}?filialId=${filialId}`).subscribe({
-      next: r => {
-        const lista = (r.data ?? []).map((f: EntregaFaixa) => ({
-          ...f,
-          raioMaxKmStr: this.formatDecimal(f.raioMaxKm, 3),
-          valorStr: this.formatDecimal(f.valor, 2),
-          dirty: false,
-          salvando: false
-        }));
-        this.faixas.set(lista);
-        this.faixasCarregadas = true;
-        this.faixasCarregando.set(false);
-      },
-      error: () => {
-        this.faixasCarregando.set(false);
-        this.modal.erro('Erro', 'Erro ao carregar faixas de entrega.');
-      }
-    });
-  }
-
-  adicionarFaixa() {
-    const filialId = this.filialIdAtual();
-    if (filialId <= 0) return;
-    const proximaOrdem = (this.faixas().reduce((m, f) => Math.max(m, f.ordem), 0)) + 1;
-    this.faixas.update(lista => [...lista, {
-      id: 0,
-      filialId,
-      raioMaxKm: 0,
-      valor: 0,
-      ordem: proximaOrdem,
-      raioMaxKmStr: '',
-      valorStr: '',
-      dirty: true,
-      salvando: false
-    }]);
-  }
-
-  atualizarFaixa(idx: number, campo: 'raioMaxKmStr' | 'valorStr', valor: string) {
-    this.faixas.update(lista => lista.map((f, i) => i === idx ? { ...f, [campo]: valor, dirty: true } : f));
-  }
-
-  private parseDecimal(s: string | undefined): number {
-    if (!s) return 0;
-    const n = parseFloat(s.replace(/\./g, '').replace(',', '.'));
-    return isNaN(n) ? 0 : n;
-  }
-
-  private formatDecimal(n: number, casas: number): string {
-    return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
-  }
-
-  async salvarFaixa(idx: number) {
-    const faixa = this.faixas()[idx];
-    if (!faixa) return;
-    const raio = this.parseDecimal(faixa.raioMaxKmStr);
-    const valor = this.parseDecimal(faixa.valorStr);
-    if (raio <= 0) { this.modal.erro('Erro', 'Raio deve ser maior que zero.'); return; }
-    if (valor < 0) { this.modal.erro('Erro', 'Valor não pode ser negativo.'); return; }
-
-    const body = { filialId: faixa.filialId, raioMaxKm: raio, valor, ordem: faixa.ordem };
-    this.faixas.update(lista => lista.map((f, i) => i === idx ? { ...f, salvando: true } : f));
-
-    if (faixa.id && faixa.id > 0) {
-      this.http.put(`${this.entregaFaixasUrl}/${faixa.id}`, body).subscribe({
-        next: () => {
-          this.faixas.update(lista => lista.map((f, i) => i === idx
-            ? { ...f, raioMaxKm: raio, valor, dirty: false, salvando: false } : f));
-          this.toastr.success('Faixa atualizada.');
-        },
-        error: e => this.erroSalvarFaixa(idx, e)
-      });
-    } else {
-      this.http.post<any>(this.entregaFaixasUrl, body).subscribe({
-        next: r => {
-          const novoId = r.data?.id ?? 0;
-          this.faixas.update(lista => lista.map((f, i) => i === idx
-            ? { ...f, id: novoId, raioMaxKm: raio, valor, dirty: false, salvando: false } : f));
-          this.toastr.success('Faixa criada.');
-        },
-        error: e => this.erroSalvarFaixa(idx, e)
-      });
-    }
-  }
-
-  private erroSalvarFaixa(idx: number, err: any) {
-    this.faixas.update(lista => lista.map((f, i) => i === idx ? { ...f, salvando: false } : f));
-    this.modal.erro('Erro', err?.error?.message ?? 'Erro ao salvar faixa.');
-  }
-
-  async excluirFaixa(idx: number) {
-    const faixa = this.faixas()[idx];
-    if (!faixa) return;
-    if (!faixa.id || faixa.id === 0) {
-      // Nova que ainda não salvou — só remove da lista
-      this.faixas.update(lista => lista.filter((_, i) => i !== idx));
-      return;
-    }
-    const r = await this.modal.confirmar('Excluir faixa', 'Deseja remover esta faixa de entrega?', 'Sim, excluir', 'Cancelar');
-    if (!r.confirmado) return;
-
-    this.http.delete(`${this.entregaFaixasUrl}/${faixa.id}`).subscribe({
-      next: () => {
-        this.faixas.update(lista => lista.filter((_, i) => i !== idx));
-        this.toastr.success('Faixa excluída.');
-      },
-      error: e => this.modal.erro('Erro', e?.error?.message ?? 'Erro ao excluir.')
-    });
   }
 
   getBool(chave: string, padrao = false): boolean {

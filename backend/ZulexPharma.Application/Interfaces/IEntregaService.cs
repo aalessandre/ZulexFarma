@@ -6,7 +6,8 @@ namespace ZulexPharma.Application.Interfaces;
 public interface IEntregaService
 {
     /// <summary>Preview de cálculo antes de salvar (usado na modal de confirmação do caixa).</summary>
-    Task<EntregaPreviewDto> CalcularAsync(long filialId, long enderecoEntregaId);
+    /// <param name="dataHora">Data/hora da entrega (resolve perfil na agenda). Default: agora (UTC).</param>
+    Task<EntregaPreviewDto> CalcularAsync(long filialId, long enderecoEntregaId, DateTime? dataHora = null);
 
     /// <summary>Cria a Entrega vinculada à Venda (snapshot de endereço + distância + valor).</summary>
     Task<EntregaDetalheDto> CriarAsync(EntregaFormDto dto, long? usuarioId);

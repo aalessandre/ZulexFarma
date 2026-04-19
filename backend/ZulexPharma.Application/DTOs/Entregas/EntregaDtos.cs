@@ -119,4 +119,11 @@ public class EntregaPreviewDto
     public string Cidade { get; set; } = string.Empty;
     public decimal Latitude { get; set; }
     public decimal Longitude { get; set; }
+
+    // Breakdown (novo)
+    public long? PerfilId { get; set; }
+    public string? PerfilNome { get; set; }
+    public string? FaixaDescricao { get; set; }
+    public bool EhFeriado { get; set; }
+    public string TurnoDescricao { get; set; } = string.Empty;
 }

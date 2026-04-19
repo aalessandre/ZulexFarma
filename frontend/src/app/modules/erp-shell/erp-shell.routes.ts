@@ -134,6 +134,16 @@ export const ErpRoutes: Routes = [
           import('../outros-cadastros/outros-cadastros.component').then(m => m.OutrosCadastrosComponent),
       },
       {
+        path: 'entregas-config',
+        loadComponent: () =>
+          import('../entregas-config/entregas-config.component').then(m => m.EntregasConfigComponent),
+      },
+      {
+        path: 'feriados',
+        loadComponent: () =>
+          import('../feriados/feriados.component').then(m => m.FeriadosComponent),
+      },
+      {
         path: 'compras',
         loadComponent: () =>
           import('../compras-menu/compras-menu.component').then(m => m.ComprasMenuComponent),

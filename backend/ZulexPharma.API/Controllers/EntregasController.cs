@@ -36,9 +36,9 @@ public class EntregasController : ControllerBase
     }
 
     [HttpGet("calcular")]
-    public async Task<IActionResult> Calcular([FromQuery] long filialId, [FromQuery] long enderecoId)
+    public async Task<IActionResult> Calcular([FromQuery] long filialId, [FromQuery] long enderecoId, [FromQuery] DateTime? dataHora = null)
     {
-        try { return Ok(new { success = true, data = await _service.CalcularAsync(filialId, enderecoId) }); }
+        try { return Ok(new { success = true, data = await _service.CalcularAsync(filialId, enderecoId, dataHora) }); }
         catch (KeyNotFoundException e) { return NotFound(new { success = false, message = e.Message }); }
         catch (InvalidOperationException e) { return BadRequest(new { success = false, message = e.Message }); }
         catch (Exception ex) { Log.Error(ex, "Erro Entregas.Calcular"); return StatusCode(500, new { success = false, message = "Erro ao calcular entrega." }); }

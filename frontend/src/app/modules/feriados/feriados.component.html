@@ -1,0 +1,187 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="carregar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Atualizar</span></div>
+      <span class="sidebar-sub">Recarregar lista</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="novo()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Adicionar</span></div>
+      <span class="sidebar-sub">Novo feriado</span>
+    </div>
+    <div class="sidebar-item tile-editar" (click)="abrirImportar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Importar</span></div>
+      <span class="sidebar-sub">BrasilAPI</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="form-wrapper">
+      <div class="form-titulo">Feriados</div>
+
+      <!-- Filtros -->
+      <div class="fe-filtros">
+        <div class="fe-filtro">
+          <label>ANO</label>
+          <div class="fe-ano-nav">
+            <button (click)="trocarAno(-1)">‹</button>
+            <strong>{{ filtroAno() }}</strong>
+            <button (click)="trocarAno(1)">›</button>
+          </div>
+        </div>
+        <div class="fe-filtro">
+          <label>ÂMBITO</label>
+          <select [value]="filtroAmbito()" (change)="filtroAmbito.set($any($event.target).value)">
+            <option value="todos">Todos</option>
+            <option value="Nacional">Nacional</option>
+            <option value="Estadual">Estadual</option>
+            <option value="Municipal">Municipal</option>
+          </select>
+        </div>
+        <div class="fe-filtro fe-filtro-busca">
+          <label>BUSCAR</label>
+          <input type="text" placeholder="Por nome, UF, filial..."
+                 [value]="busca()" (input)="busca.set($any($event.target).value)" />
+        </div>
+      </div>
+
+      <!-- Lista -->
+      @if (carregando()) {
+        <div class="fe-loading">Carregando feriados...</div>
+      } @else if (feriadosFiltrados().length === 0) {
+        <div class="fe-vazio">
+          Nenhum feriado encontrado. Clique em <strong>Importar</strong> pra baixar os nacionais via BrasilAPI, ou <strong>Adicionar</strong> pra cadastrar manualmente.
+        </div>
+      } @else {
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th style="width:110px">Data</th>
+              <th>Nome</th>
+              <th style="width:110px">Âmbito</th>
+              <th style="width:60px">UF</th>
+              <th>Filial</th>
+              <th style="width:90px">Origem</th>
+              <th style="width:60px">Ativo</th>
+              <th style="width:100px">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of feriadosFiltrados(); track f.id) {
+              <tr>
+                <td>{{ f.data | date:'dd/MM/yyyy' }}</td>
+                <td>{{ f.nome }}</td>
+                <td>
+                  <span class="fe-badge" [style.background]="badgeAmbito(f.ambito)">{{ f.ambito }}</span>
+                </td>
+                <td>{{ f.uf ?? '—' }}</td>
+                <td>{{ f.filialNome ?? '—' }}</td>
+                <td><small>{{ f.origem }}</small></td>
+                <td>{{ f.ativo ? '✓' : '—' }}</td>
+                <td>
+                  <button class="fe-btn-acao fe-btn-editar" (click)="editar(f)" title="Editar">✎</button>
+                  <button class="fe-btn-acao fe-btn-excluir" (click)="excluir(f)" title="Excluir">✕</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Modal Form -->
+@if (modalForm()) {
+  <div class="fe-overlay" (click)="fecharForm()">
+    <div class="fe-box" (click)="$event.stopPropagation()">
+      <div class="fe-titulo">{{ editando() ? 'Editar Feriado' : 'Novo Feriado' }}</div>
+
+      <div class="fe-campo">
+        <label>DATA *</label>
+        <input type="date" [value]="form().data" (input)="updateForm('data', $any($event.target).value)" />
+      </div>
+
+      <div class="fe-campo">
+        <label>NOME *</label>
+        <input type="text" [value]="form().nome"
+               (input)="updateForm('nome', $any($event.target).value)"
+               placeholder="Ex: NATAL, ANIVERSÁRIO DA CIDADE" />
+      </div>
+
+      <div class="fe-campo">
+        <label>ÂMBITO *</label>
+        <select [value]="form().ambito" (change)="updateForm('ambito', $any($event.target).value)">
+          <option value="Nacional">Nacional</option>
+          <option value="Estadual">Estadual</option>
+          <option value="Municipal">Municipal</option>
+        </select>
+      </div>
+
+      @if (form().ambito === 'Estadual') {
+        <div class="fe-campo">
+          <label>UF *</label>
+          <input type="text" maxlength="2" [value]="form().uf ?? ''"
+                 (input)="updateForm('uf', ($any($event.target).value || '').toUpperCase())"
+                 style="width:70px;text-transform:uppercase" />
+        </div>
+      }
+
+      @if (form().ambito === 'Municipal') {
+        <div class="fe-campo">
+          <label>FILIAL *</label>
+          <select [value]="form().filialId ?? ''"
+                  (change)="updateForm('filialId', +$any($event.target).value || null)">
+            <option value="" disabled>Selecione...</option>
+            @for (fi of filiaisAtivas(); track fi.id) {
+              <option [value]="fi.id">{{ fi.nomeFilial }} ({{ fi.uf }})</option>
+            }
+          </select>
+        </div>
+      }
+
+      <div class="fe-campo fe-campo-toggle">
+        <label class="erp-toggle erp-toggle-ativo">
+          <input type="checkbox" [checked]="form().ativo" (change)="updateForm('ativo', $any($event.target).checked)" />
+          <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+          <span class="erp-toggle-label">{{ form().ativo ? 'Ativo' : 'Inativo' }}</span>
+        </label>
+      </div>
+
+      <div class="fe-botoes">
+        <button class="fe-btn fe-btn-cancelar" (click)="fecharForm()">Cancelar</button>
+        <button class="fe-btn fe-btn-salvar" [disabled]="salvando()" (click)="salvar()">
+          {{ salvando() ? 'Salvando...' : 'Salvar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal Importar -->
+@if (modalImportar()) {
+  <div class="fe-overlay" (click)="modalImportar.set(false)">
+    <div class="fe-box" (click)="$event.stopPropagation()">
+      <div class="fe-titulo">Importar Feriados Nacionais</div>
+      <div class="fe-info-bloco">
+        Busca os feriados nacionais brasileiros do ano informado via <strong>BrasilAPI</strong>.
+        Não sobrescreve feriados já cadastrados — só adiciona os novos.
+      </div>
+      <div class="fe-campo">
+        <label>ANO</label>
+        <input type="number" min="2000" max="2099"
+               [value]="anoImportar()"
+               (input)="anoImportar.set(+$any($event.target).value)" />
+      </div>
+      <div class="fe-botoes">
+        <button class="fe-btn fe-btn-cancelar" (click)="modalImportar.set(false)">Cancelar</button>
+        <button class="fe-btn fe-btn-salvar" [disabled]="importando()" (click)="confirmarImportar()">
+          {{ importando() ? 'Importando...' : 'Importar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
