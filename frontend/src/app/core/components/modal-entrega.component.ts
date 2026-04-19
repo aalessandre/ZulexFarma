@@ -49,16 +49,46 @@ import { ModalEntregaService } from '../services/modal-entrega.service';
               </div>
             }
 
-            @if (svc.erro()) {
-              <div class="me-erro-bloco">{{ svc.erro() }}</div>
-            }
-
             <div class="me-campo">
               <label>OBSERVAÇÃO</label>
               <textarea rows="2" [value]="svc.observacao()"
                         (input)="svc.observacao.set($any($event.target).value)"
                         placeholder="Ponto de referência, complemento, horário preferido..."></textarea>
             </div>
+
+            @if (svc.mostrarOpcoesCaixa()) {
+              <div class="me-opcoes">
+                <label class="me-check" title="Marque se o cliente já pagou (caixa contabiliza agora). Se desmarcado, contabiliza só quando a entrega for baixada.">
+                  <input type="checkbox" [checked]="svc.vendaRecebida()"
+                         (change)="svc.vendaRecebida.set($any($event.target).checked)" />
+                  <span><strong>Venda recebida</strong> (cliente já pagou)</span>
+                </label>
+                <label class="me-check" title="Marque para já atribuir um entregador e deixar a entrega como 'Em rota'.">
+                  <input type="checkbox" [checked]="svc.despacharAgora()"
+                         (change)="svc.toggleDespacharAgora($any($event.target).checked)" />
+                  <span><strong>Despachar agora</strong></span>
+                </label>
+              </div>
+
+              @if (svc.despacharAgora()) {
+                <div class="me-campo">
+                  <label>ENTREGADOR *</label>
+                  <select [value]="svc.entregadorId() ?? ''"
+                          (change)="svc.entregadorId.set(+$any($event.target).value || null)">
+                    <option value="" disabled>
+                      {{ svc.carregandoEntregadores() ? 'Carregando...' : 'Selecione...' }}
+                    </option>
+                    @for (c of svc.entregadores(); track c.id) {
+                      <option [value]="c.id">{{ c.nome }}{{ c.cargo ? ' (' + c.cargo + ')' : '' }}</option>
+                    }
+                  </select>
+                </div>
+              }
+            }
+
+            @if (svc.erro()) {
+              <div class="me-erro-bloco">{{ svc.erro() }}</div>
+            }
 
             <div class="me-botoes">
               <button class="me-btn me-btn-cancelar" (click)="svc.cancelar()">Cancelar</button>
@@ -97,6 +127,10 @@ import { ModalEntregaService } from '../services/modal-entrega.service';
     .me-valor { color: #1e3a5f; font-weight: 600; }
     .me-erro-bloco { background: #fdecea; border: 1px solid #f5c6c1; border-radius: 6px;
                      padding: 10px 14px; font-size: 12px; color: #a94442; margin-bottom: 14px; }
+    .me-opcoes { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px;
+                 background: #f8f9fa; border-radius: 8px; margin-bottom: 12px; }
+    .me-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: #333; }
+    .me-check input { cursor: pointer; }
     .me-botoes { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
     .me-btn { padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
               cursor: pointer; border: none; }

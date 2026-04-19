@@ -1,0 +1,214 @@
+<div class="ent-wrapper">
+  <!-- Totais -->
+  <div class="ent-totais">
+    <div class="ent-total"><span class="ent-total-n ent-cor-1">{{ totais().pendentes }}</span><span>Pendentes</span></div>
+    <div class="ent-total"><span class="ent-total-n ent-cor-3">{{ totais().emRota }}</span><span>Em rota</span></div>
+    <div class="ent-total"><span class="ent-total-n ent-cor-4">{{ totais().entregues }}</span><span>Entregues</span></div>
+    <div class="ent-total"><span class="ent-total-n ent-cor-5">{{ totais().canceladas }}</span><span>Canceladas/Devolvidas</span></div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="ent-filtros">
+    <div class="ent-filtro-grupo">
+      <label>Status:</label>
+      <select [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+        <option value="ativas">Ativas</option>
+        <option value="todas">Todas</option>
+        <option value="Pendente">Pendentes</option>
+        <option value="SaiuParaEntrega">Em rota</option>
+        <option value="Entregue">Entregues</option>
+        <option value="Cancelada">Canceladas</option>
+        <option value="Devolvida">Devolvidas</option>
+      </select>
+    </div>
+    <div class="ent-filtro-grupo">
+      <label>Período:</label>
+      <select [value]="filtroData()" (change)="filtroData.set($any($event.target).value); carregar()">
+        <option value="hoje">Hoje</option>
+        <option value="7dias">Últimos 7 dias</option>
+        <option value="30dias">Últimos 30 dias</option>
+        <option value="todas">Todas</option>
+      </select>
+    </div>
+    <div class="ent-filtro-grupo ent-filtro-busca">
+      <input type="text" placeholder="Buscar por cliente, bairro, cidade, venda..."
+             [value]="busca()" (input)="busca.set($any($event.target).value)" />
+    </div>
+    <button class="ent-btn ent-btn-detalhe" (click)="carregar()">Atualizar</button>
+  </div>
+
+  <!-- Grid / Lista -->
+  @if (carregando()) {
+    <div class="ent-loading">Carregando entregas...</div>
+  } @else if (entregasFiltradas().length === 0) {
+    <div class="ent-vazio">Nenhuma entrega encontrada com os filtros selecionados.</div>
+  } @else {
+    <div class="ent-grid">
+      @for (e of entregasFiltradas(); track e.id) {
+        <div class="ent-card" [style.border-left-color]="corStatus(e.status)">
+          <div class="ent-card-header">
+            <div class="ent-card-h-esq">
+              <span class="ent-status-badge" [style.background]="corStatus(e.status)">{{ labelStatus(e.status) }}</span>
+              <strong class="ent-cliente">{{ e.clienteNome }}</strong>
+            </div>
+            <div class="ent-card-h-dir">
+              <span>Venda #{{ e.vendaId }}</span>
+              <span>{{ e.dataPedido | date:'dd/MM HH:mm' }}</span>
+            </div>
+          </div>
+
+          <div class="ent-card-body">
+            <div class="ent-info">
+              <b>Endereço:</b> {{ e.bairro }} — {{ e.cidade }}/{{ e.uf }}
+            </div>
+            <div class="ent-info">
+              <b>Distância:</b> {{ e.distanciaKm | number:'1.2-2' }} km
+              &nbsp;•&nbsp;
+              <b>Valor:</b> R$ {{ e.valorEntrega | number:'1.2-2' }}
+            </div>
+            <div class="ent-info">
+              <b>Entregador:</b> {{ e.entregadorNome || '—' }}
+              @if (e.dataSaida) { &nbsp;• saiu {{ e.dataSaida | date:'dd/MM HH:mm' }} }
+              @if (e.dataEntrega) { &nbsp;• entregue {{ e.dataEntrega | date:'dd/MM HH:mm' }} }
+            </div>
+          </div>
+
+          <div class="ent-card-footer">
+            <button class="ent-btn ent-btn-detalhe" (click)="abrirDetalhe(e)">Detalhes</button>
+            <button class="ent-btn ent-btn-link" (click)="copiarLinkRastreio(e.tokenRastreamento)" title="Copiar link de rastreio público">Link Rastreio</button>
+
+            @if (podeDespachar(e)) {
+              <button class="ent-btn ent-btn-despachar" (click)="abrirDespachar(e)">Despachar</button>
+            }
+            @if (podeBaixar(e)) {
+              <button class="ent-btn ent-btn-baixar" (click)="abrirBaixar(e)">Baixar</button>
+            }
+            @if (podeCancelar(e)) {
+              <button class="ent-btn ent-btn-cancelar" (click)="abrirCancelar(e)">Cancelar</button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Modal Despachar -->
+@if (modalDespachar(); as md) {
+  <div class="ent-overlay" (click)="cancelarDespachar()">
+    <div class="ent-box" (click)="$event.stopPropagation()">
+      <div class="ent-modal-titulo">Despachar Entrega</div>
+      <div class="ent-modal-info">
+        <div><b>Cliente:</b> {{ md.clienteNome }}</div>
+        <div><b>Venda:</b> #{{ md.vendaId }}</div>
+        <div><b>Endereço:</b> {{ md.bairro }} — {{ md.cidade }}/{{ md.uf }}</div>
+      </div>
+      <div class="ent-modal-campo">
+        <label>ENTREGADOR *</label>
+        <select [value]="entregadorIdDespachar() ?? ''"
+                (change)="entregadorIdDespachar.set(+$any($event.target).value || null)">
+          <option value="" disabled>
+            {{ carregandoEntregadores() ? 'Carregando...' : 'Selecione...' }}
+          </option>
+          @for (c of entregadoresDespachar(); track c.id) {
+            <option [value]="c.id">{{ c.nome }}{{ c.cargo ? ' (' + c.cargo + ')' : '' }}</option>
+          }
+        </select>
+      </div>
+      <div class="ent-modal-botoes">
+        <button class="ent-btn ent-btn-cancelar" (click)="cancelarDespachar()">Cancelar</button>
+        <button class="ent-btn ent-btn-confirmar" (click)="confirmarDespachar()">Confirmar Despacho</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal Baixar -->
+@if (modalBaixar(); as mb) {
+  <div class="ent-overlay" (click)="cancelarBaixar()">
+    <div class="ent-box" (click)="$event.stopPropagation()">
+      <div class="ent-modal-titulo">Baixar Entrega</div>
+      <div class="ent-modal-info">
+        <div><b>Cliente:</b> {{ mb.clienteNome }}</div>
+        <div><b>Venda:</b> #{{ mb.vendaId }} — R$ {{ mb.valorEntrega | number:'1.2-2' }}</div>
+        <div><b>Entregador:</b> {{ mb.entregadorNome || '—' }}</div>
+      </div>
+      <div class="ent-modal-aviso">
+        ✓ O recebimento (se ainda não contabilizado) será lançado no caixa aberto atual.
+      </div>
+      <div class="ent-modal-campo">
+        <label>OBSERVAÇÃO</label>
+        <textarea rows="2" [value]="baixarObservacao()"
+                  (input)="baixarObservacao.set($any($event.target).value)"
+                  placeholder="Opcional (ex: cliente ausente, deixado com vizinho...)"></textarea>
+      </div>
+      <div class="ent-modal-botoes">
+        <button class="ent-btn ent-btn-cancelar" (click)="cancelarBaixar()">Cancelar</button>
+        <button class="ent-btn ent-btn-confirmar" (click)="confirmarBaixar()">Confirmar Baixa</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal Cancelar -->
+@if (modalCancelar(); as mc) {
+  <div class="ent-overlay" (click)="cancelarCancelar()">
+    <div class="ent-box" (click)="$event.stopPropagation()">
+      <div class="ent-modal-titulo">Cancelar Entrega</div>
+      <div class="ent-modal-info">
+        <div><b>Cliente:</b> {{ mc.clienteNome }}</div>
+        <div><b>Venda:</b> #{{ mc.vendaId }}</div>
+      </div>
+      <div class="ent-modal-aviso ent-aviso-vermelho">
+        ⚠ Esta ação cancela a entrega. Se a venda foi marcada como 'recebida', o estorno deve ser tratado manualmente.
+      </div>
+      <div class="ent-modal-campo">
+        <label>MOTIVO *</label>
+        <textarea rows="2" [value]="cancelarObservacao()"
+                  (input)="cancelarObservacao.set($any($event.target).value)"
+                  placeholder="Descreva o motivo do cancelamento..."></textarea>
+      </div>
+      <div class="ent-modal-botoes">
+        <button class="ent-btn ent-btn-cancelar" (click)="cancelarCancelar()">Voltar</button>
+        <button class="ent-btn ent-btn-confirmar-vermelho" (click)="confirmarCancelar()">Confirmar Cancelamento</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal Detalhes -->
+@if (modalDetalhe(); as md) {
+  <div class="ent-overlay" (click)="fecharDetalhe()">
+    <div class="ent-box ent-box-g" (click)="$event.stopPropagation()">
+      <div class="ent-modal-titulo">Detalhes da Entrega #{{ md.id }}</div>
+
+      <div class="ent-modal-info">
+        <div><b>Cliente:</b> {{ md.clienteNome }}</div>
+        <div><b>Venda:</b> #{{ md.vendaId }}</div>
+        <div><b>Status:</b> {{ labelStatus(md.status) }}</div>
+        <div><b>Endereço:</b> {{ md.rua }}, {{ md.numero }}@if (md.complemento) { <span> - {{ md.complemento }}</span> }, {{ md.bairro }}, {{ md.cidade }}/{{ md.uf }}</div>
+        <div><b>Distância:</b> {{ md.distanciaKm | number:'1.2-2' }} km — <b>Valor:</b> R$ {{ md.valorEntrega | number:'1.2-2' }}</div>
+        <div><b>Entregador:</b> {{ md.entregadorNome || '—' }}</div>
+        @if (md.observacao) { <div><b>Obs:</b> {{ md.observacao }}</div> }
+      </div>
+
+      <div class="ent-modal-sub">Eventos</div>
+      <div class="ent-eventos">
+        @for (ev of md.eventos ?? []; track ev.id) {
+          <div class="ent-evento">
+            <span class="ent-evento-data">{{ ev.criadoEm | date:'dd/MM HH:mm' }}</span>
+            <span class="ent-evento-texto">{{ ev.texto || labelStatus(ev.status) }}</span>
+            @if (ev.usuarioLogin) { <span class="ent-evento-user">por {{ ev.usuarioLogin }}</span> }
+          </div>
+        }
+        @if ((md.eventos ?? []).length === 0) {
+          <div class="ent-vazio">Sem eventos.</div>
+        }
+      </div>
+
+      <div class="ent-modal-botoes">
+        <button class="ent-btn ent-btn-cancelar" (click)="fecharDetalhe()">Fechar</button>
+      </div>
+    </div>
+  </div>
+}

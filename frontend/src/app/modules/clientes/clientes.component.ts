@@ -954,8 +954,39 @@ export class ClientesComponent implements OnInit, OnDestroy {
             uf: r.uf ?? e.uf
           } : e)
         }));
+        // Auto-geocoding silencioso após preencher endereço (se ainda não tem lat/lng)
+        this.buscarCoordenadasEnderecoAuto(idx);
       },
       error: () => this.buscandoCep.set(false)
+    });
+  }
+
+  /** Auto-geocoding silencioso (após ViaCEP/CNPJ) — sem modais, só preenche lat/lng se achar.
+   *  Sempre atualiza coords quando o endereço muda (endereço novo = coords antigas obsoletas). */
+  private buscarCoordenadasEnderecoAuto(idx: number) {
+    const end = this.clienteForm().enderecos[idx];
+    if (!end) return;
+    if (!end.rua?.trim() || !end.cidade?.trim() || !end.uf?.trim()) return;
+    this.updateEndereco(idx, 'buscandoCoord', true);
+    const body = {
+      rua: end.rua, numero: end.numero ?? '', bairro: end.bairro ?? '',
+      cidade: end.cidade, uf: end.uf, cep: (end.cep ?? '').replace(/\D/g, '')
+    };
+    this.http.post<any>(`${environment.apiUrl}/geocoding/buscar`, body).subscribe({
+      next: r => {
+        this.updateEndereco(idx, 'buscandoCoord', false);
+        const d = r.data;
+        if (d?.encontrado) {
+          this.clienteForm.update(f => ({
+            ...f,
+            enderecos: f.enderecos.map((e, i) => i === idx
+              ? { ...e, latitude: d.latitude, longitude: d.longitude, coordenadasManual: false }
+              : e)
+          }));
+          this.isDirty.set(true);
+        }
+      },
+      error: () => this.updateEndereco(idx, 'buscandoCoord', false)
     });
   }
 

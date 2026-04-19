@@ -93,6 +93,7 @@ public class VendaService : IVendaService
                 TotalLiquido = v.TotalLiquido, TotalItens = v.TotalItens,
                 Status = v.Status, Observacao = v.Observacao, CriadoEm = v.CriadoEm,
                 DataPreVenda = v.DataPreVenda, DataFinalizacao = v.DataFinalizacao, DataEmissaoCupom = v.DataEmissaoCupom,
+                EntregaSolicitada = v.EntregaSolicitada, EntregaEnderecoId = v.EntregaEnderecoId, EntregaObservacao = v.EntregaObservacao,
                 Itens = v.Itens.OrderBy(i => i.Ordem).Select(i =>
                 {
                     var d = dados.FirstOrDefault(x => x.ProdutoId == i.ProdutoId);
@@ -139,7 +140,10 @@ public class VendaService : IVendaService
                 FilialId = dto.FilialId, CaixaId = dto.CaixaId, ClienteId = dto.ClienteId, ColaboradorId = dto.ColaboradorId,
                 TipoPagamentoId = dto.TipoPagamentoId, ConvenioId = dto.ConvenioId,
                 NrCesta = dto.NrCesta, Origem = (VendaOrigem)(dto.Origem ?? 1),
-                Observacao = dto.Observacao, Status = VendaStatus.Aberta
+                Observacao = dto.Observacao, Status = VendaStatus.Aberta,
+                EntregaSolicitada = dto.EntregaSolicitada,
+                EntregaEnderecoId = dto.EntregaEnderecoId,
+                EntregaObservacao = dto.EntregaObservacao
             };
 
             int ordem = 1;
@@ -181,6 +185,9 @@ public class VendaService : IVendaService
             venda.ClienteId = dto.ClienteId; venda.ColaboradorId = dto.ColaboradorId;
             venda.TipoPagamentoId = dto.TipoPagamentoId; venda.ConvenioId = dto.ConvenioId;
             venda.NrCesta = dto.NrCesta; venda.Observacao = dto.Observacao;
+            venda.EntregaSolicitada = dto.EntregaSolicitada;
+            venda.EntregaEnderecoId = dto.EntregaEnderecoId;
+            venda.EntregaObservacao = dto.EntregaObservacao;
 
             foreach (var item in venda.Itens) _db.Set<VendaItemDesconto>().RemoveRange(item.Descontos);
             _db.Set<VendaItem>().RemoveRange(venda.Itens);

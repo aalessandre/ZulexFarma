@@ -52,7 +52,8 @@ public class IbptController : ControllerBase
 
     /// <summary>Upload do CSV do IBPTax (fallback).</summary>
     [HttpPost("importar")]
-    public async Task<IActionResult> Importar([FromForm] IFormFile arquivo, [FromForm] string uf = "PR")
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Importar(IFormFile arquivo, [FromForm] string uf = "PR")
     {
         try
         {

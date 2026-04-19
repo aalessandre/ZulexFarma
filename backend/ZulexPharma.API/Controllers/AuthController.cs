@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using ZulexPharma.Application.DTOs.Auth;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
@@ -20,12 +18,14 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IConfiguration _config;
     private readonly AppDbContext _db;
+    private readonly ISenhaDiaService _senhaDia;
 
-    public AuthController(IAuthService authService, IConfiguration config, AppDbContext db)
+    public AuthController(IAuthService authService, IConfiguration config, AppDbContext db, ISenhaDiaService senhaDia)
     {
         _authService = authService;
         _config = config;
         _db = db;
+        _senhaDia = senhaDia;
     }
 
     /// <summary>
@@ -83,17 +83,11 @@ public class AuthController : ControllerBase
         if (string.IsNullOrEmpty(key) || key != apiKey)
             return Unauthorized(new { success = false, message = "Chave de acesso inválida." });
 
-        var chave = _config["SistemaKey"] ?? "ZulexPharma2026!";
-        var data = DateTime.UtcNow.ToString("yyyyMMdd");
-        using var sha = SHA256.Create();
-        var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(data + chave));
-        var senha = Convert.ToHexString(hash)[..8].ToLower();
-
         return Ok(new
         {
             success = true,
             login = "SISTEMA",
-            senha,
+            senha = _senhaDia.Gerar(),
             data = DateTime.UtcNow.ToString("dd/MM/yyyy"),
             aviso = "Esta senha expira à meia-noite UTC."
         });

@@ -7,6 +7,7 @@ import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
 import { CaixaVendaComponent } from '../caixa-venda/caixa-venda.component';
+import { EntregasComponent } from '../entregas/entregas.component';
 
 interface CaixaInfo {
   id: number;
@@ -156,7 +157,7 @@ interface SidebarItem {
 @Component({
   selector: 'app-caixa',
   standalone: true,
-  imports: [CommonModule, FormsModule, CaixaVendaComponent],
+  imports: [CommonModule, FormsModule, CaixaVendaComponent, EntregasComponent],
   templateUrl: './caixa.component.html',
   styleUrl: './caixa.component.scss'
 })

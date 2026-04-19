@@ -98,7 +98,8 @@ public class SubstanciasController : ControllerBase
     [HttpPost("importar-planilha")]
     [Permissao("substancias", "i")]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
-    public async Task<IActionResult> ImportarPlanilha([FromForm] IFormFile arquivo, [FromForm] bool limparAntes = false)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> ImportarPlanilha(IFormFile arquivo, [FromForm] bool limparAntes = false)
     {
         try
         {

@@ -44,6 +44,9 @@ public class VendaDetalheDto
     public DateTime DataPreVenda { get; set; }
     public DateTime? DataFinalizacao { get; set; }
     public DateTime? DataEmissaoCupom { get; set; }
+    public bool EntregaSolicitada { get; set; }
+    public long? EntregaEnderecoId { get; set; }
+    public string? EntregaObservacao { get; set; }
     public List<VendaItemDto> Itens { get; set; } = new();
     public List<VendaPagamentoDto> Pagamentos { get; set; } = new();
 }
@@ -59,6 +62,9 @@ public class VendaFormDto
     public string? NrCesta { get; set; }
     public int? Origem { get; set; }
     public string? Observacao { get; set; }
+    public bool EntregaSolicitada { get; set; }
+    public long? EntregaEnderecoId { get; set; }
+    public string? EntregaObservacao { get; set; }
     public List<VendaItemFormDto> Itens { get; set; } = new();
     public List<VendaPagamentoFormDto> Pagamentos { get; set; } = new();
 }

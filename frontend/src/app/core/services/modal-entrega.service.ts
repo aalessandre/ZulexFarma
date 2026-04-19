@@ -32,18 +32,37 @@ export interface EntregaResultado {
   valorEntrega: number;
   distanciaKm: number;
   observacao?: string;
+  vendaRecebida: boolean;
+  despacharAgora: boolean;
+  entregadorId?: number;
+}
+
+interface ColaboradorOpcao {
+  id: number;
+  nome: string;
+  apelido?: string;
+  cargo?: string;
+  ativo: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
 export class ModalEntregaService {
   visivel = signal(false);
   carregandoEnderecos = signal(false);
+  carregandoEntregadores = signal(false);
   calculando = signal(false);
   enderecos = signal<EnderecoClienteOpcao[]>([]);
   enderecoSelecionadoId = signal<number | null>(null);
   preview = signal<EntregaPreview | null>(null);
   observacao = signal('');
   erro = signal('');
+
+  // Checkboxes + entregador (somente no caixa)
+  mostrarOpcoesCaixa = signal(false);
+  vendaRecebida = signal(false);
+  despacharAgora = signal(false);
+  entregadores = signal<ColaboradorOpcao[]>([]);
+  entregadorId = signal<number | null>(null);
 
   private clienteId = 0;
   private filialId = 0;
@@ -52,17 +71,39 @@ export class ModalEntregaService {
   constructor(private http: HttpClient) {}
 
   /** Abre o modal. Retorna promise que resolve com os dados ao confirmar, ou null ao cancelar. */
-  async abrir(clienteId: number, filialId: number): Promise<EntregaResultado | null> {
+  async abrir(clienteId: number, filialId: number, preset?: { enderecoId?: number | null; observacao?: string; mostrarOpcoesCaixa?: boolean }): Promise<EntregaResultado | null> {
     this.clienteId = clienteId;
     this.filialId = filialId;
-    this.enderecoSelecionadoId.set(null);
+    this.enderecoSelecionadoId.set(preset?.enderecoId ?? null);
     this.preview.set(null);
-    this.observacao.set('');
+    this.observacao.set(preset?.observacao ?? '');
     this.erro.set('');
     this.enderecos.set([]);
+    this.mostrarOpcoesCaixa.set(preset?.mostrarOpcoesCaixa ?? false);
+    this.vendaRecebida.set(false);
+    this.despacharAgora.set(false);
+    this.entregadorId.set(null);
+    this.entregadores.set([]);
     this.visivel.set(true);
     await this.carregarEnderecos();
+    if (this.mostrarOpcoesCaixa()) this.carregarEntregadores();
     return new Promise(resolve => { this.resolver = resolve; });
+  }
+
+  async carregarEntregadores() {
+    if (this.entregadores().length > 0) return;
+    this.carregandoEntregadores.set(true);
+    try {
+      const r: any = await this.http.get(`${environment.apiUrl}/colaboradores`).toPromise();
+      const lista: ColaboradorOpcao[] = (r?.data ?? []).filter((c: ColaboradorOpcao) => c.ativo);
+      this.entregadores.set(lista);
+    } catch { /* silencioso — select mostra "sem opções" */ }
+    finally { this.carregandoEntregadores.set(false); }
+  }
+
+  toggleDespacharAgora(checked: boolean) {
+    this.despacharAgora.set(checked);
+    if (!checked) this.entregadorId.set(null);
   }
 
   private async carregarEnderecos() {
@@ -115,12 +156,19 @@ export class ModalEntregaService {
       this.erro.set('Selecione um endereço válido e aguarde o cálculo.');
       return;
     }
+    if (this.despacharAgora() && !this.entregadorId()) {
+      this.erro.set('Selecione um entregador para despachar agora.');
+      return;
+    }
     this.visivel.set(false);
     this.resolver?.({
       enderecoEntregaId: id,
       valorEntrega: prev.valorEntrega,
       distanciaKm: prev.distanciaKm,
-      observacao: this.observacao().trim() || undefined
+      observacao: this.observacao().trim() || undefined,
+      vendaRecebida: this.vendaRecebida(),
+      despacharAgora: this.despacharAgora(),
+      entregadorId: this.despacharAgora() ? this.entregadorId() ?? undefined : undefined
     });
     this.resolver = null;
   }
