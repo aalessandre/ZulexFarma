@@ -85,7 +85,8 @@ public class ClienteService : IClienteService
                 Enderecos = c.Pessoa.Enderecos.Select(e => new EnderecoDto
                 {
                     Id = e.Id, Tipo = e.Tipo, Cep = e.Cep, Rua = e.Rua, Numero = e.Numero,
-                    Complemento = e.Complemento, Bairro = e.Bairro, Cidade = e.Cidade, Uf = e.Uf, Principal = e.Principal
+                    Complemento = e.Complemento, Bairro = e.Bairro, Cidade = e.Cidade, Uf = e.Uf, Principal = e.Principal,
+                    Latitude = e.Latitude, Longitude = e.Longitude, CoordenadasManual = e.CoordenadasManual
                 }).ToList(),
                 Contatos = c.Pessoa.Contatos.Select(ct => new ContatoDto
                 {
@@ -297,7 +298,7 @@ public class ClienteService : IClienteService
     {
         _db.PessoasEndereco.RemoveRange(pessoa.Enderecos);
         foreach (var e in dto.Enderecos)
-            pessoa.Enderecos.Add(new PessoaEndereco { PessoaId = pessoa.Id, Tipo = e.Tipo, Cep = e.Cep, Rua = e.Rua, Numero = e.Numero, Complemento = e.Complemento, Bairro = e.Bairro, Cidade = e.Cidade, Uf = e.Uf, Principal = e.Principal });
+            pessoa.Enderecos.Add(new PessoaEndereco { PessoaId = pessoa.Id, Tipo = e.Tipo, Cep = e.Cep, Rua = e.Rua, Numero = e.Numero, Complemento = e.Complemento, Bairro = e.Bairro, Cidade = e.Cidade, Uf = e.Uf, Principal = e.Principal, Latitude = e.Latitude, Longitude = e.Longitude, CoordenadasManual = e.CoordenadasManual });
     }
 
     private void AtualizarPessoaContatos(Pessoa pessoa, ClienteFormDto dto)

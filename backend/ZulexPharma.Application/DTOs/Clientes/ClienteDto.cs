@@ -123,6 +123,9 @@ public class EnderecoDto
     public string Bairro { get; set; } = string.Empty;
     public string Cidade { get; set; } = string.Empty;
     public string Uf { get; set; } = string.Empty;
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public bool CoordenadasManual { get; set; }
     public bool Principal { get; set; }
 }
 

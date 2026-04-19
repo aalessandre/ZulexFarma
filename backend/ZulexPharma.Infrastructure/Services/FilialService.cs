@@ -42,6 +42,8 @@ public class FilialService : IFilialService
                     Cidade           = f.Cidade,
                     Uf               = f.Uf,
                     CodigoIbgeMunicipio = f.CodigoIbgeMunicipio,
+                    Latitude         = f.Latitude,
+                    Longitude        = f.Longitude,
                     Telefone         = f.Telefone,
                     Email            = f.Email,
                     AliquotaIcms     = f.AliquotaIcms,
@@ -81,6 +83,8 @@ public class FilialService : IFilialService
                 Cidade            = Mai(dto.Cidade),
                 Uf                = dto.Uf.Trim().ToUpper(),
                 CodigoIbgeMunicipio = dto.CodigoIbgeMunicipio?.Trim(),
+                Latitude          = dto.Latitude,
+                Longitude         = dto.Longitude,
                 Telefone          = dto.Telefone.Trim(),
                 Email             = dto.Email.Trim().ToLower(),
                 AliquotaIcms      = dto.AliquotaIcms,
@@ -128,6 +132,8 @@ public class FilialService : IFilialService
             filial.Cidade            = Mai(dto.Cidade);
             filial.Uf                = dto.Uf.Trim().ToUpper();
             filial.CodigoIbgeMunicipio = dto.CodigoIbgeMunicipio?.Trim();
+            filial.Latitude          = dto.Latitude;
+            filial.Longitude         = dto.Longitude;
             filial.Telefone          = dto.Telefone.Trim();
             filial.Email             = dto.Email.Trim().ToLower();
             filial.AliquotaIcms      = dto.AliquotaIcms;
@@ -265,6 +271,8 @@ public class FilialService : IFilialService
         Cidade           = f.Cidade,
         Uf               = f.Uf,
         CodigoIbgeMunicipio = f.CodigoIbgeMunicipio,
+        Latitude         = f.Latitude,
+        Longitude        = f.Longitude,
         Telefone         = f.Telefone,
         Email            = f.Email,
         AliquotaIcms     = f.AliquotaIcms,

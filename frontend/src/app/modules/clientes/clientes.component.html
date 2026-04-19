@@ -378,6 +378,35 @@
                     @if (erroCampo('end_uf_' + i)) { <span class="field-erro">{{ erroCampo('end_uf_' + i) }}</span> }
                   </div>
                 </div>
+
+                <!-- Coordenadas (para entregas) -->
+                <div class="form-grid">
+                  <div class="field">
+                    <label>LATITUDE</label>
+                    <input type="text" inputmode="decimal"
+                           [value]="end.latitude ?? ''"
+                           (input)="atualizarLatitudeEndereco(i, $any($event.target).value)"
+                           placeholder="-25.4284" />
+                  </div>
+                  <div class="field">
+                    <label>LONGITUDE</label>
+                    <input type="text" inputmode="decimal"
+                           [value]="end.longitude ?? ''"
+                           (input)="atualizarLongitudeEndereco(i, $any($event.target).value)"
+                           placeholder="-49.2733" />
+                  </div>
+                  <div class="field field-2" style="align-self:end">
+                    <button type="button"
+                            style="padding:6px 12px;font-size:12px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer"
+                            [disabled]="end.buscandoCoord"
+                            (click)="buscarCoordenadasEndereco(i)">
+                      {{ end.buscandoCoord ? 'Buscando...' : 'Buscar Coordenadas do Endereço' }}
+                    </button>
+                    <span style="margin-left:8px;font-size:11px;color:#888">
+                      Necessário para cálculo de entrega por raio.
+                    </span>
+                  </div>
+                </div>
               </div>
             }
 

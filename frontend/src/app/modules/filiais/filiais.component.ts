@@ -37,6 +37,8 @@ interface Filial {
   cidade: string;
   uf: string;
   codigoIbgeMunicipio?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   telefone: string;
   email: string;
   aliquotaIcms: number;
@@ -853,7 +855,8 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     return {
       nomeFilial: '', razaoSocial: '', nomeFantasia: '', cnpj: '',
       inscricaoEstadual: '', cep: '', rua: '', numero: '', bairro: '',
-      cidade: '', uf: '', telefone: '', email: '', aliquotaIcms: 0,
+      cidade: '', uf: '', latitude: null, longitude: null,
+      telefone: '', email: '', aliquotaIcms: 0,
       incluirPromoFixa: true, incluirPromoProgressiva: true,
       contaCofreId: null, contaCofreNome: null,
       ativo: true
@@ -864,5 +867,48 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     const d = new Date();
     d.setDate(d.getDate() + offsetDias);
     return d.toISOString().slice(0, 10);
+  }
+
+  // ── Geocoding (buscar coordenadas do endereço via Nominatim) ────
+  buscandoCoord = signal(false);
+
+  async buscarCoordenadas() {
+    const f = this.filialForm();
+    if (!f.rua?.trim() || !f.cidade?.trim() || !f.uf?.trim()) {
+      this.modal.erro('Dados incompletos', 'Preencha Rua, Cidade e UF antes de buscar coordenadas.');
+      return;
+    }
+    this.buscandoCoord.set(true);
+    const body = {
+      rua: f.rua, numero: f.numero ?? '', bairro: f.bairro ?? '',
+      cidade: f.cidade, uf: f.uf, cep: (f.cep ?? '').replace(/\D/g, '')
+    };
+    this.http.post<any>(`${environment.apiUrl}/geocoding/buscar`, body).subscribe({
+      next: r => {
+        this.buscandoCoord.set(false);
+        const d = r.data;
+        if (d?.encontrado) {
+          this.updateForm('latitude', d.latitude);
+          this.updateForm('longitude', d.longitude);
+          this.modal.sucesso('Coordenadas', `Encontradas: ${d.latitude}, ${d.longitude}`);
+        } else {
+          this.modal.erro('Não encontrado', d?.mensagem ?? 'Endereço não reconhecido pelo geocoder. Ajuste os dados ou informe manualmente.');
+        }
+      },
+      error: () => {
+        this.buscandoCoord.set(false);
+        this.modal.erro('Erro', 'Erro ao consultar geocoding.');
+      }
+    });
+  }
+
+  atualizarLatitudeManual(valor: string) {
+    const n = parseFloat(valor.replace(',', '.'));
+    this.updateForm('latitude', isNaN(n) ? null : n);
+  }
+
+  atualizarLongitudeManual(valor: string) {
+    const n = parseFloat(valor.replace(',', '.'));
+    this.updateForm('longitude', isNaN(n) ? null : n);
   }
 }

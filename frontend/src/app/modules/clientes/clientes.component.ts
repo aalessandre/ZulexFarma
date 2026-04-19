@@ -16,6 +16,10 @@ interface Contato { id?: number; tipo: string; valor: string; descricao?: string
 interface Endereco {
   id?: number; tipo: string; cep: string; rua: string; numero: string;
   complemento?: string; bairro: string; cidade: string; uf: string; principal: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  coordenadasManual?: boolean;
+  buscandoCoord?: boolean;
 }
 
 interface ConvenioCliente { id?: number; convenioId: number; convenioNome: string; matricula: string; cartao: string; }
@@ -836,7 +840,66 @@ export class ClientesComponent implements OnInit, OnDestroy {
   adicionarEndereco() {
     this.clienteForm.update(f => ({
       ...f,
-      enderecos: [...f.enderecos, { tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: f.enderecos.length === 0 }]
+      enderecos: [...f.enderecos, { tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '',
+        principal: f.enderecos.length === 0, latitude: null, longitude: null, coordenadasManual: false }]
+    }));
+    this.isDirty.set(true);
+  }
+
+  buscarCoordenadasEndereco(idx: number) {
+    const end = this.clienteForm().enderecos[idx];
+    if (!end) return;
+    if (!end.rua?.trim() || !end.cidade?.trim() || !end.uf?.trim()) {
+      this.modal.erro('Dados incompletos', 'Preencha Rua, Cidade e UF antes de buscar coordenadas.');
+      return;
+    }
+    this.updateEndereco(idx, 'buscandoCoord', true);
+    const body = {
+      rua: end.rua, numero: end.numero ?? '', bairro: end.bairro ?? '',
+      cidade: end.cidade, uf: end.uf, cep: (end.cep ?? '').replace(/\D/g, '')
+    };
+    this.http.post<any>(`${environment.apiUrl}/geocoding/buscar`, body).subscribe({
+      next: r => {
+        this.updateEndereco(idx, 'buscandoCoord', false);
+        const d = r.data;
+        if (d?.encontrado) {
+          this.clienteForm.update(f => ({
+            ...f,
+            enderecos: f.enderecos.map((e, i) => i === idx
+              ? { ...e, latitude: d.latitude, longitude: d.longitude, coordenadasManual: false }
+              : e)
+          }));
+          this.isDirty.set(true);
+          this.modal.sucesso('Coordenadas', `Encontradas: ${d.latitude}, ${d.longitude}`);
+        } else {
+          this.modal.erro('Não encontrado', d?.mensagem ?? 'Endereço não reconhecido. Ajuste os dados ou informe manualmente.');
+        }
+      },
+      error: () => {
+        this.updateEndereco(idx, 'buscandoCoord', false);
+        this.modal.erro('Erro', 'Erro ao consultar geocoding.');
+      }
+    });
+  }
+
+  atualizarLatitudeEndereco(idx: number, valor: string) {
+    const n = parseFloat((valor ?? '').replace(',', '.'));
+    this.clienteForm.update(f => ({
+      ...f,
+      enderecos: f.enderecos.map((e, i) => i === idx
+        ? { ...e, latitude: isNaN(n) ? null : n, coordenadasManual: true }
+        : e)
+    }));
+    this.isDirty.set(true);
+  }
+
+  atualizarLongitudeEndereco(idx: number, valor: string) {
+    const n = parseFloat((valor ?? '').replace(',', '.'));
+    this.clienteForm.update(f => ({
+      ...f,
+      enderecos: f.enderecos.map((e, i) => i === idx
+        ? { ...e, longitude: isNaN(n) ? null : n, coordenadasManual: true }
+        : e)
     }));
     this.isDirty.set(true);
   }

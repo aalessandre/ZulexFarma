@@ -312,6 +312,36 @@
 
         </div>
 
+        <!-- COORDENADAS (para cálculo de raio de entrega) -->
+        <div class="form-secao">Coordenadas (entregas)</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>LATITUDE</label>
+            <input type="text" inputmode="decimal"
+                   [value]="filialForm().latitude ?? ''"
+                   (input)="atualizarLatitudeManual($any($event.target).value)"
+                   placeholder="-25.4284" />
+          </div>
+          <div class="field">
+            <label>LONGITUDE</label>
+            <input type="text" inputmode="decimal"
+                   [value]="filialForm().longitude ?? ''"
+                   (input)="atualizarLongitudeManual($any($event.target).value)"
+                   placeholder="-49.2733" />
+          </div>
+          <div class="field field-2" style="align-self:end">
+            <button type="button"
+                    style="padding:8px 14px;font-size:13px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer"
+                    [disabled]="buscandoCoord()"
+                    (click)="buscarCoordenadas()">
+              {{ buscandoCoord() ? 'Buscando...' : 'Buscar Coordenadas do Endereço' }}
+            </button>
+            <span style="margin-left:8px;font-size:11px;color:#888">
+              Usa o endereço acima + OpenStreetMap. Se não encontrar, informe manualmente (abra o Google Maps no endereço e copie as coordenadas).
+            </span>
+          </div>
+        </div>
+
         <!-- CONTATO -->
         <div class="form-secao">Contato</div>
         <div class="form-grid">
