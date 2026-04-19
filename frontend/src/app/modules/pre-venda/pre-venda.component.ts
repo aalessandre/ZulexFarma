@@ -1514,6 +1514,9 @@ export class PreVendaComponent implements OnInit, OnDestroy {
       convenioId: this.convenioIdCliente(),
       nrCesta: this.cestaNumero() || null,
       origem: 1,
+      entregaSolicitada: !!this.dadosEntrega,
+      entregaEnderecoId: this.dadosEntrega?.enderecoEntregaId ?? null,
+      entregaObservacao: this.dadosEntrega?.observacao ?? null,
       itens: this.itens().map(i => ({
         produtoId: i.produtoId,
         produtoCodigo: i.produtoCodigo,
@@ -1543,19 +1546,9 @@ export class PreVendaComponent implements OnInit, OnDestroy {
           return;
         }
         this.preVendaId.set(id);
-        // Se é entrega, cria registro vinculado à pré-venda
-        if (this.dadosEntrega) {
-          this.http.post(`${this.apiUrl}/entregas`, {
-            vendaId: id,
-            enderecoEntregaId: this.dadosEntrega.enderecoEntregaId,
-            observacao: this.dadosEntrega.observacao
-          }).subscribe({
-            error: e => this.modal.erro('Entrega',
-              `Pré-venda salva, mas houve erro ao criar a entrega: ${e?.error?.message ?? ''}. Cadastre manualmente no Dashboard de Entregas.`)
-          });
-          this.dadosEntrega = null;
-          this.ehEntrega.set(false);
-        }
+        // Entrega: campos já persistidos na Venda; Entrega propriamente dita é criada no caixa ao finalizar
+        this.dadosEntrega = null;
+        this.ehEntrega.set(false);
         this.modal.sucesso('Salvo', 'Pré-venda salva com sucesso.');
         this.resetTudo();
       },

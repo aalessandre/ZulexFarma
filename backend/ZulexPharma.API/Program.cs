@@ -79,11 +79,18 @@ builder.Services.AddControllers(o => o.MaxModelBindingCollectionSize = int.MaxVa
         o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    // Evita colisão entre DTOs com mesmo nome em namespaces diferentes
+    // (ex: EnderecoFormDto em Fornecedores vs Colaboradores).
+    c.CustomSchemaIds(t => t.FullName?.Replace("+", ".") ?? t.Name);
+});
 
 // ─── DI Services ───────────────────────────────────────────────────────────
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAuthService,
                             ZulexPharma.Infrastructure.Services.AuthService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISenhaDiaService,
+                            ZulexPharma.Infrastructure.Services.SenhaDiaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFilialService,
                             ZulexPharma.Infrastructure.Services.FilialService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IGrupoService,

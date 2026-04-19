@@ -7,6 +7,7 @@ import { FILIAIS_COLUNAS, ColunaDef } from './filiais.columns';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
+import { ModalSenhaService } from '../../core/services/modal-senha.service';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 
 interface LogCampo {
@@ -86,6 +87,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   salvando = signal(false);
   excluindo = signal(false);
   buscandoCep = signal(false);
+  buscandoCnpj = signal(false);
   busca = signal('');
   filtroStatus = signal<'ativos' | 'inativos' | 'todos'>('ativos');
   sortColuna = signal<string>('razaoSocial');
@@ -97,7 +99,10 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   erro = signal('');
   errosCampos = signal<Record<string, string>>({});
   icmsUfOptions = signal<IcmsUfOption[]>([]);
-  contasBancarias = signal<{ id: number; descricao: string }[]>([]);
+  contasBancarias = signal<{ id: number; descricao: string; ativo: boolean }[]>([]);
+
+  /** Regra global: dropdowns só listam itens ATIVOS. */
+  contasBancariasOpcoes = computed(() => this.contasBancarias().filter(c => c.ativo));
   private formOriginal: Filial | null = null;
   modalLog = signal(false);
   logRegistros = signal<LogEntry[]>([]);
@@ -118,7 +123,13 @@ export class FiliaisComponent implements OnInit, OnDestroy {
 
   private apiUrl = `${environment.apiUrl}/filiais`;
 
-  constructor(private http: HttpClient, private tabService: TabService, private auth: AuthService, private modal: ModalService) {}
+  constructor(
+    private http: HttpClient,
+    private tabService: TabService,
+    private auth: AuthService,
+    private modal: ModalService,
+    private modalSenha: ModalSenhaService
+  ) {}
 
   private tokenLiberacao: string | null = null;
 
@@ -138,6 +149,28 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     return {};
   }
 
+  /** RN-12: Só admin/SISTEMA pode escrever em Filiais. */
+  podeEscrever(): boolean {
+    const u = this.auth.usuarioLogado();
+    if (!u) return false;
+    return !!u.isAdministrador || u.login?.toUpperCase() === 'SISTEMA';
+  }
+
+  /** RN-12: Pede senha do dia se não for SISTEMA. Retorna header ou null se cancelado. */
+  private async pedirSenhaDia(acao: string): Promise<{ [h: string]: string } | null> {
+    const u = this.auth.usuarioLogado();
+    if (!u) return null;
+    // SISTEMA bypassa; admin precisa informar a cada operação
+    if (u.login?.toUpperCase() === 'SISTEMA') return {};
+
+    const senha = await this.modalSenha.pedirSenha(
+      'Senha do Dia',
+      `Esta operação (${acao}) em Filiais é protegida. Informe a senha do dia fornecida pela softwarehouse.`
+    );
+    if (!senha) return null;
+    return { 'X-Senha-Sistema': senha };
+  }
+
   private primeiroCarregamento = true;
 
   private readonly TAB_ID = '/erp/filiais';
@@ -152,7 +185,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
       next: r => this.icmsUfOptions.set((r.data ?? []).filter((x: any) => x.ativo))
     });
     this.http.get<any>(`${environment.apiUrl}/contasbancarias`).subscribe({
-      next: r => this.contasBancarias.set((r.data ?? []).filter((c: any) => c.ativo).map((c: any) => ({ id: c.id, descricao: c.descricao })))
+      next: r => this.contasBancarias.set((r.data ?? []).map((c: any) => ({ id: c.id, descricao: c.descricao, ativo: !!c.ativo })))
     });
     window.addEventListener('beforeunload', this.onBeforeUnload);
     this.tabService.registrarBeforeClose(this.TAB_ID, async () => {
@@ -491,17 +524,30 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     const jaAberta = this.abasEdicao().find(a => a.filial.id === f.id);
     if (jaAberta) { this.ativarAba(f.id!); return; }
 
+    const fAjustada = this.limparReferenciasInativas({ ...f });
     this.salvarEstadoAbaAtiva();
-    const novaAba: AbaEdicao = { filial: { ...f }, form: { ...f }, isDirty: false };
+    const novaAba: AbaEdicao = { filial: { ...fAjustada }, form: { ...fAjustada }, isDirty: false };
     this.abasEdicao.update(tabs => [...tabs, novaAba]);
     this.abaAtivaId.set(f.id!);
-    this.filialForm.set({ ...f });
-    this.formOriginal = { ...f };
+    this.filialForm.set({ ...fAjustada });
+    this.formOriginal = { ...fAjustada };
     this.erro.set('');
     this.errosCampos.set({});
     this.isDirty.set(false);
     this.modoEdicao.set(true);
     this.modo.set('form');
+  }
+
+  /** Limpa FKs para entidades desativadas (regra global: só ativos são válidos em dropdown). */
+  private limparReferenciasInativas(f: Filial): Filial {
+    if (f.contaCofreId) {
+      const conta = this.contasBancarias().find(c => c.id === f.contaCofreId);
+      if (conta && !conta.ativo) {
+        f.contaCofreId = null;
+        f.contaCofreNome = null;
+      }
+    }
+    return f;
   }
 
   ativarAba(id: number) {
@@ -549,13 +595,22 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   }
 
   async salvar() {
+    if (!this.podeEscrever()) {
+      this.modal.erro('Acesso negado', 'Apenas administradores podem alterar filiais.');
+      return;
+    }
     if (!await this.verificarPermissao(this.modoEdicao() ? 'a' : 'i')) return;
     if (!this.validar()) return;
     this.erro.set('');
+
+    // RN-12: senha do dia (admin não-SISTEMA)
+    const senhaHeaders = await this.pedirSenhaDia(this.modoEdicao() ? 'alterar filial' : 'incluir filial');
+    if (senhaHeaders === null) return; // cancelou
+
     const f = this.filialForm();
     this.salvando.set(true);
 
-    const headers = this.headerLiberacao();
+    const headers = { ...this.headerLiberacao(), ...senhaHeaders };
     const payload = { ...f };
     if (!this.modoEdicao()) delete (payload as any).id;
     const req = this.modoEdicao()
@@ -643,6 +698,10 @@ export class FiliaisComponent implements OnInit, OnDestroy {
   }
 
   async excluir() {
+    if (!this.podeEscrever()) {
+      this.modal.erro('Acesso negado', 'Apenas administradores podem excluir filiais.');
+      return;
+    }
     const f = this.filialSelecionada();
     if (!f?.id) return;
     const resultado = await this.modal.confirmar(
@@ -653,8 +712,13 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     );
     if (!resultado.confirmado) return;
     if (!await this.verificarPermissao('e')) return;
+
+    // RN-12: senha do dia (admin não-SISTEMA)
+    const senhaHeaders = await this.pedirSenhaDia('excluir filial');
+    if (senhaHeaders === null) return;
+
     this.excluindo.set(true);
-    const headers = this.headerLiberacao();
+    const headers = { ...this.headerLiberacao(), ...senhaHeaders };
     this.http.delete<any>(`${this.apiUrl}/${f.id}`, { headers }).subscribe({
       next: async (r) => {
         this.excluindo.set(false);
@@ -746,6 +810,68 @@ export class FiliaisComponent implements OnInit, OnDestroy {
     const mascarado = this.mascaraCnpj(input.value);
     input.value = mascarado;
     this.updateForm('cnpj', mascarado);
+
+    // RN-11: auto-busca CNPJ ao completar 14 dígitos (só em inclusão, pra não sobrescrever edição)
+    const digits = mascarado.replace(/\D/g, '');
+    if (digits.length === 14 && !this.modoEdicao()) {
+      this.buscarCnpj(digits);
+    }
+  }
+
+  /** RN-11: Auto-busca dados do CNPJ em BrasilAPI, com fallback pra ReceitaWS. */
+  private buscarCnpj(cnpj: string) {
+    this.buscandoCnpj.set(true);
+    this.http.get<any>(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`).subscribe({
+      next: r => {
+        this.buscandoCnpj.set(false);
+        if (r?.razao_social) {
+          this.aplicarDadosCnpj(
+            r.razao_social, r.nome_fantasia, r.cep,
+            r.logradouro, r.numero, r.bairro, r.municipio, r.uf
+          );
+        }
+      },
+      error: () => {
+        this.http.get<any>(`https://receitaws.com.br/v1/cnpj/${cnpj}`).subscribe({
+          next: r => {
+            this.buscandoCnpj.set(false);
+            if (r?.nome && r.status !== 'ERROR') {
+              this.aplicarDadosCnpj(
+                r.nome, r.fantasia, r.cep,
+                r.logradouro, r.numero, r.bairro, r.municipio, r.uf
+              );
+            }
+          },
+          error: () => this.buscandoCnpj.set(false)
+        });
+      }
+    });
+  }
+
+  private aplicarDadosCnpj(razaoSocial: string, nomeFantasia: string, cep: string,
+    rua: string, numero: string, bairro: string, cidade: string, uf: string) {
+    const ufUpper = (uf ?? '').toUpperCase();
+    const icmsUf = this.icmsUfOptions().find(x => x.uf === ufUpper);
+    this.filialForm.update(f => ({
+      ...f,
+      razaoSocial: razaoSocial?.toUpperCase() || f.razaoSocial,
+      nomeFantasia: nomeFantasia?.toUpperCase() || razaoSocial?.toUpperCase() || f.nomeFantasia,
+      nomeFilial: f.nomeFilial || (nomeFantasia?.toUpperCase() ?? razaoSocial?.toUpperCase() ?? ''),
+      cep: cep ? this.mascaraCep(cep.replace(/\D/g, '')) : f.cep,
+      rua: rua?.toUpperCase() || f.rua,
+      numero: numero || f.numero,
+      bairro: bairro?.toUpperCase() || f.bairro,
+      cidade: cidade?.toUpperCase() || f.cidade,
+      uf: ufUpper || f.uf,
+      aliquotaIcms: icmsUf ? icmsUf.aliquotaInterna : f.aliquotaIcms
+    }));
+    this.isDirty.set(true);
+    const id = this.abaAtivaId();
+    if (id != null) this.abasEdicao.update(tabs => tabs.map(t => t.filial.id === id ? { ...t, isDirty: true } : t));
+
+    // Se retornou CEP, ainda dispara ViaCEP pra preencher IBGE (BrasilAPI não retorna IBGE)
+    const cepDigits = (cep ?? '').replace(/\D/g, '');
+    if (cepDigits.length === 8) this.buscarCep(cepDigits);
   }
 
   onTelefoneInput(event: Event) {
@@ -818,6 +944,9 @@ export class FiliaisComponent implements OnInit, OnDestroy {
         this.isDirty.set(true);
         const id = this.abaAtivaId();
         if (id != null) this.abasEdicao.update(tabs => tabs.map(t => t.filial.id === id ? { ...t, isDirty: true } : t));
+
+        // Auto-geocoding silencioso após preencher endereço (se ainda não tem lat/lng)
+        this.buscarCoordenadasAuto();
       },
       error: () => this.buscandoCep.set(false)
     });
@@ -871,6 +1000,30 @@ export class FiliaisComponent implements OnInit, OnDestroy {
 
   // ── Geocoding (buscar coordenadas do endereço via Nominatim) ────
   buscandoCoord = signal(false);
+
+  /** Auto-geocoding silencioso (após ViaCEP/CNPJ) — não mostra modais, só falha silenciosamente.
+   *  Sempre atualiza coords quando o endereço muda (endereço novo = coords antigas ficam obsoletas).
+   *  Se quiser coords manuais, ajuste APÓS o preenchimento do endereço. */
+  private buscarCoordenadasAuto() {
+    const f = this.filialForm();
+    if (!f.rua?.trim() || !f.cidade?.trim() || !f.uf?.trim()) return;
+    this.buscandoCoord.set(true);
+    const body = {
+      rua: f.rua, numero: f.numero ?? '', bairro: f.bairro ?? '',
+      cidade: f.cidade, uf: f.uf, cep: (f.cep ?? '').replace(/\D/g, '')
+    };
+    this.http.post<any>(`${environment.apiUrl}/geocoding/buscar`, body).subscribe({
+      next: r => {
+        this.buscandoCoord.set(false);
+        const d = r.data;
+        if (d?.encontrado) {
+          this.updateForm('latitude', d.latitude);
+          this.updateForm('longitude', d.longitude);
+        }
+      },
+      error: () => this.buscandoCoord.set(false)
+    });
+  }
 
   async buscarCoordenadas() {
     const f = this.filialForm();

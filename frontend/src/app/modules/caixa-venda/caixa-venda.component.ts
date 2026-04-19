@@ -492,10 +492,14 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   // ── Entrega ─────────────────────────────────────────────────────
   ehEntrega = signal(false);
   private dadosEntrega: EntregaResultado | null = null;
+  private entregaPreset: { enderecoId?: number | null; observacao?: string } | null = null;
 
   toggleEntrega(checked: boolean) {
     this.ehEntrega.set(checked);
-    if (!checked) this.dadosEntrega = null;
+    if (!checked) {
+      this.dadosEntrega = null;
+      this.entregaPreset = null;
+    }
   }
 
   ngOnInit() {
@@ -1103,6 +1107,18 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         this.tipoPagamentoId.set(d.tipoPagamentoId);
         this.convenioIdCliente.set(d.convenioId);
         this.cestaNumero.set(d.nrCesta ?? nrCesta ?? '');
+
+        // Entrega (vinda da pré-venda)
+        if (d.entregaSolicitada) {
+          this.ehEntrega.set(true);
+          this.entregaPreset = {
+            enderecoId: d.entregaEnderecoId ?? null,
+            observacao: d.entregaObservacao ?? ''
+          };
+        } else {
+          this.ehEntrega.set(false);
+          this.entregaPreset = null;
+        }
 
         const exigirConf = this.cfgExigirConferencia();
         const itens: PreVendaItem[] = (d.itens ?? []).map((i: any) => ({
@@ -1715,6 +1731,9 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.colaboradorBusca.set('');
     this.cestaNumero.set('');
     this.produtoBusca.set('');
+    this.ehEntrega.set(false);
+    this.dadosEntrega = null;
+    this.entregaPreset = null;
     // Selecionar DINHEIRO (primeiro tipo de pagamento)
     const tipos = this.tiposPagamento();
     this.tipoPagamentoId.set(tipos.length > 0 ? tipos[0].id : null);
@@ -1768,7 +1787,10 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         return;
       }
       const filialId = this.filialId();
-      const resultado = await this.modalEntrega.abrir(this.clienteId()!, filialId);
+      const resultado = await this.modalEntrega.abrir(this.clienteId()!, filialId, {
+        ...(this.entregaPreset ?? {}),
+        mostrarOpcoesCaixa: true
+      });
       if (!resultado) return; // cancelou
       this.dadosEntrega = resultado;
     } else {
@@ -2075,6 +2097,17 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     if (this.tokenLiberacaoCredito) finalizarBody.tokenLiberacaoCredito = this.tokenLiberacaoCredito;
     if (this.prazoNumeroParcelas() > 1) finalizarBody.numeroParcelas = this.prazoNumeroParcelas();
 
+    // Entrega (quando marcada): backend cria a Entrega na mesma operação de finalizar
+    if (this.dadosEntrega) {
+      finalizarBody.pagamentoRecebido = this.dadosEntrega.vendaRecebida;
+      finalizarBody.entrega = {
+        enderecoEntregaId: this.dadosEntrega.enderecoEntregaId,
+        observacao: this.dadosEntrega.observacao,
+        despacharAgora: this.dadosEntrega.despacharAgora,
+        entregadorId: this.dadosEntrega.entregadorId
+      };
+    }
+
     // ── Se tem controlados E SNGPC ativo E modo ≠ NaoLancar: abre tela inline de receitas ──
     if (this.precisaTelaSngpc()) {
       // Guarda os payloads para usar só quando o usuário clicar Finalizar na tela de receitas.
@@ -2144,19 +2177,10 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.http.post<any>(`${this.apiUrl}/vendas/${id}/finalizar`, finalizarBody).subscribe({
           next: () => {
             this.modoConferencia.set(false);
-            // Se marcado como entrega, criar Entrega vinculada à venda
-            if (this.dadosEntrega) {
-              this.http.post(`${this.apiUrl}/entregas`, {
-                vendaId: id,
-                enderecoEntregaId: this.dadosEntrega.enderecoEntregaId,
-                observacao: this.dadosEntrega.observacao
-              }).subscribe({
-                error: e => this.modal.erro('Entrega',
-                  `Venda finalizada, mas houve erro ao criar a entrega: ${e?.error?.message ?? ''}. Cadastre manualmente no Dashboard de Entregas.`)
-              });
-              this.dadosEntrega = null;
-              this.ehEntrega.set(false);
-            }
+            // Entrega já foi criada pelo backend no /finalizar (se foi marcada)
+            this.dadosEntrega = null;
+            this.entregaPreset = null;
+            this.ehEntrega.set(false);
             // Emitir NFC-e
             this.emitindoNfce.set(true);
             this.http.post<any>(`${this.apiUrl}/venda-fiscal/emitir-nfce/${id}`, {}).subscribe({

@@ -2479,6 +2479,270 @@ precoUnitario = round(total / Quantidade, 2)
         }
       </section>
 
+      <!-- ENTREGAS -->
+      <section class="help-secao">
+        <div class="secao-header compras" [class.aberto]="isAberta('entregas')" (click)="toggleSecao('entregas')" style="background:#5c6bc0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+          <span>Esquema de Entrega (Delivery)</span>
+        </div>
+        @if (isAberta('entregas')) {
+          <div class="secao-corpo">
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Visão Geral</div>
+              <div class="doc-texto">
+                Módulo de <strong>Delivery/Entrega</strong>: permite que a farmácia receba pedidos via pré-venda (balcão/telefone) ou venda direta no caixa e despache com entregador próprio, cobrando uma taxa de entrega baseada em distância real até o endereço do cliente. O módulo é 1:1 com <code>Venda</code> — cada entrega nasce de uma venda existente.
+              </div>
+              <div class="doc-texto" style="margin-top:8px">
+                <strong>Conceitos-chave:</strong>
+              </div>
+              <ul class="doc-lista">
+                <li><strong>Faixa de entrega (<code>EntregaFaixa</code>)</strong> — Tabela por filial: raio máximo (km) × valor (R$). O sistema seleciona a menor faixa que cobre a distância calculada.</li>
+                <li><strong>Distância real</strong> — Calculada via <strong>OSRM público</strong> (<code>router.project-osrm.org</code>), que retorna o caminho por ruas. Fallback: Haversine × 1.4 (aproximação ruas) se OSRM falhar/timeout.</li>
+                <li><strong>Geocoding</strong> — Lat/lng dos endereços obtidos via <strong>Nominatim OSM</strong> no cadastro/edição de <code>PessoaEndereco</code> e <code>Filial</code>. Sem coordenadas, entrega não pode ser calculada.</li>
+                <li><strong>Contabilização diferida</strong> — Checkbox "Venda recebida" no modal de entrega. Se desmarcado, o <code>CaixaMovimento</code> de recebimento só é criado na baixa da entrega (no caixa que estiver aberto no momento da baixa), não no caixa que finalizou a venda.</li>
+                <li><strong>Token de rastreio</strong> — Cada entrega gera <code>TokenRastreamento</code> (Guid) para URL pública <code>/rastreio/&#123;token&#125;</code> que o cliente acessa sem login.</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Modelo de Dados (Backend)</div>
+              <div class="doc-texto">Entidades principais em <code>ZulexPharma.Domain.Entities</code>:</div>
+              <ul class="doc-lista">
+                <li><strong><code>Entrega</code></strong> — 1:1 com Venda. Campos: <code>FilialId</code>, <code>VendaId</code>, <code>ClienteId</code>, <code>EntregadorId?</code> (FK Colaborador), <code>EnderecoEntregaId?</code> (FK PessoaEndereco), snapshot do endereço (<code>Cep/Rua/Numero/Complemento/Bairro/Cidade/Uf/CodigoIbgeMunicipio/Latitude/Longitude</code>), <code>DistanciaKm</code>, <code>ValorEntrega</code>, <code>EntregaFaixaId?</code>, <code>Status</code>, <code>Observacao</code>, <code>DataPedido/DataSaida/DataEntrega/DataPrevista</code>, <code>TokenRastreamento</code> (Guid), <code>TokenEntregador</code> (Guid).</li>
+                <li><strong><code>EntregaFaixa</code></strong> — <code>FilialId</code>, <code>RaioMaxKm</code>, <code>Valor</code>, <code>Ordem</code>. Lookup: menor faixa onde <code>distancia &lt;= RaioMaxKm</code> (ordenado por RaioMaxKm).</li>
+                <li><strong><code>EntregaEvento</code></strong> — Timeline de eventos: <code>EntregaId</code>, <code>Tipo</code> (StatusChange/Nota/Geo), <code>Status?</code>, <code>Latitude?</code>, <code>Longitude?</code>, <code>Texto</code>, <code>UsuarioId?</code>.</li>
+                <li><strong><code>Venda</code></strong> — Campos adicionados para o fluxo de entrega: <code>EntregaSolicitada</code> (flag na pré-venda), <code>EntregaEnderecoId?</code>, <code>EntregaObservacao?</code>, <code>PagamentoRecebido</code>, <code>DataPagamentoRecebido?</code>, <code>CaixaRecebimentoId?</code>.</li>
+              </ul>
+
+              <div class="doc-texto" style="margin-top:8px"><strong>Enum <code>StatusEntrega</code></strong> (serializado como string no JSON):</div>
+              <ul class="doc-lista">
+                <li><code>Pendente</code> (1) — Entrega criada, aguardando despacho.</li>
+                <li><code>EmPreparacao</code> (2) — Separando mercadoria (status opcional, pouco usado).</li>
+                <li><code>SaiuParaEntrega</code> (3) — Entregador atribuído e em rota. Exibido como "Em rota".</li>
+                <li><code>Entregue</code> (4) — Finalizada. Se venda não era <code>PagamentoRecebido</code>, gera <code>CaixaMovimento</code>(s) no caixa da baixa.</li>
+                <li><code>Cancelada</code> (5) — Cancelada antes da entrega.</li>
+                <li><code>Devolvida</code> (6) — Cliente recusou/ausente após tentativa.</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Arquitetura (Camadas)</div>
+              <ul class="doc-lista">
+                <li><strong>Domain:</strong> <code>Entities/Entrega.cs</code>, <code>EntregaFaixa.cs</code>, <code>EntregaEvento.cs</code> + <code>Enums/StatusEntrega.cs</code>, <code>TipoEntregaEvento.cs</code>.</li>
+                <li><strong>Application:</strong> <code>Interfaces/IEntregaService.cs</code>, DTOs em <code>DTOs/Entregas/EntregaDtos.cs</code> (EntregaListDto, EntregaDetalheDto, EntregaFormDto, EntregaBaixarDto, EntregaPreviewDto, EntregaRastreioPublicoDto).</li>
+                <li><strong>Infrastructure:</strong> <code>Services/EntregaService.cs</code> (toda lógica), integra com <code>IGeocodingService</code> (Nominatim) e <code>IHttpClientFactory</code> (OSRM).</li>
+                <li><strong>API:</strong> <code>Controllers/EntregasController.cs</code>.</li>
+                <li><strong>Orquestração na venda:</strong> <code>VendaService.FinalizarAsync</code> injeta <code>IEntregaService</code> e cria a Entrega na mesma transação quando <code>FinalizarVendaDto.Entrega</code> vem preenchido.</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Endpoints da API</div>
+              <div class="cmd-grid">
+                <div class="cmd-grupo"><div class="cmd-label">Listar (filtros: filialId, status, dataInicio, dataFim)</div><code class="cmd">GET /api/entregas</code></div>
+                <div class="cmd-grupo"><div class="cmd-label">Obter detalhe com eventos</div><code class="cmd">GET /api/entregas/&#123;id&#125;</code></div>
+                <div class="cmd-grupo"><div class="cmd-label">Preview de cálculo (antes de salvar)</div><code class="cmd">GET /api/entregas/calcular?filialId=X&amp;enderecoId=Y</code></div>
+                <div class="cmd-grupo"><div class="cmd-label">Criar entrega avulsa</div><code class="cmd">POST /api/entregas</code></div>
+                <div class="cmd-grupo"><div class="cmd-label">Atribuir entregador</div><code class="cmd">POST /api/entregas/&#123;id&#125;/atribuir-entregador</code></div>
+                <div class="cmd-grupo"><div class="cmd-label">Mudar status (genérico)</div><code class="cmd">POST /api/entregas/&#123;id&#125;/status</code></div>
+                <div class="cmd-grupo"><div class="cmd-label">Baixar (marca entregue + contabiliza)</div><code class="cmd">POST /api/entregas/&#123;id&#125;/baixar</code></div>
+                <div class="cmd-grupo"><div class="cmd-label">Cancelar</div><code class="cmd">POST /api/entregas/&#123;id&#125;/cancelar</code></div>
+                <div class="cmd-grupo"><div class="cmd-label">Rastreio público (sem auth)</div><code class="cmd">GET /api/rastreio/&#123;token&#125;</code></div>
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Fluxo 1 — Pré-Venda com Entrega</div>
+              <ol class="doc-lista">
+                <li>Atendente abre <strong>Pré-Venda</strong> (<code>/erp/pre-venda</code>), adiciona cliente (obrigatório) e produtos.</li>
+                <li>Marca checkbox <strong>"Entrega"</strong> na linha de modalidades de pagamento.</li>
+                <li>Ao clicar <strong>Finalizar</strong>, abre o modal <strong>Configurar Entrega</strong>:
+                  <ul class="doc-lista">
+                    <li>Lista endereços do cliente (★ marca o principal).</li>
+                    <li>Chama <code>GET /api/entregas/calcular</code> para mostrar distância (OSRM) e valor da faixa.</li>
+                    <li>Campo de observação (ponto de referência, horário preferido).</li>
+                    <li><strong>Não exibe</strong> "Venda recebida" nem "Despachar agora" (são decisões de caixa).</li>
+                  </ul>
+                </li>
+                <li>Confirma: a pré-venda é salva em <code>Venda</code> com <code>Status=Aberta</code> e os campos <code>EntregaSolicitada=true</code>, <code>EntregaEnderecoId</code>, <code>EntregaObservacao</code>.</li>
+                <li><strong>Importante:</strong> a entidade <code>Entrega</code> <strong>NÃO</strong> é criada nesse momento. Fica só a intenção gravada no Venda. Isso evita entrega órfã caso a pré-venda seja cancelada/alterada.</li>
+              </ol>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Fluxo 2 — Caixa Finaliza a Pré-Venda com Entrega</div>
+              <ol class="doc-lista">
+                <li>Operador abre <strong>Caixa</strong> (<code>/erp/caixa</code>) → <strong>Nova Venda</strong> → busca pré-venda por cesta.</li>
+                <li>Caixa carrega via <code>GET /api/vendas/&#123;id&#125;</code> os campos <code>entregaSolicitada/entregaEnderecoId/entregaObservacao</code> e já <strong>pré-marca o checkbox Entrega</strong>.</li>
+                <li>Ao clicar Finalizar, abre o modal <strong>Configurar Entrega</strong> <b>com preset</b> (endereço e observação preenchidos). Agora aparecem as opções de caixa:
+                  <ul class="doc-lista">
+                    <li><strong>"Venda recebida (cliente já pagou)"</strong> — se marcado, contabiliza <code>CaixaMovimento</code> agora no caixa da venda. Se desmarcado, contabilização é diferida para a baixa.</li>
+                    <li><strong>"Despachar agora"</strong> — se marcado, exige seleção de entregador; cria entrega já com <code>Status=SaiuParaEntrega</code> + <code>EntregadorId</code> + <code>DataSaida</code>.</li>
+                  </ul>
+                </li>
+                <li>Na confirmação, o <code>POST /api/vendas/&#123;id&#125;/finalizar</code> recebe <code>FinalizarVendaDto.Entrega</code> + <code>PagamentoRecebido</code> e, em uma só transação:
+                  <ul class="doc-lista">
+                    <li>Finaliza a venda (status Finalizada, gera NFC-e, ContasReceber se prazo).</li>
+                    <li>Se <code>PagamentoRecebido=true</code>: cria <code>CaixaMovimento</code>(s) no caixa atual.</li>
+                    <li>Chama <code>EntregaService.CriarAsync</code> — geocoda o endereço (ou usa lat/lng cadastrada), chama OSRM pra distância, busca faixa, cria <code>Entrega</code> + evento de criação (e de despacho, se for o caso).</li>
+                  </ul>
+                </li>
+              </ol>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Fluxo 3 — Venda Direta no Caixa com Entrega</div>
+              <div class="doc-texto">
+                Mesmo comportamento do Fluxo 2, mas sem passar pela pré-venda: o operador marca "Entrega" no caixa, adiciona cliente (obrigatório), e ao finalizar abre o modal com todas as opções (venda recebida + despachar agora).
+              </div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Fluxo 4 — Gerenciador de Entregas (no Caixa)</div>
+              <div class="doc-texto">
+                Dentro do módulo Caixa, painel lateral <strong>GE — Gerenciador de Entregas</strong>. Componente embutido: <code>app-entregas</code> (<code>modules/entregas/entregas.component</code>).
+              </div>
+              <ul class="doc-lista">
+                <li><strong>Totais no topo:</strong> Pendentes / Em rota / Entregues / Canceladas.</li>
+                <li><strong>Filtros:</strong> Status (Ativas [default, inclui Pendente+EmPreparação+Em rota], Todas, ou individual) + Período (Hoje [default], 7 dias, 30 dias, Todas) + busca livre (cliente, bairro, cidade, venda).</li>
+                <li><strong>Cards:</strong> cliente, endereço, distância/valor, entregador (se houver), data pedido/saída/entrega. Badge colorido por status.</li>
+                <li><strong>Ações por status:</strong>
+                  <ul class="doc-lista">
+                    <li>Pendente / EmPreparação → <strong>Despachar</strong> (modal: seleciona entregador ativo). Atribui entregador + muda status para SaiuParaEntrega.</li>
+                    <li>SaiuParaEntrega → <strong>Baixar</strong> (modal: observação). Chama <code>POST /baixar</code> com <code>CaixaAtualId</code> do caixa aberto. Se venda tinha <code>PagamentoRecebido=false</code>, o EntregaService cria agora os <code>CaixaMovimento</code>(s) no caixa atual.</li>
+                    <li>Pendente / EmPreparação → <strong>Cancelar</strong> (modal: motivo obrigatório).</li>
+                  </ul>
+                </li>
+                <li><strong>Detalhes:</strong> modal com endereço completo + timeline de eventos.</li>
+                <li><strong>Link Rastreio:</strong> botão que copia URL pública <code>/rastreio/&#123;token&#125;</code> para clipboard (página pública ainda a ser implementada).</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Cálculo de Distância (OSRM + Fallback)</div>
+              <div class="doc-texto">
+                Em <code>EntregaService.CalcularDistanciaKmAsync</code>:
+              </div>
+              <pre class="doc-code">
+GET https://router.project-osrm.org/route/v1/driving/&#123;lon1&#125;,&#123;lat1&#125;;&#123;lon2&#125;,&#123;lat2&#125;
+    ?overview=false&amp;alternatives=false&amp;steps=false
+
+Timeout: 5s
+Header: User-Agent: ZulexPharma-ERP/1.0
+
+Se sucesso: distancia = routes[0].distance / 1000  (km reais por rua)
+Se falha:   distancia = Haversine(p1, p2) × 1.4    (linha reta × fator de ruas)</pre>
+              <div class="doc-texto">O fator 1.4 é uma aproximação conservadora para quando OSRM público está fora. Valor é arredondado pra 3 casas decimais.</div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Cadastro das Faixas por Filial</div>
+              <div class="doc-texto">
+                Tela <strong>Filiais</strong> (<code>/erp/filiais</code>) → aba/seção <strong>Entrega</strong>: lista de <code>EntregaFaixa</code> editável inline. Ex: 0–3 km = R$ 5; 3–6 km = R$ 8; 6–10 km = R$ 12; &gt;10 km = sem entrega (bloqueado).
+              </div>
+              <div class="doc-texto">Lookup: a menor faixa cujo <code>RaioMaxKm ≥ distância</code> vence. Se nenhuma cobre, erro: "Endereço fora da área de cobertura".</div>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Geocoding (lat/lng)</div>
+              <ul class="doc-lista">
+                <li><strong>Filial:</strong> ao salvar, se lat/lng vazias, chama Nominatim no endereço completo e preenche.</li>
+                <li><strong>PessoaEndereco:</strong> idem — ao cadastrar/editar endereço do cliente, geocoda automaticamente.</li>
+                <li>Se Nominatim falhar, o endereço fica sem coordenadas e o modal de entrega mostra erro ao tentar calcular. Solução: editar o endereço manualmente com lat/lng corretas.</li>
+                <li>Código: <code>IGeocodingService</code> + <code>NominatimGeocodingService</code>.</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Regras de Negócio Importantes</div>
+              <ul class="doc-lista">
+                <li><strong>Cliente obrigatório:</strong> entrega exige cliente cadastrado com endereço geocodado. Tela bloqueia se tentar finalizar sem cliente.</li>
+                <li><strong>Uma entrega por venda:</strong> <code>CriarAsync</code> valida <code>AnyAsync(e =&gt; e.VendaId == dto.VendaId)</code> e lança erro se duplicar.</li>
+                <li><strong>NFC-e sempre emitida:</strong> mesmo com entrega + venda-recebida=false, a NFC-e é emitida na finalização (obrigação fiscal independente do recebimento).</li>
+                <li><strong>Contabilização diferida:</strong> se <code>PagamentoRecebido=false</code>, <code>Venda</code> guarda apenas a flag; a baixa (<code>EntregaService.BaixarAsync</code>) cria os <code>CaixaMovimento</code>(s) no <code>CaixaAtualId</code> informado, atualiza <code>Venda.PagamentoRecebido=true</code>, <code>DataPagamentoRecebido=agora</code>, <code>CaixaRecebimentoId</code>.</li>
+                <li><strong>Cancelar entrega não estorna caixa:</strong> se venda foi marcada como recebida e a entrega é cancelada, o estorno financeiro precisa ser feito manualmente. Motivo: permite decisões de negócio (devolver, abater em futura, crédito).</li>
+                <li><strong>Entregador = Colaborador ativo:</strong> filtro exibe qualquer <code>Colaborador.Ativo=true</code> (sem cargo específico).</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Payload de Finalização com Entrega</div>
+              <pre class="doc-code">
+POST /api/vendas/&#123;id&#125;/finalizar
+&#123;
+  "pagamentoRecebido": false,          // false = contabiliza na baixa
+  "entrega": &#123;
+    "enderecoEntregaId": 42,
+    "observacao": "Portaria amarela, ligar antes",
+    "despacharAgora": false,           // true = já sai em rota
+    "entregadorId": null               // obrigatório se despacharAgora=true
+  &#125;
+&#125;</pre>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">✅ Implementado</div>
+              <ul class="doc-lista">
+                <li>Entidades + migration + índices.</li>
+                <li>DTOs + IEntregaService + EntregaService completo.</li>
+                <li>EntregasController com todos os endpoints (listar/obter/calcular/criar/atribuir/status/baixar/cancelar/rastreio).</li>
+                <li>Integração com geocoding Nominatim (<code>IGeocodingService</code>).</li>
+                <li>Integração com OSRM público + fallback Haversine×1.4.</li>
+                <li>Lat/lng em Filial e PessoaEndereco (auto-geocoding ao salvar).</li>
+                <li>CRUD de EntregaFaixa por filial.</li>
+                <li>Checkbox "Entrega" + modal <code>ModalEntregaComponent</code> global em Pré-Venda e Caixa-Venda.</li>
+                <li>Modal condicional: opções "Venda recebida" e "Despachar agora" só aparecem no caixa (preset <code>mostrarOpcoesCaixa</code>).</li>
+                <li>Pré-venda grava intenção no Venda (<code>EntregaSolicitada/EnderecoId/Observacao</code>).</li>
+                <li>Caixa importa pré-venda e pré-marca Entrega + preset no modal.</li>
+                <li>VendaService.FinalizarAsync orquestra criação da Entrega na mesma transação.</li>
+                <li>Contabilização diferida (CaixaMovimento só na baixa se <code>PagamentoRecebido=false</code>).</li>
+                <li>Gerenciador de Entregas embutido no Caixa (painel GE): totais, filtros, ações (Despachar/Baixar/Cancelar), detalhes com timeline.</li>
+                <li>Token de rastreio gerado e endpoint público <code>/api/rastreio/&#123;token&#125;</code>.</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">⏳ Falta Implementar</div>
+              <ul class="doc-lista">
+                <li><strong>Página pública de rastreio</strong> <code>/rastreio/&#123;token&#125;</code> — página sem auth exibindo status, timeline, mapa, tempo estimado. Botão "Link Rastreio" já copia a URL, falta a página.</li>
+                <li><strong>Área do entregador</strong> — página web/mobile para o entregador ver suas entregas, marcar "entregue/devolvida", capturar foto de comprovante e geolocalização na baixa. Token <code>TokenEntregador</code> já existe na entidade.</li>
+                <li><strong>Mapa no gerenciador</strong> — visualização em mapa (Leaflet/OSM) das entregas em rota + posição atual do entregador (quando área do entregador existir).</li>
+                <li><strong>Notificação ao cliente</strong> — WhatsApp/SMS com link de rastreio ao criar/despachar/entregar. Integrar com provedor (Twilio/WhatsApp Business API).</li>
+                <li><strong>Reemitir NFC-e por devolução</strong> — regra fiscal quando entrega volta como Devolvida: precisa de NFe de devolução/cancelamento. Hoje o cancelamento é manual.</li>
+                <li><strong>Roteirização</strong> — agrupamento de múltiplas entregas em uma rota otimizada (TSP) quando o entregador sair com N pacotes.</li>
+                <li><strong>Tempo estimado</strong> — usar duração do OSRM (<code>routes[0].duration</code>) para exibir ETA. Hoje só usamos a distância.</li>
+                <li><strong>Cancelar venda ao cancelar entrega</strong> — decidir com o negócio se o cancelamento de entrega deve oferecer cancelar a venda (e estornar caixa + ContaReceber). Hoje é ação separada.</li>
+                <li><strong>Relatório de entregas</strong> — por período/entregador/status com totais de valor de entrega recebido.</li>
+                <li><strong>Comissão de entregador</strong> — opcional: parte do valor de entrega vira comissão do colaborador-entregador.</li>
+                <li><strong>Bloqueio por limite de crédito</strong> — se venda é "não recebida" e cliente está no limite, validar antes de criar a entrega.</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco">
+              <div class="doc-titulo">Arquivos-Chave</div>
+              <ul class="doc-lista">
+                <li><code>backend/ZulexPharma.Domain/Entities/Entrega.cs</code>, <code>EntregaFaixa.cs</code>, <code>EntregaEvento.cs</code></li>
+                <li><code>backend/ZulexPharma.Domain/Enums/StatusEntrega.cs</code>, <code>TipoEntregaEvento.cs</code></li>
+                <li><code>backend/ZulexPharma.Application/Interfaces/IEntregaService.cs</code>, <code>IGeocodingService.cs</code></li>
+                <li><code>backend/ZulexPharma.Application/DTOs/Entregas/EntregaDtos.cs</code></li>
+                <li><code>backend/ZulexPharma.Application/DTOs/Vendas/VendaPrazoDto.cs</code> (FinalizarVendaDto + EntregaFinalizacaoDto)</li>
+                <li><code>backend/ZulexPharma.Infrastructure/Services/EntregaService.cs</code>, <code>NominatimGeocodingService.cs</code></li>
+                <li><code>backend/ZulexPharma.Infrastructure/Services/VendaService.cs</code> (orquestração na FinalizarAsync)</li>
+                <li><code>backend/ZulexPharma.API/Controllers/EntregasController.cs</code></li>
+                <li><code>frontend/src/app/core/services/modal-entrega.service.ts</code></li>
+                <li><code>frontend/src/app/core/components/modal-entrega.component.ts</code></li>
+                <li><code>frontend/src/app/modules/entregas/entregas.component.&#123;ts,html,scss&#125;</code></li>
+                <li><code>frontend/src/app/modules/pre-venda/pre-venda.component.ts</code> (checkbox + salva flags)</li>
+                <li><code>frontend/src/app/modules/caixa-venda/caixa-venda.component.ts</code> (checkbox + modal + finalizarBody.entrega)</li>
+                <li><code>frontend/src/app/modules/caixa/caixa.component.html</code> (painel GE)</li>
+              </ul>
+            </div>
+
+          </div>
+        }
+      </section>
+
       <!-- FINANCEIRO -->
       <section class="help-secao">
         <div class="secao-header compras" [class.aberto]="isAberta('financeiro')" (click)="toggleSecao('financeiro')" style="background:#16a085">
