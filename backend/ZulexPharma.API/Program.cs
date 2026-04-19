@@ -134,6 +134,12 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IVendaFiscalServic
                             ZulexPharma.Infrastructure.Services.VendaFiscalService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IMunicipioService,
                             ZulexPharma.Infrastructure.Services.MunicipioService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IGeocodingService,
+                            ZulexPharma.Infrastructure.Services.GeocodingService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEntregaFaixaService,
+                            ZulexPharma.Infrastructure.Services.EntregaFaixaService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEntregaService,
+                            ZulexPharma.Infrastructure.Services.EntregaService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.IbptService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAdquirenteService,

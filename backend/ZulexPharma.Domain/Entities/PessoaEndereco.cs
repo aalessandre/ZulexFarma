@@ -28,5 +28,14 @@ public class PessoaEndereco : BaseEntity
     public long? MunicipioId { get; set; }
     public Municipio? Municipio { get; set; }
 
+    /// <summary>Latitude (graus decimais). Preenchida via geocoding Nominatim ou manual.</summary>
+    public decimal? Latitude { get; set; }
+
+    /// <summary>Longitude (graus decimais).</summary>
+    public decimal? Longitude { get; set; }
+
+    /// <summary>Se true, coordenadas foram inseridas manualmente e não devem ser sobrescritas pelo geocoding automático.</summary>
+    public bool CoordenadasManual { get; set; } = false;
+
     public bool Principal { get; set; } = false;
 }

@@ -132,6 +132,9 @@ public class AppDbContext : DbContext
     public DbSet<NaturezaOperacao> NaturezasOperacao => Set<NaturezaOperacao>();
     public DbSet<NaturezaOperacaoRegra> NaturezaOperacaoRegras => Set<NaturezaOperacaoRegra>();
     public DbSet<Municipio> Municipios => Set<Municipio>();
+    public DbSet<Entrega> Entregas => Set<Entrega>();
+    public DbSet<EntregaEvento> EntregaEventos => Set<EntregaEvento>();
+    public DbSet<EntregaFaixa> EntregaFaixas => Set<EntregaFaixa>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -158,6 +161,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Email).HasMaxLength(150).IsRequired();
             e.Property(x => x.AliquotaIcms).HasColumnType("numeric(5,2)");
             e.Property(x => x.CodigoIbgeMunicipio).HasMaxLength(10);
+            e.Property(x => x.Latitude).HasColumnType("numeric(10,7)");
+            e.Property(x => x.Longitude).HasColumnType("numeric(10,7)");
             e.HasOne(x => x.ContaCofre).WithMany().HasForeignKey(x => x.ContaCofreId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Municipio).WithMany().HasForeignKey(x => x.MunicipioId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -173,6 +178,61 @@ public class AppDbContext : DbContext
             e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
             e.HasIndex(x => x.CodigoIbge).IsUnique();
             e.HasIndex(x => new { x.Uf, x.NomeNormalizado });
+        });
+
+        // ── Entregas ─────────────────────────────────────────────────
+        modelBuilder.Entity<EntregaFaixa>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.RaioMaxKm).HasColumnType("numeric(8,3)");
+            e.Property(x => x.Valor).HasColumnType("numeric(10,2)");
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.FilialId, x.RaioMaxKm });
+        });
+
+        modelBuilder.Entity<Entrega>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ValorEntrega).HasColumnType("numeric(10,2)");
+            e.Property(x => x.DistanciaKm).HasColumnType("numeric(8,3)");
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            // Snapshot de endereço inline
+            e.Property(x => x.Cep).HasMaxLength(9).IsRequired();
+            e.Property(x => x.Rua).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Numero).HasMaxLength(10).IsRequired();
+            e.Property(x => x.Complemento).HasMaxLength(100);
+            e.Property(x => x.Bairro).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Cidade).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
+            e.Property(x => x.CodigoIbgeMunicipio).HasMaxLength(10);
+            e.Property(x => x.Latitude).HasColumnType("numeric(10,7)");
+            e.Property(x => x.Longitude).HasColumnType("numeric(10,7)");
+            // FKs
+            e.HasOne(x => x.Venda).WithMany().HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.EnderecoEntrega).WithMany().HasForeignKey(x => x.EnderecoEntregaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Entregador).WithMany().HasForeignKey(x => x.EntregadorId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.EntregaFaixa).WithMany().HasForeignKey(x => x.EntregaFaixaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.VendaId).IsUnique();
+            e.HasIndex(x => x.TokenRastreamento).IsUnique();
+            e.HasIndex(x => x.TokenEntregador).IsUnique();
+            e.HasIndex(x => new { x.FilialId, x.Status });
+            e.HasIndex(x => new { x.FilialId, x.DataPedido });
+        });
+
+        modelBuilder.Entity<EntregaEvento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Latitude).HasColumnType("numeric(10,7)");
+            e.Property(x => x.Longitude).HasColumnType("numeric(10,7)");
+            e.Property(x => x.Texto).HasMaxLength(500);
+            e.HasOne(x => x.Entrega).WithMany(x => x.Eventos).HasForeignKey(x => x.EntregaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.EntregaId, x.CriadoEm });
         });
 
         // ── IcmsUf ────────────────────────────────────────────────────
@@ -390,6 +450,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Cidade).HasMaxLength(100).IsRequired();
             e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
             e.Property(x => x.CodigoIbgeMunicipio).HasMaxLength(10);
+            e.Property(x => x.Latitude).HasColumnType("numeric(10,7)");
+            e.Property(x => x.Longitude).HasColumnType("numeric(10,7)");
             e.HasOne(x => x.Pessoa)
              .WithMany(x => x.Enderecos)
              .HasForeignKey(x => x.PessoaId)

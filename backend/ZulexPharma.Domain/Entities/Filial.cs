@@ -21,6 +21,12 @@ public class Filial : BaseEntity
     public long? MunicipioId { get; set; }
     public Municipio? Municipio { get; set; }
 
+    /// <summary>Latitude da filial (graus decimais). Usada para cálculo de raio de entrega.</summary>
+    public decimal? Latitude { get; set; }
+
+    /// <summary>Longitude da filial (graus decimais). Usada para cálculo de raio de entrega.</summary>
+    public decimal? Longitude { get; set; }
+
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
 
