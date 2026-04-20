@@ -37,14 +37,24 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
         var xsi = XNamespace.Get(NsXsi);
 
         var arrMed = new XElement(XName.Get("arrMedicamentoDTO", ""));
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
         foreach (var m in req.Medicamentos)
         {
+            // Ordem segue o schema MedicamentoDTO do WSDL; doubles non-nillable enviados como 0.0 por padrão.
             arrMed.Add(new XElement("item",
                 new XAttribute(xsi + "type", "ser:MedicamentoDTO"),
                 new XElement("coCodigoBarra", m.CoCodigoBarra),
-                new XElement("qtSolicitada", m.QtSolicitada.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                new XElement("vlPrecoVenda", m.VlPrecoVenda.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)),
-                new XElement("qtPrescrita", m.QtPrescrita.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                new XElement("qtAutorizada", "0.0"),
+                new XElement("qtDevolvida", "0.0"),
+                new XElement("qtEstornada", "0.0"),
+                new XElement("qtPrescrita", m.QtPrescrita.ToString(inv)),
+                new XElement("qtSolicitada", m.QtSolicitada.ToString(inv)),
+                new XElement("vlPrecoSubsidiadoMS", "0.0"),
+                new XElement("vlPrecoSubsidiadoPaciente", "0.0"),
+                new XElement("vlPrecoSubsidiadoPacientePosEstorno", "0.0"),
+                new XElement("vlPrecoVenda", m.VlPrecoVenda.ToString("0.00", inv)),
+                new XElement("vlrSubsidiadoMSPosEstorno", "0.0"),
+                new XElement("vlrTotalVendaPosEstorno", "0.0")
             ));
         }
 
