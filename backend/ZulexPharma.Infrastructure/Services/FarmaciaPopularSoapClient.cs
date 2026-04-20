@@ -65,7 +65,7 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
                         new XElement("nuCpf", req.NuCpf),
                         new XElement("nuCrm", req.NuCrm),
                         new XElement("sgUfCrm", req.SgUfCrm),
-                        new XElement("dtEmissaoReceita", req.DtEmissaoReceita.ToString("yyyy-MM-dd")),
+                        new XElement("dtEmissaoReceita", req.DtEmissaoReceita.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss")),
                         new XElement("dnaEstacao", req.DnaEstacao),
                         arrMed
                     ),
@@ -80,6 +80,19 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
         try
         {
             var doc = XDocument.Parse(respXml);
+
+            // SOAP Fault: servidor rejeitou a requisição (ex: formato de data inválido, campo obrigatório ausente).
+            var fault = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Fault");
+            if (fault != null)
+            {
+                var faultString = fault.Elements().FirstOrDefault(e => e.Name.LocalName == "faultstring")?.Value ?? "";
+                var faultCode = fault.Elements().FirstOrDefault(e => e.Name.LocalName == "faultcode")?.Value ?? "";
+                ret.Sucesso = false;
+                ret.CodigoRetorno = "FAULT";
+                ret.MensagemRetorno = $"{faultCode}: {faultString}".Trim(':', ' ');
+                return ret;
+            }
+
             // Resposta vem dentro de {ser}executarSolicitacaoResponse / executarSolicitacaoReturn / {SolicitacaoDTO}
             var root = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "executarSolicitacaoReturn")
                        ?? doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "return");
@@ -87,7 +100,7 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
             {
                 ret.Sucesso = false;
                 ret.CodigoRetorno = "ERR";
-                ret.MensagemRetorno = "Resposta SOAP inesperada (sem executarSolicitacaoReturn).";
+                ret.MensagemRetorno = "Resposta SOAP inesperada (sem executarSolicitacaoReturn nem Fault).";
                 return ret;
             }
             ret.CodigoRetorno = root.Elements().FirstOrDefault(e => e.Name.LocalName == "coRetorno")?.Value ?? "";
@@ -180,6 +193,16 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
         try
         {
             var doc = XDocument.Parse(respXml);
+            var fault = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Fault");
+            if (fault != null)
+            {
+                var faultString = fault.Elements().FirstOrDefault(e => e.Name.LocalName == "faultstring")?.Value ?? "";
+                var faultCode = fault.Elements().FirstOrDefault(e => e.Name.LocalName == "faultcode")?.Value ?? "";
+                ret.Sucesso = false;
+                ret.CodigoRetorno = "FAULT";
+                ret.MensagemRetorno = $"{faultCode}: {faultString}".Trim(':', ' ');
+                return ret;
+            }
             var root = doc.Descendants().FirstOrDefault(e => e.Name.LocalName.EndsWith("Return") || e.Name.LocalName == "return");
             ret.CodigoRetorno = root?.Elements().FirstOrDefault(e => e.Name.LocalName == "coRetorno")?.Value ?? "";
             ret.MensagemRetorno = root?.Elements().FirstOrDefault(e => e.Name.LocalName == "msRetorno")?.Value;
