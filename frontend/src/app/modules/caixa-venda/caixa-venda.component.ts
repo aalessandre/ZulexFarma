@@ -170,6 +170,8 @@ interface Atendimento {
   colaboradorId: number | null;
   colaboradorNome: string;
   tipoPagamentoId: number | null;
+  /** Se setado, identifica que a aba é uma venda PBM específica. Valores: 'FP' (Farmácia Popular), etc. */
+  modoPbm?: 'FP' | 'EPHARMA' | 'FUNCIONAL' | 'VIDALINK' | null;
 }
 
 const PREVENDA_COLUNAS: ColunaDef[] = [
@@ -1519,6 +1521,35 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
 
   // ── Opções ─────────────────────────────────────────────────────
   menuOpcoesAberto = signal(false);
+  menuPbmsAberto = signal(false);
+
+  /** Aba atual é venda FP? Usado pra habilitar UI específica (topo extra, coluna Qtde/dia, etc). */
+  modoPbmAtual = computed<Atendimento['modoPbm']>(() => {
+    const id = this.abaAtivaId();
+    const aba = this.atendimentos().find(a => a.id === id);
+    return aba?.modoPbm ?? null;
+  });
+
+  ehAbaFP = computed(() => this.modoPbmAtual() === 'FP');
+
+  /** Abre uma nova aba marcada com o PBM informado. */
+  abrirAbaPbm(pbm: 'FP' | 'EPHARMA' | 'FUNCIONAL' | 'VIDALINK') {
+    if (pbm !== 'FP') {
+      this.modal.aviso('Em breve', 'Este PBM ainda não está disponível. Por enquanto apenas Farmácia Popular.');
+      return;
+    }
+    this.salvarAbaAtiva();
+    const id = this.nextAbaId++;
+    const tipoPadrao = this.tiposPagamento().length > 0 ? this.tiposPagamento()[0].id : null;
+    const aba: Atendimento = {
+      id, label: `Atendimento ${id} — Farmácia Popular`, preVendaId: null, itens: [],
+      clienteId: null, clienteNome: '', colaboradorId: null, colaboradorNome: '',
+      tipoPagamentoId: tipoPadrao, modoPbm: pbm
+    };
+    this.atendimentos.update(abas => [...abas, aba]);
+    this.carregarAba(id);
+    this.menuPbmsAberto.set(false);
+  }
 
   @HostListener('document:keydown', ['$event'])
   onKeydown(e: KeyboardEvent) {

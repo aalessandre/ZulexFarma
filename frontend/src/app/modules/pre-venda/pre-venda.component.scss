@@ -19,8 +19,13 @@
   white-space: nowrap; position: relative;
   &:hover { color: var(--erp-text); background: var(--erp-row-hover); }
   &.ativa { color: var(--erp-blue); border-bottom-color: var(--erp-blue); background: var(--erp-surface); }
+  &.pv-aba-fp.ativa { color: #1abc9c; border-bottom-color: #1abc9c; }
 }
-.pv-aba-label { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.pv-aba-label { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.pv-aba-badge-fp {
+  background: #1abc9c; color: #fff; font-size: 9px; font-weight: 700;
+  letter-spacing: 0.5px; padding: 2px 6px; border-radius: 10px;
+}
 .pv-aba-fechar {
   background: none; border: none; color: var(--erp-text-muted); font-size: 16px; cursor: pointer;
   padding: 0 2px; border-radius: 3px; line-height: 1;
@@ -621,6 +626,7 @@ td[data-campo="percentualDesconto"] {
 .pv-tb-pendentes { background: #8e44ad; }
 .pv-tb-cancelar  { background: #e67e22; }
 .pv-tb-opcoes    { background: #546e7a; }
+.pv-tb-pbms      { background: #1abc9c; }
 .pv-tb-sair      { background: #c0392b; }
 
 .pv-tb-finalizar {
@@ -657,6 +663,11 @@ td[data-campo="percentualDesconto"] {
 }
 .pv-mega-label { font-size: 11px; font-weight: 600; line-height: 1.2; }
 .pv-mega-atalho { font-size: 9px; color: var(--erp-text-muted); background: var(--erp-bg); padding: 1px 6px; border-radius: 8px; }
+.pv-mega-item-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  &:hover { background: transparent; color: var(--erp-text-muted); }
+}
 
 /* ══ ComboGrid — Padrão de dropdown com grid ══════════════════════ */
 .cg-wrap {

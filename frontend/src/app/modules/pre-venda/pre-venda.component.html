@@ -3,7 +3,10 @@
   <!-- ABAS DE ATENDIMENTO -->
   <div class="pv-abas">
     @for (aba of atendimentos(); track aba.id) {
-      <div class="pv-aba" [class.ativa]="abaAtivaId() === aba.id" (click)="trocarAba(aba.id)">
+      <div class="pv-aba" [class.ativa]="abaAtivaId() === aba.id" [class.pv-aba-fp]="aba.modoPbm === 'FP'" (click)="trocarAba(aba.id)">
+        @if (aba.modoPbm === 'FP') {
+          <span class="pv-aba-badge-fp" title="Pré-venda Farmácia Popular">FP</span>
+        }
         <span class="pv-aba-label">{{ aba.label }}</span>
         @if (atendimentos().length > 1) {
           <button class="pv-aba-fechar" (click)="$event.stopPropagation(); fecharAba(aba.id)" title="Fechar">&times;</button>
@@ -375,7 +378,42 @@
       </button>
     }
     <div class="pv-opcoes-wrap">
-      <button class="pv-tb-btn pv-tb-opcoes" (click)="menuOpcoesAberto.update(v => !v)">
+      <button class="pv-tb-btn pv-tb-pbms" (click)="menuPbmsAberto.update(v => !v); menuOpcoesAberto.set(false)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+        </svg>
+        PBMs
+      </button>
+      @if (menuPbmsAberto()) {
+        <div class="pv-opcoes-overlay" (click)="menuPbmsAberto.set(false)"></div>
+        <div class="pv-mega-menu">
+          <div class="pv-mega-grid">
+            <div class="pv-mega-item" (click)="abrirAbaPbm('FP')">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <span class="pv-mega-label">Farmácia Popular</span>
+              <span class="pv-mega-atalho">DATASUS</span>
+            </div>
+            <div class="pv-mega-item pv-mega-item-disabled" (click)="abrirAbaPbm('EPHARMA')">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h10M7 12h10M7 17h6"/></svg>
+              <span class="pv-mega-label">E-Pharma</span>
+              <span class="pv-mega-atalho">em breve</span>
+            </div>
+            <div class="pv-mega-item pv-mega-item-disabled" (click)="abrirAbaPbm('FUNCIONAL')">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <span class="pv-mega-label">Funcional Card</span>
+              <span class="pv-mega-atalho">em breve</span>
+            </div>
+            <div class="pv-mega-item pv-mega-item-disabled" (click)="abrirAbaPbm('VIDALINK')">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              <span class="pv-mega-label">Vidalink</span>
+              <span class="pv-mega-atalho">em breve</span>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+    <div class="pv-opcoes-wrap">
+      <button class="pv-tb-btn pv-tb-opcoes" (click)="menuOpcoesAberto.update(v => !v); menuPbmsAberto.set(false)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
