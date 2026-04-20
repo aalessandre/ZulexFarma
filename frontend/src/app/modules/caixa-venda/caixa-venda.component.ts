@@ -2253,6 +2253,22 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         total: i.total,
         descontos: i.descontos
       })),
+      // Bloco Farmácia Popular (só quando a aba é FP — backend materializa VendaFarmaciaPopular)
+      farmaciaPopular: this.ehAbaFP() ? {
+        prescritorId: this.fpPrescritorId(),
+        crmMedico: this.fpCrmMedico(),
+        ufCrm: this.fpUfCrm(),
+        dtEmissaoReceita: this.fpDataReceita() || null,
+        nuReceita: this.fpNumeroReceita() || null,
+        bolsaFamilia: this.fpBolsaFamilia(),
+        itens: this.itens().map(i => ({
+          produtoId: i.produtoId,
+          codigoBarraEAN: i.produtoCodigo,
+          qtPrescrita: i.qtdePorDia ?? 1,
+          qtSolicitada: i.quantidade,
+          vlPrecoVenda: i.precoVenda
+        }))
+      } : null,
       pagamentos: this.pagamentoValores().filter(p => p.valor > 0).flatMap((p): any[] => {
         const tf = this.dinheiroTrocoFalta();
         if (p.modalidade === 2) {

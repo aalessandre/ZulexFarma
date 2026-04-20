@@ -24,8 +24,9 @@ namespace ZulexPharma.Infrastructure.Services;
 public class VendaFiscalService : IVendaFiscalService
 {
     private readonly AppDbContext _db;
+    private readonly IFarmaciaPopularService _fpService;
 
-    public VendaFiscalService(AppDbContext db) => _db = db;
+    public VendaFiscalService(AppDbContext db, IFarmaciaPopularService fpService) { _db = db; _fpService = fpService; }
 
     // ═══════════════════════════════════════════════════════════════════
     //  LISTAGEM / LEITURA
@@ -640,6 +641,33 @@ public class VendaFiscalService : IVendaFiscalService
 
         await _db.SaveChangesAsync();
 
+        // ── Farmácia Popular: Fases 2 e 3 após NFC-e autorizada ─────────
+        if (resultado.Autorizada)
+        {
+            var temFp = await _db.Set<VendaFarmaciaPopular>().AnyAsync(f => f.VendaId == venda.Id);
+            if (temFp)
+            {
+                try
+                {
+                    var ret2 = await _fpService.ConfirmarAsync(venda.Id, numero.ToString());
+                    if (ret2.Sucesso)
+                    {
+                        // Fase 3 só se Fase 2 deu certo. Falha aqui vira pendência administrativa.
+                        try { await _fpService.ReceberAsync(venda.Id); }
+                        catch (Exception ex3) { Log.Error(ex3, "FP Fase 3 falhou — venda {Id} fica como Confirmada.", venda.Id); }
+                    }
+                    else
+                    {
+                        Log.Warning("FP Fase 2 rejeitada — venda {Id} cod={Cod} msg={Msg}", venda.Id, ret2.CodigoRetorno, ret2.MensagemRetorno);
+                    }
+                }
+                catch (Exception ex2)
+                {
+                    Log.Error(ex2, "FP Fase 2 lançou exceção — venda {Id} NFC-e já autorizada; admin trata.", venda.Id);
+                }
+            }
+        }
+
         return new VendaFiscalEmissaoResult
         {
             VendaFiscalId = vf.Id,
@@ -715,6 +743,14 @@ public class VendaFiscalService : IVendaFiscalService
             vf.AtualizadoEm = agora;
             vf.Venda.AtualizadoEm = agora;
             await _db.SaveChangesAsync();
+
+            // ── Farmácia Popular: estorno automático se a venda cancelada era FP efetivada ──
+            var temFp = await _db.Set<VendaFarmaciaPopular>().AnyAsync(f => f.VendaId == vendaId);
+            if (temFp)
+            {
+                try { await _fpService.EstornarAsync(vendaId, $"Cancelamento NFC-e: {justificativa}"); }
+                catch (Exception exEst) { Log.Error(exEst, "Estorno FP falhou para venda {Id} — admin trata.", vendaId); }
+            }
         }
 
         resultado.XmlEvento = xmlAssinado;

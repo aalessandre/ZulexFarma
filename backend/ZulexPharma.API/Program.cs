@@ -151,6 +151,23 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFeriadoService,
                             ZulexPharma.Infrastructure.Services.FeriadoService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEntregaService,
                             ZulexPharma.Infrastructure.Services.EntregaService>();
+
+// ── Farmácia Popular ────────────────────────────────────────────
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFarmaciaPopularSoapClient>(sp =>
+{
+    var db = sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>();
+    var configs = db.Set<ZulexPharma.Domain.Entities.Configuracao>()
+        .ToDictionary(c => c.Chave, c => c.Valor);
+    var ambiente = configs.GetValueOrDefault("pbm.fp.ambiente", "homologacao");
+    var urlKey = ambiente == "producao" ? "pbm.fp.url.producao" : "pbm.fp.url.homologacao";
+    var endpoint = configs.GetValueOrDefault(urlKey, "https://farmaciapopular-autorizador.saude.gov.br/FarmaciaPopularWeb/services/ServicoSolicitacaoWS");
+    var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("FarmaciaPopular");
+    return new ZulexPharma.Infrastructure.Services.FarmaciaPopularSoapClient(http, endpoint);
+});
+builder.Services.AddHttpClient("FarmaciaPopular", c => c.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFarmaciaPopularService,
+                            ZulexPharma.Infrastructure.Services.FarmaciaPopularService>();
+
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.IbptService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAdquirenteService,

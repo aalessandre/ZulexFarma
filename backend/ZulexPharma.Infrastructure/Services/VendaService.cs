@@ -17,17 +17,19 @@ public class VendaService : IVendaService
     private readonly IProdutoLoteService _loteService;
     private readonly IVendaReceitaService _receitaService;
     private readonly IEntregaService _entregaService;
+    private readonly IFarmaciaPopularService _fpService;
     private const string TELA = "Venda";
     private const string ENTIDADE = "Venda";
 
     public VendaService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService,
-        IVendaReceitaService receitaService, IEntregaService entregaService)
+        IVendaReceitaService receitaService, IEntregaService entregaService, IFarmaciaPopularService fpService)
     {
         _db = db;
         _log = log;
         _loteService = loteService;
         _receitaService = receitaService;
         _entregaService = entregaService;
+        _fpService = fpService;
     }
 
     public async Task<List<VendaListDto>> ListarAsync(long? filialId = null, string? status = null, long? caixaId = null)
@@ -157,6 +159,10 @@ public class VendaService : IVendaService
             RecalcularTotais(venda);
             _db.Set<Venda>().Add(venda);
             await _db.SaveChangesAsync();
+
+            if (dto.FarmaciaPopular != null)
+                await PersistirBlocoFarmaciaPopularAsync(venda, dto.FarmaciaPopular);
+
             await _log.RegistrarAsync(TELA, "CRIAÇÃO", ENTIDADE, venda.Id, novo: ParaDict(venda));
 
             return (await ObterAsync(venda.Id))!;
@@ -205,6 +211,10 @@ public class VendaService : IVendaService
 
             RecalcularTotais(venda);
             await _db.SaveChangesAsync();
+
+            if (dto.FarmaciaPopular != null)
+                await PersistirBlocoFarmaciaPopularAsync(venda, dto.FarmaciaPopular);
+
             await _log.RegistrarAsync(TELA, "ALTERAÇÃO", ENTIDADE, id);
         }
         catch (Exception ex) when (ex is not KeyNotFoundException and not ArgumentException) { Log.Error(ex, "Erro em VendaService.AtualizarAsync | Id: {Id}", id); throw; }
@@ -356,6 +366,15 @@ public class VendaService : IVendaService
             //  devem pular o FEFO automático por serem baixados via receita)
             var (processarReceitasSngpc, marcarSngpcPendente, itensControladosIds) =
                 await ResolverFluxoSngpcAsync(venda, opcoes?.Sngpc);
+
+            // ── Farmácia Popular: Fase 1 (DATASUS) antes de marcar Finalizada ──
+            var temFp = await _db.Set<VendaFarmaciaPopular>().AnyAsync(f => f.VendaId == venda.Id);
+            if (temFp)
+            {
+                var retFp = await _fpService.SolicitarAsync(venda.Id);
+                if (!retFp.Sucesso)
+                    throw new ArgumentException($"Farmácia Popular recusou a pré-autorização: {retFp.CodigoRetorno} {retFp.MensagemRetorno}");
+            }
 
             // ── Finalizar e gerar contas a receber ─────────────────
             venda.Status = VendaStatus.Finalizada;
@@ -661,6 +680,71 @@ public class VendaService : IVendaService
         v.TotalDesconto = v.Itens.Sum(i => i.ValorDesconto);
         v.TotalLiquido = v.Itens.Sum(i => i.Total);
         v.TotalItens = v.Itens.Count;
+    }
+
+    // ── Farmácia Popular: persistir bloco enviado no VendaFormDto ──────
+    private async Task PersistirBlocoFarmaciaPopularAsync(Venda venda, Application.DTOs.FarmaciaPopular.VendaFarmaciaPopularFormDto dto)
+    {
+        // Requisitos mínimos — se o frontend mandar bloco FP incompleto, nem criamos.
+        if (!dto.DtEmissaoReceita.HasValue || string.IsNullOrWhiteSpace(dto.CrmMedico) || string.IsNullOrWhiteSpace(dto.UfCrm))
+            throw new ArgumentException("Bloco Farmácia Popular incompleto (CRM/UF/Data da receita obrigatórios).");
+
+        var cliente = await _db.Set<Cliente>().Include(c => c.Pessoa).FirstOrDefaultAsync(c => c.Id == venda.ClienteId);
+        if (cliente == null || string.IsNullOrWhiteSpace(cliente.Pessoa.CpfCnpj))
+            throw new ArgumentException("Cliente com CPF é obrigatório para vendas Farmácia Popular.");
+
+        var filial = await _db.Set<Filial>().FirstOrDefaultAsync(f => f.Id == venda.FilialId)
+            ?? throw new ArgumentException("Filial da venda não encontrada.");
+        var cnpjFilial = new string((filial.Cnpj ?? "").Where(char.IsDigit).ToArray());
+
+        var fp = await _db.Set<VendaFarmaciaPopular>().Include(f => f.Itens).FirstOrDefaultAsync(f => f.VendaId == venda.Id);
+        var novo = fp == null;
+        fp ??= new VendaFarmaciaPopular { VendaId = venda.Id };
+
+        if (novo)
+        {
+            fp.CoSolicitacaoFarmacia = $"{venda.FilialId}-{venda.Id}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            fp.CnpjEstabelecimento = cnpjFilial;
+            fp.CpfPaciente = new string((cliente.Pessoa.CpfCnpj ?? "").Where(char.IsDigit).ToArray());
+            fp.Status = StatusFarmaciaPopular.Iniciada;
+            fp.FaseAtual = FaseFarmaciaPopular.Solicitacao;
+        }
+        fp.PrescritorId = dto.PrescritorId;
+        fp.CrmMedico = dto.CrmMedico.Trim();
+        fp.UfCrm = dto.UfCrm.Trim().ToUpper();
+        fp.DtEmissaoReceita = dto.DtEmissaoReceita.Value;
+        fp.NuReceita = dto.NuReceita?.Trim();
+        fp.BolsaFamilia = dto.BolsaFamilia;
+
+        // Validação de receita vencida (RN-03) — 180 dias.
+        var idade = DateOnly.FromDateTime(Domain.Helpers.DataHoraHelper.Agora()).DayNumber - fp.DtEmissaoReceita.DayNumber;
+        if (idade < 0 || idade > 180)
+            throw new ArgumentException($"Receita com data inválida ou > 180 dias ({idade} dias).");
+
+        if (novo) _db.Set<VendaFarmaciaPopular>().Add(fp);
+
+        // Itens FP — substitui tudo (aba sempre reenvia o bloco inteiro)
+        if (fp.Itens.Any()) _db.Set<VendaFarmaciaPopularItem>().RemoveRange(fp.Itens);
+        fp.Itens.Clear();
+
+        // Casa cada item FP com o VendaItem correspondente (por ProdutoId — ordem preservada).
+        await _db.SaveChangesAsync();
+        var itensVenda = await _db.Set<VendaItem>().Where(i => i.VendaId == venda.Id).OrderBy(i => i.Ordem).ToListAsync();
+        foreach (var itemDto in dto.Itens)
+        {
+            var vi = itensVenda.FirstOrDefault(x => x.ProdutoId == itemDto.ProdutoId);
+            if (vi == null) continue;
+            fp.Itens.Add(new VendaFarmaciaPopularItem
+            {
+                VendaFarmaciaPopularId = fp.Id,
+                VendaItemId = vi.Id,
+                CodigoBarraEAN = itemDto.CodigoBarraEAN,
+                QtPrescrita = itemDto.QtPrescrita,
+                QtSolicitada = itemDto.QtSolicitada,
+                VlPrecoVenda = itemDto.VlPrecoVenda
+            });
+        }
+        await _db.SaveChangesAsync();
     }
 
     private static string StatusTexto(VendaStatus s) => s switch
