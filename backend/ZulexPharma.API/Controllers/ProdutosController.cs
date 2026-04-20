@@ -166,7 +166,7 @@ public class ProdutosController : ControllerBase
                 ))
                 .OrderBy(p => p.Nome)
                 .Take(limit)
-                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando, p.ClasseTerapeutica, p.PrecoFp, p.PrecoFpBolsaFamilia, p.ParticipaFarmaciaPopular })
+                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando, p.ClasseTerapeutica, p.PrecoFp, p.PrecoFpBolsaFamilia, p.ParticipaFarmaciaPopular, p.CodigoBarras })
                 .ToListAsync();
 
             // Buscar dados da filial
@@ -222,7 +222,8 @@ public class ProdutosController : ControllerBase
                     classeTerapeutica = p.ClasseTerapeutica,
                     precoFp = p.PrecoFp,
                     precoFpBolsaFamilia = p.PrecoFpBolsaFamilia,
-                    participaFarmaciaPopular = p.ParticipaFarmaciaPopular
+                    participaFarmaciaPopular = p.ParticipaFarmaciaPopular,
+                    codigoBarras = p.CodigoBarras
                 };
             });
 

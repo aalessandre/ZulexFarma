@@ -121,6 +121,47 @@
   &:focus { border-color: var(--erp-primary); background-color: var(--erp-surface); }
 }
 
+/* ── Lookup (Plano de Contas FP etc.) ────────────────────────── */
+.cfg-lookup-wrap { position: relative; }
+.cfg-lookup-dropdown {
+  position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 100;
+  max-height: 260px; overflow-y: auto;
+  background: var(--erp-surface); border: 1px solid var(--erp-primary);
+  border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+.cfg-lookup-item {
+  padding: 6px 10px; display: flex; align-items: center; gap: 8px;
+  cursor: pointer; font-size: var(--erp-fs-sm);
+  border-bottom: 1px solid var(--erp-border);
+  &:last-child { border-bottom: none; }
+  &:hover, &.ativo { background: var(--erp-row-hover); }
+}
+.cfg-lookup-item-cod {
+  font-weight: 700; color: var(--erp-primary); font-size: 11px;
+  letter-spacing: 0.3px; background: rgba(33, 150, 243, 0.08);
+  padding: 2px 6px; border-radius: 3px; white-space: nowrap;
+}
+.cfg-lookup-item-nome { flex: 1; color: var(--erp-text); }
+.cfg-lookup-sel {
+  height: 36px; display: flex; align-items: center; gap: 8px;
+  padding: 0 6px 0 10px; background: var(--erp-surface);
+  border: 1px solid var(--erp-border-input); border-radius: 6px;
+}
+.cfg-lookup-tag {
+  background: var(--erp-primary); color: #fff; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.4px; padding: 2px 6px; border-radius: 3px; white-space: nowrap;
+}
+.cfg-lookup-nome {
+  flex: 1; font-size: var(--erp-fs-body); color: var(--erp-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cfg-lookup-x {
+  width: 22px; height: 22px; padding: 0; border: none;
+  background: transparent; color: var(--erp-text-muted); cursor: pointer;
+  font-size: 18px; line-height: 1; border-radius: 3px;
+  &:hover { background: #fde8e8; color: #c0392b; }
+}
+
 /* ── Slider ──────────────────────────────────────────────────── */
 .cfg-slider {
   display: flex; align-items: center; gap: 14px;

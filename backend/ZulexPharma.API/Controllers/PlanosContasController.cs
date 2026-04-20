@@ -69,6 +69,26 @@ public class PlanosContasController : ControllerBase
         catch (Exception ex) { Log.Error(ex, "Erro em PlanosContasController.Listar"); return StatusCode(500, new { success = false, message = "Erro ao listar plano de contas." }); }
     }
 
+    /// <summary>Lookup leve por ID — usado quando a tela precisa só exibir o nome de uma FK salva (ex: Configurações).</summary>
+    [HttpGet("{id:long}/resumo")]
+    public async Task<IActionResult> Resumo(long id)
+    {
+        try
+        {
+            var p = await _db.PlanosContas.Include(p => p.ContaPai).ThenInclude(s => s!.ContaPai).FirstOrDefaultAsync(p => p.Id == id);
+            if (p == null) return NotFound(new { success = false });
+            var codigoHier = $"{p.Ordem:D2}";
+            if (p.ContaPai != null)
+            {
+                codigoHier = $"{p.ContaPai.Ordem}.{p.Ordem:D2}";
+                if (p.ContaPai.ContaPai != null)
+                    codigoHier = $"{p.ContaPai.ContaPai.Ordem}.{p.ContaPai.Ordem}.{p.Ordem:D2}";
+            }
+            return Ok(new { success = true, data = new { id = p.Id, descricao = p.Descricao, codigoHierarquico = codigoHier } });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em PlanosContasController.Resumo"); return StatusCode(500, new { success = false }); }
+    }
+
     [HttpPost]
     [Permissao("plano-contas", "i")]
     public async Task<IActionResult> Criar([FromBody] PlanoContaFormDto dto)

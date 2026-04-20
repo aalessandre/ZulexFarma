@@ -730,15 +730,24 @@ public class VendaService : IVendaService
         // Casa cada item FP com o VendaItem correspondente (por ProdutoId — ordem preservada).
         await _db.SaveChangesAsync();
         var itensVenda = await _db.Set<VendaItem>().Where(i => i.VendaId == venda.Id).OrderBy(i => i.Ordem).ToListAsync();
+        var produtoIds = dto.Itens.Select(i => i.ProdutoId).ToList();
+        var produtosEan = await _db.Set<Produto>()
+            .Where(p => produtoIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.CodigoBarras })
+            .ToDictionaryAsync(p => p.Id, p => p.CodigoBarras);
         foreach (var itemDto in dto.Itens)
         {
             var vi = itensVenda.FirstOrDefault(x => x.ProdutoId == itemDto.ProdutoId);
             if (vi == null) continue;
+            // EAN é sempre de Produto.CodigoBarras (fonte canônica). O que vem do frontend é ignorado.
+            var ean = produtosEan.GetValueOrDefault(itemDto.ProdutoId);
+            if (string.IsNullOrWhiteSpace(ean))
+                throw new ArgumentException($"Produto {vi.ProdutoNome} (id {itemDto.ProdutoId}) sem código de barras cadastrado — obrigatório para Farmácia Popular.");
             fp.Itens.Add(new VendaFarmaciaPopularItem
             {
                 VendaFarmaciaPopularId = fp.Id,
                 VendaItemId = vi.Id,
-                CodigoBarraEAN = itemDto.CodigoBarraEAN,
+                CodigoBarraEAN = ean,
                 QtPrescrita = itemDto.QtPrescrita,
                 QtSolicitada = itemDto.QtSolicitada,
                 VlPrecoVenda = itemDto.VlPrecoVenda

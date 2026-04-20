@@ -3,14 +3,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
 
 /// <summary>
 /// Endpoints do programa Farmácia Popular (DATASUS).
-/// Implementação em fases — esse controller hoje só expõe "testar-conexao" (smoke test do gbasmsb.exe).
-/// Fases 1/2/3 + estorno + SONDA entram em commits futuros.
 /// </summary>
 [Authorize]
 [ApiController]
@@ -18,8 +17,43 @@ namespace ZulexPharma.API.Controllers;
 public class FarmaciaPopularController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IFarmaciaPopularService _fp;
 
-    public FarmaciaPopularController(AppDbContext db) => _db = db;
+    public FarmaciaPopularController(AppDbContext db, IFarmaciaPopularService fp) { _db = db; _fp = fp; }
+
+    /// <summary>
+    /// Dispara SÓ a Fase 1 (executarSolicitacao) de uma venda em aberto — sem marcar finalizada,
+    /// sem emitir NFC-e. Usado para testar a integração DATASUS isoladamente. Retorna o XML
+    /// request e response para debug.
+    /// </summary>
+    [HttpPost("pre-autorizar/{vendaId:long}")]
+    public async Task<IActionResult> PreAutorizar(long vendaId)
+    {
+        try
+        {
+            var ret = await _fp.SolicitarAsync(vendaId);
+            var fp = await _db.Set<Domain.Entities.VendaFarmaciaPopular>()
+                .Include(x => x.Itens)
+                .FirstOrDefaultAsync(x => x.VendaId == vendaId);
+            return Ok(new
+            {
+                success = ret.Sucesso,
+                codigo = ret.CodigoRetorno,
+                mensagem = ret.MensagemRetorno,
+                nuAutorizacao = ret.NuAutorizacao,
+                noPaciente = ret.NoPaciente,
+                coSolicitacaoFarmacia = fp?.CoSolicitacaoFarmacia,
+                dnaEstacao = fp?.DnaEstacao,
+                status = fp?.Status.ToString(),
+                itens = ret.Itens,
+                requestXml = ret.RequestXml,
+                responseXml = ret.ResponseXml
+            });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { success = false, message = ex.Message }); }
+        catch (ArgumentException ex) { return BadRequest(new { success = false, message = ex.Message }); }
+        catch (Exception ex) { Log.Error(ex, "Erro em FarmaciaPopular.PreAutorizar"); return StatusCode(500, new { success = false, message = ex.Message }); }
+    }
 
     /// <summary>
     /// Smoke test — invoca o gbasmsb.exe com parâmetros dummy pra validar
