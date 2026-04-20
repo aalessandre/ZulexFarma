@@ -230,7 +230,11 @@ public class FarmaciaPopularService : IFarmaciaPopularService
     {
         var ambiente = configs.GetValueOrDefault("pbm.fp.ambiente", "producao");
         var urlKey = ambiente == "producao" ? "pbm.fp.url.producao" : "pbm.fp.url.homologacao";
-        var endpoint = configs.GetValueOrDefault(urlKey, "");
+        // Default: URL oficial do WSDL de produção DATASUS (confirmada em ServicoSolicitacaoWS.xml).
+        var defaultUrl = ambiente == "producao"
+            ? "https://farmaciapopular-autorizador.saude.gov.br/farmaciapopular-autorizador/services/ServicoSolicitacaoWS"
+            : "";
+        var endpoint = configs.GetValueOrDefault(urlKey, defaultUrl);
         if (string.IsNullOrWhiteSpace(endpoint))
             throw new InvalidOperationException($"URL do DATASUS não configurada ({urlKey}).");
 

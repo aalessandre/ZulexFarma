@@ -22,6 +22,44 @@ public class FarmaciaPopularController : ControllerBase
     public FarmaciaPopularController(AppDbContext db, IFarmaciaPopularService fp) { _db = db; _fp = fp; }
 
     /// <summary>
+    /// Retorna os XMLs request/response de cada fase já persistidos em VendaFarmaciaPopular.
+    /// Usado para debug quando a Fase 1 é disparada via Finalizar e dá erro — os XMLs são
+    /// salvos antes do throw, mas a UI só mostra a mensagem de erro.
+    /// </summary>
+    [HttpGet("xmls/{vendaId:long}")]
+    public async Task<IActionResult> ObterXmls(long vendaId)
+    {
+        try
+        {
+            var fp = await _db.Set<Domain.Entities.VendaFarmaciaPopular>()
+                .Include(x => x.Itens)
+                .FirstOrDefaultAsync(x => x.VendaId == vendaId);
+            if (fp == null) return NotFound(new { success = false, message = "Venda sem VendaFarmaciaPopular." });
+            return Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    vendaId = fp.VendaId,
+                    coSolicitacaoFarmacia = fp.CoSolicitacaoFarmacia,
+                    nuAutorizacao = fp.NuAutorizacao,
+                    status = fp.Status.ToString(),
+                    faseAtual = fp.FaseAtual.ToString(),
+                    codigoRetornoAtual = fp.CodigoRetornoAtual,
+                    mensagemRetornoAtual = fp.MensagemRetornoAtual,
+                    dnaEstacao = fp.DnaEstacao,
+                    fase1 = new { req = fp.Fase1RequestXml, resp = fp.Fase1ResponseXml, dh = fp.Fase1DataHora },
+                    fase2 = new { req = fp.Fase2RequestXml, resp = fp.Fase2ResponseXml, dh = fp.Fase2DataHora },
+                    fase3 = new { req = fp.Fase3RequestXml, resp = fp.Fase3ResponseXml, dh = fp.Fase3DataHora },
+                    estorno = new { req = fp.EstornoRequestXml, resp = fp.EstornoResponseXml, dh = fp.EstornoDataHora },
+                    itens = fp.Itens.Select(i => new { i.CodigoBarraEAN, i.QtSolicitada, i.VlPrecoVenda, i.QtAutorizada, i.CodigoRetornoItem, i.MensagemRetornoItem })
+                }
+            });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em FarmaciaPopular.ObterXmls"); return StatusCode(500, new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>
     /// Dispara SÓ a Fase 1 (executarSolicitacao) de uma venda em aberto — sem marcar finalizada,
     /// sem emitir NFC-e. Usado para testar a integração DATASUS isoladamente. Retorna o XML
     /// request e response para debug.
