@@ -650,6 +650,155 @@
           }
         </div>
 
+        <!-- ══════ PBMs (Programas de Benefício / Convênios) ══════ -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'pbms'" (click)="toggleAccordion('pbms')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span>PBMs (Programas de Benefício / Convênios)</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'pbms' ? '▲' : '▼' }}</span>
+          </div>
+          @if (accordionAberto() === 'pbms') {
+            <div class="cfg-acc-body">
+
+              <!-- ─── Farmácia Popular ─── -->
+              <div class="cfg-sub-titulo">Farmácia Popular (DATASUS)</div>
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>ATIVAR</label>
+                  <label class="erp-toggle erp-toggle-ativo">
+                    <input type="checkbox" [checked]="getConfig('pbm.fp.ativar', 'false') === 'true'"
+                           (change)="setConfig('pbm.fp.ativar', $any($event.target).checked ? 'true' : 'false')" />
+                    <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+                    <span class="erp-toggle-label">{{ getConfig('pbm.fp.ativar', 'false') === 'true' ? 'Ativo' : 'Inativo' }}</span>
+                  </label>
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>AMBIENTE</label>
+                  <select [value]="getConfig('pbm.fp.ambiente', 'homologacao')"
+                          (change)="setConfig('pbm.fp.ambiente', $any($event.target).value)">
+                    <option value="homologacao">Homologação</option>
+                    <option value="producao">Produção</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>CNPJ CADASTRADO NO FP
+                    <span class="cfg-info" title="CNPJ do estabelecimento cadastrado no Portal Farmácia Popular. Pode diferir do CNPJ da filial se for matriz.">i</span>
+                  </label>
+                  <input type="text" maxlength="18"
+                         [value]="getConfig('pbm.fp.cnpj', '')"
+                         (input)="setConfig('pbm.fp.cnpj', $any($event.target).value)"
+                         placeholder="00.000.000/0000-00" />
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>PLANO DE CONTAS (ID)
+                    <span class="cfg-info" title="ID do plano de contas onde o subsídio MS é lançado. Busque em Outros → Plano de Contas.">i</span>
+                  </label>
+                  <input type="text" inputmode="numeric"
+                         [value]="getConfig('pbm.fp.plano.conta.id', '')"
+                         (input)="setConfig('pbm.fp.plano.conta.id', $any($event.target).value)"
+                         placeholder="ID numérico" />
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>USUÁRIO (FARMÁCIA)
+                    <span class="cfg-info" title="Login do estabelecimento no Portal Farmácia Popular.">i</span>
+                  </label>
+                  <input type="text"
+                         [value]="getConfig('pbm.fp.usuario.farmacia', '')"
+                         (input)="setConfig('pbm.fp.usuario.farmacia', $any($event.target).value)" />
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>SENHA (FARMÁCIA)</label>
+                  <input type="password"
+                         [value]="getConfig('pbm.fp.senha.farmacia', '')"
+                         (input)="setConfig('pbm.fp.senha.farmacia', $any($event.target).value)" />
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>USUÁRIO (VENDEDOR)
+                    <span class="cfg-info" title="Login do operador vendedor no Portal Farmácia Popular. MVP único por farmácia.">i</span>
+                  </label>
+                  <input type="text"
+                         [value]="getConfig('pbm.fp.usuario.vendedor', '')"
+                         (input)="setConfig('pbm.fp.usuario.vendedor', $any($event.target).value)" />
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>SENHA (VENDEDOR)</label>
+                  <input type="password"
+                         [value]="getConfig('pbm.fp.senha.vendedor', '')"
+                         (input)="setConfig('pbm.fp.senha.vendedor', $any($event.target).value)" />
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>PAGAR COMISSÃO EM VENDA FP
+                    <span class="cfg-info" title="Se ativado, vendas FP entram no cálculo de comissão do vendedor.">i</span>
+                  </label>
+                  <label class="erp-toggle">
+                    <input type="checkbox" [checked]="getConfig('pbm.fp.pagar.comissao', 'false') === 'true'"
+                           (change)="setConfig('pbm.fp.pagar.comissao', $any($event.target).checked ? 'true' : 'false')" />
+                    <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+                    <span class="erp-toggle-label">{{ getConfig('pbm.fp.pagar.comissao', 'false') === 'true' ? 'Sim' : 'Não' }}</span>
+                  </label>
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>CADASTRO INTERNO FP — CLIENTE (ID)
+                    <span class="cfg-info" title="ID do cliente 'fantasma' usado pra lançar a parte do MS no caixa. Cadastre esse cliente em Clientes.">i</span>
+                  </label>
+                  <input type="text" inputmode="numeric"
+                         [value]="getConfig('pbm.fp.cadastro.interno.cliente.id', '')"
+                         (input)="setConfig('pbm.fp.cadastro.interno.cliente.id', $any($event.target).value)"
+                         placeholder="ID numérico" />
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field" style="flex-basis:100%">
+                  <label>CAMINHO DO gbasmsb.exe (SERVIDOR)
+                    <span class="cfg-info" title="Caminho absoluto no servidor do ERP. O executável é proprietário do DATASUS e gera o dnaEstacao por transação.">i</span>
+                  </label>
+                  <input type="text"
+                         [value]="getConfig('pbm.fp.caminho.gbasmsb', '')"
+                         (input)="setConfig('pbm.fp.caminho.gbasmsb', $any($event.target).value)"
+                         placeholder="C:\ErpPharma\FP\v2\gbasmsb.exe" />
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field" style="flex-basis:100%">
+                  <button type="button" class="cfg-btn-secundario"
+                          style="padding:8px 16px;font-size:13px"
+                          [disabled]="testandoFp()"
+                          (click)="testarConexaoFp()">
+                    {{ testandoFp() ? 'Testando...' : 'Testar Conexão' }}
+                  </button>
+                  @if (ultimoTesteFp()) {
+                    <span style="margin-left:12px;font-size:12px;color:#555">
+                      Último teste: {{ ultimoTesteFp() }}
+                    </span>
+                  }
+                </div>
+              </div>
+
+              <div class="cfg-info-box" style="margin-top:12px">
+                <strong>ℹ️ Como funciona:</strong> "Testar Conexão" invoca o <code>gbasmsb.exe</code> configurado acima
+                com parâmetros dummy pra validar que o executável está no caminho certo e respondendo.
+                <strong>Não chama o DATASUS</strong> — é só smoke test do módulo de segurança local.
+                A documentação completa está em <code>docs/specs/farmacia-popular.md</code>.
+              </div>
+
+            </div>
+          }
+        </div>
+
       }
     </div>
 

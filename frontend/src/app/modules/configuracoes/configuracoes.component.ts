@@ -41,8 +41,13 @@ export class ConfiguracoesComponent implements OnInit {
   certificado = signal<CertificadoInfo | null>(null);
   uploadandoCert = signal(false);
 
+  // ── Farmácia Popular ──
+  testandoFp = signal(false);
+  ultimoTesteFp = signal<string>('');
+
   private apiUrl = `${environment.apiUrl}/configuracoes`;
   private sefazUrl = `${environment.apiUrl}/sefaz`;
+  private farmaciaPopularUrl = `${environment.apiUrl}/farmacia-popular`;
 
   constructor(
     private http: HttpClient,
@@ -250,5 +255,38 @@ export class ConfiguracoesComponent implements OnInit {
       });
     };
     reader.readAsDataURL(file);
+  }
+
+  // ── Farmácia Popular — testar conexão ────────────────────────────
+  testarConexaoFp() {
+    const caminho = this.getConfig('pbm.fp.caminho.gbasmsb', '');
+    if (!caminho?.trim()) {
+      this.modal.erro('Farmácia Popular', 'Informe o caminho do gbasmsb.exe antes de testar.');
+      return;
+    }
+    this.testandoFp.set(true);
+    // Persiste todas as configs atuais antes do teste (backend lê do banco).
+    const items: ConfigItem[] = Object.entries(this.configs()).map(([chave, valor]) => ({ chave, valor }));
+    this.http.put(this.apiUrl, items).subscribe({
+      next: () => {
+        this.http.post<any>(`${this.farmaciaPopularUrl}/testar-conexao`, {}).subscribe({
+          next: r => {
+            this.testandoFp.set(false);
+            const msg = r.message ?? '';
+            this.ultimoTesteFp.set(`${new Date().toLocaleString('pt-BR')} — ${msg}`);
+            if (r.success) this.modal.sucesso('Teste OK', msg);
+            else this.modal.erro('Teste falhou', msg);
+          },
+          error: e => {
+            this.testandoFp.set(false);
+            this.modal.erro('Teste falhou', e?.error?.message ?? 'Erro ao testar conexão.');
+          }
+        });
+      },
+      error: () => {
+        this.testandoFp.set(false);
+        this.modal.erro('Erro', 'Não foi possível salvar configurações antes do teste.');
+      }
+    });
   }
 }
