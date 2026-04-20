@@ -68,6 +68,8 @@ public class VendaFormDto
     public string? EntregaObservacao { get; set; }
     public List<VendaItemFormDto> Itens { get; set; } = new();
     public List<VendaPagamentoFormDto> Pagamentos { get; set; } = new();
+    /// <summary>Preenchido quando a aba do caixa é FP. Ausente em vendas comuns.</summary>
+    public ZulexPharma.Application.DTOs.FarmaciaPopular.VendaFarmaciaPopularFormDto? FarmaciaPopular { get; set; }
 }
 
 public class VendaPagamentoDto

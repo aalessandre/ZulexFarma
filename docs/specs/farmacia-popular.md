@@ -468,21 +468,24 @@ Tela derivada do caixa-venda/pre-venda, com customizações:
 
 **Preço exibido:** o grid mostra `PrecoFp` (ou `PrecoFpBolsaFamilia` conforme cliente) em vez do preço de venda livre. Coluna extra **"Subsídio MS / Paciente"** (preenchida após Fase 1) mostra o breakdown.
 
-**Fluxo do botão "Pré-autorizar" (disparado manualmente após preencher tudo):**
+**Fluxo de finalização FP (botão "Finalizar" normal — SEM botão "Pré-autorizar" separado):**
 
-1. Sistema valida: cliente com CPF + receita preenchida + todos itens com Qtde/dia + Produto.ParticipaFarmaciaPopular em todos.
-2. Gera `coSolicitacaoFarmacia` único.
-3. Invoca `gbasmsb.exe` no servidor → recebe `dnaEstacao`.
-4. Monta `SolicitacaoDTO` com itens convertidos (qtSolicitada em unidades-base).
-5. Chama `executarSolicitacao` no DATASUS.
-6. Retorno:
-   - **00S/01S** → cada item exibe **badge "Autorizado"** + preenche colunas `qtAutorizada`, `subsídio MS`, `subsídio Paciente`. Libera botão "Finalizar".
-   - **Rejeitada** → modal mostra mensagem DATASUS. Operador pode ajustar e tentar de novo ou cancelar.
+Ao operador clicar **Finalizar** numa aba FP, o backend orquestra automaticamente as 3 fases + NFC-e em sequência atômica:
 
-**Finalizar venda FP:**
-- Mesmo fluxo da venda comum (emite NFC-e) + hooks de Fase 2 e Fase 3.
-- Se NFC-e falhar → Fase 2/3 não disparam → `VendaFarmaciaPopular.Status` fica em `PreAutorizada` → admin trata via SONDA.
-- Se Fase 2/3 falharem → NFC-e já foi emitida, venda já foi finalizada — aparece no Gerenciador FP como pendente.
+1. **Frontend envia** o `VendaFormDto` com o bloco `farmaciaPopular` populado (prescritorId, CRM, UF, data receita, nº receita opcional, bolsaFamilia, itens com qtPrescrita/qtSolicitada/vlPrecoVenda).
+2. **Backend** (`VendaService.CriarAsync`/`AtualizarAsync`): persiste `VendaFarmaciaPopular` + Itens. Valida data ≤ 180 dias, cliente com CPF, CRM/UF presentes.
+3. **Backend** (`VendaService.FinalizarAsync`): se há bloco FP, **antes** de marcar a venda como Finalizada:
+   - Invoca `gbasmsb.exe` → obtém `dnaEstacao` (novo por chamada).
+   - Monta `SolicitacaoDTO` → chama SOAP `executarSolicitacao` (Fase 1).
+   - Sucesso (**00S/01S**) → grava `NuAutorizacao` + subsídios por item → `Status=PreAutorizada`.
+   - Rejeição → **aborta finalização**, devolve erro com código+mensagem DATASUS.
+4. **Backend** (`VendaFiscalService.EmitirNfceAsync`, chamado em seguida pelo fluxo comum): após a NFC-e ser autorizada pela SEFAZ, **dispara automaticamente**:
+   - Fase 2 (`confirmarSolicitacao`) com `nuCupomFiscal = vf.Numero`.
+   - Fase 3 (`receberMedicamento`) — se Fase 2 deu 00A/01A. Em 00RV, marca `Status=Efetivada`.
+   - Falhas em Fase 2/3 **não revertem** a NFC-e (já está autorizada); ficam como pendência no Gerenciador FP para SONDA/retentativa manual.
+5. **Cancelamento**: se a NFC-e for cancelada posteriormente e a venda tinha FP, `VendaFiscalService.CancelarAsync` dispara `estornarAsync` automaticamente. Falha de estorno vira `EstornoPendente=true` (admin).
+
+> Não há botão "Pré-autorizar" na UI — o operador preenche o topo FP + itens + pagamento e clica **Finalizar** como numa venda comum. Toda a cadeia DATASUS roda no backend.
 
 ### Caixa → Gerenciador FP (nova tela, dentro do Caixa como painel GE-like)
 - Lista de vendas com Status ≠ Efetivada (últimos 30 dias)

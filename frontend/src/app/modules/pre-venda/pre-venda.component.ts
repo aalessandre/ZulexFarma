@@ -1713,7 +1713,22 @@ export class PreVendaComponent implements OnInit, OnDestroy {
         precoUnitario: i.precoUnitario,
         total: i.total,
         descontos: i.descontos
-      }))
+      })),
+      farmaciaPopular: this.ehAbaFP() ? {
+        prescritorId: this.fpPrescritorId(),
+        crmMedico: this.fpCrmMedico(),
+        ufCrm: this.fpUfCrm(),
+        dtEmissaoReceita: this.fpDataReceita() || null,
+        nuReceita: this.fpNumeroReceita() || null,
+        bolsaFamilia: this.fpBolsaFamilia(),
+        itens: this.itens().map(i => ({
+          produtoId: i.produtoId,
+          codigoBarraEAN: i.produtoCodigo,
+          qtPrescrita: i.qtdePorDia ?? 1,
+          qtSolicitada: i.quantidade,
+          vlPrecoVenda: i.precoVenda
+        }))
+      } : null
     };
 
     const salvar$ = this.preVendaId()
