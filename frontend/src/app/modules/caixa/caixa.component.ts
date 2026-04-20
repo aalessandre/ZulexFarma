@@ -28,6 +28,7 @@ interface VendaPendente {
   totalLiquido: number;
   totalItens: number;
   criadoEm: string;
+  entregaSolicitada?: boolean;
 }
 
 interface ColunaDef {

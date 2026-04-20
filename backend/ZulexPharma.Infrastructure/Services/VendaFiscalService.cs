@@ -954,7 +954,11 @@ public class VendaFiscalService : IVendaFiscalService
             sb.Append($"<cEAN>{Esc(fiscal.CodigoBarras)}</cEAN>");
             sb.Append($"<xProd>{xProd}</xProd>");
             sb.Append($"<NCM>{ncmRaw}</NCM>");
-            if (!string.IsNullOrEmpty(fiscal.Cest)) sb.Append($"<CEST>{fiscal.Cest}</CEST>");
+            if (!string.IsNullOrEmpty(fiscal.Cest))
+            {
+                var cestDigits = new string((fiscal.Cest ?? "").Where(char.IsDigit).ToArray());
+                if (cestDigits.Length == 7) sb.Append($"<CEST>{cestDigits}</CEST>");
+            }
             sb.Append($"<CFOP>{cfopEmit}</CFOP>");
             sb.Append($"<uCom>{Esc(fiscal.Unidade)}</uCom>");
             sb.Append($"<qCom>{D4(quantidade)}</qCom>");
@@ -1680,6 +1684,13 @@ public class VendaFiscalService : IVendaFiscalService
         }
 
         // det (produtos)
+        // Pré-cálculo pra distribuir vOutro (taxa de entrega) proporcionalmente nos itens.
+        // SEFAZ valida sum(item.vOutro) == total.vOutro — último item ajusta arredondamento.
+        var vOutroTotal = venda.ValorOutrasDespesas;
+        var baseRatio = venda.Itens.Sum(i => Math.Round(i.PrecoVenda * i.Quantidade, 2) - Math.Round(i.ValorDesconto, 2));
+        decimal vOutroAcumulado = 0;
+        int totalItensCount = venda.Itens.Count;
+
         int nItem = 1;
         decimal totalProdutos = 0, totalDesconto = 0, totalTributos = 0;
         foreach (var item in venda.Itens)
@@ -1695,6 +1706,20 @@ public class VendaFiscalService : IVendaFiscalService
             totalProdutos += valorBruto;
             totalDesconto += valorDesc;
 
+            // vOutro do item: ratio (base do item / base total); último item recebe o resto pra bater.
+            decimal vOutroItem = 0;
+            if (vOutroTotal > 0 && baseRatio > 0)
+            {
+                if (nItem == totalItensCount)
+                    vOutroItem = Math.Round(vOutroTotal - vOutroAcumulado, 2);
+                else
+                {
+                    var baseItem = valorBruto - valorDesc;
+                    vOutroItem = Math.Round(vOutroTotal * baseItem / baseRatio, 2);
+                    vOutroAcumulado += vOutroItem;
+                }
+            }
+
             var xProd = ambiente == 2 ? "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL" : Esc(item.ProdutoNome);
 
             sb.Append($"<det nItem=\"{nItem}\">");
@@ -1703,7 +1728,11 @@ public class VendaFiscalService : IVendaFiscalService
             sb.Append("<cEAN>SEM GTIN</cEAN>");
             sb.Append($"<xProd>{xProd}</xProd>");
             sb.Append($"<NCM>{ncmRaw}</NCM>");
-            if (!string.IsNullOrEmpty(fiscal?.Cest)) sb.Append($"<CEST>{fiscal.Cest}</CEST>");
+            if (!string.IsNullOrEmpty(fiscal?.Cest))
+            {
+                var cestDigits = new string((fiscal.Cest ?? "").Where(char.IsDigit).ToArray());
+                if (cestDigits.Length == 7) sb.Append($"<CEST>{cestDigits}</CEST>");
+            }
             sb.Append($"<CFOP>{cfop}</CFOP>");
             sb.Append("<uCom>UN</uCom>");
             sb.Append($"<qCom>{item.Quantidade}.0000</qCom>");
@@ -1714,6 +1743,7 @@ public class VendaFiscalService : IVendaFiscalService
             sb.Append($"<qTrib>{item.Quantidade}.0000</qTrib>");
             sb.Append($"<vUnTrib>{D4(item.PrecoVenda)}</vUnTrib>");
             if (valorDesc > 0) sb.Append($"<vDesc>{D2(valorDesc)}</vDesc>");
+            if (vOutroItem > 0) sb.Append($"<vOutro>{D2(vOutroItem)}</vOutro>");
             sb.Append("<indTot>1</indTot>");
             sb.Append("</prod>");
 
@@ -1733,10 +1763,41 @@ public class VendaFiscalService : IVendaFiscalService
             {
                 var csosn = (fiscal?.Csosn ?? "102").TrimStart('0');
                 if (string.IsNullOrEmpty(csosn)) csosn = "102";
-                sb.Append("<ICMSSN102>");
-                sb.Append($"<orig>{origem}</orig>");
-                sb.Append($"<CSOSN>{csosn}</CSOSN>");
-                sb.Append("</ICMSSN102>");
+                // CSOSN roteia para a tag correta (cada grupo tem sua enumeração de CSOSN válidos)
+                switch (csosn)
+                {
+                    case "101":
+                        sb.Append("<ICMSSN101>");
+                        sb.Append($"<orig>{origem}</orig>");
+                        sb.Append($"<CSOSN>{csosn}</CSOSN>");
+                        sb.Append($"<pCredSN>{D2(fiscal?.AliquotaIcms ?? 0)}</pCredSN>");
+                        sb.Append($"<vCredICMSSN>{D2(0)}</vCredICMSSN>");
+                        sb.Append("</ICMSSN101>");
+                        break;
+                    case "500":
+                        sb.Append("<ICMSSN500>");
+                        sb.Append($"<orig>{origem}</orig>");
+                        sb.Append($"<CSOSN>{csosn}</CSOSN>");
+                        sb.Append("</ICMSSN500>");
+                        break;
+                    case "900":
+                        sb.Append("<ICMSSN900>");
+                        sb.Append($"<orig>{origem}</orig>");
+                        sb.Append($"<CSOSN>{csosn}</CSOSN>");
+                        sb.Append("<modBC>3</modBC>");
+                        sb.Append($"<vBC>{D2(valorBruto - valorDesc)}</vBC>");
+                        sb.Append($"<pICMS>{D2(fiscal?.AliquotaIcms ?? 0)}</pICMS>");
+                        sb.Append($"<vICMS>{D2(0)}</vICMS>");
+                        sb.Append("</ICMSSN900>");
+                        break;
+                    case "102": case "103": case "300": case "400":
+                    default:
+                        sb.Append("<ICMSSN102>");
+                        sb.Append($"<orig>{origem}</orig>");
+                        sb.Append($"<CSOSN>{csosn}</CSOSN>");
+                        sb.Append("</ICMSSN102>");
+                        break;
+                }
             }
             else
             {

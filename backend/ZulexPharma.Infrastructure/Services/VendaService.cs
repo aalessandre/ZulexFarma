@@ -58,7 +58,8 @@ public class VendaService : IVendaService
                     TotalLiquido = v.TotalLiquido, TotalItens = v.TotalItens,
                     Status = v.Status, StatusDescricao = StatusTexto(v.Status),
                     CriadoEm = v.CriadoEm,
-                    DataPreVenda = v.DataPreVenda, DataFinalizacao = v.DataFinalizacao, DataEmissaoCupom = v.DataEmissaoCupom
+                    DataPreVenda = v.DataPreVenda, DataFinalizacao = v.DataFinalizacao, DataEmissaoCupom = v.DataEmissaoCupom,
+                    EntregaSolicitada = v.EntregaSolicitada
                 })
                 .ToListAsync();
         }
@@ -192,6 +193,10 @@ public class VendaService : IVendaService
             foreach (var item in venda.Itens) _db.Set<VendaItemDesconto>().RemoveRange(item.Descontos);
             _db.Set<VendaItem>().RemoveRange(venda.Itens);
             _db.Set<VendaPagamento>().RemoveRange(venda.Pagamentos);
+            // Limpa as coleções em memória também — RemoveRange só marca pra DELETE no banco,
+            // se não limpar aqui o RecalcularTotais soma antigos (pendentes de delete) + novos = duplicado.
+            venda.Itens.Clear();
+            venda.Pagamentos.Clear();
             int ordem = 1;
             foreach (var item in dto.Itens)
                 venda.Itens.Add(MapearItem(item, ordem++));

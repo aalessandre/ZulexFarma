@@ -348,8 +348,11 @@ public class DescontoEngineController : ControllerBase
         var promos = await query.ToListAsync();
         if (promos.Count == 0) return null;
 
-        var promo = buscarMenor
-            ? promos.OrderBy(p => p.PercentualPromocao).First()
+        // buscarMenor = true → pega MAIOR % de promoção (menor valor final pro cliente)
+        // buscarMenor = false → quando há múltiplas fixas, idealmente front abriria modal;
+        //   por hora retorna a primeira pra não travar (compatibilidade com fluxo atual).
+        var promo = buscarMenor || promos.Count == 1
+            ? promos.OrderByDescending(p => p.PercentualPromocao).First()
             : promos.OrderByDescending(p => p.PercentualPromocao).First();
 
         return new DescontoResultado { DescontoMinimo = promo.PercentualPromocao, DescontoMaxSemSenha = promo.PercentualPromocao, DescontoMaxComSenha = promo.PercentualPromocao };
