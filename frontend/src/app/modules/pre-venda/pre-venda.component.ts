@@ -44,6 +44,7 @@ interface PreVendaItem {
   qtdePorDia?: number;
   precoFpNormal?: number;
   precoFpBolsaFamilia?: number;
+  codigoBarras?: string;
 }
 
 interface HierarquiaInfo {
@@ -112,6 +113,7 @@ interface ProdutoLookup {
   precoFp?: number;
   precoFpBolsaFamilia?: number;
   participaFarmaciaPopular?: boolean;
+  codigoBarras?: string;
 }
 
 interface ColunaDef {
@@ -792,6 +794,7 @@ export class PreVendaComponent implements OnInit, OnDestroy {
       precoVenda: precoFpEfetivo,
       precoFpNormal: p.precoFp,
       precoFpBolsaFamilia: p.precoFpBolsaFamilia,
+      codigoBarras: p.codigoBarras,
       quantidade: 1,
       percentualDesconto: 0,
       percentualPromocao: 0,
@@ -1723,7 +1726,7 @@ export class PreVendaComponent implements OnInit, OnDestroy {
         bolsaFamilia: this.fpBolsaFamilia(),
         itens: this.itens().map(i => ({
           produtoId: i.produtoId,
-          codigoBarraEAN: i.produtoCodigo,
+          codigoBarraEAN: i.codigoBarras || '',
           qtPrescrita: i.qtdePorDia ?? 1,
           qtSolicitada: i.quantidade,
           vlPrecoVenda: i.precoVenda

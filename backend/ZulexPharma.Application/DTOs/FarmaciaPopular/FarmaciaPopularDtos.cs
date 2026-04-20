@@ -20,6 +20,7 @@ public class VendaFarmaciaPopularItemFormDto
     /// <summary>Id do VendaItem (vem no form como referência opcional; no create, case com a ordem do item).</summary>
     public long? VendaItemId { get; set; }
     public long ProdutoId { get; set; }
+    /// <summary>Informativo. O backend ignora este valor e usa Produto.CodigoBarras como fonte canônica.</summary>
     public string CodigoBarraEAN { get; set; } = string.Empty;
     public decimal QtPrescrita { get; set; }
     public decimal QtSolicitada { get; set; }

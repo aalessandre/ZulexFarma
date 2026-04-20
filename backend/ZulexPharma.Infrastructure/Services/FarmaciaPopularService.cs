@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using ZulexPharma.Application.DTOs.FarmaciaPopular;
@@ -17,12 +18,10 @@ namespace ZulexPharma.Infrastructure.Services;
 public class FarmaciaPopularService : IFarmaciaPopularService
 {
     private readonly AppDbContext _db;
-    private readonly IFarmaciaPopularSoapClient _soap;
 
-    public FarmaciaPopularService(AppDbContext db, IFarmaciaPopularSoapClient soap)
+    public FarmaciaPopularService(AppDbContext db)
     {
         _db = db;
-        _soap = soap;
     }
 
     public async Task<SolicitacaoRetornoDto> SolicitarAsync(long vendaId, CancellationToken ct = default)
@@ -68,8 +67,9 @@ public class FarmaciaPopularService : IFarmaciaPopularService
             }).ToList()
         };
 
-        // 3) SOAP
-        var ret = await _soap.ExecutarSolicitacaoAsync(req, cred, ct);
+        // 3) SOAP (com certificado A1 da filial)
+        using var soapCtx = await CriarSoapClientAsync(fp.Venda!.FilialId, configs, ct);
+        var ret = await soapCtx.Client.ExecutarSolicitacaoAsync(req, cred, ct);
 
         // 4) Persistir
         fp.Fase1RequestXml = ret.RequestXml;
@@ -118,7 +118,8 @@ public class FarmaciaPopularService : IFarmaciaPopularService
         var configs = await _db.Set<Configuracao>().ToDictionaryAsync(c => c.Chave, c => c.Valor, ct);
         var cred = await MontarCredenciaisAsync(configs, fp.Venda!.ColaboradorId, ct);
 
-        var ret = await _soap.ConfirmarSolicitacaoAsync(fp.CoSolicitacaoFarmacia, fp.NuAutorizacao, nuCupomFiscal, cred, ct);
+        using var soapCtx = await CriarSoapClientAsync(fp.Venda!.FilialId, configs, ct);
+        var ret = await soapCtx.Client.ConfirmarSolicitacaoAsync(fp.CoSolicitacaoFarmacia, fp.NuAutorizacao, nuCupomFiscal, cred, ct);
 
         fp.Fase2RequestXml = ret.RequestXml;
         fp.Fase2ResponseXml = ret.ResponseXml;
@@ -148,7 +149,8 @@ public class FarmaciaPopularService : IFarmaciaPopularService
         var configs = await _db.Set<Configuracao>().ToDictionaryAsync(c => c.Chave, c => c.Valor, ct);
         var cred = await MontarCredenciaisAsync(configs, fp.Venda!.ColaboradorId, ct);
 
-        var ret = await _soap.ReceberMedicamentoAsync(fp.CoSolicitacaoFarmacia, fp.NuAutorizacao, cred, ct);
+        using var soapCtx = await CriarSoapClientAsync(fp.Venda!.FilialId, configs, ct);
+        var ret = await soapCtx.Client.ReceberMedicamentoAsync(fp.CoSolicitacaoFarmacia, fp.NuAutorizacao, cred, ct);
 
         fp.Fase3RequestXml = ret.RequestXml;
         fp.Fase3ResponseXml = ret.ResponseXml;
@@ -189,7 +191,8 @@ public class FarmaciaPopularService : IFarmaciaPopularService
         var configs = await _db.Set<Configuracao>().ToDictionaryAsync(c => c.Chave, c => c.Valor, ct);
         var cred = await MontarCredenciaisAsync(configs, fp.Venda!.ColaboradorId, ct);
 
-        var ret = await _soap.EstornarAsync(fp.CoSolicitacaoFarmacia, fp.NuAutorizacao, motivo, cred, ct);
+        using var soapCtx = await CriarSoapClientAsync(fp.Venda!.FilialId, configs, ct);
+        var ret = await soapCtx.Client.EstornarAsync(fp.CoSolicitacaoFarmacia, fp.NuAutorizacao, motivo, cred, ct);
 
         fp.EstornoRequestXml = ret.RequestXml;
         fp.EstornoResponseXml = ret.ResponseXml;
@@ -218,6 +221,50 @@ public class FarmaciaPopularService : IFarmaciaPopularService
 
     // ── Helpers ───────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Cria um SoapClient com HttpClient configurado para mTLS usando o certificado A1
+    /// da filial. O contexto retornado é IDisposable: envolve o handler + http + client
+    /// num único using. Se a filial não tiver certificado, chama sem cert e loga warning.
+    /// </summary>
+    private async Task<SoapClientContext> CriarSoapClientAsync(long filialId, Dictionary<string, string> configs, CancellationToken ct)
+    {
+        var ambiente = configs.GetValueOrDefault("pbm.fp.ambiente", "producao");
+        var urlKey = ambiente == "producao" ? "pbm.fp.url.producao" : "pbm.fp.url.homologacao";
+        var endpoint = configs.GetValueOrDefault(urlKey, "");
+        if (string.IsNullOrWhiteSpace(endpoint))
+            throw new InvalidOperationException($"URL do DATASUS não configurada ({urlKey}).");
+
+        var cert = await _db.CertificadosDigitais.FirstOrDefaultAsync(c => c.FilialId == filialId, ct);
+        var handler = new HttpClientHandler { ClientCertificateOptions = ClientCertificateOption.Manual };
+        X509Certificate2? x509 = null;
+        if (cert != null)
+        {
+            var pfx = Convert.FromBase64String(cert.PfxBase64);
+            x509 = new X509Certificate2(pfx, cert.Senha,
+                X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
+            handler.ClientCertificates.Add(x509);
+            Log.Information("FP SoapClient: mTLS habilitado com cert da filial {FilialId} (validade {Val:yyyy-MM-dd}).", filialId, cert.Validade);
+        }
+        else
+        {
+            Log.Warning("Nenhum certificado A1 cadastrado para filial {FilialId} — chamada FP sem mTLS.", filialId);
+        }
+        var http = new HttpClient(handler, disposeHandler: true) { Timeout = TimeSpan.FromSeconds(30) };
+        var client = new FarmaciaPopularSoapClient(http, endpoint);
+        return new SoapClientContext(client, http, x509);
+    }
+
+    /// <summary>Wrapper disposable que libera HttpClient + HttpClientHandler + Certificate juntos.</summary>
+    private sealed class SoapClientContext : IDisposable
+    {
+        public IFarmaciaPopularSoapClient Client { get; }
+        private readonly HttpClient _http;
+        private readonly X509Certificate2? _cert;
+        public SoapClientContext(IFarmaciaPopularSoapClient client, HttpClient http, X509Certificate2? cert)
+        { Client = client; _http = http; _cert = cert; }
+        public void Dispose() { _http.Dispose(); _cert?.Dispose(); }
+    }
+
     private async Task<VendaFarmaciaPopular> CarregarFpCompletoAsync(long vendaId, CancellationToken ct)
     {
         var fp = await _db.Set<VendaFarmaciaPopular>()
@@ -233,24 +280,31 @@ public class FarmaciaPopularService : IFarmaciaPopularService
         var usuarioFarm = configs.GetValueOrDefault("pbm.fp.usuario.farmacia", "");
         var senhaFarm = configs.GetValueOrDefault("pbm.fp.senha.farmacia", "");
 
-        var usuarioVend = "";
-        var senhaVend = "";
+        // Tenta primeiro o colaborador da venda; se não tiver cadastro FP, cai no global de Configurações.
+        string usuarioVend = "", senhaVend = "";
         if (colaboradorId.HasValue)
         {
             var col = await _db.Set<Colaborador>()
                 .Include(c => c.Pessoa)
                 .FirstOrDefaultAsync(c => c.Id == colaboradorId.Value, ct);
-            if (col != null)
+            if (col != null && !string.IsNullOrEmpty(col.SenhaFarmaciaPopularCripto))
             {
                 usuarioVend = new string((col.Pessoa.CpfCnpj ?? "").Where(char.IsDigit).ToArray());
                 senhaVend = CriptografiaHelper.Decrypt(col.SenhaFarmaciaPopularCripto) ?? "";
             }
         }
+        if (string.IsNullOrEmpty(senhaVend))
+        {
+            usuarioVend = configs.GetValueOrDefault("pbm.fp.usuario.vendedor", "");
+            senhaVend = configs.GetValueOrDefault("pbm.fp.senha.vendedor", "");
+            if (!string.IsNullOrEmpty(senhaVend))
+                Log.Information("Credenciais FP do colaborador ausentes — usando fallback global (pbm.fp.*.vendedor).");
+        }
 
         if (string.IsNullOrEmpty(usuarioFarm) || string.IsNullOrEmpty(senhaFarm))
             Log.Warning("Credenciais FP da farmácia ausentes em Configurações (pbm.fp.usuario.farmacia/senha.farmacia).");
         if (string.IsNullOrEmpty(senhaVend))
-            Log.Warning("Senha FP do colaborador {Id} ausente — venda FP vai falhar no DATASUS.", colaboradorId);
+            Log.Warning("Senha FP do vendedor ausente (nem no colaborador, nem em configs globais) — DATASUS vai recusar.");
 
         return new CredenciaisFp
         {

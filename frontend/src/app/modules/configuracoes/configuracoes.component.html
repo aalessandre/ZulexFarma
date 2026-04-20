@@ -692,14 +692,35 @@
                          (input)="setConfig('pbm.fp.cnpj', $any($event.target).value)"
                          placeholder="00.000.000/0000-00" />
                 </div>
-                <div class="cfg-field cfg-field-lg">
-                  <label>PLANO DE CONTAS (ID)
-                    <span class="cfg-info" title="ID do plano de contas onde o subsídio MS é lançado. Busque em Outros → Plano de Contas.">i</span>
+                <div class="cfg-field cfg-field-lg cfg-lookup-wrap">
+                  <label>PLANO DE CONTAS
+                    <span class="cfg-info" title="Plano de contas onde o subsídio MS é lançado. Digite nome para pesquisar.">i</span>
                   </label>
-                  <input type="text" inputmode="numeric"
-                         [value]="getConfig('pbm.fp.plano.conta.id', '')"
-                         (input)="setConfig('pbm.fp.plano.conta.id', $any($event.target).value)"
-                         placeholder="ID numérico" />
+                  @if (fpPlanoContaSelecionado()) {
+                    <div class="cfg-lookup-sel">
+                      <span class="cfg-lookup-tag">{{ fpPlanoContaSelecionado()!.codigoHierarquico }}</span>
+                      <span class="cfg-lookup-nome">{{ fpPlanoContaSelecionado()!.descricao }}</span>
+                      <button type="button" class="cfg-lookup-x" (click)="limparFpPlanoConta()" title="Trocar">×</button>
+                    </div>
+                  } @else {
+                    <input type="text" [value]="fpPlanoContaBusca()"
+                           (input)="onFpPlanoContaInput($any($event.target).value)"
+                           (keydown)="onFpPlanoContaKeydown($event)"
+                           (focus)="onFpPlanoContaFocus()"
+                           (blur)="onFpPlanoContaBlur()"
+                           placeholder="Digite para pesquisar..." />
+                    @if (fpPlanoContaDropdown() && fpPlanoContaResultados().length > 0) {
+                      <div class="cfg-lookup-dropdown">
+                        @for (pc of fpPlanoContaResultados(); track pc.id; let i = $index) {
+                          <div class="cfg-lookup-item" [class.ativo]="i === fpPlanoContaIndice()"
+                               (mousedown)="selecionarFpPlanoConta(pc)">
+                            <span class="cfg-lookup-item-cod">{{ pc.codigoHierarquico }}</span>
+                            <span class="cfg-lookup-item-nome">{{ pc.descricao }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
                 </div>
               </div>
 

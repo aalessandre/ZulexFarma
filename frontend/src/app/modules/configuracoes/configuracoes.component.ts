@@ -44,6 +44,12 @@ export class ConfiguracoesComponent implements OnInit {
   // ── Farmácia Popular ──
   testandoFp = signal(false);
   ultimoTesteFp = signal<string>('');
+  fpPlanoContaBusca = signal('');
+  fpPlanoContaResultados = signal<{id:number; descricao:string; codigoHierarquico:string}[]>([]);
+  fpPlanoContaDropdown = signal(false);
+  fpPlanoContaIndice = signal(-1);
+  fpPlanoContaSelecionado = signal<{id:number; descricao:string; codigoHierarquico:string} | null>(null);
+  private fpPlanoContaTimer: any = null;
 
   private apiUrl = `${environment.apiUrl}/configuracoes`;
   private sefazUrl = `${environment.apiUrl}/sefaz`;
@@ -92,9 +98,72 @@ export class ConfiguracoesComponent implements OnInit {
         this.configs.set(map);
         this.carregando.set(false);
         this.carregarNomesPc();
+        this.carregarFpPlanoContaSelecionado();
       },
       error: () => this.carregando.set(false)
     });
+  }
+
+  // ── Lookup Plano de Contas (Farmácia Popular) ─────────────────
+  private carregarFpPlanoContaSelecionado() {
+    const id = this.getConfig('pbm.fp.plano.conta.id', '');
+    if (!id) { this.fpPlanoContaSelecionado.set(null); return; }
+    this.http.get<any>(`${environment.apiUrl}/planoscontas/${id}/resumo`).subscribe({
+      next: r => { if (r?.data) this.fpPlanoContaSelecionado.set(r.data); },
+      error: () => this.fpPlanoContaSelecionado.set(null)
+    });
+  }
+
+  onFpPlanoContaInput(valor: string) {
+    this.fpPlanoContaBusca.set(valor);
+    if (this.fpPlanoContaTimer) clearTimeout(this.fpPlanoContaTimer);
+    if (valor.trim().length < 2) {
+      this.fpPlanoContaResultados.set([]);
+      this.fpPlanoContaDropdown.set(false);
+      return;
+    }
+    this.fpPlanoContaTimer = setTimeout(() => {
+      this.http.get<any>(`${environment.apiUrl}/planoscontas/pesquisar`, { params: { termo: valor } }).subscribe({
+        next: r => {
+          this.fpPlanoContaResultados.set(r.data ?? []);
+          this.fpPlanoContaDropdown.set((r.data ?? []).length > 0);
+          this.fpPlanoContaIndice.set(-1);
+        },
+        error: () => { this.fpPlanoContaResultados.set([]); this.fpPlanoContaDropdown.set(false); }
+      });
+    }, 250);
+  }
+
+  selecionarFpPlanoConta(pc: {id:number; descricao:string; codigoHierarquico:string}) {
+    this.fpPlanoContaSelecionado.set(pc);
+    this.setConfig('pbm.fp.plano.conta.id', String(pc.id));
+    this.fpPlanoContaBusca.set('');
+    this.fpPlanoContaResultados.set([]);
+    this.fpPlanoContaDropdown.set(false);
+  }
+
+  limparFpPlanoConta() {
+    this.fpPlanoContaSelecionado.set(null);
+    this.setConfig('pbm.fp.plano.conta.id', '');
+    this.fpPlanoContaBusca.set('');
+  }
+
+  onFpPlanoContaBlur() { setTimeout(() => this.fpPlanoContaDropdown.set(false), 200); }
+  onFpPlanoContaFocus() { if (this.fpPlanoContaResultados().length > 0) this.fpPlanoContaDropdown.set(true); }
+
+  onFpPlanoContaKeydown(e: KeyboardEvent) {
+    const lista = this.fpPlanoContaResultados();
+    if (!this.fpPlanoContaDropdown() || lista.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); this.fpPlanoContaIndice.set(Math.min(this.fpPlanoContaIndice() + 1, lista.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); this.fpPlanoContaIndice.set(Math.max(this.fpPlanoContaIndice() - 1, 0)); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = this.fpPlanoContaIndice();
+      if (idx >= 0 && idx < lista.length) this.selecionarFpPlanoConta(lista[idx]);
+      else if (lista.length === 1) this.selecionarFpPlanoConta(lista[0]);
+    } else if (e.key === 'Escape') {
+      this.fpPlanoContaDropdown.set(false);
+    }
   }
 
   getConfig(chave: string, padrao = ''): string {
