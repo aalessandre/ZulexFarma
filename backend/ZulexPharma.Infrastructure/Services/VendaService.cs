@@ -695,7 +695,11 @@ public class VendaService : IVendaService
 
         var filial = await _db.Set<Filial>().FirstOrDefaultAsync(f => f.Id == venda.FilialId)
             ?? throw new ArgumentException("Filial da venda não encontrada.");
-        var cnpjFilial = new string((filial.Cnpj ?? "").Where(char.IsDigit).ToArray());
+        // CNPJ enviado ao DATASUS = o cadastrado no portal FP (pbm.fp.cnpj). Se não estiver configurado,
+        // cai pro CNPJ da filial como fallback.
+        var cnpjFp = await _db.Set<Configuracao>().Where(c => c.Chave == "pbm.fp.cnpj").Select(c => c.Valor).FirstOrDefaultAsync();
+        var cnpjCanonico = !string.IsNullOrWhiteSpace(cnpjFp) ? cnpjFp : filial.Cnpj;
+        var cnpjFilial = new string((cnpjCanonico ?? "").Where(char.IsDigit).ToArray());
 
         var fp = await _db.Set<VendaFarmaciaPopular>().Include(f => f.Itens).FirstOrDefaultAsync(f => f.VendaId == venda.Id);
         var novo = fp == null;
