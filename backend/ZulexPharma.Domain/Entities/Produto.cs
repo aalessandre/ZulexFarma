@@ -6,6 +6,10 @@ public class Produto : BaseEntity
     public string? CodigoBarras { get; set; }
     public int QtdeEmbalagem { get; set; } = 1;
     public decimal? PrecoFp { get; set; }
+    /// <summary>Preço tabela FP reduzido pra beneficiários do Bolsa Família (total da embalagem).</summary>
+    public decimal? PrecoFpBolsaFamilia { get; set; }
+    /// <summary>Ativa o fluxo Farmácia Popular pra esse produto (gate do MVP).</summary>
+    public bool ParticipaFarmaciaPopular { get; set; }
     public string Lista { get; set; } = "Indefinida";
     public short Fracao { get; set; } = 1;
     public bool Eliminado { get; set; }

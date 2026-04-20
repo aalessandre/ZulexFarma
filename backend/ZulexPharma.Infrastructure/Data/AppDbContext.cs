@@ -115,6 +115,8 @@ public class AppDbContext : DbContext
     public DbSet<VendaPagamento> VendaPagamentos => Set<VendaPagamento>();
     public DbSet<VendaReceita> VendaReceitas => Set<VendaReceita>();
     public DbSet<VendaReceitaItem> VendaReceitaItens => Set<VendaReceitaItem>();
+    public DbSet<VendaFarmaciaPopular> VendaFarmaciaPopulares => Set<VendaFarmaciaPopular>();
+    public DbSet<VendaFarmaciaPopularItem> VendaFarmaciaPopularItens => Set<VendaFarmaciaPopularItem>();
     public DbSet<VendaFiscal> VendaFiscais => Set<VendaFiscal>();
     public DbSet<VendaItemFiscal> VendaItemFiscais => Set<VendaItemFiscal>();
     public DbSet<Prescritor> Prescritores => Set<Prescritor>();
@@ -1210,6 +1212,59 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.VendaItem).WithMany().HasForeignKey(x => x.VendaItemId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.ProdutoLote).WithMany().HasForeignKey(x => x.ProdutoLoteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── VendaFarmaciaPopular (1:1 Venda; ciclo DATASUS) ───────
+        modelBuilder.Entity<VendaFarmaciaPopular>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CoSolicitacaoFarmacia).HasMaxLength(60).IsRequired();
+            e.Property(x => x.NuAutorizacao).HasMaxLength(30);
+            e.Property(x => x.NuCupomFiscal).HasMaxLength(20);
+            e.Property(x => x.DnaEstacao).HasColumnType("text");
+            e.Property(x => x.CnpjEstabelecimento).HasMaxLength(14).IsRequired();
+            e.Property(x => x.CpfPaciente).HasMaxLength(11).IsRequired();
+            e.Property(x => x.NoPaciente).HasMaxLength(200);
+            e.Property(x => x.CrmMedico).HasMaxLength(20).IsRequired();
+            e.Property(x => x.UfCrm).HasMaxLength(2).IsRequired();
+            e.Property(x => x.NuReceita).HasMaxLength(40);
+            e.Property(x => x.CodigoRetornoAtual).HasMaxLength(10);
+            e.Property(x => x.MensagemRetornoAtual).HasMaxLength(500);
+            e.Property(x => x.Fase1RequestXml).HasColumnType("text");
+            e.Property(x => x.Fase1ResponseXml).HasColumnType("text");
+            e.Property(x => x.Fase2RequestXml).HasColumnType("text");
+            e.Property(x => x.Fase2ResponseXml).HasColumnType("text");
+            e.Property(x => x.Fase3RequestXml).HasColumnType("text");
+            e.Property(x => x.Fase3ResponseXml).HasColumnType("text");
+            e.Property(x => x.EstornoRequestXml).HasColumnType("text");
+            e.Property(x => x.EstornoResponseXml).HasColumnType("text");
+            e.HasOne(x => x.Venda).WithMany().HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Prescritor).WithMany().HasForeignKey(x => x.PrescritorId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.VendaId).IsUnique();
+            e.HasIndex(x => x.CoSolicitacaoFarmacia).IsUnique();
+            e.HasIndex(x => x.NuAutorizacao);
+            e.HasIndex(x => x.CpfPaciente);
+        });
+
+        // ── VendaFarmaciaPopularItem (1:1 VendaItem) ──────────────
+        modelBuilder.Entity<VendaFarmaciaPopularItem>(e =>
+        {
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CodigoBarraEAN).HasMaxLength(14).IsRequired();
+            e.Property(x => x.QtPrescrita).HasColumnType("numeric(10,3)");
+            e.Property(x => x.QtSolicitada).HasColumnType("numeric(10,3)");
+            e.Property(x => x.QtAutorizada).HasColumnType("numeric(10,3)");
+            e.Property(x => x.QtDispensada).HasColumnType("numeric(10,3)");
+            e.Property(x => x.QtEstornada).HasColumnType("numeric(10,3)");
+            e.Property(x => x.VlPrecoVenda).HasColumnType("numeric(10,2)");
+            e.Property(x => x.VlPrecoSubsidiadoMS).HasColumnType("numeric(10,2)");
+            e.Property(x => x.VlPrecoSubsidiadoPaciente).HasColumnType("numeric(10,2)");
+            e.Property(x => x.CodigoRetornoItem).HasMaxLength(10);
+            e.Property(x => x.MensagemRetornoItem).HasMaxLength(500);
+            e.Property(x => x.InAutorizacaoMedicamento).HasMaxLength(10);
+            e.HasOne(x => x.VendaFarmaciaPopular).WithMany(x => x.Itens).HasForeignKey(x => x.VendaFarmaciaPopularId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.VendaItem).WithMany().HasForeignKey(x => x.VendaItemId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.VendaItemId).IsUnique();
         });
 
         // ── Adquirente ───────────────────────────────────────────
