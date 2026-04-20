@@ -93,6 +93,8 @@ public class ProdutoService : IProdutoService
             CodigoBarras = dto.CodigoBarras?.Trim(),
             QtdeEmbalagem = dto.QtdeEmbalagem,
             PrecoFp = dto.PrecoFp,
+            PrecoFpBolsaFamilia = dto.PrecoFpBolsaFamilia,
+            ParticipaFarmaciaPopular = dto.ParticipaFarmaciaPopular,
             Lista = dto.Lista,
             Fracao = dto.Fracao > 0 ? dto.Fracao : (short)1,
             Ativo = dto.Ativo,
@@ -162,6 +164,8 @@ public class ProdutoService : IProdutoService
         p.CodigoBarras = dto.CodigoBarras?.Trim();
         p.QtdeEmbalagem = dto.QtdeEmbalagem;
         p.PrecoFp = dto.PrecoFp;
+        p.PrecoFpBolsaFamilia = dto.PrecoFpBolsaFamilia;
+        p.ParticipaFarmaciaPopular = dto.ParticipaFarmaciaPopular;
         p.Lista = dto.Lista;
         p.Fracao = dto.Fracao > 0 ? dto.Fracao : (short)1;
         p.Ativo = dto.Ativo;
@@ -726,6 +730,7 @@ public class ProdutoService : IProdutoService
     {
         Id = p.Id, Nome = p.Nome, CodigoBarras = p.CodigoBarras,
         QtdeEmbalagem = p.QtdeEmbalagem, PrecoFp = p.PrecoFp,
+        PrecoFpBolsaFamilia = p.PrecoFpBolsaFamilia, ParticipaFarmaciaPopular = p.ParticipaFarmaciaPopular,
         Lista = p.Lista, Fracao = p.Fracao, Ativo = p.Ativo,
         Eliminado = p.Eliminado, PermitirConferenciaDigitando = p.PermitirConferenciaDigitando,
         CriadoEm = p.CriadoEm,

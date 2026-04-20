@@ -301,6 +301,18 @@
             <input type="text" currencyInput [currencyValue]="produtoForm().precoFp || 0" (currencyChange)="updateProdutoForm('precoFp', $event)" />
           </div>
           <div class="prod-field">
+            <label>PREÇO FP BOLSA FAMÍLIA</label>
+            <input type="text" currencyInput [currencyValue]="produtoForm().precoFpBolsaFamilia || 0" (currencyChange)="updateProdutoForm('precoFpBolsaFamilia', $event)" />
+          </div>
+          <div class="prod-field">
+            <label>PARTICIPA FARMÁCIA POPULAR</label>
+            <label class="erp-toggle" style="padding-top:6px">
+              <input type="checkbox" [checked]="produtoForm().participaFarmaciaPopular" (change)="updateProdutoForm('participaFarmaciaPopular', $any($event.target).checked)" />
+              <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+              <span class="erp-toggle-label">{{ produtoForm().participaFarmaciaPopular ? 'Sim' : 'Não' }}</span>
+            </label>
+          </div>
+          <div class="prod-field">
             <label>LISTA</label>
             <select [value]="produtoForm().lista" (change)="updateProdutoForm('lista', $any($event.target).value)">
               <option value="Indefinida">Indefinida</option>

@@ -21,6 +21,8 @@ public class ProdutoDetalheDto
     public string? CodigoBarras { get; set; }
     public int QtdeEmbalagem { get; set; }
     public decimal? PrecoFp { get; set; }
+    public decimal? PrecoFpBolsaFamilia { get; set; }
+    public bool ParticipaFarmaciaPopular { get; set; }
     public string Lista { get; set; } = "Indefinida";
     public short Fracao { get; set; }
     public bool Ativo { get; set; }
@@ -61,6 +63,8 @@ public class ProdutoFormDto
     public string? CodigoBarras { get; set; }
     public int QtdeEmbalagem { get; set; } = 1;
     public decimal? PrecoFp { get; set; }
+    public decimal? PrecoFpBolsaFamilia { get; set; }
+    public bool ParticipaFarmaciaPopular { get; set; }
     public string Lista { get; set; } = "Indefinida";
     public short Fracao { get; set; } = 1;
     public bool Ativo { get; set; } = true;

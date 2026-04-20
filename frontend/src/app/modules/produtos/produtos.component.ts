@@ -165,6 +165,7 @@ interface ProdutoDadosItem {
 
 interface ProdutoForm {
   nome: string; codigoBarras?: string; qtdeEmbalagem: number; precoFp?: number;
+  precoFpBolsaFamilia?: number; participaFarmaciaPopular: boolean;
   lista: string; fracao: number; ativo: boolean; eliminado: boolean; permitirConferenciaDigitando: boolean; criadoEm?: string;
   fabricanteId?: number; grupoPrincipalId?: number; grupoProdutoId?: number; subGrupoId?: number; ncmId?: number;
   classeTerapeutica: string | null;
@@ -1112,7 +1113,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         const d = r.data;
         const f: ProdutoForm = {
           nome: d.nome, codigoBarras: d.codigoBarras, qtdeEmbalagem: d.qtdeEmbalagem,
-          precoFp: d.precoFp, lista: d.lista, fracao: d.fracao, ativo: d.ativo, eliminado: d.eliminado, permitirConferenciaDigitando: d.permitirConferenciaDigitando ?? false,
+          precoFp: d.precoFp, precoFpBolsaFamilia: d.precoFpBolsaFamilia, participaFarmaciaPopular: d.participaFarmaciaPopular ?? false,
+          lista: d.lista, fracao: d.fracao, ativo: d.ativo, eliminado: d.eliminado, permitirConferenciaDigitando: d.permitirConferenciaDigitando ?? false,
           fabricanteId: d.fabricanteId, grupoPrincipalId: d.grupoPrincipalId,
           grupoProdutoId: d.grupoProdutoId, subGrupoId: d.subGrupoId, ncmId: d.ncmId,
           classeTerapeutica: d.classeTerapeutica ?? null,
@@ -2141,6 +2143,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   private novoProdutoForm(): ProdutoForm {
     return {
       nome: '', qtdeEmbalagem: 1, lista: 'Indefinida', fracao: 1, ativo: true, eliminado: false, permitirConferenciaDigitando: false,
+      participaFarmaciaPopular: false,
       classeTerapeutica: null,
       barras: [], registrosMs: [], substancias: [], fornecedores: [], fiscais: [], dados: []
     };
