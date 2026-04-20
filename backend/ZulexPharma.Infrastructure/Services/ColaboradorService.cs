@@ -99,6 +99,7 @@ public class ColaboradorService : IColaboradorService
             Observacao     = c.Observacao,
             Ativo          = c.Ativo,
             PermitirAbrirCaixa = c.PermitirAbrirCaixa,
+            SenhaFarmaciaPopular = CriptografiaHelper.Decrypt(c.SenhaFarmaciaPopularCripto),
             CriadoEm       = c.CriadoEm,
             Enderecos = c.Pessoa.Enderecos.Select(e => new EnderecoFormDto
             {
@@ -257,7 +258,8 @@ public class ColaboradorService : IColaboradorService
                 Salario     = dto.Salario,
                 Observacao  = dto.Observacao?.Trim(),
                 Ativo       = dto.Ativo,
-                PermitirAbrirCaixa = dto.PermitirAbrirCaixa
+                PermitirAbrirCaixa = dto.PermitirAbrirCaixa,
+                SenhaFarmaciaPopularCripto = CriptografiaHelper.Encrypt(dto.SenhaFarmaciaPopular?.Trim())
             };
 
             _db.Colaboradores.Add(colaborador);
@@ -320,6 +322,10 @@ public class ColaboradorService : IColaboradorService
             colaborador.Observacao  = dto.Observacao?.Trim();
             colaborador.Ativo       = dto.Ativo;
             colaborador.PermitirAbrirCaixa = dto.PermitirAbrirCaixa;
+            // Só sobrescreve quando o form mandou explicitamente um novo valor.
+            // Se dto.SenhaFarmaciaPopular for null/empty, preserva o que já estava.
+            if (!string.IsNullOrEmpty(dto.SenhaFarmaciaPopular))
+                colaborador.SenhaFarmaciaPopularCripto = CriptografiaHelper.Encrypt(dto.SenhaFarmaciaPopular.Trim());
 
             // Sincronizar endereços
             SincronizarEnderecos(pessoa, dto.Enderecos);

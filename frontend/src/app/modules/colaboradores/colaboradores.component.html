@@ -416,6 +416,32 @@
 
         </div><!-- /form-bloco acesso -->
 
+        <!-- ── FARMÁCIA POPULAR ─────────────────────────────────────── -->
+        <div class="form-bloco">
+          <label style="font-size:var(--erp-fs-sm);font-weight:700;color:#1abc9c;letter-spacing:0.7px;display:block;margin-bottom:8px">FARMÁCIA POPULAR</label>
+          <div class="form-grid">
+            <div class="field field-full">
+              <label style="display:flex;align-items:center;gap:4px">
+                USUÁRIO (CPF)
+                <span class="field-info" title="O usuário no portal DATASUS Farmácia Popular é sempre o CPF do colaborador, sem pontuação."><svg class="field-info-icon" width="15" height="15" viewBox="0 0 24 24" fill="#7b8a9a" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
+              </label>
+              <input type="text" [value]="(colaboradorForm().cpf || '').replace(/\D/g, '')" disabled
+                     style="background:var(--erp-bg-disabled,#f3f5f8);color:var(--erp-text-muted);cursor:not-allowed" />
+            </div>
+            <div class="field field-full">
+              <label>SENHA FARMÁCIA POPULAR</label>
+              <input type="password" [value]="colaboradorForm().senhaFarmaciaPopular || ''"
+                     (input)="updateForm('senhaFarmaciaPopular', $any($event.target).value)"
+                     maxlength="50" autocomplete="new-password"
+                     placeholder="Senha cadastrada no portal FP" />
+            </div>
+          </div>
+          <div style="font-size:var(--erp-fs-xs);color:var(--erp-text-muted);margin-top:6px">
+            Essas credenciais são usadas pelo sistema na hora de autorizar vendas no programa Farmácia Popular.
+            A senha é armazenada criptografada (AES-256).
+          </div>
+        </div>
+
         <!-- ══════ ACCORDION ENDEREÇOS ══════ -->
         <div class="accordion" [class.aberto]="accEnderecos()">
           <div class="accordion-header" (click)="accEnderecos.update(v => !v)">

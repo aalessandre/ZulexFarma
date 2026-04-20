@@ -224,18 +224,35 @@
         <span>Farmácia Popular — Dados da Receita</span>
       </div>
       <div class="pv-fp-campos">
-        <label class="pv-fp-campo pv-fp-campo-crm">
-          <span>CRM</span>
-          <input type="text" inputmode="numeric" [value]="fpCrmMedico()" (input)="fpCrmMedico.set($any($event.target).value)" maxlength="10" placeholder="Ex: 123456">
-        </label>
-        <label class="pv-fp-campo pv-fp-campo-uf">
-          <span>UF</span>
-          <select [value]="fpUfCrm()" (change)="fpUfCrm.set($any($event.target).value)">
-            <option value="">--</option>
-            @for (uf of UF_OPCOES; track uf) {
-              <option [value]="uf">{{ uf }}</option>
-            }
-          </select>
+        <label class="pv-fp-campo pv-fp-campo-prescritor">
+          <span>Prescritor (CRM/CRO/CRMV)</span>
+          @if (fpPrescritorId()) {
+            <div class="pv-fp-prescritor-sel">
+              <span class="pv-fp-prescritor-tag">{{ fpPrescritorTipo() }} {{ fpCrmMedico() }}/{{ fpUfCrm() }}</span>
+              <span class="pv-fp-prescritor-nome">{{ fpPrescritorNome() }}</span>
+              <button type="button" class="pv-fp-prescritor-x" (click)="limparPrescritor()" title="Trocar prescritor">×</button>
+            </div>
+          } @else {
+            <div class="pv-fp-prescritor-busca">
+              <input type="text" [value]="fpPrescritorBusca()"
+                     (input)="onPrescritorInput($any($event.target).value)"
+                     (keydown)="onPrescritorKeydown($event)"
+                     (blur)="onPrescritorBlur()"
+                     (focus)="onPrescritorFocus()"
+                     placeholder="Digite nome ou nº do conselho...">
+              @if (fpPrescritorDropdown() && fpPrescritorResultados().length > 0) {
+                <div class="pv-fp-prescritor-dropdown">
+                  @for (p of fpPrescritorResultados(); track p.id; let i = $index) {
+                    <div class="pv-fp-prescritor-item" [class.ativo]="i === fpPrescritorIndice()"
+                         (mousedown)="selecionarPrescritor(p)">
+                      <span class="pv-fp-prescritor-item-tag">{{ p.tipoConselho }} {{ p.numeroConselho }}/{{ p.uf }}</span>
+                      <span class="pv-fp-prescritor-item-nome">{{ p.nome }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
         </label>
         <label class="pv-fp-campo pv-fp-campo-receita">
           <span>Nº Receita</span>

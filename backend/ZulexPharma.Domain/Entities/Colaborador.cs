@@ -18,5 +18,8 @@ public class Colaborador : BaseEntity
     public string? Observacao { get; set; }
     public bool PermitirAbrirCaixa { get; set; }
 
+    /// <summary>Senha do colaborador cadastrada no portal DATASUS Farmácia Popular (criptografada AES-256).</summary>
+    public string? SenhaFarmaciaPopularCripto { get; set; }
+
     public Usuario? Usuario { get; set; }
 }

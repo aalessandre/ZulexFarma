@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using ZulexPharma.Application.DTOs.Prescritores;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.API.Filters;
+using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.API.Controllers;
 
@@ -14,8 +16,9 @@ public class PrescritoresController : ControllerBase
 {
     private readonly IPrescritorService _service;
     private readonly ILogAcaoService _log;
+    private readonly AppDbContext _db;
 
-    public PrescritoresController(IPrescritorService service, ILogAcaoService log) { _service = service; _log = log; }
+    public PrescritoresController(IPrescritorService service, ILogAcaoService log, AppDbContext db) { _service = service; _log = log; _db = db; }
 
     [HttpGet]
     [Permissao("prescritores", "c")]
@@ -23,6 +26,27 @@ public class PrescritoresController : ControllerBase
     {
         try { return Ok(new { success = true, data = await _service.ListarAsync() }); }
         catch (Exception ex) { Log.Error(ex, "Erro em PrescritoresController.Listar"); return StatusCode(500, new { success = false, message = "Erro ao listar prescritores." }); }
+    }
+
+    /// <summary>Busca leve de prescritores para lookup em telas de venda (por nome ou número do conselho).</summary>
+    [HttpGet("buscar")]
+    public async Task<IActionResult> Buscar([FromQuery] string termo, [FromQuery] int limit = 20)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(termo) || termo.Trim().Length < 2)
+                return Ok(new { success = true, data = Array.Empty<object>() });
+
+            var termoNorm = termo.Trim().ToUpper();
+            var lista = await _db.Prescritores
+                .Where(p => p.Ativo && (p.Nome.ToUpper().Contains(termoNorm) || p.NumeroConselho.ToUpper().Contains(termoNorm)))
+                .OrderBy(p => p.Nome)
+                .Take(limit)
+                .Select(p => new { id = p.Id, nome = p.Nome, tipoConselho = p.TipoConselho, numeroConselho = p.NumeroConselho, uf = p.Uf })
+                .ToListAsync();
+            return Ok(new { success = true, data = lista });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em PrescritoresController.Buscar"); return StatusCode(500, new { success = false, message = "Erro ao buscar prescritores." }); }
     }
 
     [HttpPost]
