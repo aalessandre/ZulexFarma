@@ -23,6 +23,7 @@ interface Colaborador {
   genero?: string; cargo?: string; dataAdmissao?: string; salario?: number;
   email?: string; telefone?: string; cidade?: string; uf?: string;
   observacao?: string; ativo: boolean; permitirAbrirCaixa: boolean; criadoEm?: string;
+  senhaFarmaciaPopular?: string;
 }
 
 interface FilialGrupoItem { filialId: number; grupoUsuarioId: number; nomeFilial?: string; nomeGrupo?: string; }
@@ -267,6 +268,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
           apelido: r.data.apelido,
           genero: r.data.genero ?? '',
           permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
+          senhaFarmaciaPopular: r.data.senhaFarmaciaPopular ?? '',
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
           comissaoAgrupadores: r.data.comissaoAgrupadores ?? [],
@@ -576,6 +578,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
           apelido: r.data.apelido,
           genero: r.data.genero ?? '',
           permitirAbrirCaixa: r.data.permitirAbrirCaixa ?? false,
+          senhaFarmaciaPopular: r.data.senhaFarmaciaPopular ?? '',
           enderecos: r.data.enderecos ?? [],
           contatos: r.data.contatos ?? [],
           comissaoAgrupadores: r.data.comissaoAgrupadores ?? [],
@@ -668,6 +671,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
       dataAdmissao: f.dataAdmissao || null,
       salario: f.salario, observacao: f.observacao, ativo: f.ativo,
       permitirAbrirCaixa: f.permitirAbrirCaixa,
+      senhaFarmaciaPopular: f.senhaFarmaciaPopular || null,
       enderecos: f.enderecos, contatos: f.contatos,
       comissaoAgrupadores: f.comissaoAgrupadores,
       acesso
@@ -701,6 +705,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
                 dataAdmissao: det.data.dataAdmissao,
                 salario: det.data.salario,
                 permitirAbrirCaixa: det.data.permitirAbrirCaixa ?? false,
+                senhaFarmaciaPopular: det.data.senhaFarmaciaPopular ?? '',
                 acesso: det.data.acesso ?? null
               };
               const colab = { ...r.data, codigo: detalhe.codigo };
@@ -1335,7 +1340,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy {
   private novoColaborador(): ColaboradorDetalhe {
     return {
       nome: '', cpf: '', rg: '', apelido: '', dataNascimento: '', genero: '', cargo: '', dataAdmissao: '',
-      salario: undefined, observacao: '', ativo: true, permitirAbrirCaixa: false,
+      salario: undefined, observacao: '', ativo: true, permitirAbrirCaixa: false, senhaFarmaciaPopular: '',
       enderecos: [{ tipo: 'CASA', cep: '', rua: '', numero: '', bairro: '', cidade: '', uf: '', principal: true }],
       contatos: [],
       comissaoAgrupadores: [],

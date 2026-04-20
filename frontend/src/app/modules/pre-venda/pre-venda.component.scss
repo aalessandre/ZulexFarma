@@ -107,6 +107,48 @@
   }
 }
 
+/* ── Lookup Prescritor ─────────────────────────────────────────── */
+.pv-fp-campo-prescritor { min-width: 320px; position: relative; }
+.pv-fp-prescritor-busca { position: relative; }
+.pv-fp-prescritor-busca > input { width: 100%; min-width: 300px; }
+.pv-fp-prescritor-dropdown {
+  position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 100;
+  max-height: 260px; overflow-y: auto;
+  background: #fff; border: 1px solid #1abc9c; border-radius: 4px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+.pv-fp-prescritor-item {
+  padding: 6px 10px; display: flex; flex-direction: column; gap: 2px;
+  cursor: pointer; font-size: var(--erp-fs-sm); border-bottom: 1px solid #e8f0ef;
+  &:last-child { border-bottom: none; }
+  &:hover, &.ativo { background: #d4f0ea; }
+}
+.pv-fp-prescritor-item-tag {
+  font-weight: 700; color: #0d6b5a; font-size: 11px;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.pv-fp-prescritor-item-nome { color: var(--erp-text); font-size: 13px; }
+.pv-fp-prescritor-sel {
+  height: 30px; display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 6px 0 10px;
+  background: #fff; border: 1px solid #1abc9c; border-radius: 4px;
+  min-width: 300px;
+}
+.pv-fp-prescritor-tag {
+  background: #1abc9c; color: #fff; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.4px; padding: 2px 6px; border-radius: 3px; white-space: nowrap;
+}
+.pv-fp-prescritor-nome {
+  flex: 1; font-size: 13px; color: var(--erp-text); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pv-fp-prescritor-x {
+  width: 20px; height: 20px; padding: 0; border: none;
+  background: transparent; color: #7b8a9a; cursor: pointer;
+  font-size: 18px; line-height: 1; border-radius: 3px;
+  &:hover { background: #fde8e8; color: #c0392b; }
+}
+
 /* ── Container (full-screen POS layout, no sidebar) ─────────────── */
 .pv-container {
   display: flex;

@@ -39,6 +39,9 @@ public class ColaboradorDetalheDto
     public bool   PermitirAbrirCaixa { get; set; }
     public DateTime CriadoEm     { get; set; }
 
+    /// <summary>Senha do colaborador no portal Farmácia Popular (decifrada para o form; nunca retornada em listagens).</summary>
+    public string? SenhaFarmaciaPopular { get; set; }
+
     public List<EnderecoFormDto> Enderecos { get; set; } = new();
     public List<ContatoFormDto>  Contatos  { get; set; } = new();
     public List<ComissaoAgrupadorDto> ComissaoAgrupadores { get; set; } = new();
@@ -75,6 +78,9 @@ public class ColaboradorFormDto
     public string? Observacao     { get; set; }
     public bool    Ativo          { get; set; } = true;
     public bool    PermitirAbrirCaixa { get; set; }
+
+    /// <summary>Senha do colaborador no portal DATASUS Farmácia Popular.</summary>
+    public string? SenhaFarmaciaPopular { get; set; }
 }
 
 // ── Acesso ──────────────────────────────────────────────────────────

@@ -180,6 +180,9 @@ interface Atendimento {
   /** Se setado, identifica que a aba é uma venda PBM específica. Valores: 'FP' (Farmácia Popular), etc. */
   modoPbm?: 'FP' | 'EPHARMA' | 'FUNCIONAL' | 'VIDALINK' | null;
   // ── Farmácia Popular ────────────────────────────────────────────
+  prescritorId?: number | null;
+  prescritorNome?: string;
+  prescritorTipo?: string;
   crmMedico?: string;
   ufCrm?: string;
   numeroReceita?: string;
@@ -427,8 +430,16 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
 
   // ── Farmácia Popular (só usado quando a aba ativa é FP) ─────────
   readonly UF_OPCOES = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+  fpPrescritorId = signal<number | null>(null);
+  fpPrescritorNome = signal('');
+  fpPrescritorTipo = signal('CRM');
   fpCrmMedico = signal('');
   fpUfCrm = signal('');
+  fpPrescritorBusca = signal('');
+  fpPrescritorResultados = signal<{ id: number; nome: string; tipoConselho: string; numeroConselho: string; uf: string }[]>([]);
+  fpPrescritorDropdown = signal(false);
+  fpPrescritorIndice = signal(-1);
+  private fpPrescritorTimer: any = null;
   fpNumeroReceita = signal('');
   fpDataReceita = signal('');
   fpBolsaFamilia = signal(false);
@@ -646,6 +657,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       colaboradorId: this.colaboradorId(), colaboradorNome: this.colaboradorNome(),
       tipoPagamentoId: this.tipoPagamentoId(),
       label: this.clienteNome() ? this.clienteNome() + sufixoFP : `Atendimento ${a.id}${sufixoFP}`,
+      prescritorId: this.fpPrescritorId(), prescritorNome: this.fpPrescritorNome(), prescritorTipo: this.fpPrescritorTipo(),
       crmMedico: this.fpCrmMedico(), ufCrm: this.fpUfCrm(),
       numeroReceita: this.fpNumeroReceita(), dataReceita: this.fpDataReceita(),
       bolsaFamilia: this.fpBolsaFamilia()
@@ -667,8 +679,14 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.tipoPagamentoId.set(aba.tipoPagamentoId);
     this.itensSelecionadoIdx.set(null);
     this.produtoBusca.set('');
+    this.fpPrescritorId.set(aba.prescritorId ?? null);
+    this.fpPrescritorNome.set(aba.prescritorNome ?? '');
+    this.fpPrescritorTipo.set(aba.prescritorTipo ?? 'CRM');
     this.fpCrmMedico.set(aba.crmMedico ?? '');
     this.fpUfCrm.set(aba.ufCrm ?? '');
+    this.fpPrescritorBusca.set('');
+    this.fpPrescritorResultados.set([]);
+    this.fpPrescritorDropdown.set(false);
     this.fpNumeroReceita.set(aba.numeroReceita ?? '');
     this.fpDataReceita.set(aba.dataReceita ?? '');
     this.fpBolsaFamilia.set(aba.bolsaFamilia ?? false);
@@ -1582,6 +1600,75 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     const id = this.abaAtivaId();
     return this.atendimentos().find(a => a.id === id) ?? null;
   });
+
+  // ── Lookup de Prescritor (topo FP) ─────────────────────────────
+  onPrescritorInput(valor: string) {
+    this.fpPrescritorBusca.set(valor);
+    if (this.fpPrescritorTimer) clearTimeout(this.fpPrescritorTimer);
+    if (valor.trim().length < 2) {
+      this.fpPrescritorResultados.set([]);
+      this.fpPrescritorDropdown.set(false);
+      return;
+    }
+    this.fpPrescritorTimer = setTimeout(() => this.buscarPrescritores(valor), 250);
+  }
+
+  private buscarPrescritores(termo: string) {
+    this.http.get<any>(`${this.apiUrl}/prescritores/buscar`, { params: { termo } }).subscribe({
+      next: r => {
+        this.fpPrescritorResultados.set(r.data ?? []);
+        this.fpPrescritorDropdown.set((r.data ?? []).length > 0);
+        this.fpPrescritorIndice.set(-1);
+      },
+      error: () => { this.fpPrescritorResultados.set([]); this.fpPrescritorDropdown.set(false); }
+    });
+  }
+
+  selecionarPrescritor(p: { id: number; nome: string; tipoConselho: string; numeroConselho: string; uf: string }) {
+    this.fpPrescritorId.set(p.id);
+    this.fpPrescritorNome.set(p.nome);
+    this.fpPrescritorTipo.set(p.tipoConselho || 'CRM');
+    this.fpCrmMedico.set(p.numeroConselho);
+    this.fpUfCrm.set(p.uf);
+    this.fpPrescritorBusca.set('');
+    this.fpPrescritorResultados.set([]);
+    this.fpPrescritorDropdown.set(false);
+  }
+
+  limparPrescritor() {
+    this.fpPrescritorId.set(null);
+    this.fpPrescritorNome.set('');
+    this.fpPrescritorTipo.set('CRM');
+    this.fpCrmMedico.set('');
+    this.fpUfCrm.set('');
+    this.fpPrescritorBusca.set('');
+    this.fpPrescritorResultados.set([]);
+    this.fpPrescritorDropdown.set(false);
+  }
+
+  onPrescritorBlur() {
+    // delay para permitir clique no item (mousedown dispara antes do blur)
+    setTimeout(() => this.fpPrescritorDropdown.set(false), 200);
+  }
+
+  onPrescritorFocus() {
+    if (this.fpPrescritorResultados().length > 0) this.fpPrescritorDropdown.set(true);
+  }
+
+  onPrescritorKeydown(e: KeyboardEvent) {
+    const lista = this.fpPrescritorResultados();
+    if (!this.fpPrescritorDropdown() || lista.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); this.fpPrescritorIndice.set(Math.min(this.fpPrescritorIndice() + 1, lista.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); this.fpPrescritorIndice.set(Math.max(this.fpPrescritorIndice() - 1, 0)); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = this.fpPrescritorIndice();
+      if (idx >= 0 && idx < lista.length) this.selecionarPrescritor(lista[idx]);
+      else if (lista.length === 1) this.selecionarPrescritor(lista[0]);
+    } else if (e.key === 'Escape') {
+      this.fpPrescritorDropdown.set(false);
+    }
+  }
 
   /** Quando o operador marca/desmarca "Bolsa Família", recalcula o preço dos itens já adicionados. */
   onBolsaFamiliaChange(novoValor: boolean) {
