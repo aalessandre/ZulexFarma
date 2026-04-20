@@ -222,6 +222,43 @@
     }
   </div>
 
+  <!-- TOPO EXTRA: Farmácia Popular -->
+  @if (ehAbaFP()) {
+    <div class="pv-fp-topo">
+      <div class="pv-fp-titulo">
+        <span class="pv-fp-badge">FP</span>
+        <span>Farmácia Popular — Dados da Receita</span>
+      </div>
+      <div class="pv-fp-campos">
+        <label class="pv-fp-campo pv-fp-campo-crm">
+          <span>CRM</span>
+          <input type="text" inputmode="numeric" [value]="fpCrmMedico()" (input)="fpCrmMedico.set($any($event.target).value)" maxlength="10" placeholder="Ex: 123456">
+        </label>
+        <label class="pv-fp-campo pv-fp-campo-uf">
+          <span>UF</span>
+          <select [value]="fpUfCrm()" (change)="fpUfCrm.set($any($event.target).value)">
+            <option value="">--</option>
+            @for (uf of UF_OPCOES; track uf) {
+              <option [value]="uf">{{ uf }}</option>
+            }
+          </select>
+        </label>
+        <label class="pv-fp-campo pv-fp-campo-receita">
+          <span>Nº Receita</span>
+          <input type="text" [value]="fpNumeroReceita()" (input)="fpNumeroReceita.set($any($event.target).value)" maxlength="30" placeholder="Nº da receita">
+        </label>
+        <label class="pv-fp-campo pv-fp-campo-data">
+          <span>Data Receita</span>
+          <input type="date" [value]="fpDataReceita()" (input)="fpDataReceita.set($any($event.target).value)">
+        </label>
+        <label class="pv-fp-campo-check">
+          <input type="checkbox" [checked]="fpBolsaFamilia()" (change)="onBolsaFamiliaChange($any($event.target).checked)">
+          <span>Bolsa Família</span>
+        </label>
+      </div>
+    </div>
+  }
+
   <!-- GRID -->
   <div class="pv-grid">
     <div class="pv-grid-toolbar">
