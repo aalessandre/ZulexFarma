@@ -703,7 +703,8 @@ public class VendaService : IVendaService
 
         if (novo)
         {
-            fp.CoSolicitacaoFarmacia = $"{venda.FilialId}-{venda.Id}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            // DATASUS limita coSolicitacaoFarmacia a 15 caracteres (retorno 43S). 10+4 = 14 chars numéricos.
+            fp.CoSolicitacaoFarmacia = $"{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{venda.Id % 10000:D4}";
             fp.CnpjEstabelecimento = cnpjFilial;
             fp.CpfPaciente = new string((cliente.Pessoa.CpfCnpj ?? "").Where(char.IsDigit).ToArray());
             fp.Status = StatusFarmaciaPopular.Iniciada;
