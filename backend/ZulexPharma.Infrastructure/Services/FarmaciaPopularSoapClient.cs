@@ -93,36 +93,48 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
                 return ret;
             }
 
-            // Resposta vem dentro de {ser}executarSolicitacaoResponse / executarSolicitacaoReturn / {SolicitacaoDTO}
-            var root = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "executarSolicitacaoReturn")
-                       ?? doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "return");
-            if (root == null)
+            // Axis 1.4 usa multiRef: <executarSolicitacaoReturn href="#id0"/> + <multiRef id="id0">...</multiRef>
+            var multiRefs = doc.Descendants().Where(e => e.Name.LocalName == "multiRef")
+                .ToDictionary(e => e.Attribute("id")?.Value ?? "", e => e);
+            var retRef = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "executarSolicitacaoReturn");
+            if (retRef == null)
             {
                 ret.Sucesso = false;
                 ret.CodigoRetorno = "ERR";
                 ret.MensagemRetorno = "Resposta SOAP inesperada (sem executarSolicitacaoReturn nem Fault).";
                 return ret;
             }
-            ret.CodigoRetorno = root.Elements().FirstOrDefault(e => e.Name.LocalName == "coRetorno")?.Value ?? "";
-            ret.MensagemRetorno = root.Elements().FirstOrDefault(e => e.Name.LocalName == "msRetorno")?.Value;
-            ret.NuAutorizacao = root.Elements().FirstOrDefault(e => e.Name.LocalName == "nuAutorizacao")?.Value;
-            ret.NoPaciente = root.Elements().FirstOrDefault(e => e.Name.LocalName == "noPaciente")?.Value;
+            var autorizacao = ResolverRef(retRef, multiRefs) ?? retRef;
+
+            ret.CodigoRetorno = autorizacao.Elements().FirstOrDefault(e => e.Name.LocalName == "inAutorizacaoSolicitacao")?.Value ?? "";
+            ret.MensagemRetorno = autorizacao.Elements().FirstOrDefault(e => e.Name.LocalName == "descMensagemErro")?.Value;
+            ret.NuAutorizacao = autorizacao.Elements().FirstOrDefault(e => e.Name.LocalName == "nuAutorizacao")?.Value;
+            ret.NoPaciente = autorizacao.Elements().FirstOrDefault(e => e.Name.LocalName == "noPessoa")?.Value;
             ret.Sucesso = ret.CodigoRetorno.StartsWith("00S") || ret.CodigoRetorno.StartsWith("01S");
 
-            var arr = root.Elements().FirstOrDefault(e => e.Name.LocalName == "arrMedicamentoDTO");
+            var arr = autorizacao.Elements().FirstOrDefault(e => e.Name.LocalName == "arrMedicamentoDTO");
             if (arr != null)
             {
-                foreach (var item in arr.Elements())
+                foreach (var itemRef in arr.Elements())
                 {
+                    var item = ResolverRef(itemRef, multiRefs) ?? itemRef;
+                    var inAut = item.Elements().FirstOrDefault(e => e.Name.LocalName == "inAutorizacaoMedicamento")?.Value;
+                    // Formato: "00SM - Autorizado" ou "24SM - Produto não autorizado. ..." — código vem antes do " - "
+                    string? codItem = null;
+                    if (!string.IsNullOrEmpty(inAut))
+                    {
+                        var idx = inAut.IndexOf(" - ", StringComparison.Ordinal);
+                        codItem = idx > 0 ? inAut[..idx].Trim() : inAut.Trim();
+                    }
                     ret.Itens.Add(new SolicitacaoRetornoItemDto
                     {
                         CodigoBarraEAN = item.Elements().FirstOrDefault(e => e.Name.LocalName == "coCodigoBarra")?.Value ?? "",
-                        CodigoRetornoItem = item.Elements().FirstOrDefault(e => e.Name.LocalName == "coRetorno")?.Value,
-                        MensagemRetornoItem = item.Elements().FirstOrDefault(e => e.Name.LocalName == "msRetorno")?.Value,
+                        CodigoRetornoItem = codItem,
+                        MensagemRetornoItem = inAut,
                         QtAutorizada = ParseDec(item.Elements().FirstOrDefault(e => e.Name.LocalName == "qtAutorizada")?.Value),
                         VlPrecoSubsidiadoMS = ParseDec(item.Elements().FirstOrDefault(e => e.Name.LocalName == "vlPrecoSubsidiadoMS")?.Value),
                         VlPrecoSubsidiadoPaciente = ParseDec(item.Elements().FirstOrDefault(e => e.Name.LocalName == "vlPrecoSubsidiadoPaciente")?.Value),
-                        InAutorizacaoMedicamento = item.Elements().FirstOrDefault(e => e.Name.LocalName == "inAutorizacaoMedicamento")?.Value
+                        InAutorizacaoMedicamento = inAut
                     });
                 }
             }
@@ -252,5 +264,13 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
     {
         if (string.IsNullOrWhiteSpace(s)) return null;
         return decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
+    }
+
+    /// <summary>Resolve o atributo href="#id0" para o multiRef correspondente. Retorna null se o elemento não tem href.</summary>
+    private static XElement? ResolverRef(XElement placeholder, Dictionary<string, XElement> multiRefs)
+    {
+        var href = placeholder.Attribute("href")?.Value;
+        if (string.IsNullOrEmpty(href) || !href.StartsWith("#")) return null;
+        return multiRefs.TryGetValue(href[1..], out var el) ? el : null;
     }
 }
