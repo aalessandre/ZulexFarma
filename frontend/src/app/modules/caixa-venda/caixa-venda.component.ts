@@ -48,6 +48,10 @@ interface PreVendaItem {
   quantidadePrevenda?: number;
   origemItem?: 'prevenda' | 'adicionado';
   permitirConferenciaDigitando?: boolean;
+  // Farmácia Popular
+  qtdePorDia?: number;
+  precoFpNormal?: number;
+  precoFpBolsaFamilia?: number;
 }
 
 interface HierarquiaInfo {
@@ -144,6 +148,9 @@ interface ProdutoLookup {
   estoqueAtual?: number;
   unidade?: string;
   temPromocao?: boolean;
+  precoFp?: number;
+  precoFpBolsaFamilia?: number;
+  participaFarmaciaPopular?: boolean;
 }
 
 interface ColunaDef {
@@ -172,6 +179,12 @@ interface Atendimento {
   tipoPagamentoId: number | null;
   /** Se setado, identifica que a aba é uma venda PBM específica. Valores: 'FP' (Farmácia Popular), etc. */
   modoPbm?: 'FP' | 'EPHARMA' | 'FUNCIONAL' | 'VIDALINK' | null;
+  // ── Farmácia Popular ────────────────────────────────────────────
+  crmMedico?: string;
+  ufCrm?: string;
+  numeroReceita?: string;
+  dataReceita?: string;
+  bolsaFamilia?: boolean;
 }
 
 const PREVENDA_COLUNAS: ColunaDef[] = [
@@ -180,6 +193,7 @@ const PREVENDA_COLUNAS: ColunaDef[] = [
   { campo: 'fabricante',         label: 'FABRICANTE',   largura: 130, minLargura: 80,  padrao: true, tipo: 'texto' },
   { campo: 'precoVenda',         label: 'PREÇO VENDA',  largura: 100, minLargura: 70,  padrao: true, tipo: 'numero', editavel: true },
   { campo: 'quantidade',         label: 'QTDE',         largura: 70,  minLargura: 50,  padrao: true, tipo: 'numero', editavel: true },
+  { campo: 'qtdePorDia',         label: 'QTDE/DIA',     largura: 80,  minLargura: 60,  padrao: false, tipo: 'numero', editavel: true },
   { campo: 'percentualDesconto', label: '%DESC',        largura: 80,  minLargura: 60,  padrao: true, tipo: 'numero', editavel: true },
   { campo: 'precoUnitario',      label: 'PREÇO UNIT',   largura: 100, minLargura: 70,  padrao: true, tipo: 'numero', editavel: true },
   { campo: 'total',              label: 'TOTAL',        largura: 100, minLargura: 70,  padrao: true, tipo: 'numero', editavel: true },
@@ -411,6 +425,14 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   tipoPagamentoId = signal<number | null>(null);
   tiposPagamento = signal<TipoPagBtn[]>([]);
 
+  // ── Farmácia Popular (só usado quando a aba ativa é FP) ─────────
+  readonly UF_OPCOES = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+  fpCrmMedico = signal('');
+  fpUfCrm = signal('');
+  fpNumeroReceita = signal('');
+  fpDataReceita = signal('');
+  fpBolsaFamilia = signal(false);
+
   // ── Venda a prazo ───────────────────────────────────────────────
   private tokenLiberacaoCredito: string | null = null;
   private senhaClientePrazo: string | null = null;
@@ -617,12 +639,16 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
 
   private salvarAbaAtiva() {
     const id = this.abaAtivaId();
+    const sufixoFP = this.ehAbaFP() ? ' — Farmácia Popular' : '';
     this.atendimentos.update(abas => abas.map(a => a.id === id ? {
       ...a, preVendaId: this.preVendaId(), itens: this.itens(),
       clienteId: this.clienteId(), clienteNome: this.clienteNome(),
       colaboradorId: this.colaboradorId(), colaboradorNome: this.colaboradorNome(),
       tipoPagamentoId: this.tipoPagamentoId(),
-      label: this.clienteNome() ? this.clienteNome() : `Atendimento ${a.id}`
+      label: this.clienteNome() ? this.clienteNome() + sufixoFP : `Atendimento ${a.id}${sufixoFP}`,
+      crmMedico: this.fpCrmMedico(), ufCrm: this.fpUfCrm(),
+      numeroReceita: this.fpNumeroReceita(), dataReceita: this.fpDataReceita(),
+      bolsaFamilia: this.fpBolsaFamilia()
     } : a));
   }
 
@@ -641,6 +667,11 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.tipoPagamentoId.set(aba.tipoPagamentoId);
     this.itensSelecionadoIdx.set(null);
     this.produtoBusca.set('');
+    this.fpCrmMedico.set(aba.crmMedico ?? '');
+    this.fpUfCrm.set(aba.ufCrm ?? '');
+    this.fpNumeroReceita.set(aba.numeroReceita ?? '');
+    this.fpDataReceita.set(aba.dataReceita ?? '');
+    this.fpBolsaFamilia.set(aba.bolsaFamilia ?? false);
   }
 
   // ── Payment types ───────────────────────────────────────────────
@@ -858,6 +889,12 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // ── Farmácia Popular: só produtos com ParticipaFP=true ───────
+    if (this.ehAbaFP() && !p.participaFarmaciaPopular) {
+      this.modal.aviso('Farmácia Popular', `O produto "${p.nome}" não participa do programa Farmácia Popular.`);
+      return;
+    }
+
     // ── Modo conferência: bipar incrementa quantidade ──────────────
     if (this.modoConferencia()) {
       const idxExist = this.itens().findIndex(i => i.produtoId === p.id);
@@ -918,18 +955,26 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Preço FP: usa PrecoFpBolsaFamilia (se checkbox marcado) ou PrecoFp; senão valorVenda.
+    const precoFpEfetivo = this.ehAbaFP()
+      ? (this.abaAtual()?.bolsaFamilia && p.precoFpBolsaFamilia != null
+          ? p.precoFpBolsaFamilia
+          : (p.precoFp ?? p.valorVenda))
+      : p.valorVenda;
     const novoItem: PreVendaItem = {
       produtoId: p.id,
       produtoCodigo: p.codigo,
       produtoNome: p.nome,
       fabricante: p.fabricante ?? '',
-      precoVenda: p.valorVenda,
+      precoVenda: precoFpEfetivo,
+      precoFpNormal: p.precoFp,
+      precoFpBolsaFamilia: p.precoFpBolsaFamilia,
       quantidade: 1,
       percentualDesconto: 0,
       percentualPromocao: 0,
       valorDesconto: 0,
-      precoUnitario: p.valorVenda,
-      total: p.valorVenda,
+      precoUnitario: precoFpEfetivo,
+      total: precoFpEfetivo,
       estoqueAtual: p.estoqueAtual,
       vendedor: vendedorAtualNome,
       colaboradorId: vendedorAtualId ?? undefined,
@@ -1532,6 +1577,26 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
 
   ehAbaFP = computed(() => this.modoPbmAtual() === 'FP');
 
+  /** Retorna o objeto Atendimento da aba ativa (ou null). */
+  abaAtual = computed<Atendimento | null>(() => {
+    const id = this.abaAtivaId();
+    return this.atendimentos().find(a => a.id === id) ?? null;
+  });
+
+  /** Quando o operador marca/desmarca "Bolsa Família", recalcula o preço dos itens já adicionados. */
+  onBolsaFamiliaChange(novoValor: boolean) {
+    this.fpBolsaFamilia.set(novoValor);
+    if (this.itens().length === 0) return;
+    this.itens.update(lista => lista.map(item => {
+      const novoPreco = novoValor && item.precoFpBolsaFamilia != null
+        ? item.precoFpBolsaFamilia
+        : (item.precoFpNormal ?? item.precoVenda);
+      const clone = { ...item, precoVenda: novoPreco };
+      this.recalcularItem(clone, 'precoVenda');
+      return clone;
+    }));
+  }
+
   /** Abre uma nova aba marcada com o PBM informado. */
   abrirAbaPbm(pbm: 'FP' | 'EPHARMA' | 'FUNCIONAL' | 'VIDALINK') {
     if (pbm !== 'FP') {
@@ -1603,6 +1668,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       return this.formatarNumero(total);
     }
     if (campo === 'quantidade') return String(Math.floor(item.quantidade));
+    if (campo === 'qtdePorDia') return item.qtdePorDia != null ? String(Math.floor(item.qtdePorDia)) : '';
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
     if (typeof v === 'number') return this.formatarNumero(v);
@@ -1661,8 +1727,10 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.itens.update(lista => {
       const arr = [...lista];
       const item = { ...arr[idx] };
-      (item as any)[campo] = campo === 'quantidade' ? Math.floor(num) : num;
-      this.recalcularItem(item, campo);
+      const inteiro = campo === 'quantidade' || campo === 'qtdePorDia';
+      (item as any)[campo] = inteiro ? Math.floor(num) : num;
+      // qtdePorDia é apenas informativo pro FP — não recalcula total
+      if (campo !== 'qtdePorDia') this.recalcularItem(item, campo);
 
       // Validar desconto máximo da hierarquia
       if (item.descontoMaxPermitido != null && item.descontoMaxPermitido > 0 && item.percentualDesconto > item.descontoMaxPermitido) {
@@ -1736,6 +1804,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
 
   getEditValue(item: PreVendaItem, campo: string): string {
     if (campo === 'quantidade') return String(Math.floor(item.quantidade));
+    if (campo === 'qtdePorDia') return item.qtdePorDia != null ? String(Math.floor(item.qtdePorDia)) : '';
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
     if (typeof v === 'number') return this.formatarNumero(v);

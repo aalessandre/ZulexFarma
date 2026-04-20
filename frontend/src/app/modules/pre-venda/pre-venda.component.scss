@@ -32,6 +32,81 @@
   &:hover { background: #fde8e8; color: #c0392b; }
 }
 
+/* ── Topo extra: Farmácia Popular ─────────────────────────────── */
+.pv-fp-topo {
+  background: linear-gradient(180deg, #e8f8f5 0%, #d4f0ea 100%);
+  border: 1px solid #1abc9c;
+  border-radius: 6px;
+  margin: 8px 16px 0;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pv-fp-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--erp-fs-sm);
+  font-weight: 600;
+  color: #0d6b5a;
+}
+.pv-fp-badge {
+  background: #1abc9c;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.pv-fp-campos {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pv-fp-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--erp-text-muted);
+  font-weight: 600;
+  > input, > select {
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--erp-border-input);
+    border-radius: 4px;
+    font-size: var(--erp-fs-sm);
+    color: var(--erp-text);
+    background: var(--erp-surface);
+    outline: none;
+    &:focus { border-color: #1abc9c; }
+  }
+  &.pv-fp-campo-crm > input { width: 120px; }
+  &.pv-fp-campo-uf > select { width: 70px; }
+  &.pv-fp-campo-receita > input { width: 180px; }
+  &.pv-fp-campo-data > input { width: 140px; }
+}
+.pv-fp-campo-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--erp-fs-sm);
+  color: var(--erp-text);
+  font-weight: 600;
+  cursor: pointer;
+  height: 30px;
+  > input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #1abc9c;
+    cursor: pointer;
+  }
+}
+
 /* ── Container (full-screen POS layout, no sidebar) ─────────────── */
 .pv-container {
   display: flex;
