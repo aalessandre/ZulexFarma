@@ -747,7 +747,8 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     this.produtoResultados.set([]);
     this.produtoDropdown.set(false);
 
-    // Resolver desconto via hierarquia
+    // Resolver desconto via hierarquia (backend já faz o loop e PARA no primeiro que casa).
+    // Regra: desconto nunca soma com promoção — respeita a ordem da hierarquia.
     this.resolverDescontoProduto(p.id, (desc) => {
       this.itens.update(lista => {
         const arr = [...lista];
@@ -770,10 +771,17 @@ export class PreVendaComponent implements OnInit, OnDestroy {
         arr[idx] = item;
         return arr;
       });
-    });
 
-    // Buscar promoções ativas para o produto
-    this.buscarPromocoesProduto(p.id, idx);
+      // Só buscar promoções separadamente se a hierarquia NÃO casou via componente de promoção.
+      // Se casou via PromoFixa/PromoProgressiva, o resolver já trouxe o desconto certo.
+      const componentePromocao = desc.componente === 'Promoção Fixa' || desc.componente === 'Promoção Progressiva';
+      if (!componentePromocao) return;
+
+      // Progressiva precisa modal pra escolher faixa (o resolver não retorna as faixas).
+      if (desc.componente === 'Promoção Progressiva') {
+        this.buscarPromocoesProduto(p.id, idx);
+      }
+    });
 
     // ── Focar quantidade ou voltar ao campo produto ──────────────
     if (this.cfgFocarQuantidade()) {

@@ -2312,6 +2312,109 @@ precoUnitario = round(total / Quantidade, 2)
               <div class="doc-texto">Isso garante que <code>vProd − vDesc = vNF</code> exato, sem arredondamento intermediário no <code>precoUnitario</code>.</div>
             </div>
 
+            <div class="doc-bloco" style="border-left:4px solid #c0392b;padding-left:14px;background:#fdf8f7">
+              <div class="doc-titulo" style="color:#c0392b">🐛 Fix crítico — TotalLiquido duplicado ao atualizar pré-venda (abril/2026)</div>
+              <div class="doc-texto">
+                <b>Sintoma:</b> Pré-venda finalizada no caixa com taxa de entrega retornava erro SEFAZ
+                <code>cStat=610 — Total da NF difere do somatório dos Valores [vNF informado: X, vNF calculado: Y]</code>.
+                Ex: TotalLiquido real 50,68 + entrega 124 deveria dar vNF=174,68 mas o XML mandava 225,36.
+              </div>
+              <div class="doc-texto" style="margin-top:8px">
+                <b>Causa raiz:</b> em <code>VendaService.AtualizarAsync</code>, o EF Core ao chamar
+                <code>_db.Set&lt;VendaItem&gt;().RemoveRange(venda.Itens)</code> marca os itens como <i>pending delete</i> no DbContext
+                mas <b>não remove da coleção em memória</b>. Quando o código subsequente fazia
+                <code>venda.Itens.Add(novoItem)</code> pro item atualizado, a coleção ficava com <b>antigos (pending delete) + novos</b>.
+                O <code>RecalcularTotais(venda)</code> somava os dois conjuntos: <code>TotalLiquido = soma(antigos) + soma(novos)</code> = duplicado.
+                No banco só persistia os novos (antigos eram deletados), mas o total já era persistido errado.
+              </div>
+              <div class="doc-texto" style="margin-top:8px"><b>Fix</b> em <code>VendaService.AtualizarAsync</code>:</div>
+              <pre class="doc-code">
+// Antes (buggy):
+_db.Set&lt;VendaItem&gt;().RemoveRange(venda.Itens);
+_db.Set&lt;VendaPagamento&gt;().RemoveRange(venda.Pagamentos);
+foreach (var item in dto.Itens) venda.Itens.Add(MapearItem(item, ordem++));
+RecalcularTotais(venda);  // soma pending delete + novos = duplicado
+
+// Depois (correto):
+_db.Set&lt;VendaItem&gt;().RemoveRange(venda.Itens);
+_db.Set&lt;VendaPagamento&gt;().RemoveRange(venda.Pagamentos);
+venda.Itens.Clear();       // ← sincroniza memória com intenção de delete
+venda.Pagamentos.Clear();  // ← idem
+foreach (var item in dto.Itens) venda.Itens.Add(MapearItem(item, ordem++));
+RecalcularTotais(venda);   // agora soma só os novos
+              </pre>
+              <div class="doc-texto" style="margin-top:8px">
+                <b>Afetava ambos os fluxos:</b>
+                <ul class="doc-lista">
+                  <li><strong>Pré-Venda editada e re-salva</strong> (PUT direto da tela).</li>
+                  <li><strong>Caixa importando pré-venda</strong> (PUT é feito antes do <code>/finalizar</code> pra propagar ajustes de conferência).</li>
+                </ul>
+                Venda direta 100% nova no caixa <b>não era afetada</b> porque <code>CriarAsync</code> começa com coleção vazia.
+              </div>
+              <div class="doc-texto" style="margin-top:8px">
+                <b>Lição:</b> no EF Core, <code>DbSet.RemoveRange</code> marca entidades pra DELETE mas não remove da coleção navigation property do pai.
+                Ao recalcular totais/agregados em memória, sempre chamar <code>collection.Clear()</code> depois do <code>RemoveRange</code>.
+              </div>
+            </div>
+
+            <div class="doc-bloco" style="border-left:4px solid #2980b9;padding-left:14px;background:#f4f9fd">
+              <div class="doc-titulo" style="color:#2980b9">Hierarquia de descontos — desconto e promoção NÃO somam</div>
+              <div class="doc-texto">
+                <b>Regra:</b> o engine de descontos percorre os componentes da hierarquia na ordem e <b>PARA no primeiro que casar</b>.
+                Desconto e promoção são <b>alternativos</b> dentro do caminho — nunca acumulam.
+                Ex: hierarquia <code>[PromocaoFixa, Grupo, GrupoPrincipal]</code> + produto em promoção fixa 50% →
+                aplica só os 50% (não soma com o desconto do Grupo).
+              </div>
+              <div class="doc-texto" style="margin-top:8px">
+                <b>Bug corrigido:</b> o frontend (pre-venda e caixa-venda) chamava
+                <code>/desconto-engine/resolver</code> (que já retornava o desconto da hierarquia)
+                <b>E também</b> <code>/desconto-engine/promocoes</code> logo em seguida, aplicando a promoção por cima
+                (<code>percentualDesconto + percentualPromocao</code> no <code>recalcularItem</code>) → desconto duplicado.
+              </div>
+              <div class="doc-texto" style="margin-top:8px"><b>Fix:</b></div>
+              <ul class="doc-lista">
+                <li>Frontend só chama <code>buscarPromocoesProduto</code> quando o resolver retorna componente
+                  <code>Promoção Progressiva</code> (que exige modal pra o usuário escolher a faixa de quantidade).</li>
+                <li>Pros demais componentes (Promoção Fixa, Cliente, Grupo, etc.), o backend já resolveu — frontend só aplica e pronto.</li>
+                <li>Backend <code>AvaliarPromocao</code>: <code>buscarMenorValorPromocao=true</code> agora pega o <b>maior %</b>
+                  de promoção (= menor valor final pro cliente), como o rótulo da UI indica. Estava invertido.</li>
+              </ul>
+            </div>
+
+            <div class="doc-bloco" style="border-left:4px solid #27ae60;padding-left:14px;background:#f5fbf7">
+              <div class="doc-titulo" style="color:#27ae60">Entrega no cupom — &lt;vOutro&gt; distribuído por item</div>
+              <div class="doc-texto">
+                Taxa de entrega entra no NFC-e como <code>&lt;vOutro&gt;</code> (Outras Despesas Acessórias) conforme spec.
+                <b>Regra SEFAZ:</b> <code>Σ(item.vOutro) == total.vOutro</code>. Não basta popular o total — cada item precisa
+                da sua fração.
+              </div>
+              <div class="doc-texto" style="margin-top:8px"><b>Distribuição proporcional</b> por item, em <code>VendaFiscalService.MontarXmlNfce</code>:</div>
+              <pre class="doc-code">
+baseItem = item.vProd − item.vDesc
+item.vOutro = vOutroTotal × (baseItem / baseTotal)
+// último item absorve arredondamento pra fechar a soma
+              </pre>
+              <div class="doc-texto">
+                DANFE térmico (cupom 80mm) mostra linha "<b>Entrega</b>" entre Subtotal e TOTAL.
+                Campo <code>&lt;infCpl&gt;</code> recebe texto "Taxa de Entrega: R$ X,XX" (aparece no cupom impresso e na consulta SEFAZ via QR code).
+              </div>
+            </div>
+
+            <div class="doc-bloco" style="border-left:4px solid #8e44ad;padding-left:14px;background:#f9f5fb">
+              <div class="doc-titulo" style="color:#8e44ad">Fixes adicionais no builder NFC-e</div>
+              <ul class="doc-lista">
+                <li><strong>CEST sanitizado</strong>: cadastro de produto podia ter pontos
+                  (<code>"13.001.01"</code>). SEFAZ rejeitava (<code>cvc-pattern-valid: '[0-9]&#123;7&#125;'</code>). Fix: limpar caracteres
+                  não-dígito e só emitir <code>&lt;CEST&gt;</code> se ficar com exatamente 7 dígitos.</li>
+                <li><strong>CSOSN roteado pra tag correta</strong>: NFC-e antes sempre gerava
+                  <code>&lt;ICMSSN102&gt;</code> independente do CSOSN cadastrado. Se o produto tinha CSOSN 500
+                  ("ICMS cobrado anteriormente por ST"), o schema <code>ICMSSN102</code> rejeitava (só aceita
+                  <code>[102, 103, 300, 400]</code>). Fix: switch/case no CSOSN pra usar
+                  <code>ICMSSN101</code>, <code>ICMSSN102</code>, <code>ICMSSN500</code>, <code>ICMSSN900</code>
+                  conforme o código.</li>
+              </ul>
+            </div>
+
             <div class="doc-bloco">
               <div class="doc-titulo">Layout da Tela</div>
               <div class="doc-texto">

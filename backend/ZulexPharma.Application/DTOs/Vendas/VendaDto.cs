@@ -21,6 +21,7 @@ public class VendaListDto
     public DateTime DataPreVenda { get; set; }
     public DateTime? DataFinalizacao { get; set; }
     public DateTime? DataEmissaoCupom { get; set; }
+    public bool EntregaSolicitada { get; set; }
 }
 
 public class VendaDetalheDto

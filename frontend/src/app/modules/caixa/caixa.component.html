@@ -130,7 +130,8 @@
               <table class="erp-grid">
                 <thead>
                   <tr>
-                    <th class="th-arrow"></th>
+                    <th class="cx-pend-th-acao"></th>
+                    <th class="cx-pend-th-entrega" title="Entrega solicitada"></th>
                     @for (col of pendColunasVisiveis(); track col.campo; let i = $index) {
                       <th class="th-sort th-resize"
                           [style.width.px]="col.largura"
@@ -146,21 +147,31 @@
                              (click)="$event.stopPropagation()"></div>
                       </th>
                     }
-                    <th class="cx-pend-th-acao"></th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (p of pendSorted(); track p.id) {
                     <tr>
-                      <td class="td-arrow"></td>
-                      @for (col of pendColunasVisiveis(); track col.campo) {
-                        <td [class.cx-valor]="col.campo === 'totalLiquido'">{{ pendCellValue(p, col.campo) }}</td>
-                      }
                       <td class="cx-pend-acao">
                         <button class="cx-pend-btn-checkout" (click)="enviarParaCheckout(p)" title="Enviar para Vender e Checkout">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
                         </button>
                       </td>
+                      <td class="cx-pend-entrega" [title]="p.entregaSolicitada ? 'Pré-venda com entrega' : ''">
+                        @if (p.entregaSolicitada) {
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5C6BC0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="5.5" cy="17.5" r="3.5"/>
+                            <circle cx="18.5" cy="17.5" r="3.5"/>
+                            <path d="M15 6h4l3 6.5V17h-2"/>
+                            <path d="M2 17h1"/>
+                            <path d="M9 17h6"/>
+                            <path d="M12 6v3h-3l-1 2-2 1v5"/>
+                          </svg>
+                        }
+                      </td>
+                      @for (col of pendColunasVisiveis(); track col.campo) {
+                        <td [class.cx-valor]="col.campo === 'totalLiquido'">{{ pendCellValue(p, col.campo) }}</td>
+                      }
                     </tr>
                   }
                 </tbody>

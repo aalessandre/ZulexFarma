@@ -945,7 +945,8 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.produtoResultados.set([]);
     this.produtoDropdown.set(false);
 
-    // Resolver desconto via hierarquia
+    // Resolver desconto via hierarquia (backend já faz o loop e PARA no primeiro que casa).
+    // Regra: desconto nunca soma com promoção — respeita a ordem da hierarquia.
     this.resolverDescontoProduto(p.id, (desc) => {
       this.itens.update(lista => {
         const arr = [...lista];
@@ -962,15 +963,16 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
             origemId: desc.hierarquiaId
           });
         }
-        // Recalcula usando a SOMA de desconto manual + promoção (race-safe)
         this.recalcularItem(item, 'percentualDesconto');
         arr[idx] = item;
         return arr;
       });
-    });
 
-    // Buscar promoções ativas para o produto
-    this.buscarPromocoesProduto(p.id, idx);
+      // Progressiva precisa modal pra escolher faixa (resolver não traz as faixas).
+      if (desc.componente === 'Promoção Progressiva') {
+        this.buscarPromocoesProduto(p.id, idx);
+      }
+    });
 
     // ── Focar quantidade ou voltar ao campo produto ──────────────
     if (this.cfgFocarQuantidade()) {
