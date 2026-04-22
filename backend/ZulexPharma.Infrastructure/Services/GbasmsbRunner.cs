@@ -21,45 +21,67 @@ public static class GbasmsbRunner
         // Formato literal dd/MM/yyyy independente de culture do processo.
         var dataStr = $"{dtEmissao.Day:D2}/{dtEmissao.Month:D2}/{dtEmissao.Year:D4}";
         var gbasmArgs = $"--solicitacao {cpf} {cnpj} {crm} {uf} {dataStr}";
-        // Invocamos via `cmd /c` em vez de Process.Start direto no exe. Motivo: o gbasmsb
-        // aparentemente se comporta diferente quando filho direto do dotnet (sem console
-        // ancestral) vs quando filho de um shell — gerando DNAs inválidos no primeiro caso.
-        // Passando por cmd /c replicamos o ambiente do teste manual.
-        var cmdArgs = $"/c \"\"{caminhoExe}\" {gbasmArgs}\"";
+        var pasta = System.IO.Path.GetDirectoryName(caminhoExe)!;
 
-        Log.Information("gbasmsb.exe chamada | exe={Exe} | args=[{Args}]", caminhoExe, gbasmArgs);
+        // Log do ambiente para comparação com execução manual no PowerShell.
+        Log.Information("gbasmsb.exe ambiente | USER={User} | SID={Sid} | APPDATA={AppData} | LOCALAPPDATA={LocalAppData} | USERPROFILE={UserProfile} | PWD={Pwd}",
+            Environment.UserName,
+            System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? "?",
+            Environment.GetEnvironmentVariable("APPDATA") ?? "?",
+            Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "?",
+            Environment.GetEnvironmentVariable("USERPROFILE") ?? "?",
+            Environment.CurrentDirectory);
+
+        // Estratégia: gera um .bat temporário na pasta do gbasmsb com `cd /d` + chamada
+        // + redirect para arquivo. Executa o .bat via cmd /c. Isso dá ao gbasmsb um
+        // console próprio ancestral + working dir correto + stdout via arquivo (ao invés
+        // de pipe, que aparentemente altera o comportamento do exe).
+        var tempId = Guid.NewGuid().ToString("N")[..8];
+        var outFile = System.IO.Path.Combine(pasta, $"gbasmsb-out-{tempId}.txt");
+        var batFile = System.IO.Path.Combine(pasta, $"gbasmsb-run-{tempId}.bat");
+        var batContent = $"@echo off\r\ncd /d \"{pasta}\"\r\n\"{caminhoExe}\" {gbasmArgs} > \"{outFile}\"\r\n";
+        await System.IO.File.WriteAllTextAsync(batFile, batContent, System.Text.Encoding.ASCII, ct);
+
+        Log.Information("gbasmsb.exe chamada | exe={Exe} | args=[{Args}] | bat={Bat}", caminhoExe, gbasmArgs, batFile);
 
         var psi = new ProcessStartInfo
         {
             FileName = "cmd.exe",
-            Arguments = cmdArgs,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
+            Arguments = $"/c \"{batFile}\"",
             UseShellExecute = false,
             CreateNoWindow = true,
-            WorkingDirectory = System.IO.Path.GetDirectoryName(caminhoExe)
+            WorkingDirectory = pasta,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false
         };
 
-        using var proc = Process.Start(psi) ?? throw new InvalidOperationException("Falha ao iniciar gbasmsb.exe");
-        var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
-        var stderrTask = proc.StandardError.ReadToEndAsync(ct);
-
-        var exited = await Task.Run(() => proc.WaitForExit(5000), ct);
-        if (!exited)
+        try
         {
-            try { proc.Kill(); } catch { }
-            throw new InvalidOperationException("Timeout (5s) na execução do gbasmsb.exe. Verifique a instalação no servidor.");
-        }
+            using var proc = Process.Start(psi) ?? throw new InvalidOperationException("Falha ao iniciar gbasmsb.exe");
+            var exited = await Task.Run(() => proc.WaitForExit(10000), ct);
+            if (!exited)
+            {
+                try { proc.Kill(); } catch { }
+                throw new InvalidOperationException("Timeout (10s) na execução do gbasmsb.exe. Verifique a instalação no servidor.");
+            }
 
-        var stdout = (await stdoutTask).Trim();
-        var stderr = (await stderrTask).Trim();
-        Log.Information("gbasmsb.exe resposta | exit={Exit} | stdoutLen={Len} | stdout={Out}", proc.ExitCode, stdout.Length, stdout);
-        if (!string.IsNullOrEmpty(stderr)) Log.Warning("gbasmsb.exe stderr={Err}", stderr);
-        if (proc.ExitCode != 0 || string.IsNullOrWhiteSpace(stdout) || !stdout.Contains('|'))
-        {
-            Log.Error("gbasmsb.exe falhou. ExitCode={Code} stdout={Out} stderr={Err}", proc.ExitCode, stdout, stderr);
-            throw new InvalidOperationException($"gbasmsb.exe retornou erro (exit={proc.ExitCode}). Detalhes: {stderr}");
+            if (!System.IO.File.Exists(outFile))
+                throw new InvalidOperationException($"gbasmsb.exe não produziu output (exit={proc.ExitCode}).");
+
+            var stdout = (await System.IO.File.ReadAllTextAsync(outFile, ct)).Trim();
+            Log.Information("gbasmsb.exe resposta | exit={Exit} | stdoutLen={Len} | stdout={Out}", proc.ExitCode, stdout.Length, stdout);
+
+            if (proc.ExitCode != 0 || string.IsNullOrWhiteSpace(stdout) || !stdout.Contains('|'))
+            {
+                Log.Error("gbasmsb.exe falhou. ExitCode={Code} stdout={Out}", proc.ExitCode, stdout);
+                throw new InvalidOperationException($"gbasmsb.exe retornou erro (exit={proc.ExitCode}).");
+            }
+            return stdout;
         }
-        return stdout;
+        finally
+        {
+            try { if (System.IO.File.Exists(batFile)) System.IO.File.Delete(batFile); } catch { }
+            try { if (System.IO.File.Exists(outFile)) System.IO.File.Delete(outFile); } catch { }
+        }
     }
 }
