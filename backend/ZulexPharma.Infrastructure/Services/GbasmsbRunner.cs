@@ -20,18 +20,21 @@ public static class GbasmsbRunner
 
         // Formato literal dd/MM/yyyy independente de culture do processo.
         var dataStr = $"{dtEmissao.Day:D2}/{dtEmissao.Month:D2}/{dtEmissao.Year:D4}";
-        var args = $"--solicitacao {cpf} {cnpj} {crm} {uf} {dataStr}";
+        var gbasmArgs = $"--solicitacao {cpf} {cnpj} {crm} {uf} {dataStr}";
+        // Invocamos via `cmd /c` em vez de Process.Start direto no exe. Motivo: o gbasmsb
+        // aparentemente se comporta diferente quando filho direto do dotnet (sem console
+        // ancestral) vs quando filho de um shell — gerando DNAs inválidos no primeiro caso.
+        // Passando por cmd /c replicamos o ambiente do teste manual.
+        var cmdArgs = $"/c \"\"{caminhoExe}\" {gbasmArgs}\"";
 
-        Log.Information("gbasmsb.exe chamada | exe={Exe} | args=[{Args}]", caminhoExe, args);
+        Log.Information("gbasmsb.exe chamada | exe={Exe} | args=[{Args}]", caminhoExe, gbasmArgs);
 
         var psi = new ProcessStartInfo
         {
-            FileName = caminhoExe,
-            Arguments = args,
+            FileName = "cmd.exe",
+            Arguments = cmdArgs,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            StandardOutputEncoding = System.Text.Encoding.UTF8,
-            StandardErrorEncoding = System.Text.Encoding.UTF8,
             UseShellExecute = false,
             CreateNoWindow = true,
             WorkingDirectory = System.IO.Path.GetDirectoryName(caminhoExe)
