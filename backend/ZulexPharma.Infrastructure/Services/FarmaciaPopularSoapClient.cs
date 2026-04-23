@@ -267,12 +267,13 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
     private static XElement CredEnvelope(string nome, CredenciaisFp cred)
     {
         var xsi = XNamespace.Get(NsXsi);
+        // UsuarioFarmaciaDTO — ordem alfabética (herda de UsuarioDTO, proxy WCF padrão).
         return new XElement(nome,
             new XAttribute(xsi + "type", "ser:UsuarioFarmaciaDTO"),
-            new XElement("usuarioFarmacia", cred.UsuarioFarmacia),
             new XElement("senhaFarmacia", cred.SenhaFarmacia),
-            new XElement("usuarioVendedor", cred.UsuarioVendedor),
-            new XElement("senhaVendedor", cred.SenhaVendedor)
+            new XElement("senhaVendedor", cred.SenhaVendedor),
+            new XElement("usuarioFarmacia", cred.UsuarioFarmacia),
+            new XElement("usuarioVendedor", cred.UsuarioVendedor)
         );
     }
 
