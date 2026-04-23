@@ -720,8 +720,90 @@ W1|FPC1BvmMPL4Vsu8qB+Kpz2ouPYb5iMr6J38BuUDUkGKj0TeO+760Aprxujtjx/1/V3+9g1lUy9f8s
 
 ---
 
-## 21. Referências
+## 21. Status atual (pausa em 23/abr/2026 — 51S persistente)
+
+### O que está pronto e funcionando
+- ✅ **Backend**: `FarmaciaPopularSoapClient` + `FarmaciaPopularService` + `GbasmsbRunner` + endpoint `/pre-autorizar` + hook no Finalizar da venda (Fase 1 antes NFC-e, Fase 2/3 depois).
+- ✅ **Frontend**: aba FP, mega menu PBMs, topo com prescritor/data/Bolsa Família, coluna Qtde/dia, envio do bloco `farmaciaPopular` no body.
+- ✅ **Configurações**: tela com accordion PBMs, campos da farmácia, dropdown Ambiente, lookup de Plano de Contas, testar conexão do gbasmsb.
+- ✅ **Colaborador**: senha FP criptografada (AES-256 via `CriptografiaHelper`).
+- ✅ **mTLS com cert A1** da filial no HttpClient (`CriarSoapClientAsync`).
+- ✅ **URL DATASUS** correta (produção + homologação hardcoded, chaveada pelo dropdown AMBIENTE).
+- ✅ **Parser** SOAP Axis 1.4 RPC/encoded com multiRef (segue `href="#id0"`), reconhece SOAP Fault.
+- ✅ **gbasmsb.exe**: invocação via wrapper `.bat` + arquivo de output, `CreateNoWindow=false` pra herdar console.
+- ✅ **Envelope SOAP**: todos os campos em **ordem alfabética** (ordem do proxy WCF do InovaFarma), campos nullable marcados com `xsi:nil="true"`, `soapenc:arrayType` explícito no `arrMedicamentoDTO`.
+- ✅ **gbasmsb atualizado**: cópia do SDK novo (2025) do InovaFarma com `gbasmsb_library.dll`.
+
+### O problema que travou (51S persistente)
+Em chamada ao WS de **validação** (homologação) `https://farmaciapopular-autorizador-validacao.saude.gov.br/farmaciapopular-autorizador/services/ServicoSolicitacaoWS`, o DATASUS responde **sempre** com:
+
+```
+inAutorizacaoSolicitacao: 51S
+descMensagemErro: "Solicitação não autorizada. DNA da transação gerado pelo GBAS é inválido."
+```
+
+Mesmo com:
+- DNA gerado pelo `gbasmsb.exe` executado **manualmente no PowerShell** (não é a forma como a API chama)
+- Terminal recadastrado várias vezes no portal com o hash atual
+- Credenciais válidas (`usuarioFarmacia`/`senhaFarmacia` aceitas para login no portal)
+- Certificado A1 do mesmo CNPJ da farmácia
+- Mesmo ambiente (homologação), mesmos dados (CPF/CNPJ/CRM da massa de dados), **funciona no InovaFarma** mas falha no nosso.
+
+### O que foi verificado e NÃO é a causa
+- DPAPI / usuário Windows (`whoami /user` bate entre dotnet e PowerShell manual)
+- Relógio / timezone (máquina sincronizada com Brasília UTC-3)
+- Formato de data (`yyyy-MM-ddTHH:mm:ss` correto por WSDL)
+- URL do endpoint (já na oficial de validação)
+- Encoding / environment variables / working directory
+- Versão do gbasmsb (já com o SDK 2025 do InovaFarma)
+- Ordem dos campos no envelope SOAP (agora alfabética)
+- Nillables em campos opcionais (xsi:nil="true")
+- Formato numérico (qt como inteiro, vl com 2 decimais)
+- Argumentos do gbasmsb.exe (`--solicitacao CPF CNPJ CRM UF dd/MM/yyyy`)
+- `soapenc:arrayType` no `arrMedicamentoDTO`
+- Ordem alfabética também em `UsuarioFarmaciaDTO`
+
+### Hipóteses restantes para quando retomar
+
+1. **Serializar itens do array via multiRef (href + `<multiRef id>`) em vez de inline.** O DATASUS responde em multiRef — pode exigir mesmo no request. Não foi testado ainda.
+2. **SOAPAction header** pode precisar ser diferente. Atual: `urn:executarSolicitacao`. InovaFarma pode mandar vazio `""` ou outro valor (não verificado).
+3. **Content-Type** atual `text/xml; charset=UTF-8`. Alguns servidores SOAP 1.1 querem `application/soap+xml` ou sem charset.
+4. **Interceptar o SOAP real do InovaFarma** com Fiddler/HTTP Toolkit/mitmproxy (tentado parcialmente; usuário abandonou por complexidade).
+5. **Cabeçalho SOAP customizado** (`<soapenv:Header>`) — hoje vai vazio. InovaFarma pode injetar algo ali (WS-Security token, etc.).
+6. **Usar proxy WCF gerado automaticamente** (via `svcutil` ou equivalente) em vez de montar XML à mão. Biblioteca `Microsoft.WCF.Http.Http2Client` ou gerar via `dotnet-svcutil`. É o caminho definitivo, mas custoso com .NET 9.
+7. **Suporte DATASUS** — email enviado pelo usuário. Aguardar resposta.
+
+### Endpoints úteis deixados no código para quando retomar
+
+- `POST /api/farmacia-popular/pre-autorizar/{vendaId}` — dispara só Fase 1 sem finalizar venda. Aceita `{ "dnaEstacao": "W1|..." }` opcional no body para bypass do gbasmsb (útil para testar DNA gerado manualmente). **Endpoint requer auth**.
+- `GET /api/farmacia-popular/xmls/{vendaId}` — retorna request/response XMLs de todas as fases salvos em `VendaFarmaciaPopular` (para debug).
+- `POST /api/farmacia-popular/testar-conexao` — smoke test do gbasmsb.exe (não chama DATASUS).
+
+### Commits relevantes (ordem cronológica)
+
+- `5f77830` — Spec + Fase 1 inicial (entidades, migration, smoke test)
+- `3ab69cd` — SOAP client + 3 fases + hook no Finalizar
+- `575f0c3` — CNPJ FP do Configuracoes (não da filial)
+- `c7ed3c2` — Fix data xsd:dateTime + parser SOAP Fault
+- `3d71362` — coSolicitacaoFarmacia ≤15 chars + parser multiRef
+- `9969995` — Envio de todos doubles do MedicamentoDTO
+- `0b88862` — Ordem alfabética + nillables
+- `e6de920` — soapenc:arrayType explícito
+- `a73a956` — Credenciais em ordem alfabética
+
+### Como retomar
+
+1. Ler este status + os commits acima na ordem.
+2. Se DATASUS respondeu o chamado: aplicar o que eles pediram.
+3. Se não: partir pra hipótese 1 (multiRef) ou 6 (proxy WCF gerado).
+4. Subir uma venda FP em homologação, chamar `POST /api/farmacia-popular/pre-autorizar/{vendaId}` via Swagger/Postman, inspecionar o `responseXml` no retorno.
+5. Se passar de 51S, testar as Fases 2 e 3 (já implementadas, só não foram exercitadas em integração).
+
+---
+
+## 22. Referências
 
 - [Help → accordion Farmácia Popular](../../frontend/src/app/modules/help/help.component.html) — linha 1181
 - Memory: `project_farmacia_popular.md`
 - Específicas: `filiais.md` (certificado A1 é da filial), `entregas-precificacao.md` (padrão de integração externa)
+- Referência externa: **InovaFarma** — IL descompilado em `C:\InovaFarma\rev\il\` serviu de base para engenharia reversa do envelope SOAP e binários do SDK DATASUS.
