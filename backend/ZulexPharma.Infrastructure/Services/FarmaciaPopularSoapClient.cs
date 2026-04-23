@@ -40,7 +40,12 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
         // todos os campos são serializados em ORDEM ALFABÉTICA (comportamento default do
         // System.Xml.Serialization.XmlSerializer). Campos opcionais são emitidos como
         // xsi:nil="true" (atributo [SoapElement(IsNullable=true)] em cada campo).
-        var arrMed = new XElement(XName.Get("arrMedicamentoDTO", ""));
+        var soapenc = XNamespace.Get(NsEnc);
+        // Array SOAP RPC/encoded: xsi:type="soapenc:Array" + soapenc:arrayType="tipo[N]".
+        // É assim que o Axis 1.4 espera arrays complexos — visível na RESPOSTA do DATASUS.
+        var arrMed = new XElement(XName.Get("arrMedicamentoDTO", ""),
+            new XAttribute(xsi + "type", "soapenc:Array"),
+            new XAttribute(soapenc + "arrayType", $"ser:MedicamentoDTO[{req.Medicamentos.Count}]"));
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         foreach (var m in req.Medicamentos)
         {
@@ -51,7 +56,6 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
             //   vlPrecoSubsidiadoPacientePosEstorno, vlPrecoVenda,
             //   vlrSubsidiadoMSPosEstorno, vlrTotalVendaPosEstorno
             arrMed.Add(new XElement("item",
-                new XAttribute(xsi + "type", "ser:MedicamentoDTO"),
                 new XElement("coCodigoBarra", m.CoCodigoBarra),
                 NilElement("dsUnidApresentacao", xsi),
                 NilElement("inAutorizacaoEstorno", xsi),
