@@ -30,20 +30,6 @@ public class FarmaciaPopularService : IFarmaciaPopularService
 
         var configs = await _db.Set<Configuracao>().ToDictionaryAsync(c => c.Chave, c => c.Valor, ct);
         var caminhoExe = configs.GetValueOrDefault("pbm.fp.caminho.gbasmsb", "");
-        var ambienteFp = configs.GetValueOrDefault("pbm.fp.ambiente", "producao");
-        // Em homologação, o SDK DATASUS usa um executável diferente: gbasmsb_gbas.exe.
-        // Se o caminho configurado aponta pra gbasmsb.exe E ambiente=homologação E o
-        // gbasmsb_gbas.exe existe na mesma pasta, troca automaticamente.
-        if (ambienteFp == "homologacao" && !string.IsNullOrWhiteSpace(caminhoExe)
-            && Path.GetFileName(caminhoExe).Equals("gbasmsb.exe", StringComparison.OrdinalIgnoreCase))
-        {
-            var alt = Path.Combine(Path.GetDirectoryName(caminhoExe)!, "gbasmsb_gbas.exe");
-            if (File.Exists(alt))
-            {
-                Log.Information("FP ambiente=homologacao: trocando gbasmsb.exe por gbasmsb_gbas.exe ({Alt})", alt);
-                caminhoExe = alt;
-            }
-        }
         var cred = await MontarCredenciaisAsync(configs, fp.Venda!.ColaboradorId, ct);
 
         // 1) gbasmsb → dnaEstacao (ou usa o override passado, uso diagnóstico)
