@@ -24,7 +24,7 @@ public class FarmaciaPopularService : IFarmaciaPopularService
         _db = db;
     }
 
-    public async Task<SolicitacaoRetornoDto> SolicitarAsync(long vendaId, CancellationToken ct = default)
+    public async Task<SolicitacaoRetornoDto> SolicitarAsync(long vendaId, string? dnaEstacaoOverride = null, CancellationToken ct = default)
     {
         var fp = await CarregarFpCompletoAsync(vendaId, ct);
 
@@ -32,19 +32,27 @@ public class FarmaciaPopularService : IFarmaciaPopularService
         var caminhoExe = configs.GetValueOrDefault("pbm.fp.caminho.gbasmsb", "");
         var cred = await MontarCredenciaisAsync(configs, fp.Venda!.ColaboradorId, ct);
 
-        // 1) gbasmsb → dnaEstacao
+        // 1) gbasmsb → dnaEstacao (ou usa o override passado, uso diagnóstico)
         string dna;
-        try
+        if (!string.IsNullOrWhiteSpace(dnaEstacaoOverride))
         {
-            dna = await GbasmsbRunner.ExecutarSolicitacaoAsync(
-                caminhoExe, fp.CpfPaciente, fp.CnpjEstabelecimento, fp.CrmMedico, fp.UfCrm, fp.DtEmissaoReceita, ct);
+            dna = dnaEstacaoOverride.Trim();
+            Log.Warning("FP Fase 1 | usando dnaEstacao OVERRIDE (bypass gbasmsb) | len={Len}", dna.Length);
         }
-        catch (Exception ex)
+        else
         {
-            fp.Status = StatusFarmaciaPopular.Erro;
-            fp.MensagemRetornoAtual = ex.Message;
-            await _db.SaveChangesAsync(ct);
-            return new SolicitacaoRetornoDto { Sucesso = false, CodigoRetorno = "ERRGBAS", MensagemRetorno = ex.Message };
+            try
+            {
+                dna = await GbasmsbRunner.ExecutarSolicitacaoAsync(
+                    caminhoExe, fp.CpfPaciente, fp.CnpjEstabelecimento, fp.CrmMedico, fp.UfCrm, fp.DtEmissaoReceita, ct);
+            }
+            catch (Exception ex)
+            {
+                fp.Status = StatusFarmaciaPopular.Erro;
+                fp.MensagemRetornoAtual = ex.Message;
+                await _db.SaveChangesAsync(ct);
+                return new SolicitacaoRetornoDto { Sucesso = false, CodigoRetorno = "ERRGBAS", MensagemRetorno = ex.Message };
+            }
         }
         fp.DnaEstacao = dna;
 

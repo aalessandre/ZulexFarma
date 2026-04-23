@@ -63,13 +63,16 @@ public class FarmaciaPopularController : ControllerBase
     /// Dispara SÓ a Fase 1 (executarSolicitacao) de uma venda em aberto — sem marcar finalizada,
     /// sem emitir NFC-e. Usado para testar a integração DATASUS isoladamente. Retorna o XML
     /// request e response para debug.
+    ///
+    /// Body opcional { "dnaEstacao": "W1|FPC1..." } pula a invocação do gbasmsb.exe e usa o DNA
+    /// fornecido. Diagnóstico — pra testar se o problema é a forma como a API chama o gbasmsb.
     /// </summary>
     [HttpPost("pre-autorizar/{vendaId:long}")]
-    public async Task<IActionResult> PreAutorizar(long vendaId)
+    public async Task<IActionResult> PreAutorizar(long vendaId, [FromBody] PreAutorizarBodyDto? body = null)
     {
         try
         {
-            var ret = await _fp.SolicitarAsync(vendaId);
+            var ret = await _fp.SolicitarAsync(vendaId, body?.DnaEstacao);
             var fp = await _db.Set<Domain.Entities.VendaFarmaciaPopular>()
                 .Include(x => x.Itens)
                 .FirstOrDefaultAsync(x => x.VendaId == vendaId);
@@ -163,4 +166,10 @@ public class FarmaciaPopularController : ControllerBase
         else _db.Set<Domain.Entities.Configuracao>().Add(new Domain.Entities.Configuracao { Chave = chave, Valor = valor });
         await _db.SaveChangesAsync();
     }
+}
+
+public class PreAutorizarBodyDto
+{
+    /// <summary>DNA gerado fora da API (ex: copiado do PowerShell). Se presente, pula o gbasmsb interno.</summary>
+    public string? DnaEstacao { get; set; }
 }
