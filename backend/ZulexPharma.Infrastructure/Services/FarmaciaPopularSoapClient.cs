@@ -36,21 +36,32 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
         var ser = XNamespace.Get(NsSer);
         var xsi = XNamespace.Get(NsXsi);
 
+        // Engenharia reversa do proxy WCF do InovaFarma (C:\InovaFarma\rev\il\InovaFarma.exe.il):
+        // todos os campos são serializados em ORDEM ALFABÉTICA (comportamento default do
+        // System.Xml.Serialization.XmlSerializer). Campos opcionais são emitidos como
+        // xsi:nil="true" (atributo [SoapElement(IsNullable=true)] em cada campo).
         var arrMed = new XElement(XName.Get("arrMedicamentoDTO", ""));
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         foreach (var m in req.Medicamentos)
         {
-            // Formato alinhado ao log do InovaFarma (que funciona em produção):
-            // - Quantidades (qt*) como INTEIRO (sem decimal)
-            // - Valores monetários (vl*) com 2 decimais fixos (0.00)
+            // MedicamentoDTO — ordem alfabética exata + campos opcionais nullable:
+            //   coCodigoBarra, dsUnidApresentacao, inAutorizacaoEstorno, inAutorizacaoMedicamento,
+            //   qtAutorizada, qtDevolvida, qtEstornada, qtPrescrita, qtSolicitada,
+            //   statusTransacao, vlPrecoSubsidiadoMS, vlPrecoSubsidiadoPaciente,
+            //   vlPrecoSubsidiadoPacientePosEstorno, vlPrecoVenda,
+            //   vlrSubsidiadoMSPosEstorno, vlrTotalVendaPosEstorno
             arrMed.Add(new XElement("item",
                 new XAttribute(xsi + "type", "ser:MedicamentoDTO"),
                 new XElement("coCodigoBarra", m.CoCodigoBarra),
+                NilElement("dsUnidApresentacao", xsi),
+                NilElement("inAutorizacaoEstorno", xsi),
+                NilElement("inAutorizacaoMedicamento", xsi),
                 new XElement("qtAutorizada", "0"),
                 new XElement("qtDevolvida", "0"),
                 new XElement("qtEstornada", "0"),
                 new XElement("qtPrescrita", ((int)m.QtPrescrita).ToString(inv)),
                 new XElement("qtSolicitada", ((int)m.QtSolicitada).ToString(inv)),
+                NilElement("statusTransacao", xsi),
                 new XElement("vlPrecoSubsidiadoMS", "0.00"),
                 new XElement("vlPrecoSubsidiadoPaciente", "0.00"),
                 new XElement("vlPrecoSubsidiadoPacientePosEstorno", "0.00"),
@@ -60,6 +71,12 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
             ));
         }
 
+        var dtIso = req.DtEmissaoReceita.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss");
+        var dtStr = req.DtEmissaoReceita.ToString("yyyy/MM/dd") + " 00:00:00";
+
+        // SolicitacaoDTO — ordem alfabética exata:
+        //   arrMedicamentoDTO, coSolicitacaoFarmacia, dnaEstacao, dtEmissaoReceita,
+        //   dtEmissaoReceitaAsString, nuCnpj, nuCpf, nuCrm, sgUfCrm
         var envelope = new XElement(soapenv + "Envelope",
             new XAttribute(XNamespace.Xmlns + "soapenv", NsSoap),
             new XAttribute(XNamespace.Xmlns + "ser", NsSer),
@@ -72,14 +89,15 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
                     new XAttribute(soapenv + "encodingStyle", NsEnc),
                     new XElement("in0",
                         new XAttribute(xsi + "type", "ser:SolicitacaoDTO"),
+                        arrMed,
                         new XElement("coSolicitacaoFarmacia", req.CoSolicitacaoFarmacia),
+                        new XElement("dnaEstacao", req.DnaEstacao),
+                        new XElement("dtEmissaoReceita", dtIso),
+                        new XElement("dtEmissaoReceitaAsString", dtStr),
                         new XElement("nuCnpj", req.NuCnpj),
                         new XElement("nuCpf", req.NuCpf),
                         new XElement("nuCrm", req.NuCrm),
-                        new XElement("sgUfCrm", req.SgUfCrm),
-                        new XElement("dtEmissaoReceita", req.DtEmissaoReceita.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss")),
-                        new XElement("dnaEstacao", req.DnaEstacao),
-                        arrMed
+                        new XElement("sgUfCrm", req.SgUfCrm)
                     ),
                     CredEnvelope("in1", cred)
                 )
@@ -285,4 +303,8 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
         if (string.IsNullOrEmpty(href) || !href.StartsWith("#")) return null;
         return multiRefs.TryGetValue(href[1..], out var el) ? el : null;
     }
+
+    /// <summary>Cria &lt;nome xsi:nil="true"/&gt; — para campos opcionais que o WSDL marca como nillable.</summary>
+    private static XElement NilElement(string nome, XNamespace xsi) =>
+        new XElement(nome, new XAttribute(xsi + "nil", "true"));
 }
