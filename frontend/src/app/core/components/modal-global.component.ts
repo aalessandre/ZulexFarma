@@ -293,9 +293,16 @@ export class ModalGlobalComponent implements AfterViewChecked {
   constructor(public modal: ModalService) {}
 
   ngAfterViewChecked() {
-    if (this.modal.visivel() && this.modalOverlay) {
-      this.modalOverlay.nativeElement.focus();
+    if (!this.modal.visivel() || !this.modalOverlay) return;
+    // Só força foco se nada dentro do modal tem foco ainda — senão cada change
+    // detection (ex: typing num textarea do prompt) rouba o foco de volta.
+    const modalEl = this.modalOverlay.nativeElement;
+    if (modalEl.contains(document.activeElement)) return;
+    if (this.modal.config().tipo === 'prompt') {
+      const campo = modalEl.querySelector('input, textarea') as HTMLElement | null;
+      if (campo) { campo.focus(); return; }
     }
+    modalEl.focus();
   }
 
   onKeydown(e: KeyboardEvent) {

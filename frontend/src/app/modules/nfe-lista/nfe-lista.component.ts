@@ -21,6 +21,8 @@ interface NfeList {
   // Valores possíveis: 'NaoEmitido' | 'Rascunho' | 'Enviado' | 'Autorizado' | 'Rejeitado' | 'Cancelado' | 'Inutilizado'
   status: string;
   chaveAcesso: string;
+  // ModeloDocumento: 'Nfe' (55) | 'Nfce' (65)
+  modelo: 'Nfe' | 'Nfce';
 }
 
 interface ColunaDef {
@@ -36,6 +38,7 @@ interface ColunaEstado extends ColunaDef {
 }
 
 const COLUNAS: ColunaDef[] = [
+  { campo: 'modelo', label: 'Tipo', largura: 70, minLargura: 55, padrao: true },
   { campo: 'numero', label: 'Numero', largura: 80, minLargura: 60, padrao: true },
   { campo: 'serie', label: 'Serie', largura: 60, minLargura: 40, padrao: true },
   { campo: 'natOp', label: 'Natureza', largura: 200, minLargura: 100, padrao: true },
@@ -44,6 +47,11 @@ const COLUNAS: ColunaDef[] = [
   { campo: 'valorNota', label: 'Valor', largura: 100, minLargura: 70, padrao: true },
   { campo: 'status', label: 'Status', largura: 100, minLargura: 70, padrao: true },
 ];
+
+const MODELO_LABELS: Record<string, string> = {
+  Nfe: 'NF-e',
+  Nfce: 'NFC-e',
+};
 
 const STATUS_LABELS: Record<string, string> = {
   NaoEmitido: 'Nao Emitido',
@@ -70,6 +78,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   carregando = signal(false);
   busca = signal('');
   filtroStatus = signal<'todos' | 'Rascunho' | 'Enviado' | 'Autorizado' | 'Rejeitado' | 'Cancelado' | 'Inutilizado'>('todos');
+  filtroModelo = signal<'todos' | 'Nfe' | 'Nfce'>('todos');
   sortColuna = signal<string>('numero');
   sortDirecao = signal<'asc' | 'desc'>('desc');
 
@@ -170,11 +179,13 @@ export class NfeListaComponent implements OnInit, OnDestroy {
   notasFiltradas = computed(() => {
     const termo = this.normalizar(this.busca());
     const statusFiltro = this.filtroStatus();
+    const modeloFiltro = this.filtroModelo();
     const col = this.sortColuna();
     const dir = this.sortDirecao();
 
     const lista = this.notas().filter(n => {
       if (statusFiltro !== 'todos' && n.status !== statusFiltro) return false;
+      if (modeloFiltro !== 'todos' && n.modelo !== modeloFiltro) return false;
       if (termo.length < 2) return true;
       return this.normalizar(n.natOp).includes(termo)
         || this.normalizar(n.destinatarioNome ?? '').includes(termo)
@@ -199,6 +210,7 @@ export class NfeListaComponent implements OnInit, OnDestroy {
 
   getCellValue(n: NfeList, campo: string): string {
     if (campo === 'status') return STATUS_LABELS[n.status] ?? String(n.status);
+    if (campo === 'modelo') return MODELO_LABELS[n.modelo] ?? String(n.modelo);
     if (campo === 'dataEmissao') {
       if (!n.dataEmissao) return '';
       const d = new Date(n.dataEmissao);

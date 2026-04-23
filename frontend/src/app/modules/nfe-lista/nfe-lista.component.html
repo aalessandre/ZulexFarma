@@ -52,6 +52,14 @@
         </div>
       </div>
       <div class="lista-filtro">
+        <label>TIPO</label>
+        <select class="select-status" [value]="filtroModelo()" (change)="filtroModelo.set($any($event.target).value)">
+          <option value="todos">Todos</option>
+          <option value="Nfe">NF-e (55)</option>
+          <option value="Nfce">NFC-e (65)</option>
+        </select>
+      </div>
+      <div class="lista-filtro">
         <label>STATUS</label>
         <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
           <option value="todos">Todos</option>
