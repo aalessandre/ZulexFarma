@@ -1194,6 +1194,8 @@ public class VendaFiscalService : IVendaFiscalService
 
     private static string CalcularHashCsrt(string csrt, string chaveAcesso)
     {
+        // Conforme MOC SEFAZ NT 2018.005: SHA1 Base64 de (CSRT || chaveAcesso44).
+        // O CSRT vai PRIMEIRO, seguido da chave de acesso de 44 dígitos.
         using var sha1 = System.Security.Cryptography.SHA1.Create();
         var bytes = System.Text.Encoding.UTF8.GetBytes(csrt + chaveAcesso);
         return Convert.ToBase64String(sha1.ComputeHash(bytes));
