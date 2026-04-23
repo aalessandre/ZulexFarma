@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
-export type ModalTipo = 'aviso' | 'confirmacao' | 'sucesso' | 'erro' | 'permissao';
+export type ModalTipo = 'aviso' | 'confirmacao' | 'sucesso' | 'erro' | 'permissao' | 'prompt';
 
 export interface ModalConfig {
   tipo: ModalTipo;
@@ -16,6 +16,11 @@ export interface ModalConfig {
   acao?: string;
   entidade?: string;
   registroId?: string;
+  // Para prompt (entrada de texto)
+  promptPlaceholder?: string;
+  promptMinLength?: number;
+  promptMaxLength?: number;
+  promptMultiline?: boolean;
 }
 
 export interface ModalResultado {
@@ -23,6 +28,8 @@ export interface ModalResultado {
   liberado?: boolean;
   supervisorNome?: string;
   tokenLiberacao?: string;
+  /** Texto digitado quando o tipo é 'prompt'. */
+  texto?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -36,6 +43,10 @@ export class ModalService {
   senhaSupervisor = signal('');
   erroLiberacao = signal('');
   liberando = signal(false);
+
+  // Campo de prompt (entrada de texto)
+  promptValor = signal('');
+  erroPrompt = signal('');
 
   private resolver: ((resultado: ModalResultado) => void) | null = null;
 
@@ -61,6 +72,53 @@ export class ModalService {
     return this.abrir({ tipo: 'confirmacao', titulo, mensagem, textoBotaoConfirmar, textoBotaoCancelar });
   }
 
+  /**
+   * Pede entrada de texto com validação de comprimento.
+   * Retorna ModalResultado.texto quando confirmado.
+   */
+  prompt(titulo: string, mensagem: string, opts: {
+    placeholder?: string;
+    minLength?: number;
+    maxLength?: number;
+    multiline?: boolean;
+    textoBotaoConfirmar?: string;
+    textoBotaoCancelar?: string;
+  } = {}): Promise<ModalResultado> {
+    return this.abrir({
+      tipo: 'prompt', titulo, mensagem,
+      promptPlaceholder: opts.placeholder ?? '',
+      promptMinLength: opts.minLength ?? 0,
+      promptMaxLength: opts.maxLength ?? 500,
+      promptMultiline: opts.multiline ?? false,
+      textoBotaoConfirmar: opts.textoBotaoConfirmar ?? 'Confirmar',
+      textoBotaoCancelar: opts.textoBotaoCancelar ?? 'Cancelar'
+    });
+  }
+
+  /** Confirma o prompt validando comprimento. */
+  confirmarPrompt() {
+    const cfg = this.config();
+    if (cfg.tipo !== 'prompt') return;
+    const v = this.promptValor().trim();
+    const min = cfg.promptMinLength ?? 0;
+    const max = cfg.promptMaxLength ?? 500;
+    if (v.length < min) {
+      this.erroPrompt.set(`Mínimo ${min} caracteres (atual: ${v.length}).`);
+      return;
+    }
+    if (v.length > max) {
+      this.erroPrompt.set(`Máximo ${max} caracteres (atual: ${v.length}).`);
+      return;
+    }
+    this.visivel.set(false);
+    this.promptValor.set('');
+    this.erroPrompt.set('');
+    if (this.resolver) {
+      this.resolver({ confirmado: true, texto: v });
+      this.resolver = null;
+    }
+  }
+
   /** Mostra modal de permissão negada com opção de liberação por senha */
   permissao(tela: string, acao: string, entidade?: string, registroId?: string): Promise<ModalResultado> {
     const nomeTela = tela.charAt(0).toUpperCase() + tela.slice(1);
@@ -79,6 +137,8 @@ export class ModalService {
     this.loginSupervisor.set('');
     this.senhaSupervisor.set('');
     this.erroLiberacao.set('');
+    this.promptValor.set('');
+    this.erroPrompt.set('');
     if (this.resolver) {
       this.resolver({ confirmado });
       this.resolver = null;
@@ -144,6 +204,8 @@ export class ModalService {
     this.senhaSupervisor.set('');
     this.erroLiberacao.set('');
     this.liberando.set(false);
+    this.promptValor.set('');
+    this.erroPrompt.set('');
     this.visivel.set(true);
     return new Promise(resolve => { this.resolver = resolve; });
   }

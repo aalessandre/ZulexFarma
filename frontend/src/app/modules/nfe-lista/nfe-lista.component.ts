@@ -313,17 +313,23 @@ export class NfeListaComponent implements OnInit, OnDestroy {
       this.modal.aviso('Acao nao permitida', 'Somente notas autorizadas podem ser canceladas.');
       return;
     }
-    const resultado = await this.modal.confirmar(
-      'Cancelar NF-e',
-      `Deseja cancelar a NF-e numero ${n.numero}? Esta acao e irreversivel.`,
-      'Sim, cancelar',
-      'Nao, manter'
+    const resultado = await this.modal.prompt(
+      `Cancelar NF-e ${n.numero}`,
+      'Informe a justificativa do cancelamento (mínimo 15 caracteres, máximo 255).',
+      {
+        placeholder: 'Ex: Erro no preenchimento do cupom fiscal',
+        minLength: 15,
+        maxLength: 255,
+        multiline: true,
+        textoBotaoConfirmar: 'Cancelar NF-e',
+        textoBotaoCancelar: 'Desistir'
+      }
     );
-    if (!resultado.confirmado) return;
+    if (!resultado.confirmado || !resultado.texto) return;
 
     this.carregando.set(true);
     const headers = this.headerLiberacao();
-    this.http.post<any>(`${this.apiUrl}/${n.id}/cancelar`, {}, { headers }).subscribe({
+    this.http.post<any>(`${this.apiUrl}/${n.id}/cancelar`, { justificativa: resultado.texto }, { headers }).subscribe({
       next: () => {
         this.carregando.set(false);
         this.carregar();

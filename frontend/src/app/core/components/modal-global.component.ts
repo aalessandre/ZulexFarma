@@ -69,6 +69,37 @@ import { ModalService } from '../services/modal.service';
             </div>
           }
 
+          <!-- Campo de prompt -->
+          @if (modal.config().tipo === 'prompt') {
+            <div class="modal-liberacao">
+              <div class="modal-lib-campo">
+                @if (modal.config().promptMultiline) {
+                  <textarea rows="4" [value]="modal.promptValor()"
+                            (input)="modal.promptValor.set($any($event.target).value)"
+                            [placeholder]="modal.config().promptPlaceholder || ''"
+                            [attr.maxlength]="modal.config().promptMaxLength"
+                            autocomplete="off"></textarea>
+                } @else {
+                  <input type="text" [value]="modal.promptValor()"
+                         (input)="modal.promptValor.set($any($event.target).value)"
+                         [placeholder]="modal.config().promptPlaceholder || ''"
+                         [attr.maxlength]="modal.config().promptMaxLength"
+                         autocomplete="off"
+                         (keydown.enter)="modal.confirmarPrompt()" />
+                }
+                <div class="modal-prompt-counter">
+                  {{ modal.promptValor().length }} / {{ modal.config().promptMaxLength }}
+                  @if (modal.config().promptMinLength && modal.config().promptMinLength! > 0) {
+                    (mínimo {{ modal.config().promptMinLength }})
+                  }
+                </div>
+              </div>
+              @if (modal.erroPrompt()) {
+                <div class="modal-lib-erro">{{ modal.erroPrompt() }}</div>
+              }
+            </div>
+          }
+
           <!-- Botões -->
           <div class="modal-acoes">
             @switch (modal.config().tipo) {
@@ -93,6 +124,14 @@ import { ModalService } from '../services/modal.service';
                 <button class="modal-btn modal-btn-cancelar" (click)="modal.fechar(false)">Cancelar</button>
                 <button class="modal-btn modal-btn-liberar" [disabled]="modal.liberando()" (click)="modal.liberarPorSenha()">
                   {{ modal.liberando() ? 'Verificando...' : 'Liberar' }}
+                </button>
+              }
+              @case ('prompt') {
+                <button class="modal-btn modal-btn-cancelar" (click)="modal.fechar(false)">
+                  {{ modal.config().textoBotaoCancelar || 'Cancelar' }}
+                </button>
+                <button class="modal-btn modal-btn-ok" (click)="modal.confirmarPrompt()">
+                  {{ modal.config().textoBotaoConfirmar || 'Confirmar' }}
                 </button>
               }
             }
@@ -175,17 +214,28 @@ import { ModalService } from '../services/modal.service';
         letter-spacing: 0.7px;
       }
 
-      input {
-        height: 40px; padding: 0 12px;
+      input, textarea {
+        padding: 10px 12px;
         border: 1px solid var(--erp-border-input, #d0d7e2);
         border-radius: 8px;
         font-size: 15px;
         color: var(--erp-text, #2c3e50);
         outline: none;
         background: var(--erp-input-bg, #fafbfc);
+        font-family: inherit;
 
         &:focus { border-color: var(--erp-blue, #2c5fad); }
       }
+
+      input { height: 40px; padding: 0 12px; }
+      textarea { resize: vertical; min-height: 80px; }
+    }
+
+    .modal-prompt-counter {
+      font-size: 11px;
+      color: var(--erp-text-muted, #6a7888);
+      text-align: right;
+      margin-top: 2px;
     }
 
     .modal-lib-erro {
@@ -261,6 +311,8 @@ export class ModalGlobalComponent implements AfterViewChecked {
     }
 
     if (e.key === 'Enter') {
+      // Em prompt multiline, Enter é quebra de linha (não confirma).
+      if (tipo === 'prompt' && this.modal.config().promptMultiline && !e.ctrlKey) return;
       e.preventDefault();
       e.stopPropagation();
       if (tipo === 'confirmacao') {
@@ -268,6 +320,8 @@ export class ModalGlobalComponent implements AfterViewChecked {
         else this.modal.fechar(false);
       } else if (tipo === 'permissao') {
         this.modal.liberarPorSenha();
+      } else if (tipo === 'prompt') {
+        this.modal.confirmarPrompt();
       } else {
         this.modal.fechar(true);
       }
