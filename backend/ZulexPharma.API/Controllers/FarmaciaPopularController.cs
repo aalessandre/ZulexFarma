@@ -68,6 +68,7 @@ public class FarmaciaPopularController : ControllerBase
     /// fornecido. Diagnóstico — pra testar se o problema é a forma como a API chama o gbasmsb.
     /// </summary>
     [HttpPost("pre-autorizar/{vendaId:long}")]
+    [AllowAnonymous] // TEMP diagnóstico: deixa o Swagger chamar sem auth enquanto debugamos 51S.
     public async Task<IActionResult> PreAutorizar(long vendaId, [FromBody] PreAutorizarBodyDto? body = null)
     {
         try
