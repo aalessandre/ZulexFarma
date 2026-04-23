@@ -9,8 +9,11 @@ namespace ZulexPharma.Application.Interfaces;
 /// </summary>
 public interface IFarmaciaPopularService
 {
-    /// <summary>Fase 1 — invoca gbasmsb + SOAP.executarSolicitacao. Atualiza VendaFarmaciaPopular com retorno.</summary>
-    Task<SolicitacaoRetornoDto> SolicitarAsync(long vendaId, CancellationToken ct = default);
+    /// <summary>
+    /// Fase 1 — invoca gbasmsb + SOAP.executarSolicitacao. Atualiza VendaFarmaciaPopular com retorno.
+    /// Se dnaEstacaoOverride for fornecido (uso diagnóstico), pula gbasmsb e envia o DNA passado.
+    /// </summary>
+    Task<SolicitacaoRetornoDto> SolicitarAsync(long vendaId, string? dnaEstacaoOverride = null, CancellationToken ct = default);
 
     /// <summary>Fase 2 — SOAP.confirmarSolicitacao (chamado após NFC-e autorizada).</summary>
     Task<ConfirmacaoRetornoDto> ConfirmarAsync(long vendaId, string nuCupomFiscal, CancellationToken ct = default);
