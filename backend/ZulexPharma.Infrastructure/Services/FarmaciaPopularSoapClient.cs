@@ -40,21 +40,23 @@ public class FarmaciaPopularSoapClient : IFarmaciaPopularSoapClient
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         foreach (var m in req.Medicamentos)
         {
-            // Ordem segue o schema MedicamentoDTO do WSDL; doubles non-nillable enviados como 0.0 por padrão.
+            // Formato alinhado ao log do InovaFarma (que funciona em produção):
+            // - Quantidades (qt*) como INTEIRO (sem decimal)
+            // - Valores monetários (vl*) com 2 decimais fixos (0.00)
             arrMed.Add(new XElement("item",
                 new XAttribute(xsi + "type", "ser:MedicamentoDTO"),
                 new XElement("coCodigoBarra", m.CoCodigoBarra),
-                new XElement("qtAutorizada", "0.0"),
-                new XElement("qtDevolvida", "0.0"),
-                new XElement("qtEstornada", "0.0"),
-                new XElement("qtPrescrita", m.QtPrescrita.ToString(inv)),
-                new XElement("qtSolicitada", m.QtSolicitada.ToString(inv)),
-                new XElement("vlPrecoSubsidiadoMS", "0.0"),
-                new XElement("vlPrecoSubsidiadoPaciente", "0.0"),
-                new XElement("vlPrecoSubsidiadoPacientePosEstorno", "0.0"),
+                new XElement("qtAutorizada", "0"),
+                new XElement("qtDevolvida", "0"),
+                new XElement("qtEstornada", "0"),
+                new XElement("qtPrescrita", ((int)m.QtPrescrita).ToString(inv)),
+                new XElement("qtSolicitada", ((int)m.QtSolicitada).ToString(inv)),
+                new XElement("vlPrecoSubsidiadoMS", "0.00"),
+                new XElement("vlPrecoSubsidiadoPaciente", "0.00"),
+                new XElement("vlPrecoSubsidiadoPacientePosEstorno", "0.00"),
                 new XElement("vlPrecoVenda", m.VlPrecoVenda.ToString("0.00", inv)),
-                new XElement("vlrSubsidiadoMSPosEstorno", "0.0"),
-                new XElement("vlrTotalVendaPosEstorno", "0.0")
+                new XElement("vlrSubsidiadoMSPosEstorno", "0.00"),
+                new XElement("vlrTotalVendaPosEstorno", "0.00")
             ));
         }
 
