@@ -44,12 +44,17 @@ public static class GbasmsbRunner
 
         Log.Information("gbasmsb.exe chamada | exe={Exe} | args=[{Args}] | bat={Bat}", caminhoExe, gbasmArgs, batFile);
 
+        // CreateNoWindow=true faz o Windows passar CREATE_NO_WINDOW pra CreateProcess,
+        // desconectando o console do processo filho. Como o gbasmsb parece se comportar
+        // diferente sem console ancestral, deixamos false para que o cmd herde o console
+        // do dotnet (que por sua vez herdou do PowerShell que o lançou).
         var psi = new ProcessStartInfo
         {
             FileName = "cmd.exe",
             Arguments = $"/c \"{batFile}\"",
             UseShellExecute = false,
-            CreateNoWindow = true,
+            CreateNoWindow = false,
+            WindowStyle = ProcessWindowStyle.Hidden,
             WorkingDirectory = pasta,
             RedirectStandardOutput = false,
             RedirectStandardError = false
