@@ -3174,6 +3174,16 @@ POST /api/vendas/&#123;id&#125;/finalizar
             <div class="doc-titulo">Visão geral</div>
             <p class="doc-texto">Emissão fiscal unificada de NFe modelo 55 (saída de mercadoria entre contribuintes) e NFC-e modelo 65 (venda ao consumidor) sob um único modelo de dados: <b>Venda</b> (cabeçalho) + <b>VendaFiscal</b> (1:1, dados SEFAZ) + <b>VendaItemFiscal</b> (1:1 snapshot fiscal). Implementação manual (XML via StringBuilder + assinatura RSA-SHA1 + SOAP) — sem libs externas. Todo o fluxo passa pelo controller único <code>/api/venda-fiscal</code>.</p>
 
+            <div class="doc-titulo" style="color:#1e8449">Status (abril/2026)</div>
+            <div class="doc-lista">
+              <div class="doc-item">✅ <b>NF-e 55 homologação PR</b> — autorizada end-to-end. Rascunho → emissão → assinatura RSA-SHA1 → SEFAZ → protocolo salvo.</div>
+              <div class="doc-item">✅ <b>NFC-e 65</b> — pronta há mais tempo, em produção.</div>
+              <div class="doc-item">✅ <b>CSRT</b> — vínculo R2ALE (software house) ↔ Farmácia Acungui (emitente) propagado na SEFAZ-PR. Hash SHA1(csrt+chaveAcesso) gerado dinamicamente a cada emissão.</div>
+              <div class="doc-item">✅ <b>Cancelamento</b> — evento com modal prompt de justificativa (min 15 caracteres, max 255), gravado em <code>VendaFiscal.XmlCancelamento</code>.</div>
+              <div class="doc-item">✅ <b>Tela "NFe Emitidas"</b> (/erp/nfe-lista) — filtro <b>Tipo</b> (Todos / NF-e 55 / NFC-e 65) + filtro <b>Status</b> + busca + coluna personalizável "Tipo".</div>
+              <div class="doc-item">⏳ <b>Próximo</b> — spec formal em <code>docs/specs/nfe.md</code> consolidando os aprendizados e regras tributárias por UF.</div>
+            </div>
+
             <div class="doc-titulo">Fluxo NFC-e (modelo 65 — venda ao consumidor)</div>
             <div class="doc-lista">
               <div class="doc-item">1. Venda finalizada no Caixa → <code>POST /api/vendas/&#123;id&#125;/finalizar</code></div>
@@ -3194,14 +3204,25 @@ POST /api/vendas/&#123;id&#125;/finalizar
               <div class="doc-item">7. Carta de correção (CC-e) → <code>POST /api/venda-fiscal/&#123;vendaId&#125;/carta-correcao</code> (exceto para campos proibidos: valores, CNPJ, data)</div>
             </div>
 
+            <div class="doc-titulo">Cancelamento na UI</div>
+            <div class="doc-lista">
+              <div class="doc-item">Tela <b>NFe Emitidas</b> (/erp/nfe-lista) → selecionar nota com status <b>Autorizada</b> → botão <b>Cancelar</b> no sidebar.</div>
+              <div class="doc-item">Abre modal prompt pedindo a <b>justificativa</b> (textarea, min 15 caracteres, max 255).</div>
+              <div class="doc-item">Ao confirmar, <code>POST /api/venda-fiscal/&#123;id&#125;/cancelar</code> com body <code>&#123; "justificativa": "..." &#125;</code>.</div>
+              <div class="doc-item">Backend monta evento 110111 (cancNFe), assina com certificado A1, envia ao SEFAZ RecepcaoEvento4.</div>
+              <div class="doc-item">Retorno cStat=135 (registrado) / 155 (homologado) → StatusFiscal=Cancelado + XmlCancelamento gravado.</div>
+              <div class="doc-item">Prazo SEFAZ: 24h após autorização. Depois disso, só CC-e (se for item corrigível) ou manter a nota + devolução.</div>
+            </div>
+
             <div class="doc-titulo">Configurações necessárias (Configurações &gt; Fiscal / NFC-e)</div>
             <div class="doc-lista">
               <div class="doc-item"><b>Regime Tributário</b> (<code>fiscal.regime.tributario</code>) — 1=Simples Nacional, 2=SN Excesso, 3=Regime Normal. Afeta uso de CST (regime normal) vs CSOSN (Simples).</div>
               <div class="doc-item"><b>Ambiente</b> (<code>fiscal.ambiente</code>) — 1=Produção, 2=Homologação. Homologação usa xProd e xNome fixos para não gerar valor fiscal.</div>
               <div class="doc-item"><b>CSC NFC-e</b> (<code>fiscal.nfce.csc</code>) + <b>ID CSC</b> (<code>fiscal.nfce.csc.id</code>) — Código de Segurança do Contribuinte (SEFAZ-UF). Usado no cálculo do QR Code.</div>
               <div class="doc-item"><b>Série NFC-e</b> (<code>fiscal.nfce.serie</code>) e <b>Série NFe</b> (<code>fiscal.nfe.serie</code>) — default 1. Série 1 é a mais comum.</div>
-              <div class="doc-item"><b>CSRT</b> (<code>fiscal.csrt.id</code> + <code>fiscal.csrt.codigo</code>) — Código de Segurança do Responsável Técnico. Obrigatório em UFs como PR quando o CNPJ do responsável está credenciado no portal SEFAZ. Backend calcula o hashCSRT dinamicamente: <code>Base64(SHA1(csrt + chaveAcesso))</code>.</div>
-              <div class="doc-item"><b>Responsável Técnico</b> (<code>fiscal.resptec.cnpj</code>, <code>.contato</code>, <code>.email</code>, <code>.fone</code>) — dados da software house (dona do CSRT). Fallback para cadastro da filial quando vazios.</div>
+              <div class="doc-item"><b>CSRT</b> (<code>fiscal.csrt.id</code> + <code>fiscal.csrt.codigo</code>) — Código de Segurança do Responsável Técnico. Obrigatório em UFs como PR quando o CNPJ do responsável está credenciado no portal SEFAZ. Backend calcula o hashCSRT dinamicamente: <code>Base64(SHA1(csrt + chaveAcesso))</code> conforme NT 2018.005 (CSRT primeiro, chave depois).</div>
+              <div class="doc-item"><b>Responsável Técnico</b> (<code>fiscal.resptec.cnpj</code>, <code>.contato</code>, <code>.email</code>, <code>.fone</code>) — dados da software house (dona do CSRT no portal SEFAZ). <b>Crítico:</b> esse CNPJ tem que ser o da software house (ex: <code>12.935.236/0001-07</code> R2ALE), NÃO o da farmácia. Se vazio, cai no fallback usando o CNPJ do emitente, o que faz a SEFAZ procurar "CSRT da farmácia vinculado a si mesma" → não acha → rejeita 976.</div>
+              <div class="doc-item"><b>Vinculação emitente → software house no portal SEFAZ</b> — cada farmácia cliente precisa ser cadastrada como "autorizado" pelo responsável técnico no portal SEFAZ-UF. Pode levar até ~2h para propagar após vincular.</div>
               <div class="doc-item"><b>IBPTax</b> (<code>ibpt.token</code> + <code>ibpt.cnpj</code>) — para cálculo de vTotTrib (Lei 12.741). Veja seção específica abaixo.</div>
             </div>
 
@@ -3226,7 +3247,8 @@ POST /api/vendas/&#123;id&#125;/finalizar
               <div class="doc-item"><b>778 NCM inexistente</b> — NCM não está na tabela TIPI. Corrigir no cadastro do produto.</div>
               <div class="doc-item"><b>840 Medicamento sem grupo &lt;med&gt;</b> — NCM 3001–3006 exige cProdANVISA + vPMC. Preencher no cadastro Fiscal do produto.</div>
               <div class="doc-item"><b>892 CSRT obrigatório ausente</b> — UF exige CSRT e os campos Configurações &gt; CSRT estão vazios. Cadastrar ID + Código do CSRT gerado no portal SEFAZ.</div>
-              <div class="doc-item"><b>899/900 CNPJ do responsável técnico diverge do cadastrado</b> — CNPJ em Configurações &gt; Responsável Técnico não bate com o dono do CSRT no portal SEFAZ, OU o emitente (cliente) não está vinculado ao sistema do responsável técnico no portal. Revisar vinculação + aguardar propagação (até 2h).</div>
+              <div class="doc-item"><b>976 Identificador do CSRT não cadastrado na SEFAZ / Emitente não possui CSRT vinculado</b> — SEFAZ recebeu idCSRT+hashCSRT mas não encontrou o par (CNPJ do resp. técnico → CSRT) ou a farmácia emitente não está na lista de autorizados do resp. técnico. <b>Causas mais comuns:</b> 1) <code>fiscal.resptec.cnpj</code> vazio (cai no fallback usando CNPJ do emitente); 2) CNPJ do resp. técnico preenchido mas diferente do dono do CSRT no portal; 3) emitente não vinculado ao resp. técnico no portal SEFAZ-UF (precisa cadastrar via "Autorizar Emitente"). Propagação pode levar até 2h.</div>
+              <div class="doc-item"><b>899/900 CNPJ do responsável técnico diverge do cadastrado</b> — similar ao 976, mas com mensagem diferente. Revisar vinculação + aguardar propagação.</div>
               <div class="doc-item"><b>Value " " is not facet-valid</b> — erro de pattern em campo específico. Mensagem SEFAZ diz qual: <code>#AnonType_cProd...</code>, <code>#AnonType_CFOP...</code>, etc. Backend aplica fallbacks para CFOP (5102), CST PIS/COFINS (49), Origem (0), Código Produto (ProdutoId), mas NCM e endereço precisam vir corretos do cadastro.</div>
             </div>
 
