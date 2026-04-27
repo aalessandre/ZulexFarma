@@ -1,0 +1,97 @@
+deixa te falar de um novo projeto/ideia
+
+Muitas farmacias estão numa onda de ter um self checkout, isso ja acontece em alguns mercados, seria um dispositivo(tablet, PC com monitor touch, etc) onde
+o cliente passa os produtos e faz o pagamento, sem precisar ir no caixa da farmacia.
+
+Quero criar isso, nós ja temos a tela de vendas/caixa, ja emitimos NFCe e NFe, então ja temos quase tudo que precisa, em relação a tela de venda/checkout, 
+nesse cenário as condições de pagamentos são basicamente cartão e pix, então precisamos ajustar a tela de venda do caixa para ficar mais adequada
+para um self checkout, e permitir somente as condições de pagamento pix e cartão, vou precisar fazer integração com meios de pagamentos, mas isso é uma segunda etapa.
+os primeiros passos seriam ajustar a tela.
+
+eu penso que esse self checkout poderia rodar em tablet ou pc com tela touch, então poderiamos desenvolver pensando nos dois.
+como a função desse self checkout seria apenas fazer venda, vamos precisar fazer integração com o ERP que a farmacia ja usa, 
+eu penso que faria da seguinte forma: crio o servidor dentro da farmacia, para rodar o self checkout, então o tablet ou o PC usaria esse servidor para rodar.
+Em um primiero momento eu vou usar em uma farmacia que usa o sistema inovafarma,como eu tenho acesso ao banco de dados, a consulta de produto/preços e demais dados
+que precisar, a gente busca direto do banco de dados sqlserver do sistema inovafarma, numa segunda fase poderemos criar APIs para comunicação com os ERPs.
+
+como noós ja temos nosso ERP de farmacia sendo desenvolvido, eu pensei em criar um FORK dele, pegando especificamente o modulo de vendas/caixa, 
+herdariamos a abertura de caixa e o esquema de vendas, modelariamos a tela para ficar bem facil do cliente usar.
+Os produtos, preços, promoções, etc, viriam do banco de dados do inovafarma, que ja tem tudo pronto.
+
+Analise isso pra mim, coloque suas considerações, suas sugestões, analise a parte de infraestrutura(eu citei tablet e pc com tela touch), na sequencia a 
+gente ajusta/refina e codifica
+
+para fazer a leitura do codigo de barras do produto a gente pluga um leitor de codigo de barras, e teremos um campos de pesquisa tb
+
+com relação as RDCs, isso estaria dentro da farmacia, e em caso de receita o farmaceutico seria acionado
+
+1: o intuito é aliviar a fila, muitos clientes vão na farmacia para comprar perfumaria, conveniencia, etc. ns farmacias tem uma area chamada MIP, são 
+produtos livres de receitas, então vem a calhar.
+2: vamos de pc all in one, ou pc simples com tela touch
+3: nesse primeiro momento vamos na opção 1
+4: pensando melhor, iremos usar mais coisas do ZulexPharma: Configurações, esquema de Usuarios/Grupos/permissões, etc. então esse esquema de checkout
+poderia ser um modulo... assim a gente mantem um unico codigo e compartilha recursos, criamos uma tela para o checkout, e assim por diante, vamos refinar...
+5: perfeito
+6: - produto sem co de barras=> no campo que escaneia o codigo de barras, poderá digitar e pesquisar por nome
+   - produto controlado/receita => para esse cenárioo cliente ja ira direto no balcão de atendimento, ate porque o cliente só irá se servir de produtos
+     que estão disponiveis fora do balcão
+7: - vamos ter q criar um "esquema" para cada ERP, por exemplo, iremos começar com o inovafarma, então nas Configurações teremos que informar os dados 
+    para acessar o banco, obviamente que somente terá acesso com a nossa senha do dia, por enquanto ainda é ambiente de desenvolvimento, então nao precisa
+	ser com a senha do dia. Em Configurações poderemos ter um accordion "self checkout", la escolheremos o ERP, informaremos os dados para acessar o banco, etc.
+	No codigo eu informo todas as tabelas referente a produto
+   - concordo com as fases, com relação aos meios de pagamentos, possivelmente irei integrar com um empresa chamada smart tef, que ja tem api e ela tem integração com todas as adquirentes
+   - a integração com o inovafarma é tranquila, te forneço todas as tabelas, ja começamos com ele.
+   
+PERGUNTAS:
+1- sim, ja temos algumas farmacias interessadas
+2- como produto saas, a farmacia adquire o hardware e paga uma licença para usar o nosso software
+3- de forma organica, o cliente vai se servir de produtos que nao precisam de farmaceutico, como teremos o botão "chamar atendende" quando o cliente precisar ele aciona, e tambem sempre terá um atendende observando
+4- acho que nao precisaremos de fork, usaremos o ZulexPharma, criaremos um modulo   
+   
+   
+Leitor de código de barras
+- ok
+
+Campo de pesquisa
+- ok
+
+Casos onde o EAN não vai resolver sozinho
+- Múltiplas embalagens com mesmo EAN=> nao precisa, no ambiente em que ficará o self checkout nao tera esse cenário de multiplas embalagem
+- Produto fracionado/granel=> nao precisa, no ambiente em que ficará o self checkout nao tera esse cenário de multiplas embalagem
+- EAN não cadastrado no Inovafarma => sim, menssagem clara com opção de chamar atendente
+- Produto bipado, mas controlado — bloqueio explícito que já discutimos=> ok
+
+Implicação técnica pro código
+- como o self checkout será um modulo dentro do ZulexPharma, nao iremos usar o modulo de vendas/caixa exixtente, iremos criar uma tela exclusiva pois temos algumas peculialidades
+  por exemplo:
+   - a busca de produtos será em outro banco de dados
+   - todos os dados do produto, inclusive os fiscais virão do banco de dados do inovafarma nesse momento, teremos em Configurações o accordion self checkout
+     onde será escolhido qual é o ERP da farmacia num drop down, de inicio só teremos o inovafarma
+   - dessa forma a gente nao polui o esquema de vendas(telas que a existem) do ZulexPharma
+   - podemos usar as mesmas tabelas de vendas que ja temos no ZulexPharma, porem precisamos de uma flag para indicar se é venda normal ou self checkout
+   - nas configurações, no accordion Self checkout, vamos precisar de campos para informar os dados da farmacia, dados que precisa para emitir o cupom:
+     - cnpj, serie da nota, IE, certificado digital, etc.
+	 
+1. Dados fiscais — reusar a entidade Empresa existente, não duplicar
+ - ok, nao precisa duplicar
+2 Série da NFC-e — uma única, gerenciada pelo servidor
+- sobre a serie, vamos de A, serie unica
+
+3. Abertura/fechamento de caixa — self-checkout não tem
+ - ok, concordo, sem Abertura/fechamento de caixa
+4. Identificação adicional na venda
+ - ok
+ 
+5. Filtro de produtos na busca por nome
+ - tras tudo, nao se preocupe com o medicamento controlado, o cliente nao consegue comprar o medicamento controlado, pois ele nao terá esse produto em maos
+ 
+** nas Configurações, precisamos de um campo para definir qual é a filial no inovafarma
+
+tabelas do inovafarma:
+- host: localhost
+- usuario: sa
+- senha: !@#Senha
+- banco: INOVAFARMA_FARMACIAMAXIFARMA_FILIAL3
+- com relação as tabelas, vou te passar uma imagem com todas elas, nao iremos usar todas, mas dai vc da uma olhada
+
+- como teremos outros sistemas no futuro, creio que seria viavel criar uma classe pra cada sistema, pra ficar organizado

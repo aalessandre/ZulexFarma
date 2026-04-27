@@ -55,4 +55,6 @@ backups/
 /*.txt
 !README*.txt
 /smart tef/
+# Binários proprietários DATASUS (gbasmsb.exe, DLLs) — distribuição controlada, fora do repo
+/FP/
 

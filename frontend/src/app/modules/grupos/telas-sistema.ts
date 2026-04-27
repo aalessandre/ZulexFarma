@@ -18,6 +18,7 @@ export const TELAS_SISTEMA: TelaSistema[] = [
   { bloco: 2, blocoNome: 'Cadastros', codigo: 'convenios', nome: 'Convênios' },
   { bloco: 1, blocoNome: 'Movimento', codigo: 'pre-venda', nome: 'Pre-Venda' },
   { bloco: 1, blocoNome: 'Movimento', codigo: 'promocoes', nome: 'Promoções' },
+  { bloco: 1, blocoNome: 'Movimento', codigo: 'self-checkout', nome: 'Self-Checkout' },
   // Financeiro
   { bloco: 1, blocoNome: 'Movimento', codigo: 'contas-pagar', nome: 'Contas a Pagar' },
   // Manutenção

@@ -1623,6 +1623,196 @@
         }
       </section>
 
+      <!-- SELF-CHECKOUT -->
+      <section class="help-secao">
+        <div class="secao-header sc-doc" [class.aberto]="isAberta('self-checkout')" (click)="toggleSecao('self-checkout')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="18" x2="12" y2="20"/></svg>
+          <span>Self-Checkout (Auto-Atendimento)</span>
+        </div>
+        @if (isAberta('self-checkout')) {
+          <div class="secao-corpo">
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Visao Geral</div>
+              <span class="cmd-obs">
+                Modulo de <strong>auto-atendimento</strong> em farmacia: cliente bipa produtos, paga PIX/cartao e recebe NFC-e sem passar pelo caixa atendido.<br>
+                Aliviar fila para compras rapidas (MIP, perfumaria, higiene, conveniencia, dermocosmetico).<br><br>
+
+                <strong>Modelo SaaS:</strong> farmacia adquire o hardware (PC touch all-in-one + leitor de codigo de barras + impressora termica + pinpad) e paga licenca mensal pelo software.<br><br>
+
+                <strong>NAO substitui o caixa</strong> — convive com ele. Medicamentos com receita / controlados continuam no balcao com o farmaceutico.<br><br>
+
+                <strong>Spec completa:</strong> <code>docs/specs/self-checkout.md</code>.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Arquitetura</div>
+              <span class="cmd-obs">
+                <strong>Modulo</strong> dentro do ZulexPharma (nao fork). Reusa Filial, Certificado Digital, NFC-e, Sistema de Permissoes.<br><br>
+                <strong>Tela kiosk</strong> dedicada em rota fullscreen <code>/kiosk</code>, fora do shell ERP (sem sidebar/header).<br><br>
+                <strong>Conector por ERP origem</strong>: o piloto consome dados de produto/preco/promocao direto do banco SQL Server do <strong>Inovafarma</strong>. Outros ERPs no futuro implementam <code>IErpConnector</code>.<br><br>
+                <strong>RN-22 (produto totalmente externo):</strong> ZulexPharma NAO cadastra produto interno para vendas do Self-Checkout. <code>VendaItem.ProdutoId</code> fica null. Snapshot fiscal completo grava em <code>VendaItemFiscal</code> (NCM, CEST, CFOP, CST/CSOSN, aliquotas).<br><br>
+                <strong>Sem baixa de estoque</strong> no MVP — fila <code>SelfCheckoutConciliacoesEstoque</code> registra para conciliacao posterior (relatorio ou processador automatico na Fase 3).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Configuracao Inicial</div>
+              <span class="cmd-obs">
+                Em <code>Configuracoes &rarr; Self-Checkout</code>:
+                <ul>
+                  <li><strong>ERP da farmacia</strong>: dropdown (Inovafarma).</li>
+                  <li><strong>Host / Banco / Usuario / Senha</strong> do banco SQL Server do Inovafarma. Senha gravada criptografada (AES-256 via <code>CriptografiaHelper</code>).</li>
+                  <li><strong>Filial no ERP origem</strong>: o <code>CodigoEmpresa</code> (smallint) da filial no Inovafarma.</li>
+                  <li><strong>Natureza de Operacao (NFC-e)</strong>: dropdown carregado via API a partir de <code>Fiscal_Natureza WHERE Operacao=1</code> do Inovafarma. O admin escolhe a natureza usada para venda a consumidor final (ex: "VENDA CONSUMIDOR"). Botao &#x1F504; recarrega a lista.</li>
+                  <li><strong>Botao "Testar conexao"</strong>: valida credenciais e retorna o total de produtos visiveis na filial.</li>
+                  <li><strong>Terminais</strong>: cadastrar 1 ou mais (numero unico por filial + apelido opcional). Cada PC touch e um terminal.</li>
+                </ul>
+
+                Em <code>Configuracoes &rarr; Fiscal / NFC-e</code>:
+                <ul>
+                  <li><strong>Regime tributario</strong>: 1=Simples Nacional, 2=Simples Excesso, 3=Lucro Presumido (Cumulativo), 4=Lucro Real (Nao-Cumulativo). Determina automaticamente CST vs CSOSN e aliquotas PIS/COFINS.</li>
+                  <li><strong>Serie</strong>: <span class="cmd-warn">Em farmacia que usa OUTRO ERP no caixa atendido (ex: Inovafarma), use uma serie DEDICADA para o Self-Checkout (ex: 100), diferente da serie do ERP do balcao.</span> Senao, da <em>cStat=539 (Duplicidade de NF-e)</em> porque a SEFAZ ja tem registros nessa serie.</li>
+                  <li><strong>N&deg; atual</strong>: ponto de partida da numeracao na primeira emissao. Apos isso, a tabela <code>SequenciasCentrais</code> assume e incrementa atomicamente.</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Permissoes</div>
+              <span class="cmd-obs">
+                Codigo de tela: <code>self-checkout</code>. Acoes:
+                <ul>
+                  <li><code>i</code> (Incluir): cliente do kiosk inicia venda + escolhe forma de pagamento. Permitir ao usuario virtual do terminal.</li>
+                  <li><code>c</code> (Consultar): atendente confirma/recusa pagamentos pendentes; lista naturezas de operacao do ERP origem.</li>
+                  <li><code>a</code> (Alterar): admin edita configuracao do accordion Self-Checkout.</li>
+                  <li><code>x</code> (Excluir): admin remove terminais.</li>
+                </ul>
+                A tela admin de pagamentos pendentes esta em <code>/erp/self-checkout-pendentes</code> (tile <strong>PS</strong> no Dashboard).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Selecao de Terminal (PC fisico)</div>
+              <span class="cmd-obs">
+                Acessar <code>http://servidor/kiosk</code> sem parametros: aparece tela "Selecione este terminal" com cards dos terminais ativos cadastrados. Tocar uma vez e pronto — escolha gravada em <code>localStorage</code> (chave <code>kiosk:terminalId:filial-{id}</code>).<br><br>
+                Override por URL: <code>/kiosk?terminalId=2</code> forca adocao do terminal 2 e regrava o storage.<br>
+                Modo manutencao: 5 toques no canto inferior direito (60x60px invisivel) em ate 3s redireciona para <code>/erp</code>.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fluxo de Venda (Fase 1: confirmacao manual)</div>
+              <span class="cmd-obs">
+                <ol>
+                  <li><strong>Atrator</strong>: cliente toca para iniciar.</li>
+                  <li><strong>Carrinho</strong>: bipa produto OU usa o teclado virtual touch para buscar por nome (ex: "shampoo"). Foco do leitor e persistente — recaptura ao tocar fora dos botoes.</li>
+                  <li><strong>Promocao</strong>: produto em promocao mostra badge "PROMOCAO" + preco riscado + preco final. Aplicada automaticamente conforme RN-19 (menor preco entre fonte simples no estoque + tabela Promocao do Inovafarma, considerando vigencia, dia da semana, filial).</li>
+                  <li><strong>Finalizar</strong>: cliente clica. Backend cria <code>Venda</code> (Origem=SelfCheckout) + <code>VendaItem</code> (sem ProdutoId) + <code>VendaItemFiscal</code> (snapshot fiscal completo via <code>IErpConnector.ObterFiscalAsync</code>) + fila de conciliacao de estoque.</li>
+                  <li><strong>Pagamento</strong>: dois botoes grandes — PIX ou Cartao. Cliente escolhe. Backend grava <code>VendaPagamento</code> com <code>TipoPagamento</code> ativo da modalidade correspondente.</li>
+                  <li><strong>Aguardando atendente</strong>: kiosk poll a cada 2s. Tela mostra "aguardando confirmacao".</li>
+                  <li><strong>Atendente confirma</strong> em <code>/erp/self-checkout-pendentes</code> (cards amarelos, polling 2s). Backend dispara <code>EmitirNfceAsync</code>.</li>
+                  <li><strong>NFC-e autorizada</strong>: kiosk muda para tela "Cupom" mostrando serie/numero/chave. Cliente retira cupom impresso.</li>
+                </ol>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Hierarquia Fiscal Inovafarma</div>
+              <span class="cmd-obs">
+                <strong>Aliquotas ICMS</strong>: <code>Produto_Fiscal_UF</code> (UF + Produto + Regime) &rarr; <code>Produto_NCM_UF</code> (UF + NCM) &rarr; <code>Fiscal_Aliquota</code> (UFOrigem=UFDestino) &rarr; 0.<br><br>
+                <strong>CST/CSOSN ICMS</strong>: detecta cenario olhando o CSOSN do produto (<code>Produto_NCM_Tributo</code>). CSOSN 201/202/203/500/900 = ST; 101/102/103/300/400 = Tributado normal.<br>
+                Pega na <code>Fiscal_Natureza_CSTCSOSN_ICMS</code> a coluna do cenario (Tributado ou ST), Dentro do Estado, sem IE.<br><br>
+                <strong>CFOP</strong>: <code>Fiscal_Natureza.CFOPSubstituicaoDE</code> no cenario ST; <code>CFOPTribPFDE</code> no cenario Tributado. <span class="cmd-warn">Sem fallback hardcoded</span> — se a Natureza nao tiver CFOP do cenario, retorna erro claro.<br>
+                Sanitizacao: Inovafarma armazena CFOP com ponto ("5.102"); o connector remove pontos para "5102".<br><br>
+                <strong>PIS/COFINS</strong>: regime 1/2 (Simples) &rarr; CST=49 + aliquota=0 (paga via DAS). Regime 3 (Lucro Presumido) &rarr; aliquotas Cumulativo de <code>Fiscal_PISCofins</code>. Regime 4 (Lucro Real) &rarr; aliquotas Nao-Cumulativo.<br>
+                CST PIS/COFINS vem de <code>Fiscal_Natureza.CodigoCST</code> (fallback <code>Produto.PisCofinsCST</code>).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Numeracao Centralizada</div>
+              <span class="cmd-obs">
+                Tabela <code>SequenciasCentrais</code> com lock pessimista (<code>SELECT ... FOR UPDATE</code> em transacao Serializable) reserva atomicamente o proximo numero da NFC-e por <code>(FilialId, Modelo, Serie)</code>.<br>
+                Protege contra colisao quando N caixas ou N terminais kiosk emitem ao mesmo tempo na mesma serie.<br><br>
+                <strong>CRT no XML</strong>: regime 4 (Lucro Real) e convertido para CRT=3 (Regime Normal) no XML. CRT=4 oficial e MEI — nao se aplica.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Pagamentos no XML (Fase 1 sem TEF)</div>
+              <span class="cmd-obs">
+                Cartao no MVP nao tem dados de TEF (autorizacao, bandeira, CNPJ credenciadora). O metodo <code>ObterCodigoPagamentoCartao</code> deteta isso e usa <code>tPag=99</code> (Outros) ao inves de 03/04 — senao SEFAZ rejeita por falta de <code>&lt;card&gt;</code>.<br><br>
+                Quando <code>tPag=99</code>, o helper <code>MontarXPagSeNecessario</code> adiciona <code>&lt;xPag&gt;Cartao&lt;/xPag&gt;</code> (ou "PIX" / "Voucher") logo apos o <code>&lt;tPag&gt;</code>, conforme exigencia do schema NT 2020.006.<br><br>
+                <strong>Fase 2 (futura):</strong> integracao com <strong>SmartTEF</strong> (agrega Cielo / Stone / Rede). Quando os dados de TEF chegarem, <code>tPag</code> volta a ser 03/04 com <code>&lt;card&gt;</code> preenchido — sem necessidade de <code>&lt;xPag&gt;</code>.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Promocoes (RN-19/RN-21)</div>
+              <span class="cmd-obs">
+                Considera <strong>duas fontes simultaneas</strong>:
+                <ul>
+                  <li><strong>Promocao simples no estoque</strong>: <code>Produto_Estoque.PrecoPromocao</code> + datas de inicio/fim. Vigente quando hoje esta entre as datas (NULL = vitalicia).</li>
+                  <li><strong>Promocao elaborada</strong>: tabela <code>Promocao</code> + <code>Promocao_Produto</code>. Vigente quando <code>Ativo=1</code>, datas validas, filial em <code>Promocao_Empresa</code> (INNER JOIN, nao ha caso "global"), dia da semana liberado (<code>Promocao_DiaSemana</code> vazio = vale todo dia, com registros = so nos listados).</li>
+                </ul>
+                Multiplas promocoes vigentes &rarr; vale o <strong>menor preco final</strong>.<br>
+                <strong>Flags de plano de pagamento</strong> (PlanoVista/PlanoCartao/etc.) sao ignoradas no MVP (RN-21) — exigir saber forma antes de bipar prejudica UX. Ainda respeita <code>ExclusivoConvenio</code> e <code>ExclusivoEcommerce</code> (descarta).<br>
+                Promocoes com <code>QuantidadeLevar</code>/<code>QuantidadePagar</code> (leve-N-pague-M) ficam fora do MVP.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Bugs Conhecidos Resolvidos (registro)</div>
+              <span class="cmd-obs">
+                <ul>
+                  <li><strong>cStat=386 (CFOP nao permitido para CSOSN):</strong> CSOSN do produto era 500 (ST), CFOP veio "5102" (Tributado). Corrigido pela detecao automatica de cenario ST/Tributado e escolha coerente do CFOP.</li>
+                  <li><strong>cStat=441 (Descricao do pagamento obrigatoria para meio de pagamento 99-outros):</strong> tPag=99 sem <code>&lt;xPag&gt;</code>. Corrigido com <code>MontarXPagSeNecessario</code>.</li>
+                  <li><strong>cStat=225 (Schema XML):</strong> CFOP "5.102" com ponto. Corrigido com sanitizacao apenas de digitos.</li>
+                  <li><strong>cStat=539 (Duplicidade de NF-e):</strong> serie da NFC-e compartilhada com o ERP do caixa atendido (Inovafarma). Solucao operacional: usar serie dedicada para o Self-Checkout (ex: 100) que o ERP do balcao nao usa.</li>
+                  <li><strong>VendaItemFiscal duplicado (UNIQUE):</strong> <code>VendaFiscalService.EmitirNfceAsync</code> nao incluia <code>Itens.Fiscal</code> no Include. Corrigido com <code>.ThenInclude(i =&gt; i.Fiscal)</code>.</li>
+                  <li><strong>Venda em limbo apos NFC-e rejeitada:</strong> <code>PagamentoRecebido</code> era setado antes da emissao. Corrigido — so seta apos autorizada. Query de pendentes filtra por <code>StatusFiscal != Autorizado</code>.</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Hardware Recomendado por Terminal</div>
+              <span class="cmd-obs">
+                <ul>
+                  <li>PC all-in-one com tela touch (21-24"), Windows.</li>
+                  <li>Leitor de codigo de barras 2D omnidirecional (USB HID — emula teclado).</li>
+                  <li>Impressora termica para cupom NFC-e (DANFE com QR Code).</li>
+                  <li>Pinpad TEF (Fase 2) — atualmente nao integrado, atendente confere o pagamento manualmente.</li>
+                  <li>Modo kiosk de SO (Windows Assigned Access) + login automatico + watchdog para auto-restart — ainda nao implementado, fica para Fase 2.</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Proximos Passos (Fases Futuras)</div>
+              <span class="cmd-obs">
+                <ul>
+                  <li><strong>Fase 2:</strong> integracao SmartTEF (PIX/cartao automatico, sem confirmacao manual). Modo kiosk de SO + watchdog + auto-update.</li>
+                  <li><strong>Fase 3:</strong> conector para outros ERPs (alem do Inovafarma); baixa de estoque automatica no ERP origem; WebSocket em tempo real (substituindo polling); avaliacao de mitigacoes anti-furto (computer vision/balanca).</li>
+                  <li><strong>Migracao separada:</strong> caixa atendido do ZulexPharma (quando substituir o Inovafarma no balcao) usa <code>SequenciasCentrais</code> tambem — hoje ainda usa <code>SequenciaLocal</code> por PC.</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Documentacao Tecnica</div>
+              <span class="cmd-obs">
+                Spec completa: <code>docs/specs/self-checkout.md</code>.<br>
+                Schemas Inovafarma usados: <code>erps/inovafarma/*.sql</code>.
+              </span>
+            </div>
+
+          </div>
+        }
+      </section>
+
       <!-- ATUALIZAÇÃO DE PREÇOS -->
       <section class="help-secao">
         <div class="secao-header precos" [class.aberto]="isAberta('precos')" (click)="toggleSecao('precos')">

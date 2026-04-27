@@ -102,7 +102,7 @@ public class VendaService : IVendaService
                     var d = dados.FirstOrDefault(x => x.ProdutoId == i.ProdutoId);
                     return new VendaItemDto
                     {
-                        Id = i.Id, ProdutoId = i.ProdutoId, ProdutoCodigo = i.ProdutoCodigo,
+                        Id = i.Id, ProdutoId = i.ProdutoId ?? 0, ProdutoCodigo = i.ProdutoCodigo,
                         ProdutoNome = i.ProdutoNome, Fabricante = i.Fabricante,
                         PrecoVenda = i.PrecoVenda, Quantidade = i.Quantidade,
                         PercentualDesconto = i.PercentualDesconto, PercentualPromocao = i.PercentualPromocao,
@@ -478,7 +478,7 @@ public class VendaService : IVendaService
                     if (processarReceitasSngpc && itensControladosIds.Contains(item.Id))
                         continue;
 
-                    var lotes = await _loteService.ListarLotesAtivosAsync(item.ProdutoId, venda.FilialId);
+                    var lotes = await _loteService.ListarLotesAtivosAsync(item.ProdutoId ?? 0, venda.FilialId);
                     var restante = qtdeTotal;
                     foreach (var lote in lotes)
                     {

@@ -82,11 +82,11 @@ public class VendaReceitaService : IVendaReceitaService
                 if (item.Produto == null) continue;
                 if (!ProdutoControleHelper.IsProdutoSngpc(item.Produto)) continue;
 
-                var lotes = await _loteService.ListarLotesAtivosAsync(item.ProdutoId, venda.FilialId);
+                var lotes = await _loteService.ListarLotesAtivosAsync(item.ProdutoId ?? 0, venda.FilialId);
                 resultado.Add(new ItemControladoDto
                 {
                     VendaItemId = item.Id,
-                    ProdutoId = item.ProdutoId,
+                    ProdutoId = item.ProdutoId ?? 0,
                     ProdutoNome = item.ProdutoNome,
                     ClasseTerapeutica = item.Produto.ClasseTerapeutica,
                     Quantidade = item.Quantidade,
@@ -202,7 +202,7 @@ public class VendaReceitaService : IVendaReceitaService
                     {
                         VendaReceitaId = receita.Id,
                         VendaItemId = vendaItem.Id,
-                        ProdutoId = vendaItem.ProdutoId,
+                        ProdutoId = vendaItem.ProdutoId ?? 0,
                         ProdutoLoteId = lote.Id,
                         Quantidade = itForm.Quantidade
                     });
@@ -468,7 +468,7 @@ public class VendaReceitaService : IVendaReceitaService
 
                 foreach (var item in venda.Itens.Where(i => i.Produto != null && ProdutoControleHelper.IsProdutoSngpc(i.Produto)))
                 {
-                    lotesPorProduto.TryGetValue(item.ProdutoId, out var dados);
+                    lotesPorProduto.TryGetValue(item.ProdutoId ?? 0, out var dados);
                     resultado.Add(new DetalheReceitaItemDto
                     {
                         ProdutoNome = item.ProdutoNome,

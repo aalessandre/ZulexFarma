@@ -1,0 +1,17 @@
+USE [INOVAFARMA_FARMACIAMAXIFARMA_FILIAL3]
+GO
+
+/****** Object:  Table [dbo].[Produto_NCM_CEST]    Script Date: 25/04/2026 18:54:16 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[Produto_NCM_CEST](
+	[CEST] [varchar](7) NOT NULL,
+	[NCM] [varchar](10) NULL,
+	[DESCRICAO] [varchar](512) NULL
+) ON [PRIMARY]
+GO
+

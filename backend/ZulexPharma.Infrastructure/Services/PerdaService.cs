@@ -180,7 +180,7 @@ public class PerdaService : IPerdaService
 
         // Reversão: devolve saldo ao lote e ao estoque
         await _loteService.RegistrarEntradaAsync(
-            produtoId: item.ProdutoId,
+            produtoId: item.ProdutoId ?? 0,
             filialId: venda.FilialId,
             numeroLote: mov.ProdutoLote.NumeroLote,
             dataFabricacao: null,

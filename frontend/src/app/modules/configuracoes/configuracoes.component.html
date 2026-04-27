@@ -329,7 +329,8 @@
                           (change)="setConfig('fiscal.regime.tributario', $any($event.target).value)">
                     <option value="1">Simples Nacional</option>
                     <option value="2">Simples Nacional - Excesso de Sublimite</option>
-                    <option value="3">Regime Normal (Lucro Presumido/Real)</option>
+                    <option value="3">Lucro Presumido (Cumulativo)</option>
+                    <option value="4">Lucro Real (Não-Cumulativo)</option>
                   </select>
                 </div>
                 <div class="cfg-field cfg-field-select">
@@ -814,6 +815,150 @@
                 com parâmetros dummy pra validar que o executável está no caminho certo e respondendo.
                 <strong>Não chama o DATASUS</strong> — é só smoke test do módulo de segurança local.
                 A documentação completa está em <code>docs/specs/farmacia-popular.md</code>.
+              </div>
+
+            </div>
+          }
+        </div>
+
+        <!-- ── Self-Checkout ── -->
+        <div class="cfg-accordion">
+          <div class="cfg-acc-header" [class.cfg-acc-aberto]="accordionAberto() === 'self-checkout'" (click)="onAbrirSelfCheckout()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="18" x2="12" y2="20"/></svg>
+            <span>Self-Checkout</span>
+            <span class="cfg-acc-chevron">{{ accordionAberto() === 'self-checkout' ? '▲' : '▼' }}</span>
+          </div>
+          @if (accordionAberto() === 'self-checkout') {
+            <div class="cfg-acc-body">
+
+              <div class="cfg-sub-titulo">Conexão com ERP origem</div>
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>ATIVAR</label>
+                  <label class="erp-toggle erp-toggle-ativo">
+                    <input type="checkbox" [checked]="scAtivo()" (change)="scAtivo.set($any($event.target).checked)" />
+                    <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+                    <span class="erp-toggle-label">{{ scAtivo() ? 'Ativo' : 'Inativo' }}</span>
+                  </label>
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>ERP DA FARMÁCIA
+                    <span class="cfg-info" title="ERP terceiro de onde o Self-Checkout consulta produtos e preços.">i</span>
+                  </label>
+                  <select [value]="scErpOrigem()" (change)="scErpOrigem.set(+$any($event.target).value)">
+                    <option [value]="1">Inovafarma</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>HOST DO BANCO</label>
+                  <input type="text" [value]="scHost()" (input)="scHost.set($any($event.target).value)" placeholder="localhost" />
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>NOME DO BANCO</label>
+                  <input type="text" [value]="scBanco()" (input)="scBanco.set($any($event.target).value)" placeholder="INOVAFARMA_..." />
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>USUÁRIO DO BANCO</label>
+                  <input type="text" [value]="scUsuario()" (input)="scUsuario.set($any($event.target).value)" />
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>SENHA DO BANCO
+                    @if (scTemSenha() && !scSenha()) {
+                      <span class="cfg-info" title="Senha já cadastrada (oculta). Deixe em branco para manter; preencha para substituir.">i</span>
+                    }
+                  </label>
+                  <input type="password" [value]="scSenha()" (input)="scSenha.set($any($event.target).value)"
+                         [placeholder]="scTemSenha() ? '(senha cadastrada — em branco mantém)' : 'Digite a senha'" />
+                </div>
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <label>FILIAL NO ERP ORIGEM
+                    <span class="cfg-info" title="CodigoEmpresa do Inovafarma (numérico). Identifica a filial nas tabelas Produto_Estoque, Promocao_Empresa, etc.">i</span>
+                  </label>
+                  <input type="text" inputmode="numeric" [value]="scFilialErp()" (input)="scFilialErp.set($any($event.target).value)" placeholder="3" />
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>NATUREZA DE OPERAÇÃO (NFC-e)
+                    <span class="cfg-info" title="Código da Natureza de Operação no Inovafarma usada para emitir NFC-e de venda a consumidor final. Define CST/CSOSN, CFOP e CST PIS/COFINS.">i</span>
+                  </label>
+                  <div style="display: flex; gap: 8px; align-items: center">
+                    <select [value]="scCodigoNatureza() ?? ''" (change)="onScNaturezaChange($any($event.target).value)" style="flex: 1">
+                      <option value="">— escolher —</option>
+                      @for (n of scNaturezas(); track n.codigo) {
+                        <option [value]="n.codigo">{{ n.codigo }} — {{ n.nome }}</option>
+                      }
+                    </select>
+                    <button type="button" class="erp-btn-icone" [disabled]="carregandoNaturezas()"
+                            (click)="carregarNaturezas()" title="Recarregar naturezas do Inovafarma">
+                      {{ carregandoNaturezas() ? '…' : '🔄' }}
+                    </button>
+                  </div>
+                  @if (scNaturezas().length === 0 && !carregandoNaturezas()) {
+                    <div class="cfg-help-text">
+                      Lista vazia — salve a configuração e teste a conexão para carregar naturezas do Inovafarma.
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <div class="cfg-help-text" style="margin-top: 8px">
+                A <strong>série</strong> e o <strong>próximo número</strong> da NFC-e são compartilhados com o caixa atendido — configure no accordion <em>Fiscal / NFC-e</em>.
+              </div>
+
+              <div class="cfg-grid">
+                <div class="cfg-field cfg-field-lg">
+                  <button type="button" class="erp-btn-secundario" [disabled]="testandoSc()" (click)="testarConexaoSelfCheckout()">
+                    {{ testandoSc() ? 'Testando...' : 'Testar conexão' }}
+                  </button>
+                  @if (ultimoTesteSc()) {
+                    <div class="cfg-help-text">{{ ultimoTesteSc() }}</div>
+                  }
+                </div>
+              </div>
+
+              <div class="cfg-sub-titulo">Terminais</div>
+              <div class="cfg-help-text">
+                Cada PC touch que roda o Self-Checkout é um terminal. Número precisa ser único por filial.
+              </div>
+
+              @if (scTerminais().length > 0) {
+                <table class="cfg-tabela">
+                  <thead>
+                    <tr><th style="width: 80px">Nº</th><th>Apelido</th><th style="width: 100px">Ativo</th><th style="width: 90px">Ações</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (t of scTerminais(); track t.id) {
+                      <tr>
+                        <td>{{ t.numero }}</td>
+                        <td>{{ t.apelido || '—' }}</td>
+                        <td>{{ t.ativo ? 'Sim' : 'Não' }}</td>
+                        <td><button class="erp-btn-icone" (click)="removerTerminal(t.id)" title="Remover">×</button></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+
+              <div class="cfg-grid" style="margin-top: 12px">
+                <div class="cfg-field" style="max-width: 100px">
+                  <label>NÚMERO</label>
+                  <input type="text" inputmode="numeric" [value]="scNovoTerminalNumero()" (input)="scNovoTerminalNumero.set(+$any($event.target).value || 0)" placeholder="1" />
+                </div>
+                <div class="cfg-field cfg-field-lg">
+                  <label>APELIDO (opcional)</label>
+                  <input type="text" [value]="scNovoTerminalApelido()" (input)="scNovoTerminalApelido.set($any($event.target).value)" placeholder="Caixa Express 1" />
+                </div>
+                <div class="cfg-field" style="display: flex; align-items: flex-end">
+                  <button type="button" class="erp-btn-secundario" (click)="criarTerminal()">+ Adicionar</button>
+                </div>
               </div>
 
             </div>

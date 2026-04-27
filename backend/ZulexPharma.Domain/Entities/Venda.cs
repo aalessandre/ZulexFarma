@@ -1,4 +1,5 @@
 using ZulexPharma.Domain.Enums;
+using ZulexPharma.Domain.Entities.SelfCheckout;
 
 namespace ZulexPharma.Domain.Entities;
 
@@ -19,8 +20,12 @@ public class Venda : BaseEntity
     /// <summary>Número da cesta informado pelo usuário (opcional, configurável).</summary>
     public string? NrCesta { get; set; }
 
-    /// <summary>Origem: PreVenda ou Caixa.</summary>
+    /// <summary>Origem: PreVenda, Caixa ou SelfCheckout.</summary>
     public VendaOrigem Origem { get; set; } = VendaOrigem.PreVenda;
+
+    /// <summary>Terminal de Self-Checkout que gerou a venda. Null para vendas do caixa atendido / PreVenda.</summary>
+    public long? SelfCheckoutTerminalId { get; set; }
+    public SelfCheckoutTerminal? SelfCheckoutTerminal { get; set; }
 
     // ── Tipo de operação e documento fiscal ────────────────────
     /// <summary>Venda comercial, transferência, perda, ajuste, etc.</summary>

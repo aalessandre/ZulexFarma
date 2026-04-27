@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { BlankComponent } from './layouts/blank/blank.component';
 import { FullComponent } from './layouts/full/full.component';
+import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   // ── Shell ERP (com abas) ─────────────────────────────────────────
@@ -8,6 +9,14 @@ export const routes: Routes = [
     path: 'erp',
     loadChildren: () =>
       import('./modules/erp-shell/erp-shell.routes').then(m => m.ErpRoutes),
+  },
+
+  // ── Self-Checkout (kiosk fullscreen, sem layout ERP) ────────────
+  {
+    path: 'kiosk',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./modules/self-checkout/kiosk/kiosk.component').then(m => m.KioskComponent),
   },
 
   // ── Redirect /dashboard para /erp (unificado) ───────────────────

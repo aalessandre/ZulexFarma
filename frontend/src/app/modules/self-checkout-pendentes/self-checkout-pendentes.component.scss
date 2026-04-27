@@ -1,0 +1,100 @@
+.scp-wrap {
+  display: flex; flex-direction: column;
+  height: 100%;
+  padding: 24px;
+  gap: 20px;
+}
+
+.scp-topo {
+  display: flex; justify-content: space-between; align-items: center;
+  flex: 0 0 auto;
+  h1 { margin: 0; font-size: 22px; color: #1a4d8a; }
+}
+.scp-topo-direita {
+  display: flex; align-items: center; gap: 16px;
+}
+.scp-atualizacao { color: #8a99ad; font-size: 13px; }
+.scp-btn-secundario {
+  background: #6c757d; color: #fff; border: none;
+  padding: 10px 20px; border-radius: 6px; cursor: pointer;
+  font-weight: 500;
+  &:disabled { opacity: .5; cursor: not-allowed; }
+}
+
+.scp-vazio {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: #8a99ad;
+  .scp-vazio-icone { font-size: 96px; margin-bottom: 16px; opacity: 0.6; }
+  p { margin: 4px 0; font-size: 18px; }
+  .scp-vazio-sub { font-size: 14px; }
+}
+
+.scp-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  align-content: start;
+  overflow-y: auto;
+}
+
+.scp-card {
+  background: #fff; border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  border: 2px solid #ffd54a;
+}
+
+.scp-card-topo {
+  background: #fff8e1;
+  padding: 12px 18px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.scp-terminal-num {
+  font-weight: 700; color: #1a4d8a; font-size: 16px;
+}
+.scp-terminal-apelido {
+  margin-left: 8px; color: #8a99ad; font-size: 13px;
+}
+.scp-hora {
+  font-family: monospace; font-size: 14px; color: #5a6b80;
+}
+
+.scp-card-corpo {
+  padding: 18px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.scp-total {
+  display: flex; flex-direction: column;
+}
+.scp-total-label { font-size: 13px; color: #8a99ad; }
+.scp-total-valor {
+  font-size: 30px; font-weight: 800; color: #1a4d8a; line-height: 1.1;
+}
+.scp-forma {
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+.scp-forma-label { font-size: 12px; color: #8a99ad; }
+.scp-forma-valor { font-size: 18px; font-weight: 600; }
+
+.scp-card-acoes {
+  display: flex; gap: 8px; padding: 12px 18px;
+  border-top: 1px solid #eef1f6;
+}
+.scp-btn-recusar, .scp-btn-confirmar {
+  flex: 1; border: none; border-radius: 6px;
+  padding: 12px; cursor: pointer;
+  font-size: 15px; font-weight: 600;
+  &:disabled { opacity: .5; cursor: not-allowed; }
+}
+.scp-btn-recusar {
+  background: #f1f3f6; color: #c92a2a;
+  &:hover:not(:disabled) { background: #ffe3e3; }
+}
+.scp-btn-confirmar {
+  background: #28a745; color: #fff;
+  flex: 2;
+  &:hover:not(:disabled) { background: #218838; }
+}
