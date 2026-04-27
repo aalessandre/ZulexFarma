@@ -5,8 +5,9 @@ public class VendaItem
     public long Id { get; set; }
     public long VendaId { get; set; }
     public Venda Venda { get; set; } = null!;
-    public long ProdutoId { get; set; }
-    public Produto Produto { get; set; } = null!;
+    /// <summary>FK para Produto interno. Null em vendas do Self-Checkout (produto vive só no ERP origem — RN-22).</summary>
+    public long? ProdutoId { get; set; }
+    public Produto? Produto { get; set; }
     public string ProdutoCodigo { get; set; } = string.Empty;
     public string ProdutoNome { get; set; } = string.Empty;
     public string? Fabricante { get; set; }

@@ -158,6 +158,16 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IEntregaService,
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IFarmaciaPopularService,
                             ZulexPharma.Infrastructure.Services.FarmaciaPopularService>();
 
+// ── Self-Checkout ────────────────────────────────────────────────
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IErpConnectorFactory,
+                            ZulexPharma.Infrastructure.Services.SelfCheckout.ErpConnectorFactory>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISelfCheckoutConfiguracaoService,
+                            ZulexPharma.Infrastructure.Services.SelfCheckout.SelfCheckoutConfiguracaoService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISequenciaCentralService,
+                            ZulexPharma.Infrastructure.Services.SelfCheckout.SequenciaCentralService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISelfCheckoutVendaService,
+                            ZulexPharma.Infrastructure.Services.SelfCheckout.SelfCheckoutVendaService>();
+
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ZulexPharma.Infrastructure.Services.IbptService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAdquirenteService,

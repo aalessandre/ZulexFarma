@@ -320,6 +320,17 @@ export const ErpRoutes: Routes = [
         loadComponent: () =>
           import('../prescritores/prescritores.component').then(m => m.PrescritoresComponent),
       },
+      // ── Self-Checkout (rota fullscreen fora do shell) ─────────
+      {
+        path: 'kiosk',
+        redirectTo: '/kiosk',
+        pathMatch: 'full',
+      },
+      {
+        path: 'self-checkout-pendentes',
+        loadComponent: () =>
+          import('../self-checkout-pendentes/self-checkout-pendentes.component').then(m => m.SelfCheckoutPendentesComponent),
+      },
       // ── Fidelidade ────────────────────────────────────────────
       {
         path: 'fidelidade',

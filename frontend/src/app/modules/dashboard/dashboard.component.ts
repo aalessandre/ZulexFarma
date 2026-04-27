@@ -85,6 +85,8 @@ export class DashboardComponent {
         { label: 'Carteira Digital', sigla: 'CD', iconKey: 'wallet',    rota: '/erp/carteira' },
         { label: 'Conta do Cliente', sigla: 'CC', iconKey: 'contacliente', rota: '/erp/conta-cliente' },
         { label: 'Caixa',            sigla: 'CX', iconKey: 'cash',      rota: '/erp/caixa' },
+        { label: 'Self-Checkout',    sigla: 'SC', iconKey: 'cart',      rota: '/kiosk' },
+        { label: 'Pendentes SC',     sigla: 'PS', iconKey: 'cash',      rota: '/erp/self-checkout-pendentes' },
         { label: 'Compras',          sigla: 'CP', iconKey: 'cart2',     rota: '/erp/compras' },
         { label: 'Financeiro',       sigla: 'FN', iconKey: 'dollar',    rota: '/erp/financeiro' },
         { label: 'Fiscal',           sigla: 'FS', iconKey: 'fiscal',    rota: '/erp/fiscal' },
@@ -166,6 +168,11 @@ export class DashboardComponent {
   }
 
   navegar(tile: TileItem) {
+    // Rotas fora do shell ERP (ex: /kiosk fullscreen) navegam diretamente.
+    if (!tile.rota.startsWith('/erp/')) {
+      this.router.navigateByUrl(tile.rota);
+      return;
+    }
     this.tabService.abrirTab({
       id: tile.rota,
       titulo: tile.label,

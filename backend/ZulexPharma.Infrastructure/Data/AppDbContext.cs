@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Entities.SelfCheckout;
 
 namespace ZulexPharma.Infrastructure.Data;
 
@@ -117,6 +118,11 @@ public class AppDbContext : DbContext
     public DbSet<VendaReceitaItem> VendaReceitaItens => Set<VendaReceitaItem>();
     public DbSet<VendaFarmaciaPopular> VendaFarmaciaPopulares => Set<VendaFarmaciaPopular>();
     public DbSet<VendaFarmaciaPopularItem> VendaFarmaciaPopularItens => Set<VendaFarmaciaPopularItem>();
+    public DbSet<SelfCheckoutConfiguracao> SelfCheckoutConfiguracoes => Set<SelfCheckoutConfiguracao>();
+    public DbSet<SelfCheckoutTerminal> SelfCheckoutTerminais => Set<SelfCheckoutTerminal>();
+    public DbSet<SelfCheckoutChamadoAtendente> SelfCheckoutChamadosAtendente => Set<SelfCheckoutChamadoAtendente>();
+    public DbSet<SelfCheckoutConciliacaoEstoque> SelfCheckoutConciliacoesEstoque => Set<SelfCheckoutConciliacaoEstoque>();
+    public DbSet<SequenciaCentral> SequenciasCentrais => Set<SequenciaCentral>();
     public DbSet<VendaFiscal> VendaFiscais => Set<VendaFiscal>();
     public DbSet<VendaItemFiscal> VendaItemFiscais => Set<VendaItemFiscal>();
     public DbSet<Prescritor> Prescritores => Set<Prescritor>();
@@ -1107,10 +1113,12 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.NaturezaOperacao).WithMany().HasForeignKey(x => x.NaturezaOperacaoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.DestinatarioPessoa).WithMany().HasForeignKey(x => x.DestinatarioPessoaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.SelfCheckoutTerminal).WithMany().HasForeignKey(x => x.SelfCheckoutTerminalId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => x.Status);
             e.HasIndex(x => x.NrCesta);
             e.HasIndex(x => new { x.FilialId, x.TipoOperacao });
             e.HasIndex(x => new { x.FilialId, x.StatusFiscal });
+            e.HasIndex(x => new { x.FilialId, x.Origem });
         });
         modelBuilder.Entity<VendaItem>(e =>
         {
@@ -1128,7 +1136,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Total).HasPrecision(18, 2);
             e.HasOne(x => x.Venda).WithMany(x => x.Itens).HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Colaborador).WithMany().HasForeignKey(x => x.ColaboradorId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+            // ProdutoId nullable: vendas do Self-Checkout não têm produto interno (RN-22).
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
         });
         modelBuilder.Entity<VendaItemDesconto>(e =>
         {
@@ -1265,6 +1274,64 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.VendaFarmaciaPopular).WithMany(x => x.Itens).HasForeignKey(x => x.VendaFarmaciaPopularId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.VendaItem).WithMany().HasForeignKey(x => x.VendaItemId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.VendaItemId).IsUnique();
+        });
+
+        // ── Self-Checkout: Configuracao (1:1 Filial) ─────────────
+        modelBuilder.Entity<SelfCheckoutConfiguracao>(e =>
+        {
+            e.ToTable("SelfCheckoutConfiguracoes");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.HostBanco).HasMaxLength(200).IsRequired();
+            e.Property(x => x.NomeBanco).HasMaxLength(200).IsRequired();
+            e.Property(x => x.UsuarioBanco).HasMaxLength(100).IsRequired();
+            e.Property(x => x.SenhaBancoCriptografada).HasMaxLength(500).IsRequired();
+            e.Property(x => x.FilialErpOrigem).HasMaxLength(50).IsRequired();
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.UsuarioVirtual).WithMany().HasForeignKey(x => x.UsuarioVirtualId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.FilialId).IsUnique();
+        });
+
+        // ── Self-Checkout: Terminal ──────────────────────────────
+        modelBuilder.Entity<SelfCheckoutTerminal>(e =>
+        {
+            e.ToTable("SelfCheckoutTerminais");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Apelido).HasMaxLength(100);
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.FilialId, x.Numero }).IsUnique();
+        });
+
+        // ── Self-Checkout: ChamadoAtendente ──────────────────────
+        modelBuilder.Entity<SelfCheckoutChamadoAtendente>(e =>
+        {
+            e.ToTable("SelfCheckoutChamadosAtendente");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Mensagem).HasMaxLength(500);
+            e.HasOne(x => x.Terminal).WithMany().HasForeignKey(x => x.TerminalId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.AtendidoPorColaborador).WithMany().HasForeignKey(x => x.AtendidoPorColaboradorId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.TerminalId, x.AtendidoEm });
+        });
+
+        // ── Self-Checkout: ConciliacaoEstoque ────────────────────
+        modelBuilder.Entity<SelfCheckoutConciliacaoEstoque>(e =>
+        {
+            e.ToTable("SelfCheckoutConciliacoesEstoque");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CodigoProdutoExterno).HasMaxLength(50).IsRequired();
+            e.Property(x => x.CodigoBarrasExterno).HasMaxLength(20);
+            e.Property(x => x.UltimoErro).HasMaxLength(500);
+            e.HasOne(x => x.VendaItem).WithMany().HasForeignKey(x => x.VendaItemId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.VendaItemId).IsUnique();
+            e.HasIndex(x => x.ProcessadoEm);
+        });
+
+        // ── SequenciaCentral (genérica; serve Self-Checkout e futuro caixa atendido) ──
+        modelBuilder.Entity<SequenciaCentral>(e =>
+        {
+            e.ToTable("SequenciasCentrais");
+            e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Filial).WithMany().HasForeignKey(x => x.FilialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.FilialId, x.ModeloDocumento, x.Serie }).IsUnique();
         });
 
         // ── Adquirente ───────────────────────────────────────────

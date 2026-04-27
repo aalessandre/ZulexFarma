@@ -25,8 +25,14 @@ public class VendaFiscalService : IVendaFiscalService
 {
     private readonly AppDbContext _db;
     private readonly IFarmaciaPopularService _fpService;
+    private readonly ISequenciaCentralService _sequenciaCentral;
 
-    public VendaFiscalService(AppDbContext db, IFarmaciaPopularService fpService) { _db = db; _fpService = fpService; }
+    public VendaFiscalService(AppDbContext db, IFarmaciaPopularService fpService, ISequenciaCentralService sequenciaCentral)
+    {
+        _db = db;
+        _fpService = fpService;
+        _sequenciaCentral = sequenciaCentral;
+    }
 
     // ═══════════════════════════════════════════════════════════════════
     //  LISTAGEM / LEITURA
@@ -378,7 +384,9 @@ public class VendaFiscalService : IVendaFiscalService
         var codigoNumerico = new Random().Next(10000000, 99999999);
         var chaveAcesso = GerarChaveAcesso(ufCodigo, agora, cnpj, 55, serie, numero, 1, codigoNumerico);
 
-        var xml = MontarXmlNfe(venda, vf, filial, chaveAcesso, numero, serie, ambiente, regimeTributario,
+        // CRT do XML: regime 4 (Lucro Real) é Regime Normal — vira CRT=3 (CRT=4 oficial é MEI).
+        var crtXml = regimeTributario == 4 ? 3 : regimeTributario;
+        var xml = MontarXmlNfe(venda, vf, filial, chaveAcesso, numero, serie, ambiente, crtXml,
             ufCodigo, cnpj, agora, codigoNumerico, ibptDict, csrtId, csrtCodigo,
             respTecCnpj, respTecContato, respTecEmail, respTecFone);
 
@@ -445,7 +453,7 @@ public class VendaFiscalService : IVendaFiscalService
     public async Task<VendaFiscalEmissaoResult> EmitirNfceAsync(long vendaId)
     {
         var venda = await _db.Vendas
-            .Include(v => v.Itens)
+            .Include(v => v.Itens).ThenInclude(i => i.Fiscal)
             .Include(v => v.Pagamentos).ThenInclude(p => p.TipoPagamento)
             .Include(v => v.Cliente).ThenInclude(c => c!.Pessoa)
             .Include(v => v.Fiscal)
@@ -492,10 +500,14 @@ public class VendaFiscalService : IVendaFiscalService
         var respTecEmailNfce = configs.GetValueOrDefault("fiscal.resptec.email", "");
         var respTecFoneNfce = configs.GetValueOrDefault("fiscal.resptec.fone", "");
 
-        var ultimoNumero = await _db.VendaFiscais
-            .Where(x => x.Venda.FilialId == filial.Id && x.Serie == serie && x.Modelo == ModeloDocumento.Nfce)
-            .MaxAsync(x => (int?)x.Numero) ?? 0;
-        var numero = ultimoNumero + 1;
+        // Numeração centralizada via SequenciaCentralService com lock transacional.
+        // Vale para caixa atendido + Self-Checkout. Número de partida vem da
+        // config "fiscal.nfce.numero.atual" — usado APENAS quando a sequência
+        // ainda não foi inicializada para essa filial/série. Após a primeira
+        // emissão, a fonte da verdade é a tabela SequenciasCentrais.
+        long.TryParse(configs.GetValueOrDefault("fiscal.nfce.numero.atual", "1"), out var numeroPartida);
+        var numero = checked((int)await _sequenciaCentral.ProximoNumeroAsync(
+            filial.Id, ModeloDocumento.Nfce, serie, numeroPartida > 0 ? numeroPartida : 1));
 
         var ufCodigo = ObterCodigoUf(filial.Uf);
         var agora = DataHoraHelper.Agora();
@@ -503,7 +515,9 @@ public class VendaFiscalService : IVendaFiscalService
         var codigoNumerico = new Random().Next(10000000, 99999999);
         var chaveAcesso = GerarChaveAcesso(ufCodigo, agora, cnpj, 65, serie, numero, 1, codigoNumerico);
 
-        var xml = MontarXmlNfce(venda, filial, chaveAcesso, numero, serie, ambiente, regimeTributario,
+        // CRT do XML: regime 4 (Lucro Real) é Regime Normal — vira CRT=3 (CRT=4 oficial é MEI).
+        var crtXml = regimeTributario == 4 ? 3 : regimeTributario;
+        var xml = MontarXmlNfce(venda, filial, chaveAcesso, numero, serie, ambiente, crtXml,
             ufCodigo, cnpj, agora, codigoNumerico, fiscais, produtos, ibptDict, csrtIdNfce, csrtCodigoNfce,
             respTecCnpjNfce, respTecContatoNfce, respTecEmailNfce, respTecFoneNfce);
 
@@ -591,8 +605,8 @@ public class VendaFiscalService : IVendaFiscalService
         {
             if (item.Fiscal != null) { nItem++; continue; }
 
-            var prod = produtos.GetValueOrDefault(item.ProdutoId);
-            var fiscal = fiscais.GetValueOrDefault(item.ProdutoId);
+            var prod = produtos.GetValueOrDefault(item.ProdutoId ?? 0);
+            var fiscal = fiscais.GetValueOrDefault(item.ProdutoId ?? 0);
             var ncmRaw = (prod?.Ncm?.CodigoNcm ?? "00000000").Replace(".", "").PadRight(8, '0');
             if (ncmRaw.Length > 8) ncmRaw = ncmRaw[..8];
             var valorBruto = Math.Round(item.PrecoVenda * item.Quantidade, 2);
@@ -636,8 +650,10 @@ public class VendaFiscalService : IVendaFiscalService
             venda.DataEmissaoCupom = agora;
         venda.AtualizadoEm = agora;
 
-        var cfgNumero = await _db.Set<Configuracao>().FirstOrDefaultAsync(c => c.Chave == "fiscal.nfce.numero.atual");
-        if (cfgNumero != null) cfgNumero.Valor = numero.ToString();
+        // Numeração: fonte da verdade é a tabela SequenciasCentrais (já incrementada
+        // dentro de ProximoNumeroAsync). Não atualizamos mais "fiscal.nfce.numero.atual"
+        // automaticamente — esse campo agora representa apenas o número de partida
+        // configurável pelo admin.
 
         await _db.SaveChangesAsync();
 
@@ -1733,11 +1749,34 @@ public class VendaFiscalService : IVendaFiscalService
         decimal totalProdutos = 0, totalDesconto = 0, totalTributos = 0;
         foreach (var item in venda.Itens)
         {
-            var prod = produtos.GetValueOrDefault(item.ProdutoId);
-            var fiscal = fiscais.GetValueOrDefault(item.ProdutoId);
-            var ncmRaw = (prod?.Ncm?.CodigoNcm ?? "00000000").Replace(".", "").PadRight(8, '0');
+            var prod = produtos.GetValueOrDefault(item.ProdutoId ?? 0);
+            var fiscal = fiscais.GetValueOrDefault(item.ProdutoId ?? 0);
+
+            // Self-Checkout: produto totalmente externo (sem ProdutoFiscal interno).
+            // Usa o snapshot VendaItemFiscal pré-criado para alimentar o XML.
+            if (fiscal == null && item.Fiscal != null)
+            {
+                fiscal = new ProdutoFiscal
+                {
+                    Cfop = item.Fiscal.Cfop,
+                    Cest = item.Fiscal.Cest,
+                    OrigemMercadoria = item.Fiscal.OrigemMercadoria,
+                    CstIcms = item.Fiscal.CstIcms,
+                    Csosn = item.Fiscal.Csosn,
+                    AliquotaIcms = item.Fiscal.AliquotaIcms,
+                    AliquotaFcp = item.Fiscal.AliquotaFcp,
+                    CstPis = item.Fiscal.CstPis,
+                    AliquotaPis = item.Fiscal.AliquotaPis,
+                    CstCofins = item.Fiscal.CstCofins,
+                    AliquotaCofins = item.Fiscal.AliquotaCofins
+                };
+            }
+
+            var ncmRaw = (item.Fiscal?.Ncm ?? prod?.Ncm?.CodigoNcm ?? "00000000").Replace(".", "").PadRight(8, '0');
             if (ncmRaw.Length > 8) ncmRaw = ncmRaw[..8];
             var cfop = fiscal?.Cfop ?? "5102";
+            cfop = new string(cfop.Where(char.IsDigit).ToArray());
+            if (cfop.Length != 4) cfop = "5102";
             var origem = fiscal?.OrigemMercadoria ?? "0";
             var valorBruto = Math.Round(item.PrecoVenda * item.Quantidade, 2);
             var valorDesc = Math.Round(item.ValorDesconto, 2);
@@ -1948,7 +1987,8 @@ public class VendaFiscalService : IVendaFiscalService
         {
             var pag = pagamentos[0];
             var tPag = ObterCodigoPagamentoCartao(pag);
-            sb.Append($"<detPag><tPag>{tPag}</tPag><vPag>{D2(totalNF + trocoReal)}</vPag>");
+            var xPag = MontarXPagSeNecessario(pag, tPag);
+            sb.Append($"<detPag><tPag>{tPag}</tPag>{xPag}<vPag>{D2(totalNF + trocoReal)}</vPag>");
             AppendCard(sb, pag);
             sb.Append("</detPag>");
         }
@@ -1960,13 +2000,14 @@ public class VendaFiscalService : IVendaFiscalService
             {
                 var pag = pagamentos[i];
                 var tPag = ObterCodigoPagamentoCartao(pag);
+                var xPag = MontarXPagSeNecessario(pag, tPag);
                 decimal vPag;
                 if (i == pagamentos.Count - 1)
                     vPag = totalNF + trocoReal - acumulado;
                 else
                     vPag = Math.Round(pag.Valor / somaPag * (totalNF + trocoReal), 2);
                 acumulado += vPag;
-                sb.Append($"<detPag><tPag>{tPag}</tPag><vPag>{D2(vPag)}</vPag>");
+                sb.Append($"<detPag><tPag>{tPag}</tPag>{xPag}<vPag>{D2(vPag)}</vPag>");
                 AppendCard(sb, pag);
                 sb.Append("</detPag>");
             }
@@ -2012,6 +2053,22 @@ public class VendaFiscalService : IVendaFiscalService
             return pag.CartaoTipo == 2 ? "04" : "03";
         }
         return ObterCodigoPagamento(pag.TipoPagamento?.Modalidade);
+    }
+
+    /// <summary>Quando tPag=99 (Outros), o schema da NFC-e exige &lt;xPag&gt; com descrição.
+    /// Retorna a tag &lt;xPag&gt; preenchida ou string vazia se não for tPag=99.</summary>
+    private static string MontarXPagSeNecessario(VendaPagamento pag, string tPag)
+    {
+        if (tPag != "99") return string.Empty;
+        var desc = pag.TipoPagamento?.Modalidade switch
+        {
+            ModalidadePagamento.VendaCartao => "Cartao",
+            ModalidadePagamento.VendaPix    => "PIX",
+            ModalidadePagamento.Voucher     => "Voucher",
+            _                                => pag.TipoPagamento?.Nome ?? "Outros"
+        };
+        // xPag: 2..60 chars; sem acentos pra evitar problemas de encoding com SEFAZ.
+        return $"<xPag>{Esc(desc)}</xPag>";
     }
 
     /// <summary>Gera o grupo card dentro de detPag.
@@ -2634,7 +2691,7 @@ public class VendaFiscalService : IVendaFiscalService
                     Id = i.Fiscal!.Id,
                     VendaItemId = i.Id,
                     NumeroItem = i.Fiscal.NumeroItem,
-                    ProdutoId = i.ProdutoId,
+                    ProdutoId = i.ProdutoId ?? 0,
                     CodigoProduto = i.Fiscal.CodigoProduto,
                     CodigoBarras = i.Fiscal.CodigoBarras,
                     DescricaoProduto = i.Fiscal.DescricaoProduto,

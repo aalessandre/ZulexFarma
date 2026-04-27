@@ -44,6 +44,29 @@ export class ConfiguracoesComponent implements OnInit {
   // ── Farmácia Popular ──
   testandoFp = signal(false);
   ultimoTesteFp = signal<string>('');
+
+  // ── Self-Checkout ──
+  scAtivo = signal(true);
+  scErpOrigem = signal<number>(1); // 1 = Inovafarma
+  scHost = signal('');
+  scBanco = signal('');
+  scUsuario = signal('');
+  scSenha = signal('');
+  scTemSenha = signal(false);
+  scFilialErp = signal('');
+  scCodigoNatureza = signal<number | null>(null);
+  scNaturezas = signal<{ codigo: number; nome: string }[]>([]);
+  carregandoNaturezas = signal(false);
+  scConfigId = signal<number | null>(null);
+  scTerminais = signal<{ id: number; numero: number; apelido?: string | null; ativo: boolean }[]>([]);
+  scNovoTerminalNumero = signal<number>(0);
+  scNovoTerminalApelido = signal('');
+  testandoSc = signal(false);
+  ultimoTesteSc = signal('');
+  salvandoSc = signal(false);
+  private scCarregado = false;
+  private scUrl = `${environment.apiUrl}/configuracoes/self-checkout`;
+  private scActionsUrl = `${environment.apiUrl}/self-checkout`;
   fpPlanoContaBusca = signal('');
   fpPlanoContaResultados = signal<{id:number; descricao:string; codigoHierarquico:string}[]>([]);
   fpPlanoContaDropdown = signal(false);
@@ -198,9 +221,11 @@ export class ConfiguracoesComponent implements OnInit {
     this.salvando.set(true);
     const items: ConfigItem[] = Object.entries(this.configs()).map(([chave, valor]) => ({ chave, valor }));
     this.http.put(this.apiUrl, items).subscribe({
-      next: () => {
+      next: async () => {
+        const erroSc = await this.salvarSelfCheckoutSeAplicavel();
         this.salvando.set(false);
-        this.modal.sucesso('Salvo', 'Configurações salvas com sucesso.');
+        if (erroSc) this.modal.erro('Self-Checkout', erroSc);
+        else this.modal.sucesso('Salvo', 'Configurações salvas com sucesso.');
       },
       error: () => {
         this.salvando.set(false);
@@ -356,6 +381,193 @@ export class ConfiguracoesComponent implements OnInit {
         this.testandoFp.set(false);
         this.modal.erro('Erro', 'Não foi possível salvar configurações antes do teste.');
       }
+    });
+  }
+
+  // ── Self-Checkout ────────────────────────────────────────────────
+  private get filialIdAtual(): number {
+    return parseInt(this.auth.usuarioLogado()?.filialId || '1', 10);
+  }
+
+  onAbrirSelfCheckout() {
+    this.toggleAccordion('self-checkout');
+    if (this.accordionAberto() === 'self-checkout' && !this.scCarregado) {
+      this.carregarSelfCheckout();
+    }
+  }
+
+  carregarSelfCheckout() {
+    const filialId = this.filialIdAtual;
+    this.http.get<any>(`${this.scUrl}/${filialId}`).subscribe({
+      next: r => {
+        const cfg = r?.data;
+        if (cfg) {
+          this.scConfigId.set(cfg.id);
+          this.scAtivo.set(!!cfg.ativo);
+          this.scErpOrigem.set(cfg.erpOrigem ?? 1);
+          this.scHost.set(cfg.hostBanco ?? '');
+          this.scBanco.set(cfg.nomeBanco ?? '');
+          this.scUsuario.set(cfg.usuarioBanco ?? '');
+          this.scTemSenha.set(!!cfg.temSenhaCadastrada);
+          this.scSenha.set('');
+          this.scFilialErp.set(cfg.filialErpOrigem ?? '');
+          this.scCodigoNatureza.set(cfg.codigoNaturezaOperacaoNfce ?? null);
+        }
+        this.scCarregado = true;
+        this.carregarTerminais();
+        // Pre-carrega naturezas se a config já tem ID (config persistida).
+        if (this.scConfigId()) this.carregarNaturezas();
+      },
+      error: () => { this.scCarregado = true; }
+    });
+  }
+
+  carregarTerminais() {
+    const filialId = this.filialIdAtual;
+    this.http.get<any>(`${this.scUrl}/${filialId}/terminais`).subscribe({
+      next: r => this.scTerminais.set(r?.data ?? []),
+      error: () => this.scTerminais.set([])
+    });
+  }
+
+  /**
+   * Salva a configuração do Self-Checkout junto com o Salvar geral, mas só se
+   * o usuário interagiu com o accordion (carregou pelo menos uma vez) e há
+   * dados mínimos preenchidos. Retorna null em sucesso ou mensagem de erro.
+   */
+  private salvarSelfCheckoutSeAplicavel(): Promise<string | null> {
+    if (!this.scCarregado) return Promise.resolve(null);
+
+    const semDadosBasicos = !this.scHost().trim() || !this.scBanco().trim()
+      || !this.scUsuario().trim() || !this.scFilialErp().trim();
+
+    // Sem registro persistido ainda: só tenta criar se o usuário preencheu o
+    // mínimo + senha. Senão, ignora silenciosamente (usuário ainda não terminou).
+    if (this.scConfigId() === null) {
+      if (semDadosBasicos) return Promise.resolve(null);
+      if (!this.scSenha()) return Promise.resolve(
+        'Preencha a senha do banco para criar a configuração do Self-Checkout.');
+    }
+
+    const filialId = this.filialIdAtual;
+    const form = {
+      erpOrigem: this.scErpOrigem(),
+      hostBanco: this.scHost(),
+      nomeBanco: this.scBanco(),
+      usuarioBanco: this.scUsuario(),
+      senhaBanco: this.scSenha() || null,
+      filialErpOrigem: this.scFilialErp(),
+      codigoNaturezaOperacaoNfce: this.scCodigoNatureza(),
+      ativo: this.scAtivo()
+    };
+
+    return new Promise(resolve => {
+      this.http.put<any>(`${this.scUrl}/${filialId}`, form).subscribe({
+        next: r => {
+          this.scConfigId.set(r?.data?.id ?? null);
+          this.scTemSenha.set(!!r?.data?.temSenhaCadastrada);
+          this.scSenha.set('');
+          resolve(null);
+        },
+        error: e => resolve(e?.error?.message ?? 'Erro ao salvar configuração do Self-Checkout.')
+      });
+    });
+  }
+
+  testarConexaoSelfCheckout() {
+    if (!this.scHost() || !this.scBanco() || !this.scUsuario() || !this.scFilialErp()) {
+      this.modal.erro('Self-Checkout', 'Preencha host, banco, usuário e filial antes de testar.');
+      return;
+    }
+    if (!this.scSenha() && !this.scTemSenha()) {
+      this.modal.erro('Self-Checkout', 'Informe a senha do banco para testar.');
+      return;
+    }
+    this.testandoSc.set(true);
+    // Senha em texto puro para o teste — não persiste se o usuário não clicar Salvar.
+    // Se o campo de senha estiver vazio e há senha cadastrada, salva primeiro pra usar a config persistida.
+    const usaPersistida = !this.scSenha() && this.scTemSenha();
+    const exec = () => {
+      const body = {
+        erpOrigem: this.scErpOrigem(),
+        hostBanco: this.scHost(),
+        nomeBanco: this.scBanco(),
+        usuarioBanco: this.scUsuario(),
+        senhaBanco: this.scSenha(),
+        filialErpOrigem: this.scFilialErp()
+      };
+      this.http.post<any>(`${this.scActionsUrl}/testar-conexao`, body).subscribe({
+        next: r => {
+          this.testandoSc.set(false);
+          const data = r?.data;
+          const ts = new Date().toLocaleString('pt-BR');
+          if (data?.ok) {
+            this.ultimoTesteSc.set(`${ts} — ${data.mensagem} (${data.totalProdutos ?? 0} produtos)`);
+            this.modal.sucesso('Teste OK', data.mensagem);
+          } else {
+            this.ultimoTesteSc.set(`${ts} — ${data?.mensagem ?? 'falha'}`);
+            this.modal.erro('Teste falhou', data?.mensagem ?? 'falha');
+          }
+        },
+        error: e => {
+          this.testandoSc.set(false);
+          this.modal.erro('Teste falhou', e?.error?.message ?? 'Erro ao testar conexão.');
+        }
+      });
+    };
+
+    if (usaPersistida) {
+      this.toastr.info('Para testar com a senha já cadastrada, clique em Salvar antes — ou digite a senha no campo.', 'Atenção',
+        { timeOut: 6000, positionClass: 'toast-top-center' });
+      this.testandoSc.set(false);
+      return;
+    }
+    exec();
+  }
+
+  criarTerminal() {
+    const numero = this.scNovoTerminalNumero();
+    if (!numero || numero <= 0) {
+      this.modal.erro('Terminal', 'Informe um número válido.');
+      return;
+    }
+    const filialId = this.filialIdAtual;
+    const form = { numero, apelido: this.scNovoTerminalApelido() || null, ativo: true };
+    this.http.post<any>(`${this.scUrl}/${filialId}/terminais`, form).subscribe({
+      next: () => {
+        this.scNovoTerminalNumero.set(0);
+        this.scNovoTerminalApelido.set('');
+        this.carregarTerminais();
+      },
+      error: e => this.modal.erro('Terminal', e?.error?.message ?? 'Erro ao criar terminal.')
+    });
+  }
+
+  carregarNaturezas() {
+    const filialId = this.filialIdAtual;
+    this.carregandoNaturezas.set(true);
+    this.http.get<any>(`${this.scActionsUrl}/filial/${filialId}/naturezas-operacao`).subscribe({
+      next: r => {
+        this.scNaturezas.set(r?.data ?? []);
+        this.carregandoNaturezas.set(false);
+      },
+      error: () => {
+        this.scNaturezas.set([]);
+        this.carregandoNaturezas.set(false);
+      }
+    });
+  }
+
+  onScNaturezaChange(valor: string) {
+    const num = parseInt(valor, 10);
+    this.scCodigoNatureza.set(isNaN(num) ? null : num);
+  }
+
+  removerTerminal(id: number) {
+    if (!confirm('Remover este terminal?')) return;
+    this.http.delete<any>(`${this.scUrl}/terminais/${id}`).subscribe({
+      next: () => this.carregarTerminais(),
+      error: e => this.modal.erro('Terminal', e?.error?.message ?? 'Erro ao remover terminal.')
     });
   }
 }

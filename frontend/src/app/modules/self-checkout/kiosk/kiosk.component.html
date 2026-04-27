@@ -1,0 +1,265 @@
+<div class="kiosk-shell">
+
+  <!-- Header sempre visível -->
+  <header class="kiosk-header">
+    <div class="kiosk-logo">FARMÁCIA</div>
+    @if (estado() !== 'atrator') {
+      <button class="kiosk-btn kiosk-btn-atendente" (click)="chamarAtendente()">
+        <span class="kiosk-btn-icone">!</span>
+        <span>Chamar Atendente</span>
+      </button>
+    }
+  </header>
+
+  <!-- SELECIONAR TERMINAL -->
+  @if (estado() === 'selecionarTerminal') {
+    <main class="kiosk-selecionar-terminal">
+      <div class="kiosk-sel-icone">🖥️</div>
+      <h2>Selecione este terminal</h2>
+      <p>Escolha o número correspondente ao caixa onde você está. A escolha é lembrada neste navegador.</p>
+
+      @if (carregandoTerminais()) {
+        <div class="kiosk-sel-status">Carregando...</div>
+      } @else if (erroTerminais()) {
+        <div class="kiosk-sel-erro">{{ erroTerminais() }}</div>
+        <button class="kiosk-btn kiosk-btn-secundario" (click)="carregarTerminais()">Tentar novamente</button>
+      } @else {
+        <div class="kiosk-sel-grade">
+          @for (t of terminais(); track t.id) {
+            <button class="kiosk-sel-card" (click)="selecionarTerminal(t)">
+              <span class="kiosk-sel-num">Nº {{ t.numero }}</span>
+              @if (t.apelido) {
+                <span class="kiosk-sel-apelido">{{ t.apelido }}</span>
+              } @else {
+                <span class="kiosk-sel-apelido">Terminal {{ t.numero }}</span>
+              }
+            </button>
+          }
+        </div>
+      }
+    </main>
+  }
+
+  <!-- ATRATOR -->
+  @if (estado() === 'atrator') {
+    <main class="kiosk-atrator" (click)="iniciarSessao()">
+      <div class="kiosk-atrator-icone">🛒</div>
+      <h1>Toque para começar</h1>
+      <p>Auto-atendimento — passe seus produtos no leitor</p>
+    </main>
+  }
+
+  <!-- CARRINHO -->
+  @if (estado() === 'carrinho') {
+    <main class="kiosk-carrinho">
+      <div class="kiosk-leitor-wrap">
+        <input #inputEan class="kiosk-leitor"
+               type="text"
+               [value]="inputBuffer()"
+               (input)="onInputChange($any($event.target).value)"
+               (keydown.enter)="onInputEnter()"
+               placeholder="Passe o produto no leitor..."
+               autocomplete="off"
+               autofocus />
+        <button class="kiosk-btn kiosk-btn-buscar" (click)="abrirBusca()">
+          🔍 Buscar produto
+        </button>
+      </div>
+
+      @if (carrinho().length === 0) {
+        <div class="kiosk-vazio">
+          <div class="kiosk-vazio-icone">📦</div>
+          <p>Comece passando seus produtos</p>
+        </div>
+      } @else {
+        <div class="kiosk-itens">
+          @for (item of carrinho(); track item.produto.codigoExterno) {
+            <div class="kiosk-item">
+              <div class="kiosk-item-info">
+                <div class="kiosk-item-nome">{{ item.produto.nome }}</div>
+                <div class="kiosk-item-precos">
+                  @if (item.produto.emPromocao) {
+                    <span class="kiosk-badge-promo">PROMOÇÃO</span>
+                    <span class="kiosk-preco-de">R$ {{ item.produto.precoCheio | number:'1.2-2' }}</span>
+                  }
+                  <span class="kiosk-preco-final">R$ {{ item.produto.precoFinal | number:'1.2-2' }}</span>
+                </div>
+              </div>
+              <div class="kiosk-item-qtd">
+                <button class="kiosk-qtd-btn" (click)="alterarQuantidade(item.produto.codigoExterno, -1)">−</button>
+                <span class="kiosk-qtd-num">{{ item.quantidade }}</span>
+                <button class="kiosk-qtd-btn" (click)="alterarQuantidade(item.produto.codigoExterno, +1)">+</button>
+              </div>
+              <div class="kiosk-item-total">
+                R$ {{ (item.produto.precoFinal * item.quantidade) | number:'1.2-2' }}
+              </div>
+              <button class="kiosk-item-remover" (click)="removerItem(item.produto.codigoExterno)" title="Remover">×</button>
+            </div>
+          }
+        </div>
+      }
+
+      <footer class="kiosk-rodape">
+        <div class="kiosk-total-bloco">
+          <span class="kiosk-total-label">{{ qtdItens() }} {{ qtdItens() === 1 ? 'item' : 'itens' }}</span>
+          <span class="kiosk-total-valor">R$ {{ total() | number:'1.2-2' }}</span>
+        </div>
+        <button class="kiosk-btn kiosk-btn-finalizar"
+                [disabled]="carrinho().length === 0 || finalizandoVenda()"
+                (click)="finalizarCompra()">
+          {{ finalizandoVenda() ? 'Aguarde...' : 'Finalizar' }}
+        </button>
+      </footer>
+    </main>
+  }
+
+  <!-- PAGAMENTO -->
+  @if (estado() === 'pagamento') {
+    <main class="kiosk-pagamento">
+      <h2>Como você quer pagar?</h2>
+      <div class="kiosk-total-grande">
+        Total: <strong>R$ {{ total() | number:'1.2-2' }}</strong>
+      </div>
+      <div class="kiosk-pagamento-opcoes">
+        <button class="kiosk-btn-pagamento kiosk-btn-pix" (click)="escolherPagamento('PIX')">
+          <span class="kiosk-pag-icone">📱</span>
+          <span class="kiosk-pag-titulo">PIX</span>
+          <span class="kiosk-pag-desc">Pagamento instantâneo</span>
+        </button>
+        <button class="kiosk-btn-pagamento kiosk-btn-cartao" (click)="escolherPagamento('CARTAO')">
+          <span class="kiosk-pag-icone">💳</span>
+          <span class="kiosk-pag-titulo">Cartão</span>
+          <span class="kiosk-pag-desc">Crédito ou débito</span>
+        </button>
+      </div>
+      <button class="kiosk-btn kiosk-btn-secundario" (click)="cancelarVenda()">Cancelar venda</button>
+    </main>
+  }
+
+  <!-- AGUARDANDO CONFIRMAÇÃO DO ATENDENTE -->
+  @if (estado() === 'aguardandoConfirmacao') {
+    <main class="kiosk-modal-aviso">
+      <div class="kiosk-aviso-icone kiosk-spinner">⏳</div>
+      <h2>Aguardando confirmação do pagamento</h2>
+      <p>Por favor, faça o pagamento e aguarde — um atendente irá confirmar.</p>
+      <div class="kiosk-total-grande" style="margin-top: 24px">
+        Total: <strong>R$ {{ total() | number:'1.2-2' }}</strong>
+      </div>
+      <div class="kiosk-aviso-acoes">
+        <button class="kiosk-btn kiosk-btn-secundario" (click)="cancelarVenda()">Cancelar venda</button>
+      </div>
+    </main>
+  }
+
+  <!-- CUPOM -->
+  @if (estado() === 'cupom') {
+    <main class="kiosk-modal-aviso">
+      <div class="kiosk-aviso-icone">✅</div>
+      <h2>Compra finalizada!</h2>
+      <p>NFC-e {{ ultimoStatus()?.serieNfce }}/{{ ultimoStatus()?.numeroNfce }} autorizada.</p>
+      @if (ultimoStatus()?.chaveAcesso) {
+        <p style="font-family: monospace; font-size: 18px; word-break: break-all; max-width: 600px">
+          {{ ultimoStatus()!.chaveAcesso }}
+        </p>
+      }
+      <p>Obrigado pela compra! Retire o cupom impresso.</p>
+      <div class="kiosk-aviso-acoes">
+        <button class="kiosk-btn kiosk-btn-finalizar" (click)="finalizarCupom()">Concluir</button>
+      </div>
+    </main>
+  }
+
+  <!-- ERRO DE EMISSÃO -->
+  @if (estado() === 'erroEmissao') {
+    <main class="kiosk-modal-aviso">
+      <div class="kiosk-aviso-icone">⚠️</div>
+      <h2>Falha na emissão da NFC-e</h2>
+      <p class="kiosk-aviso-erro">{{ erroApi() || ultimoStatus()?.mensagem }}</p>
+      <p>Por favor, aguarde o atendente.</p>
+      <div class="kiosk-aviso-acoes">
+        <button class="kiosk-btn kiosk-btn-secundario" (click)="finalizarCupom()">Voltar ao início</button>
+      </div>
+    </main>
+  }
+
+  <!-- BUSCA -->
+  @if (estado() === 'busca') {
+    <main class="kiosk-busca" data-no-refocus>
+      <div class="kiosk-busca-topo">
+        <div class="kiosk-busca-input">
+          <span class="kiosk-busca-prompt">Digite o nome do produto:</span>
+          <span class="kiosk-busca-texto">{{ termoBusca() || ' ' }}</span>
+        </div>
+        <button class="kiosk-btn kiosk-btn-secundario" (click)="fecharBusca()">Cancelar</button>
+      </div>
+
+      <div class="kiosk-busca-resultados">
+        @if (buscando()) {
+          <div class="kiosk-busca-status">Buscando...</div>
+        } @else if (termoBusca().length < 2) {
+          <div class="kiosk-busca-status">Digite ao menos 2 letras</div>
+        } @else if (resultadosBusca().length === 0) {
+          <div class="kiosk-busca-status">Nenhum produto encontrado</div>
+        } @else {
+          @for (p of resultadosBusca(); track p.codigoExterno) {
+            <button class="kiosk-resultado" (click)="selecionarResultado(p)">
+              <div class="kiosk-resultado-nome">{{ p.nome }}</div>
+              <div class="kiosk-resultado-preco">
+                @if (p.emPromocao) {
+                  <span class="kiosk-badge-promo-pq">PROMO</span>
+                }
+                R$ {{ p.precoFinal | number:'1.2-2' }}
+              </div>
+            </button>
+          }
+        }
+      </div>
+
+      <div class="kiosk-teclado">
+        @for (linha of tecladoLinhas; track $index) {
+          <div class="kiosk-teclado-linha">
+            @for (letra of linha; track letra) {
+              <button class="kiosk-tecla" (click)="digitarTeclado(letra)">{{ letra }}</button>
+            }
+          </div>
+        }
+        <div class="kiosk-teclado-linha">
+          <button class="kiosk-tecla kiosk-tecla-larga" (click)="espaco()">␣ Espaço</button>
+          <button class="kiosk-tecla kiosk-tecla-larga" (click)="apagarUltimo()">⌫ Apagar</button>
+        </div>
+      </div>
+    </main>
+  }
+
+  <!-- PRODUTO NÃO LOCALIZADO -->
+  @if (estado() === 'naoLocalizado') {
+    <main class="kiosk-modal-aviso">
+      <div class="kiosk-aviso-icone">⚠️</div>
+      <h2>Produto não localizado</h2>
+      <p>Não encontramos o produto com código <strong>{{ ultimoEanNaoLocalizado() }}</strong>.</p>
+      <p>Por favor, leve este item ao atendente da loja.</p>
+      <div class="kiosk-aviso-acoes">
+        <button class="kiosk-btn kiosk-btn-secundario" (click)="fecharNaoLocalizado()">Continuar comprando</button>
+        <button class="kiosk-btn kiosk-btn-atendente" (click)="chamarAtendente()">Chamar Atendente</button>
+      </div>
+    </main>
+  }
+
+  <!-- AGUARDANDO ATENDENTE -->
+  @if (estado() === 'aguardandoAtendente') {
+    <main class="kiosk-modal-aviso">
+      <div class="kiosk-aviso-icone">🔔</div>
+      <h2>Chamando atendente</h2>
+      @if (erroApi()) {
+        <p class="kiosk-aviso-erro">{{ erroApi() }}</p>
+      }
+      <p>Um atendente já está a caminho. Por favor, aguarde.</p>
+      <div class="kiosk-aviso-acoes">
+        <button class="kiosk-btn kiosk-btn-secundario" (click)="fecharChamado()">Cancelar chamado</button>
+      </div>
+    </main>
+  }
+
+  <!-- Combinação secreta para sair do kiosk (5 toques no canto) -->
+  <div class="kiosk-saida-canto" (click)="onCantoToque()" title="Manutenção"></div>
+</div>

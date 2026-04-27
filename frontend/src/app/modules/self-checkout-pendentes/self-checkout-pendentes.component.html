@@ -1,0 +1,61 @@
+<div class="scp-wrap">
+  <header class="scp-topo">
+    <h1>Self-Checkout — Pagamentos Pendentes</h1>
+    <div class="scp-topo-direita">
+      @if (ultimaAtualizacao()) {
+        <span class="scp-atualizacao">Atualizado às {{ ultimaAtualizacao() | date:'HH:mm:ss' }}</span>
+      }
+      <button class="scp-btn-secundario" (click)="carregar()" [disabled]="carregando()">
+        {{ carregando() ? 'Atualizando...' : 'Atualizar' }}
+      </button>
+    </div>
+  </header>
+
+  @if (pendentes().length === 0) {
+    <div class="scp-vazio">
+      <div class="scp-vazio-icone">✅</div>
+      <p>Nenhum pagamento aguardando confirmação no momento.</p>
+      <p class="scp-vazio-sub">A lista atualiza automaticamente a cada 2 segundos.</p>
+    </div>
+  } @else {
+    <div class="scp-grid">
+      @for (p of pendentes(); track p.vendaId) {
+        <div class="scp-card">
+          <div class="scp-card-topo">
+            <div class="scp-terminal">
+              <span class="scp-terminal-num">Terminal {{ p.terminalNumero }}</span>
+              @if (p.terminalApelido) {
+                <span class="scp-terminal-apelido">{{ p.terminalApelido }}</span>
+              }
+            </div>
+            <span class="scp-hora">{{ formatarHora(p.criadoEm) }}</span>
+          </div>
+
+          <div class="scp-card-corpo">
+            <div class="scp-total">
+              <span class="scp-total-label">{{ p.totalItens }} {{ p.totalItens === 1 ? 'item' : 'itens' }}</span>
+              <span class="scp-total-valor">R$ {{ p.totalLiquido | number:'1.2-2' }}</span>
+            </div>
+            <div class="scp-forma">
+              <span class="scp-forma-label">Forma de pagamento</span>
+              <span class="scp-forma-valor">{{ p.formaPagamento }}</span>
+            </div>
+          </div>
+
+          <div class="scp-card-acoes">
+            <button class="scp-btn-recusar"
+                    [disabled]="acaoEmAndamento() !== null"
+                    (click)="recusar(p)">
+              Recusar
+            </button>
+            <button class="scp-btn-confirmar"
+                    [disabled]="acaoEmAndamento() !== null"
+                    (click)="confirmar(p)">
+              {{ acaoEmAndamento() === p.vendaId ? 'Processando...' : 'Confirmar pagamento' }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
