@@ -99,11 +99,6 @@ export class ErpShellComponent {
       cor: '#00acc1',
       tiles: [
         { label: 'Pre-Venda',        sigla: 'PV', iconKey: 'cart',      rota: '/erp/pre-venda' },
-        { label: 'Vendas',           sigla: 'VE', iconKey: 'cart',      rota: '/erp/vendas' },
-        { label: 'Emprestimo',       sigla: 'EP', iconKey: 'handshake', rota: '/erp/emprestimo' },
-        { label: 'Mov. de Estoque',  sigla: 'ME', iconKey: 'box',       rota: '/erp/movimentacao-estoque' },
-        { label: 'Carteira Digital', sigla: 'CD', iconKey: 'wallet',    rota: '/erp/carteira' },
-        { label: 'Conta do Cliente', sigla: 'CC', iconKey: 'user',      rota: '/erp/conta-cliente' },
         { label: 'Caixa',            sigla: 'CX', iconKey: 'cash',      rota: '/erp/caixa' },
         { label: 'Compras',          sigla: 'CP', iconKey: 'cart2',     rota: '/erp/compras' },
         { label: 'Lancar Compras',   sigla: 'LC', iconKey: 'cart2',     rota: '/erp/lancar-compras' },
@@ -152,8 +147,6 @@ export class ErpShellComponent {
       nome: 'Relatorios',
       cor: '#6a1b9a',
       tiles: [
-        { label: 'Analise de Vendas',   sigla: 'AV', iconKey: 'chart', rota: '/erp/rel/vendas' },
-        { label: 'Analise de Produtos', sigla: 'AP', iconKey: 'chart', rota: '/erp/rel/produtos' },
         { label: 'Log de Auditoria',    sigla: 'LA', iconKey: 'log',   rota: '/erp/log-geral' },
       ]
     },
@@ -161,7 +154,6 @@ export class ErpShellComponent {
       nome: 'Manutencao',
       cor: '#f9a825',
       tiles: [
-        { label: 'Manutencao',        sigla: 'MT', iconKey: 'wrench',   rota: '/erp/manutencao' },
         { label: 'Sincronismo',      sigla: 'SI', iconKey: 'wrench',   rota: '/erp/sync' },
         { label: 'Grupo de Usuarios', sigla: 'GU', iconKey: 'lock',     rota: '/erp/grupos' },
         { label: 'Usuarios',          sigla: 'US', iconKey: 'users',    rota: '/erp/usuarios' },
