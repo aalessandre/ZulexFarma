@@ -1696,7 +1696,7 @@
             <div class="cmd-grupo">
               <div class="cmd-label">Selecao de Terminal (PC fisico)</div>
               <span class="cmd-obs">
-                Acessar <code>http://servidor/kiosk</code> sem parametros: aparece tela "Selecione este terminal" com cards dos terminais ativos cadastrados. Tocar uma vez e pronto — escolha gravada em <code>localStorage</code> (chave <code>kiosk:terminalId:filial-{id}</code>).<br><br>
+                Acessar <code>http://servidor/kiosk</code> sem parametros: aparece tela "Selecione este terminal" com cards dos terminais ativos cadastrados. Tocar uma vez e pronto — escolha gravada em <code>localStorage</code> (chave <code>kiosk:terminalId:filial-{{ '{' }}id{{ '}' }}</code>).<br><br>
                 Override por URL: <code>/kiosk?terminalId=2</code> forca adocao do terminal 2 e regrava o storage.<br>
                 Modo manutencao: 5 toques no canto inferior direito (60x60px invisivel) em ate 3s redireciona para <code>/erp</code>.
               </span>
@@ -1806,6 +1806,294 @@
               <span class="cmd-obs">
                 Spec completa: <code>docs/specs/self-checkout.md</code>.<br>
                 Schemas Inovafarma usados: <code>erps/inovafarma/*.sql</code>.
+              </span>
+            </div>
+
+          </div>
+        }
+      </section>
+
+      <!-- TEF MULTIPLUSCARD -->
+      <section class="help-secao">
+        <div class="secao-header tef" [class.aberto]="isAberta('tef')" (click)="toggleSecao('tef')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
+          <span>TEF MultiplusCard (DLL Transparente)</span>
+        </div>
+        @if (isAberta('tef')) {
+          <div class="secao-corpo">
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Visao Geral</div>
+              <span class="cmd-obs">
+                Integracao com TEF da <strong>MultiplusCard</strong> usando a DLL <strong>transparente</strong> (<code>Tefclientmc_x64.dll</code>) para finalizar vendas com cartao/PIX <strong>dentro da propria tela do caixa</strong> — sem o operador precisar alternar para a tela do TEF.<br><br>
+
+                Substitui o modal manual de cartao atual (em que o operador digita autorizacao/bandeira/adquirente olhando o cupom impresso) por um <strong>modal embutido</strong> que dialoga em tempo real com o pinpad e preenche os dados automaticamente.<br><br>
+
+                <strong>Nao substitui</strong> o modal manual — passa a coexistir. O <code>TipoPagamento</code> ganha flag <code>UsaTef</code>: quando ligada, dispara o fluxo TEF; quando desligada, segue o modal manual antigo. Migracao terminal por terminal.<br><br>
+
+                <strong>Spec completa:</strong> <code>docs/specs/tef-multipluscard.md</code>.<br>
+                <strong>Documentacao MultiplusCard:</strong> <code>docs.multipluscard.com.br/pt/documentacao/tef/dll/transparente/introducao/</code>.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Arquitetura (3 camadas)</div>
+              <span class="cmd-obs">
+                Browser nao carrega DLL Win32 — solucao tem 3 partes:<br><br>
+
+                <strong>1. Frontend Angular (caixa-venda + tef-modal):</strong> renderiza inline as mensagens, menus e perguntas do pinpad. Conversa com a Bridge via WebSocket localhost.<br><br>
+
+                <strong>2. ZulexPharma.TefBridge (novo):</strong> executavel <strong>.NET 4.8 x64</strong> rodando em <strong>modo administrador</strong> no PC do caixa. Servico Windows (preferencial) ou tray app (fallback). Carrega a DLL via P/Invoke, expoe <code>ws://127.0.0.1:8765/tef</code> para o frontend, gerencia a state-machine de tags e imprime o comprovante.<br><br>
+
+                <strong>3. ClientD.exe da MultiplusCard:</strong> processo separado (nao e nosso codigo). Conversa com o pinpad USB e com a rede MultiplusCard. Auto-atualizado pela MultiplusCard. A Bridge nao mexe nele — so conversa via DLL.<br><br>
+
+                <strong>Sem centralizacao possivel:</strong> a DLL precisa do pinpad USB <strong>local</strong>. Cada estacao tem sua Bridge.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Funcoes da DLL (5 chamadas)</div>
+              <span class="cmd-obs">
+                <strong>IniciaFuncaoMCInterativo(comando, cnpj, parcela, cupom, valor, nsu, data, pdv, codLoja, 0, "")</strong> &rarr; INT.<br>
+                Inicia a transacao. Retorno 0 = ok; outro = erro pre-aprovacao.<br><br>
+
+                <strong>AguardaFuncaoMCInterativo()</strong> &rarr; BSTR.<br>
+                Loop continuo <span class="cmd-warn">SEM Sleep/Delay</span>. Retorna tags textuais que dirigem a state-machine: <code>[MSG]</code>, <code>[MENU]</code>, <code>[PERGUNTA]</code>, <code>[RETORNO]</code>, <code>[ERROABORTAR]</code>, <code>[ERRODISPLAY]</code>.<br><br>
+
+                <strong>ContinuaFuncaoMCInterativo(resposta)</strong> &rarr; INT.<br>
+                Resposta do operador a <code>[MENU]</code> ou <code>[PERGUNTA]</code>. Pode enviar <code>"ABORTAR"</code> para cancelar.<br><br>
+
+                <strong>FinalizaFuncaoMCInterativo(98|99, …, NSU)</strong> &rarr; INT.<br>
+                Confirma (cmd 98) ou desfaz (cmd 99) a transacao apos o <code>[RETORNO]</code>. NSU obrigatorio (vem de <code>CAMPO0133</code>).<br><br>
+
+                <strong>CancelarFluxoMCInterativo()</strong> &rarr; INT.<br>
+                Aborta em erros (<code>[ERROABORTAR]</code> ou <code>[ERRODISPLAY]</code>).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Codigos de Operacao</div>
+              <span class="cmd-obs">
+                <ul>
+                  <li><code>0</code>: Credito a vista</li>
+                  <li><code>1</code>: Credito (operadora pergunta tipo)</li>
+                  <li><code>2</code>: Credito parcelado loja</li>
+                  <li><code>3</code>: Credito parcelado administradora</li>
+                  <li><code>4</code>: Debito</li>
+                  <li><code>20</code>: Debito a vista</li>
+                  <li><code>50</code>: Menu de PSPs PIX</li>
+                  <li><code>51</code>: PIX cobranca padrao</li>
+                  <li><code>98</code>: Confirmar transacao</li>
+                  <li><code>99</code>: Desfazer transacao</li>
+                  <li><code>300</code>: Relatorio de transacoes</li>
+                  <li><code>700</code>: Verificar status</li>
+                </ul>
+                <strong>Fase 1 cobre:</strong> 0, 2, 4, 20, 50, 51, 98, 99, 300. Demais ficam para Fase 2 (parcelado adm + transacoes digitadas 29/42).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Tags da State-Machine</div>
+              <span class="cmd-obs">
+                <strong><code>[MSG]#TEXTO</code></strong> — mensagem informativa para o operador (sem input). Ex: "INSIRA O CARTAO".<br><br>
+
+                <strong><code>[MENU]#TITULO#1,1-OPCAO|2,2-OPCAO</code></strong> — menu de selecao. Frontend renderiza botoes grandes; resposta enviada via <code>ContinuaFuncao</code>.<br><br>
+
+                <strong><code>[PERGUNTA]#TEXTO#TIPO#MIN#MAX#VMIN#VMAX#CASAS</code></strong> — input. Tipos: INT, STRING, DECIMAL, DATE. Frontend valida formato e respeita min/max.<br><br>
+
+                <strong><code>[RETORNO]#CAMPO=VALOR#CAMPO=VALOR</code></strong> — transacao aprovada. Parsear os <code>CAMPOxxxx</code> (ver mapeamento abaixo).<br><br>
+
+                <strong><code>[ERROABORTAR]#MSG</code></strong> — erro fatal. Bridge chama <code>CancelarFluxo</code> antes de avisar o frontend.<br><br>
+
+                <strong><code>[ERRODISPLAY]#MSG</code></strong> — erro operacional. Mesma acao do anterior.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Mapeamento dos CAMPOs do RETORNO</div>
+              <span class="cmd-obs">
+                <ul>
+                  <li><code>CAMPO0002</code> &rarr; valor confirmado (conferir contra valor enviado — RN-15).</li>
+                  <li><code>CAMPO0133</code> &rarr; <strong>NSU</strong> (chave de identidade, obrigatorio para cmd 98/99).</li>
+                  <li><code>CAMPO0135</code> &rarr; <strong>autorizacao</strong> (vai para <code>VendaPagamento.Autorizacao</code>).</li>
+                  <li><code>CAMPO0132</code> &rarr; codigo de bandeira da MultiplusCard (passa pelo de-para <code>BandeiraTef</code>).</li>
+                  <li><code>CAMPO0136</code> &rarr; BIN (6 primeiros digitos do cartao). Persistido.</li>
+                  <li><code>CAMPO1190</code> &rarr; ultimos 4 digitos. Persistidos.</li>
+                  <li><code>CAMPO0505</code> &rarr; quantidade de parcelas.</li>
+                  <li><code>CAMPO0122</code> &rarr; <strong>comprovante completo</strong> com <code>|</code> separando linhas e literal <code>CORTAR</code> indicando corte termico (uma via cliente + uma via loja).</li>
+                  <li><code>CAMPO2620</code> &rarr; E2E PIX (operacao 51).</li>
+                  <li><code>CAMPO0160</code> &rarr; cupom (eco do enviado).</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Configuracao Inicial</div>
+              <span class="cmd-obs">
+                <strong>1. Pre-requisitos da estacao</strong> (manuais, seguindo manual MultiplusCard):
+                <ul>
+                  <li>Windows 10+ x64, .NET Framework 4.6.2, VC++ 2015-2022 Redistributable.</li>
+                  <li>Pinpad USB conectado.</li>
+                  <li><span class="cmd-warn">Modo administrador obrigatorio</span> para Bridge e ClientD.</li>
+                  <li>Banda larga.</li>
+                </ul>
+
+                <strong>2. Arquivos da MultiplusCard:</strong>
+                <ul>
+                  <li><code>C:\ZulexPharma\Bridge\ConfigMC.ini</code> &rarr; <code>CAMINHO=C:\ClientD</code></li>
+                  <li><code>C:\ClientD\CliMC.ini</code>:
+                    <pre style="margin:6px 0 0 0">Porta=AUTO_USB
+MensagemPadrao=ZULEXPHARMA
+TransacoesAdicionaisHabilitadas=
+ConfirmacaoAutomatica=NAO
+NomeImpressora=</pre>
+                  </li>
+                  <li><code>C:\ClientD\ClientD.exe</code> instalado e configurado pela MultiplusCard.</li>
+                </ul>
+
+                <strong>3. No ZulexPharma</strong> (Outros Cadastros &rarr; TEF):
+                <ul>
+                  <li><strong>Terminal TEF</strong>: numero, apelido, CNPJ cliente (14 digitos), codigo loja, numero PDV, porta da Bridge (default 8765), ativo.</li>
+                  <li><strong>Bandeiras TEF</strong>: de-para entre <code>CAMPO0132</code> (codigo MultiplusCard) e <code>BandeiraId</code> interno. Botao "Importar de retorno recente" sugere mapeamentos faltantes.</li>
+                </ul>
+
+                <strong>4. Em Tipos de Pagamento:</strong> ligar flag <strong>UsaTef</strong> nos tipos que devem usar o fluxo TEF (Cartao Credito TEF, Cartao Debito TEF, PIX TEF). Tipos sem a flag continuam no modal manual.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Permissoes</div>
+              <span class="cmd-obs">
+                Codigo de tela: <code>tef</code>. Acoes:
+                <ul>
+                  <li><code>c</code> (Consultar/operar): operador roda transacao TEF no caixa.</li>
+                  <li><code>a</code> (Alterar): admin cadastra terminais e mapeia bandeiras.</li>
+                  <li><code>x</code> (Excluir/estornar): financeiro estorna transacao TEF apos cancelamento de NF-e.</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fluxo de Venda Cartao (Fase 1)</div>
+              <span class="cmd-obs">
+                <ol>
+                  <li>Operador clica <strong>Finalizar</strong> em <code>caixa-venda</code>.</li>
+                  <li><code>confirmarPagamento()</code> detecta linha de pagamento com <code>TipoPagamento.UsaTef = true</code>.</li>
+                  <li>Abre <strong>tef-modal</strong> e conecta no WebSocket da Bridge (<code>ws://127.0.0.1:8765/tef</code>).</li>
+                  <li>Frontend envia <code>start</code>: cnpj, codigo loja, numero PDV, operacao, valor.</li>
+                  <li>Bridge chama <code>IniciaFuncaoMCInterativo</code>. Retorno 0 = ok. Senao mostra erro pre-aprovacao e fecha.</li>
+                  <li>Bridge entra em loop chamando <code>AguardaFuncaoMCInterativo</code> sem sleep e empurrando cada tag para o WS.</li>
+                  <li>Frontend renderiza <code>[MSG]</code> / <code>[MENU]</code> / <code>[PERGUNTA]</code> inline. Operador interage; respostas voltam via <code>answer</code>.</li>
+                  <li>Cliente insere cartao &rarr; digita senha &rarr; chip processa.</li>
+                  <li>Bridge recebe <code>[RETORNO]</code> &rarr; persiste <code>TefTransacao</code> com status <code>AprovadaPendenteConfirmacao</code> (RN-08).</li>
+                  <li>Bridge imprime comprovante (CAMPO0122 com <code>|</code>&rarr;<code>\n</code>, <code>CORTAR</code>&rarr;ESC/POS cut).</li>
+                  <li>Frontend recebe <code>retorno</code> + <code>printed</code>. Preenche <code>CartaoItem</code> automaticamente (autorizacao, bandeira, parcelas, NSU, ultimos4).</li>
+                  <li>caixa-venda chama <code>executarFinalizacao()</code> &rarr; cria <code>Venda</code> &rarr; emite NFC-e.</li>
+                  <li>Se NFC-e <strong>autorizada</strong>: frontend manda <code>confirm</code> &rarr; Bridge chama <code>FinalizaFuncaoMCInterativo(98, …, NSU)</code> &rarr; status <code>Confirmada</code>.</li>
+                  <li>Se NFC-e <strong>rejeitada</strong>: frontend manda <code>revert</code> &rarr; Bridge chama <code>FinalizaFuncaoMCInterativo(99, …, NSU)</code> &rarr; status <code>Estornada</code>.</li>
+                </ol>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Fluxo PIX TEF (operacao 51)</div>
+              <span class="cmd-obs">
+                Identico ao cartao, com diferencas:
+                <ul>
+                  <li><code>IniciaFuncaoMCInterativo(51, …)</code>.</li>
+                  <li>Pinpad pode mostrar QR code direto OU via <code>[MSG]</code> com link/QR.</li>
+                  <li><code>[RETORNO]</code> traz <code>CAMPO2620</code> (E2E PIX) — persiste em <code>TefTransacao.E2eIdPix</code>.</li>
+                  <li>Alguns PSPs nao exigem <code>cmd 98</code> — Bridge detecta e ajusta.</li>
+                  <li>PIX TEF vai em <code>TipoPagamento</code> separado do PIX manual existente (RN-21).</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Multiplos Cartoes na Mesma Venda</div>
+              <span class="cmd-obs">
+                <code>ConfirmacaoAutomatica=NAO</code> no <code>CliMC.ini</code> permite suportar multiplos cartoes (RN-06):
+                <ul>
+                  <li>Cada linha de cartao no modal de pagamento dispara um TEF independente.</li>
+                  <li><strong>Nenhum</strong> e confirmado (<code>cmd 98</code>) ate <strong>todos</strong> aprovarem e a NFC-e sair autorizada.</li>
+                  <li>Se um falhar, dispara <code>cmd 99</code> em todos os ja aprovados (RN-11).</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Estorno Automatico (RN-09)</div>
+              <span class="cmd-obs">
+                Sempre que houver falha pos-aprovacao, Bridge dispara <code>cmd 99</code> automaticamente:
+                <ul>
+                  <li>NFC-e/NF-e rejeitada apos cartao aprovado.</li>
+                  <li>Erro inesperado em <code>executarFinalizacao()</code>.</li>
+                  <li>Operador cancelou na ultima tela.</li>
+                  <li>Sistema caiu entre aprovacao e confirmacao &rarr; recovery automatico no startup da Bridge consulta backend e decide entre cmd 98 ou cmd 99.</li>
+                </ul>
+
+                <strong>Cancelamento de NFC-e ja emitida:</strong> dispara estorno em cascata. Se ainda na janela do adquirente &rarr; <code>cmd 99</code>. Fora da janela &rarr; marca <code>EstornoManualNecessario</code> + alerta admin (badge no menu Caixa).
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Recovery (Bridge sobreviveu, ZulexPharma caiu — ou vice-versa)</div>
+              <span class="cmd-obs">
+                Bridge no startup:
+                <ol>
+                  <li>Lista <code>TefTransacao</code> em <code>AprovadaPendenteConfirmacao</code> da estacao.</li>
+                  <li>Para cada, consulta backend: a venda foi finalizada com NFC-e autorizada?</li>
+                  <li>Se sim &rarr; <code>cmd 98</code>. Se nao &rarr; <code>cmd 99</code>.</li>
+                  <li>Loga em <code>TefTransacaoLog</code>.</li>
+                </ol>
+                Garante que nenhuma transacao fica em limbo apos crash, perda de energia ou kill abrupto.
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Persistencia (PCI + auditoria)</div>
+              <span class="cmd-obs">
+                <ul>
+                  <li><strong>NUNCA</strong> persistir numero completo do cartao (RN-16). So BIN (CAMPO0136) + ultimos 4 (CAMPO1190).</li>
+                  <li>Comprovante completo (CAMPO0122) gravado em <code>TefTransacao.ComprovanteTexto</code> para reimpressao e auditoria.</li>
+                  <li>Cada tag enviada/recebida vai em <code>TefTransacaoLog</code> (debug + suporte).</li>
+                  <li>Senha/PIN: <strong>nunca</strong> chega ao PDV nem a Bridge — fica entre cliente, pinpad e adquirente. A DLL nao expoe.</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Decisoes Importantes</div>
+              <span class="cmd-obs">
+                <ul>
+                  <li><strong>Bridge local em vez de Electron:</strong> menos invasivo (~1500 LoC) e reutilizavel para outros TEFs.</li>
+                  <li><strong>WebSocket em vez de HTTP polling:</strong> state-machine TEF e em tempo real; polling daria latencia ruim no dialogo de tags.</li>
+                  <li><strong><code>ConfirmacaoAutomatica=NAO</code>:</strong> suporta multiplos cartoes e da controle de estorno em falha pos-aprovacao.</li>
+                  <li><strong>x64 only:</strong> evita ambiguidade de bitness. Toda estacao suportada hoje e x64.</li>
+                  <li><strong>Servico Windows preferencial:</strong> sobrevive a logout e tem auto-restart. Tray app fica como fallback.</li>
+                  <li><strong>Modal manual continua funcionando:</strong> evita big-bang; farmacias migram terminal por terminal habilitando <code>UsaTef</code>.</li>
+                  <li><strong>Bridge nao escreve nos INIs da MultiplusCard:</strong> evita conflito com auto-update do ClientD.</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Proximos Passos</div>
+              <span class="cmd-obs">
+                <ul>
+                  <li><strong>Fase 1 (MVP):</strong> Bridge + tef-modal + crédito a vista / parcelado loja / debito / PIX 51 / multiplos cartoes / estorno automatico / cadastros / relatorio basico.</li>
+                  <li><strong>Fase 2:</strong> parcelado administradora (cmd 3), transacoes digitadas (29/42), tela de gerenciamento da Bridge, auto-update, conciliacao automatica, QR Code do PIX no monitor do PDV.</li>
+                  <li><strong>Fase 3:</strong> abstracao <code>ITefProvider</code> para outros TEFs (SiTef, Cappta, Linx) e uso da mesma Bridge no Self-Checkout.</li>
+                </ul>
+              </span>
+            </div>
+
+            <div class="cmd-grupo">
+              <div class="cmd-label">Documentacao Tecnica</div>
+              <span class="cmd-obs">
+                Spec completa: <code>docs/specs/tef-multipluscard.md</code>.<br>
+                Documentacao oficial MultiplusCard: <code>docs.multipluscard.com.br/pt/documentacao/tef/dll/transparente/</code> (introducao, configuracao, funcoes, pinpad, solucao de problemas).<br>
+                Modal manual atual (substituido quando <code>UsaTef=true</code>): <code>caixa-venda.component.html:884</code>.
               </span>
             </div>
 
