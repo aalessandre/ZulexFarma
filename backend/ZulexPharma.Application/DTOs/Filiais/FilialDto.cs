@@ -1,8 +1,11 @@
+using ZulexPharma.Domain.Enums;
+
 namespace ZulexPharma.Application.DTOs.Filiais;
 
 public class FilialListDto
 {
     public long Id { get; set; }
+    public RamoFilial Ramo { get; set; } = RamoFilial.Farmacia;
     public string NomeFilial { get; set; } = string.Empty;
     public string RazaoSocial { get; set; } = string.Empty;
     public string NomeFantasia { get; set; } = string.Empty;
@@ -30,6 +33,7 @@ public class FilialListDto
 
 public class FilialFormDto
 {
+    public RamoFilial Ramo { get; set; } = RamoFilial.Farmacia;
     public string NomeFilial { get; set; } = string.Empty;
     public string RazaoSocial { get; set; } = string.Empty;
     public string NomeFantasia { get; set; } = string.Empty;

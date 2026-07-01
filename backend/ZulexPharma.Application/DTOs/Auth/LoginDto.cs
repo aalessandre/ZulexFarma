@@ -11,7 +11,9 @@ public record LoginResponseDto(
     string NomeFilial,
     long FilialId,
     DateTime Expiracao,
-    List<FilialAcessoDto> FiliaisAcesso
+    List<FilialAcessoDto> FiliaisAcesso,
+    string Ramo,
+    List<string> Features
 );
 
 public record FilialAcessoDto(long Id, string Nome);

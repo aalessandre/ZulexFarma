@@ -7,6 +7,7 @@ using System.Security.Claims;
 using System.Text;
 using ZulexPharma.Application.DTOs.Auth;
 using ZulexPharma.Application.Interfaces;
+using ZulexPharma.Domain.Enums;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -46,7 +47,9 @@ public class AuthService : IAuthService
                     NomeFilial: "TODAS",
                     FilialId: 0,
                     Expiracao: expiracaoSistema,
-                    FiliaisAcesso: new List<FilialAcessoDto>()
+                    FiliaisAcesso: new List<FilialAcessoDto>(),
+                    Ramo: RamoFilial.Generico.ToString(),
+                    Features: RamoFeatures.TodasAsFeatures().ToList()   // SISTEMA enxerga tudo
                 );
             }
 
@@ -137,7 +140,11 @@ public class AuthService : IAuthService
                 NomeFilial: usuario.Filial.NomeFantasia,
                 FilialId: usuario.FilialId,
                 Expiracao: expiracao,
-                FiliaisAcesso: filiaisAcesso
+                FiliaisAcesso: filiaisAcesso,
+                Ramo: usuario.Filial.Ramo.ToString(),
+                // Features são por RAMO (não pelo flag admin): um admin de filial
+                // Vestuário não vê telas de farmácia. Só o SISTEMA enxerga tudo.
+                Features: RamoFeatures.Para(usuario.Filial.Ramo).ToList()
             );
         }
         catch (Exception ex)

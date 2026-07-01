@@ -26,6 +26,7 @@ interface LogEntry {
 
 interface Filial {
   id?: number;
+  ramo: string;
   nomeFilial: string;
   razaoSocial: string;
   nomeFantasia: string;
@@ -982,6 +983,7 @@ export class FiliaisComponent implements OnInit, OnDestroy {
 
   private novaFilial(): Filial {
     return {
+      ramo: 'Farmacia',
       nomeFilial: '', razaoSocial: '', nomeFantasia: '', cnpj: '',
       inscricaoEstadual: '', cep: '', rua: '', numero: '', bairro: '',
       cidade: '', uf: '', latitude: null, longitude: null,

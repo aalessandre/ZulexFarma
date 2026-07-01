@@ -12,6 +12,10 @@ export interface LoginResponse {
   nomeFilial: string;
   filialId: string;
   expiracao: string;
+  /** Ramo da filial logada (Farmacia, Vestuario, …). */
+  ramo: string;
+  /** Features habilitadas pelo ramo — gateiam telas/tiles/campos. */
+  features: string[];
 }
 
 export interface UsuarioLogado {
@@ -23,4 +27,6 @@ export interface UsuarioLogado {
   nomeFilial: string;
   filialId: string;
   expiracao: Date;
+  ramo?: string;
+  features?: string[];
 }
