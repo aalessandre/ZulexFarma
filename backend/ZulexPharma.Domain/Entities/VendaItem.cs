@@ -8,6 +8,9 @@ public class VendaItem
     /// <summary>FK para Produto interno. Null em vendas do Self-Checkout (produto vive só no ERP origem — RN-22).</summary>
     public long? ProdutoId { get; set; }
     public Produto? Produto { get; set; }
+    /// <summary>Variação (SKU de grade) vendida, quando o produto controla grade. Passo 2.</summary>
+    public long? ProdutoVariacaoId { get; set; }
+    public ProdutoVariacao? ProdutoVariacao { get; set; }
     public string ProdutoCodigo { get; set; } = string.Empty;
     public string ProdutoNome { get; set; } = string.Empty;
     public string? Fabricante { get; set; }

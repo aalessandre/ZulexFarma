@@ -8,6 +8,11 @@ public class ProdutoDados : BaseEntity
 
     public long FilialId { get; set; }
 
+    /// <summary>Quando preenchido, esta linha de estoque/preço é de uma VARIAÇÃO
+    /// (SKU) do produto. Null = produto sem grade (comportamento atual). Passo 2.</summary>
+    public long? ProdutoVariacaoId { get; set; }
+    public ProdutoVariacao? ProdutoVariacao { get; set; }
+
     // ── Estoque ─────────────────────────────────────────────────
     public decimal EstoqueAtual { get; set; }
     public decimal EstoqueMinimo { get; set; }

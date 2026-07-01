@@ -1,0 +1,124 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="carregar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Atualizar</span></div>
+      <span class="sidebar-sub">Recarregar lista</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="novo()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Adicionar</span></div>
+      <span class="sidebar-sub">Novo atributo</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="form-wrapper">
+      <div class="form-titulo">Atributos de Variação</div>
+
+      <div class="av-filtros">
+        <div class="av-filtro av-filtro-busca">
+          <label>BUSCAR</label>
+          <input type="text" placeholder="Por nome do atributo..."
+                 [value]="busca()" (input)="busca.set($any($event.target).value)" />
+        </div>
+      </div>
+
+      @if (carregando()) {
+        <div class="av-loading">Carregando atributos...</div>
+      } @else if (filtrados().length === 0) {
+        <div class="av-vazio">
+          Nenhum atributo. Clique em <strong>Adicionar</strong> pra criar um eixo (ex.: Tamanho, Cor, Voltagem) e seus valores.
+        </div>
+      } @else {
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th style="width:70px">Ordem</th>
+              <th style="width:200px">Atributo</th>
+              <th>Valores</th>
+              <th style="width:70px">Ativo</th>
+              <th style="width:100px">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of filtrados(); track a.id) {
+              <tr>
+                <td>{{ a.ordem }}</td>
+                <td><strong>{{ a.nome }}</strong></td>
+                <td><small>{{ previewValores(a) || '—' }}</small></td>
+                <td>{{ a.ativo ? '✓' : '—' }}</td>
+                <td>
+                  <button class="av-btn-acao av-btn-editar" (click)="editar(a)" title="Editar">✎</button>
+                  <button class="av-btn-acao av-btn-excluir" (click)="excluir(a)" title="Excluir">✕</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Modal Form -->
+@if (modalForm()) {
+  <div class="av-overlay" (click)="fecharForm()">
+    <div class="av-box" (click)="$event.stopPropagation()">
+      <div class="av-titulo">{{ editando() ? 'Editar Atributo' : 'Novo Atributo' }}</div>
+
+      <div class="av-linha">
+        <div class="av-campo" style="flex:1">
+          <label>NOME *</label>
+          <input type="text" [value]="form().nome"
+                 (input)="updateForm('nome', $any($event.target).value)"
+                 placeholder="Ex: Tamanho, Cor, Voltagem" />
+        </div>
+        <div class="av-campo" style="width:90px">
+          <label>ORDEM</label>
+          <input type="number" [value]="form().ordem"
+                 (input)="updateForm('ordem', +$any($event.target).value)" />
+        </div>
+        <div class="av-campo av-campo-toggle">
+          <label class="erp-toggle erp-toggle-ativo">
+            <input type="checkbox" [checked]="form().ativo" (change)="updateForm('ativo', $any($event.target).checked)" />
+            <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+            <span class="erp-toggle-label">{{ form().ativo ? 'Ativo' : 'Inativo' }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="av-valores">
+        <div class="av-valores-head">
+          <span>VALORES</span>
+          <button class="av-btn-add" (click)="addValor()">+ Adicionar valor</button>
+        </div>
+
+        @if (form().valores.length === 0) {
+          <div class="av-valores-vazio">Nenhum valor ainda. Ex.: P, M, G, GG.</div>
+        }
+
+        @for (v of form().valores; track $index) {
+          <div class="av-valor-row">
+            <input class="av-valor-txt" type="text" placeholder="Valor (ex.: M, Azul, 110V)"
+                   [value]="v.valor" (input)="updateValor($index, 'valor', $any($event.target).value)" />
+            <input class="av-valor-cor" type="color" title="Cor (opcional)"
+                   [value]="v.hex || '#cccccc'" (input)="updateValor($index, 'hex', $any($event.target).value)" />
+            <input class="av-valor-ordem" type="number" title="Ordem"
+                   [value]="v.ordem" (input)="updateValor($index, 'ordem', +$any($event.target).value)" />
+            <button class="av-valor-del" (click)="removeValor($index)" title="Remover">✕</button>
+          </div>
+        }
+      </div>
+
+      <div class="av-botoes">
+        <button class="av-btn av-btn-cancelar" (click)="fecharForm()">Cancelar</button>
+        <button class="av-btn av-btn-salvar" [disabled]="salvando()" (click)="salvar()">
+          {{ salvando() ? 'Salvando...' : 'Salvar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

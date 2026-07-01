@@ -15,6 +15,10 @@ public class Produto : BaseEntity
     public bool Eliminado { get; set; }
     public bool PermitirConferenciaDigitando { get; set; }
 
+    /// <summary>Quando true, o produto é um "modelo" e é vendido pelas variações
+    /// (grade tamanho/cor/etc). Ver docs/specs/multiramo-grade.md (Passo 2).</summary>
+    public bool ControlaGrade { get; set; }
+
     /// <summary>
     /// Classe terapêutica para fins de controle SNGPC.
     /// Valores: null (nenhum) | "Psicotrópicos" | "Antimicrobiano".
@@ -42,4 +46,8 @@ public class Produto : BaseEntity
     public ICollection<ProdutoFornecedor> Fornecedores { get; set; } = new List<ProdutoFornecedor>();
     public ICollection<ProdutoFiscal> Fiscais { get; set; } = new List<ProdutoFiscal>();
     public ICollection<ProdutoDados> Dados { get; set; } = new List<ProdutoDados>();
+
+    // ── Grade de variações (Passo 2) ──────────────────────────────
+    public ICollection<ProdutoAtributo> Atributos { get; set; } = new List<ProdutoAtributo>();
+    public ICollection<ProdutoVariacao> Variacoes { get; set; } = new List<ProdutoVariacao>();
 }

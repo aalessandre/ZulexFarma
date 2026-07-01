@@ -54,6 +54,12 @@ public class AppDbContext : DbContext
     public DbSet<ProdutoFiscal> ProdutosFiscal => Set<ProdutoFiscal>();
     public DbSet<ProdutoDados> ProdutosDados => Set<ProdutoDados>();
     public DbSet<ProdutoLocal> ProdutosLocais => Set<ProdutoLocal>();
+    // ── Grade de variações (Passo 2) ──
+    public DbSet<AtributoVariacao> AtributosVariacao => Set<AtributoVariacao>();
+    public DbSet<ValorAtributo> ValoresAtributo => Set<ValorAtributo>();
+    public DbSet<ProdutoAtributo> ProdutosAtributos => Set<ProdutoAtributo>();
+    public DbSet<ProdutoVariacao> ProdutosVariacoes => Set<ProdutoVariacao>();
+    public DbSet<ProdutoVariacaoValor> ProdutosVariacoesValores => Set<ProdutoVariacaoValor>();
     public DbSet<SyncFila> SyncFila => Set<SyncFila>();
     public DbSet<SequenciaLocal> SequenciasLocais => Set<SequenciaLocal>();
     public DbSet<Ncm> Ncms => Set<Ncm>();
@@ -703,6 +709,66 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.ProdutoId, x.FilialId, x.FornecedorId }).IsUnique();
         });
+
+        // ── Grade de variações (Passo 2) ──────────────────────────────
+        modelBuilder.Entity<AtributoVariacao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Nome).HasMaxLength(60).IsRequired();
+        });
+
+        modelBuilder.Entity<ValorAtributo>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Valor).HasMaxLength(60).IsRequired();
+            e.Property(x => x.Hex).HasMaxLength(9);
+            e.HasOne(x => x.AtributoVariacao).WithMany(a => a.Valores)
+                .HasForeignKey(x => x.AtributoVariacaoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProdutoAtributo>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.Produto).WithMany(p => p.Atributos)
+                .HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.AtributoVariacao).WithMany()
+                .HasForeignKey(x => x.AtributoVariacaoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.ProdutoId, x.AtributoVariacaoId }).IsUnique();
+        });
+
+        modelBuilder.Entity<ProdutoVariacao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.CodigoBarras).HasMaxLength(20);
+            e.Property(x => x.PrecoProprio).HasColumnType("numeric(18,2)");
+            e.HasOne(x => x.Produto).WithMany(p => p.Variacoes)
+                .HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.CodigoBarras);
+        });
+
+        modelBuilder.Entity<ProdutoVariacaoValor>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.HasOne(x => x.ProdutoVariacao).WithMany(v => v.Valores)
+                .HasForeignKey(x => x.ProdutoVariacaoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.AtributoVariacao).WithMany()
+                .HasForeignKey(x => x.AtributoVariacaoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ValorAtributo).WithMany()
+                .HasForeignKey(x => x.ValorAtributoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // FKs nullable de variação em ProdutoDados (estoque/preço por SKU) e VendaItem.
+        modelBuilder.Entity<ProdutoDados>()
+            .HasOne(x => x.ProdutoVariacao).WithMany()
+            .HasForeignKey(x => x.ProdutoVariacaoId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<VendaItem>()
+            .HasOne(x => x.ProdutoVariacao).WithMany()
+            .HasForeignKey(x => x.ProdutoVariacaoId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ProdutoFiscal>(e =>
         {
