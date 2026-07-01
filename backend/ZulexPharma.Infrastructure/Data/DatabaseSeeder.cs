@@ -173,6 +173,31 @@ public static class DatabaseSeeder
                     $"UPDATE \"Configuracoes\" SET \"Id\" = {id} WHERE \"Id\" = {cfg.Id}");
         }
 
+        // ── Atributos de variação padrão (grade): Tamanho e Cor com valores comuns.
+        // Idempotente: só semeia se ainda não houver nenhum atributo. Passo 2.
+        // (Multi-instância: se o sync estiver ativo, o ideal futuro é semear só na
+        //  central; por ora o guard AnyAsync evita re-semear no mesmo banco.)
+        if (!await context.AtributosVariacao.AnyAsync())
+        {
+            context.AtributosVariacao.Add(new AtributoVariacao
+            {
+                Nome = "Tamanho", Ordem = 1,
+                Valores = new[] { "PP", "P", "M", "G", "GG", "XG", "36", "38", "40", "42", "44", "46" }
+                    .Select((v, i) => new ValorAtributo { Valor = v, Ordem = i + 1 }).ToList()
+            });
+            context.AtributosVariacao.Add(new AtributoVariacao
+            {
+                Nome = "Cor", Ordem = 2,
+                Valores = new (string nome, string hex)[]
+                {
+                    ("Preto", "#000000"), ("Branco", "#FFFFFF"), ("Cinza", "#808080"),
+                    ("Azul", "#1E60C0"), ("Vermelho", "#D32F2F"), ("Verde", "#2E7D32"),
+                    ("Amarelo", "#F9C000"), ("Rosa", "#E91E63"), ("Bege", "#D8C3A5"), ("Marrom", "#6D4C41")
+                }.Select((c, i) => new ValorAtributo { Valor = c.nome, Hex = c.hex, Ordem = i + 1 }).ToList()
+            });
+            await context.SaveChangesAsync();
+        }
+
         // Seed de DicionarioTabelas para tabelas NCM (se não existirem)
         var tabelasNcm = new[] { "Ncms", "NcmFederais", "NcmIcmsUfs", "NcmStUfs" };
         foreach (var tabela in tabelasNcm)
