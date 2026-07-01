@@ -30,6 +30,7 @@ public class FilialService : IFilialService
                 .Select(f => new FilialListDto
                 {
                     Id               = f.Id,
+                    Ramo             = f.Ramo,
                     NomeFilial       = f.NomeFilial,
                     RazaoSocial      = f.RazaoSocial,
                     NomeFantasia     = f.NomeFantasia,
@@ -71,6 +72,7 @@ public class FilialService : IFilialService
 
             var filial = new Filial
             {
+                Ramo              = dto.Ramo,
                 NomeFilial        = Mai(dto.NomeFilial),
                 RazaoSocial       = Mai(dto.RazaoSocial),
                 NomeFantasia      = Mai(dto.NomeFantasia),
@@ -120,6 +122,7 @@ public class FilialService : IFilialService
 
             var anterior = FilialParaDict(filial);
 
+            filial.Ramo              = dto.Ramo;
             filial.NomeFilial        = Mai(dto.NomeFilial);
             filial.RazaoSocial       = Mai(dto.RazaoSocial);
             filial.NomeFantasia      = Mai(dto.NomeFantasia);
@@ -239,6 +242,7 @@ public class FilialService : IFilialService
 
     private static Dictionary<string, string?> FilialParaDict(Filial f) => new()
     {
+        ["Ramo"]               = f.Ramo.ToString(),
         ["Apelido"]            = f.NomeFilial,
         ["Razão Social"]       = f.RazaoSocial,
         ["Nome Fantasia"]      = f.NomeFantasia,
@@ -259,6 +263,7 @@ public class FilialService : IFilialService
     private static FilialListDto MapToListDto(Filial f) => new()
     {
         Id               = f.Id,
+        Ramo             = f.Ramo,
         NomeFilial       = f.NomeFilial,
         RazaoSocial      = f.RazaoSocial,
         NomeFantasia     = f.NomeFantasia,

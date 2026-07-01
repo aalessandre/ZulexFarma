@@ -88,6 +88,18 @@ export class AuthService {
     return acoes ? acoes.includes(acao) : false;
   }
 
+  /**
+   * Feature do RAMO da filial logada (ex.: 'sngpc', 'grade', 'pesavel').
+   * Diferente de permissão: gateia telas/tiles/campos por ramo, não por acesso.
+   * Sessão antiga sem `features` (pré-upgrade) → não gateia até o próximo login.
+   */
+  temFeature(key: string): boolean {
+    const usuario = this.usuarioLogado();
+    if (!usuario) return false;
+    if (!usuario.features) return true;
+    return usuario.features.includes(key);
+  }
+
   private extrairPermissoes(token: string) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));

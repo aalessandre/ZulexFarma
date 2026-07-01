@@ -1,7 +1,13 @@
+using ZulexPharma.Domain.Enums;
+
 namespace ZulexPharma.Domain.Entities;
 
 public class Filial : BaseEntity
 {
+    /// <summary>Ramo de atividade da filial — dirige as features/telas visíveis.
+    /// Default Farmácia (retrocompat com os cadastros existentes).</summary>
+    public RamoFilial Ramo { get; set; } = RamoFilial.Farmacia;
+
     public string NomeFilial { get; set; } = string.Empty;
     public string RazaoSocial { get; set; } = string.Empty;
     public string NomeFantasia { get; set; } = string.Empty;

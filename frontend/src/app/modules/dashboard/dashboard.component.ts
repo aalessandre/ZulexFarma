@@ -54,6 +54,8 @@ export interface TileItem {
   iconKey: string;
   rota: string;
   tamanho?: 'normal' | 'largo';
+  /** Feature de ramo exigida pra exibir o tile (ex.: 'sngpc'). Sem feature = sempre visível. */
+  feature?: string;
 }
 
 export interface BlocoTiles {
@@ -73,7 +75,7 @@ export class DashboardComponent {
   usuario = computed(() => this.authService.usuarioLogado());
   painelConfig = signal(false);
 
-  blocos: BlocoTiles[] = [
+  private blocosRaw: BlocoTiles[] = [
     {
       nome: 'Movimento',
       cor: '#00acc1',
@@ -86,7 +88,7 @@ export class DashboardComponent {
         { label: 'Financeiro',       sigla: 'FN', iconKey: 'dollar',    rota: '/erp/financeiro' },
         { label: 'Fiscal',           sigla: 'FS', iconKey: 'fiscal',    rota: '/erp/fiscal' },
         { label: 'Promoções',        sigla: 'PM', iconKey: 'promo',     rota: '/erp/promocoes' },
-        { label: 'SNGPC',            sigla: 'SN', iconKey: 'shield',    rota: '/erp/sngpc' },
+        { label: 'SNGPC',            sigla: 'SN', iconKey: 'shield',    rota: '/erp/sngpc', feature: 'sngpc' },
         { label: 'Fidelidade',       sigla: 'FD', iconKey: 'star',      rota: '/erp/fidelidade' },
       ]
     },
@@ -99,7 +101,7 @@ export class DashboardComponent {
         { label: 'Gerenciar Produtos', sigla: 'GP', iconKey: 'gerenciar', rota: '/erp/gerenciar-produtos-menu' },
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
-        { label: 'Substancias',      sigla: 'SB', iconKey: 'flask',     rota: '/erp/substancias' },
+        { label: 'Substancias',      sigla: 'SB', iconKey: 'flask',     rota: '/erp/substancias', feature: 'substancias' },
         { label: 'Convenios',        sigla: 'CV', iconKey: 'conv',      rota: '/erp/convenios' },
         { label: 'Outros',           sigla: 'OT', iconKey: 'grid',      rota: '/erp/outros-cadastros' },
       ]
@@ -135,6 +137,13 @@ export class DashboardComponent {
       ]
     }
   ];
+
+  /** Blocos com os tiles filtrados pela feature do ramo da filial (esconde o que não está liberado). */
+  get blocos(): BlocoTiles[] {
+    return this.blocosRaw
+      .map(b => ({ ...b, tiles: b.tiles.filter(t => !t.feature || this.authService.temFeature(t.feature)) }))
+      .filter(b => b.tiles.length > 0);
+  }
 
   constructor(
     private authService: AuthService,

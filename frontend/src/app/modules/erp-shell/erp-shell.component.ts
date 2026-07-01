@@ -20,6 +20,7 @@ export interface TileItem {
   iconKey: string;
   rota: string;
   tamanho?: 'normal' | 'largo';
+  feature?: string;
 }
 
 export interface BlocoTiles {
@@ -93,7 +94,7 @@ export class ErpShellComponent {
   desbloqueando = signal(false);
 
   // ── Blocos (tiles data for search) ──────────────────────────────
-  blocos: BlocoTiles[] = [
+  private blocosRaw: BlocoTiles[] = [
     {
       nome: 'Movimento',
       cor: '#00acc1',
@@ -174,6 +175,23 @@ export class ErpShellComponent {
       ]
     }
   ];
+
+  /** Blocos com tiles filtrados pela feature do ramo (esconde SNGPC/Substâncias/Prescritores fora de farmácia). */
+  get blocos(): BlocoTiles[] {
+    return this.blocosRaw
+      .map(b => ({ ...b, tiles: b.tiles.filter(t => {
+        const f = t.feature ?? this.featureDaRota(t.rota);
+        return !f || this.authService.temFeature(f);
+      }) }))
+      .filter(b => b.tiles.length > 0);
+  }
+
+  private featureDaRota(rota: string): string | null {
+    if (rota.startsWith('/erp/sngpc')) return 'sngpc';
+    if (rota === '/erp/substancias') return 'substancias';
+    if (rota === '/erp/prescritores') return 'receita';
+    return null;
+  }
 
   // ── Busca global ────────────────────────────────────────────────
   @ViewChild('inputBusca') inputBuscaRef!: ElementRef<HTMLInputElement>;

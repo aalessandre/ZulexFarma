@@ -184,6 +184,17 @@
             <label>DATA DE CADASTRO</label>
             <input type="text" [value]="modoEdicao() ? (filialForm().criadoEm | date:'dd/MM/yyyy') : dataHoje" disabled class="field-disabled" style="width:140px" />
           </div>
+          <div class="field" [class.field-alterado]="campoAlterado('ramo')">
+            <label>RAMO</label>
+            <select class="select-status" [value]="filialForm().ramo"
+                    (change)="updateForm('ramo', $any($event.target).value)" style="width:150px">
+              <option value="Farmacia">Farmácia</option>
+              <option value="Vestuario">Vestuário</option>
+              <option value="Hortifruti">Hortifruti</option>
+              <option value="Mercearia">Mercearia</option>
+              <option value="Generico">Genérico</option>
+            </select>
+          </div>
           <div class="field field-check" style="display:flex;align-items:flex-end;padding-bottom:8px">
             <label class="erp-toggle erp-toggle-ativo">
               <input type="checkbox" [checked]="filialForm().ativo"
