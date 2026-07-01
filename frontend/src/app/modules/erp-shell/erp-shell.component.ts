@@ -135,6 +135,7 @@ export class ErpShellComponent {
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
         { label: 'Substancias',      sigla: 'SB', iconKey: 'pill',      rota: '/erp/substancias' },
+        { label: 'Atributos de Variação', sigla: 'AT', iconKey: 'grid', rota: '/erp/atributos-variacao', feature: 'grade' },
         { label: 'NCM',              sigla: 'NC', iconKey: 'log',       rota: '/erp/ncm' },
         { label: 'Locais',           sigla: 'LC', iconKey: 'log',       rota: '/erp/locais' },
         { label: 'Plano de Contas',  sigla: 'PC', iconKey: 'log',       rota: '/erp/plano-contas' },

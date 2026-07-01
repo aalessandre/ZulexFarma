@@ -102,6 +102,7 @@ export class DashboardComponent {
         { label: 'Fornecedores',     sigla: 'FO', iconKey: 'truck',     rota: '/erp/fornecedores' },
         { label: 'Fabricantes',      sigla: 'FB', iconKey: 'box',       rota: '/erp/fabricantes' },
         { label: 'Substancias',      sigla: 'SB', iconKey: 'flask',     rota: '/erp/substancias', feature: 'substancias' },
+        { label: 'Atributos',        sigla: 'AT', iconKey: 'grid',      rota: '/erp/atributos-variacao', feature: 'grade' },
         { label: 'Convenios',        sigla: 'CV', iconKey: 'conv',      rota: '/erp/convenios' },
         { label: 'Outros',           sigla: 'OT', iconKey: 'grid',      rota: '/erp/outros-cadastros' },
       ]
