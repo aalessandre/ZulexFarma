@@ -79,6 +79,13 @@ export const ErpRoutes: Routes = [
           import('../atributos-variacao/atributos-variacao.component').then(m => m.AtributosVariacaoComponent),
       },
       {
+        path: 'produto-grade/:id',
+        canActivate: [featureGuard],
+        data: { feature: 'grade' },
+        loadComponent: () =>
+          import('../produto-grade/produto-grade.component').then(m => m.ProdutoGradeComponent),
+      },
+      {
         path: 'gerenciar-produtos',
         loadComponent: () =>
           import('../produtos/produtos.component').then(m => m.ProdutosComponent),

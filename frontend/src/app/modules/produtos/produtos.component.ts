@@ -371,6 +371,21 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.verificarPreCadastroCompra();
   }
 
+  /** Grade só pra ramo com a feature 'grade' (Vestuário). */
+  podeGrade(): boolean { return this.auth.temFeature('grade'); }
+
+  /** Abre o editor de grade do produto selecionado numa nova aba. */
+  abrirGrade() {
+    const p = this.produtoSelecionado();
+    if (!p?.id) return;
+    this.tabService.abrirTab({
+      id: `/erp/produto-grade/${p.id}`,
+      titulo: `Grade — ${p.nome ?? p.id}`,
+      rota: `/erp/produto-grade/${p.id}?nome=${encodeURIComponent(p.nome ?? '')}`,
+      iconKey: 'grid'
+    });
+  }
+
   /**
    * Verifica se há dados de pré-cadastro vindo da tela de Compras (pré-entrada).
    * Se sim, abre o formulário de novo produto com os dados do XML preenchidos.
