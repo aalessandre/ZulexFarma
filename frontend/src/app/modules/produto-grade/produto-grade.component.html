@@ -1,0 +1,107 @@
+<div class="tela-erp">
+  <aside class="tela-sidebar">
+    <div class="sidebar-item tile-procurar" (click)="carregar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg><span>Recarregar</span></div>
+      <span class="sidebar-sub">Descarta alterações</span>
+    </div>
+    <div class="sidebar-item tile-adicionar" (click)="salvar()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>{{ salvando() ? 'Salvando...' : 'Salvar' }}</span></div>
+      <span class="sidebar-sub">Grava a grade</span>
+    </div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
+      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
+      <span class="sidebar-sub">Fechar tela</span>
+    </div>
+  </aside>
+
+  <div class="tela-main">
+    <div class="form-wrapper">
+      <div class="form-titulo">Grade — {{ produtoNome() }}</div>
+
+      @if (carregando()) {
+        <div class="pg-loading">Carregando...</div>
+      } @else {
+        <label class="pg-toggle erp-toggle erp-toggle-ativo">
+          <input type="checkbox" [checked]="controlaGrade()" (change)="controlaGrade.set($any($event.target).checked)" />
+          <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
+          <span class="erp-toggle-label">Este produto controla grade (é vendido pelas variações)</span>
+        </label>
+
+        <!-- Eixos -->
+        <div class="pg-secao">Eixos da grade</div>
+        <div class="pg-eixos">
+          @for (a of atributos(); track a.id) {
+            <button class="pg-eixo-chip" [class.ativo]="eixoAtivo(a.id)" (click)="toggleEixo(a)">
+              {{ a.nome }}
+            </button>
+          }
+          @if (atributos().length === 0) {
+            <span class="pg-vazio">Nenhum atributo cadastrado. Crie eixos em <strong>Cadastros → Atributos</strong>.</span>
+          }
+        </div>
+
+        <!-- Valores por eixo -->
+        @for (e of eixos(); track e.atributoId; let ei = $index) {
+          <div class="pg-eixo-valores">
+            <div class="pg-eixo-nome">{{ e.nome }}</div>
+            <div class="pg-valores-lista">
+              @for (v of e.valores; track v.valorId; let vi = $index) {
+                <label class="pg-valor-chip" [class.on]="v.selecionado">
+                  <input type="checkbox" [checked]="v.selecionado" (change)="toggleValor(ei, vi)" />
+                  {{ v.texto }}
+                </label>
+              }
+            </div>
+          </div>
+        }
+
+        @if (eixos().length > 0) {
+          <div class="pg-acoes">
+            <button class="pg-btn-gerar" (click)="gerarMatriz()">Gerar matriz →</button>
+            <span class="pg-hint">Combina os valores marcados de cada eixo. Preserva barras/estoque/preço do que já existe.</span>
+          </div>
+        }
+
+        <!-- Matriz de variações (SKUs) -->
+        @if (variacoes().length > 0) {
+          <div class="pg-secao">Variações ({{ variacoes().length }} SKUs)</div>
+          <table class="erp-grid pg-matriz">
+            <thead>
+              <tr>
+                <th>Combinação</th>
+                <th style="width:200px">Código de barras</th>
+                <th style="width:120px">Estoque</th>
+                <th style="width:130px">Preço (R$)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (v of variacoes(); track v.chave; let i = $index) {
+                <tr>
+                  <td><strong>{{ v.labels.join(' / ') }}</strong></td>
+                  <td>
+                    <input class="pg-inp" type="text" [value]="v.codigoBarras"
+                           (input)="updateVariacao(i, 'codigoBarras', $any($event.target).value)"
+                           placeholder="EAN da variação" />
+                  </td>
+                  <td>
+                    <input class="pg-inp" type="number" step="1" [value]="v.estoque"
+                           (input)="updateVariacao(i, 'estoque', +$any($event.target).value)" />
+                  </td>
+                  <td>
+                    <input class="pg-inp" type="number" step="0.01" [value]="v.preco"
+                           (input)="updateVariacao(i, 'preco', +$any($event.target).value)" />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="pg-rodape-salvar">
+            <button class="pg-btn-salvar" [disabled]="salvando()" (click)="salvar()">
+              {{ salvando() ? 'Salvando...' : 'Salvar grade' }}
+            </button>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>

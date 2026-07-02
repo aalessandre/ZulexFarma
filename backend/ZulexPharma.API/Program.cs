@@ -178,6 +178,8 @@ builder.Services.AddScoped<ZulexPharma.Application.Interfaces.ISubstanciaService
                             ZulexPharma.Infrastructure.Services.SubstanciaService>();
 builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IAtributoVariacaoService,
                             ZulexPharma.Infrastructure.Services.AtributoVariacaoService>();
+builder.Services.AddScoped<ZulexPharma.Application.Interfaces.IProdutoGradeService,
+                            ZulexPharma.Infrastructure.Services.ProdutoGradeService>();
 builder.Services.AddScoped(sp => new ZulexPharma.Infrastructure.Services.ClassificacaoProdutoService<ZulexPharma.Domain.Entities.GrupoPrincipal>(
     sp.GetRequiredService<ZulexPharma.Infrastructure.Data.AppDbContext>(),
     sp.GetRequiredService<ZulexPharma.Application.Interfaces.ILogAcaoService>(),
