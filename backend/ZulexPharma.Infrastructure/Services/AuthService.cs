@@ -186,7 +186,9 @@ public class AuthService : IAuthService
 
     private string GerarSenhaSistema()
     {
-        var chave = _config["SistemaKey"] ?? "ZulexPharma2026!";
+        // Mesma chave/algoritmo do SenhaDiaService: env var SistemaKey (prod) ou appsettings (dev).
+        var chave = _config["SistemaKey"]
+            ?? throw new InvalidOperationException("SistemaKey não configurada (env var no Railway em prod, appsettings em dev).");
         var data = DateTime.UtcNow.ToString("yyyyMMdd");
         using var sha = System.Security.Cryptography.SHA256.Create();
         var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(data + chave));
