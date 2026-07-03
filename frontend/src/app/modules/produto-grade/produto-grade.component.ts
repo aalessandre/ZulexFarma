@@ -36,8 +36,8 @@ export class ProdutoGradeComponent implements OnInit {
   @Input() nome = '';
   /** Fecha o modal sem recarregar o produto. */
   @Output() fechar = new EventEmitter<void>();
-  /** Emitido após salvar; leva o estoque total (soma dos SKUs) da filial atual. */
-  @Output() salvou = new EventEmitter<number>();
+  /** Emitido após salvar; leva o estoque total (soma dos SKUs) e o flag de grade. */
+  @Output() salvou = new EventEmitter<{ total: number; controlaGrade: boolean }>();
 
   produtoNome = signal('');
   controlaGrade = signal(false);
@@ -222,7 +222,7 @@ export class ProdutoGradeComponent implements OnInit {
     this.http.put<any>(`${this.apiUrl}/produtos/${this.produtoId}/grade`, body).subscribe({
       next: () => {
         this.salvando.set(false);
-        this.salvou.emit(this.totalEstoque());   // avisa o produto pra atualizar o estoque total
+        this.salvou.emit({ total: this.totalEstoque(), controlaGrade: this.controlaGrade() });   // atualiza estoque + flag de grade
         this.modal.sucesso('Grade', 'Grade salva.');
         this.carregar();
       },
