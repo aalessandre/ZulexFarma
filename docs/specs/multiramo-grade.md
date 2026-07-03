@@ -123,5 +123,9 @@ Todas herdam `BaseEntity` → **entram no sync** automaticamente (FilialOrigemId
 - `IProdutoGradeService`/`ProdutoGradeController`: `GET/PUT /api/produtos/{id}/grade`. Salvar: liga `ControlaGrade`, sincroniza eixos (`ProdutoAtributo`), gera/sincroniza `ProdutoVariacao` (+`ProdutoVariacaoValor`, combinação imutável por SKU) e grava estoque/preço por SKU em `ProdutoDados` da **filial atual** (`FilialContexto.FilialIdAtual`; exige filial > 0). Variação usada em venda → desativa (não apaga).
 - Frontend: editor `/erp/produto-grade/:id` (gated `grade`) — marca eixos + valores → **Gerar matriz** (produto cartesiano, mescla com existentes por chave de combinação) → edita barras/estoque/preço por célula. Botão **"Grade"** na toolbar do produto (`podeGrade()` = `temFeature('grade')`, só editando).
 
+### Correções pós-teste (2026-07-03)
+- **Índice único de `ProdutoDados` corrigido**: era `(ProdutoId, FilialId)` — bloqueava >1 SKU por produto/filial (salvar grade dava **500**). Agora `(ProdutoId, FilialId, ProdutoVariacaoId)` com **NULLS NOT DISTINCT** (PG 15+), garantindo 1 linha "sem variação" por produto/filial e N linhas por SKU. Migration `AjustaIndiceProdutoDadosVariacao`.
+- **Editor de grade — UX**: chips de valor modernizados (checkbox nativo escondido + indicador de check estilizado); botão **"Gerar barras"** por célula + **"Gerar barras das vazias"** (EAN-13 interno, prefixo `2` + 7 díg. do produto + 4 díg. da linha + verificador).
+
 ### Passo 2c — PDV ⏳ (pendente)
 Falta: no caixa, resolver o `CodigoBarras` da variação → SKU, referenciar `VendaItem.ProdutoVariacaoId`, e baixar estoque no `ProdutoDados` da variação. `VendaItem.Quantidade` é **int** (revisar pra decimal quando for a fase Pesável/Balança).
