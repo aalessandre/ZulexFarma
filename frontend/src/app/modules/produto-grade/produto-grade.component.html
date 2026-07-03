@@ -48,6 +48,9 @@
               @for (v of e.valores; track v.valorId; let vi = $index) {
                 <label class="pg-valor-chip" [class.on]="v.selecionado">
                   <input type="checkbox" [checked]="v.selecionado" (change)="toggleValor(ei, vi)" />
+                  <span class="pg-check">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
                   {{ v.texto }}
                 </label>
               }
@@ -64,12 +67,18 @@
 
         <!-- Matriz de variações (SKUs) -->
         @if (variacoes().length > 0) {
-          <div class="pg-secao">Variações ({{ variacoes().length }} SKUs)</div>
+          <div class="pg-matriz-head">
+            <div class="pg-secao pg-secao-inline">Variações ({{ variacoes().length }} SKUs)</div>
+            <button class="pg-btn-barras-todas" (click)="gerarBarrasVazias()" title="Gera código de barras nas variações que estão sem">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>
+              Gerar barras das vazias
+            </button>
+          </div>
           <table class="erp-grid pg-matriz">
             <thead>
               <tr>
                 <th>Combinação</th>
-                <th style="width:200px">Código de barras</th>
+                <th style="width:250px">Código de barras</th>
                 <th style="width:120px">Estoque</th>
                 <th style="width:130px">Preço (R$)</th>
               </tr>
@@ -79,9 +88,14 @@
                 <tr>
                   <td><strong>{{ v.labels.join(' / ') }}</strong></td>
                   <td>
-                    <input class="pg-inp" type="text" [value]="v.codigoBarras"
-                           (input)="updateVariacao(i, 'codigoBarras', $any($event.target).value)"
-                           placeholder="EAN da variação" />
+                    <div class="pg-barras-cel">
+                      <input class="pg-inp" type="text" [value]="v.codigoBarras"
+                             (input)="updateVariacao(i, 'codigoBarras', $any($event.target).value)"
+                             placeholder="EAN da variação" />
+                      <button class="pg-btn-barras" (click)="gerarBarras(i)" title="Gerar código de barras">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>
+                      </button>
+                    </div>
                   </td>
                   <td>
                     <input class="pg-inp" type="number" step="1" [value]="v.estoque"

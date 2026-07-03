@@ -182,6 +182,27 @@ export class ProdutoGradeComponent implements OnInit {
     this.variacoes.update(vs => vs.map((v, idx) => idx === i ? { ...v, [campo]: valor } : v));
   }
 
+  // ── Código de barras (EAN-13 interno, prefixo "2" = uso interno da loja) ──
+  private eanCheck(base12: string): number {
+    let soma = 0;
+    for (let k = 0; k < 12; k++) soma += (+base12[k]) * (k % 2 === 0 ? 1 : 3);
+    return (10 - (soma % 10)) % 10;
+  }
+
+  private gerarEan(i: number): string {
+    // "2" + 7 dígitos do produto + 4 dígitos da linha → 12 dígitos + verificador.
+    const base = '2' + String(this.produtoId % 10_000_000).padStart(7, '0') + String(i + 1).padStart(4, '0');
+    return base + this.eanCheck(base);
+  }
+
+  /** Gera o código de barras de uma variação (sobrescreve o campo). */
+  gerarBarras(i: number) { this.updateVariacao(i, 'codigoBarras', this.gerarEan(i)); }
+
+  /** Gera barras só das variações que estão sem código. */
+  gerarBarrasVazias() {
+    this.variacoes.update(vs => vs.map((v, i) => v.codigoBarras?.trim() ? v : { ...v, codigoBarras: this.gerarEan(i) }));
+  }
+
   // ── Salvar ────────────────────────────────────────────────────
   salvar() {
     const body = {

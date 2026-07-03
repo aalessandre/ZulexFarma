@@ -847,7 +847,10 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.HasOne(x => x.Produto).WithMany(p => p.Dados).HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
-            e.HasIndex(x => new { x.ProdutoId, x.FilialId }).IsUnique();
+            // Único por (Produto, Filial, VariaçãoSKU). Produto sem grade → 1 linha
+            // com ProdutoVariacaoId = null; produto com grade → 1 linha por SKU.
+            // NULLS NOT DISTINCT garante 1 única linha "sem variação" por (produto,filial).
+            e.HasIndex(x => new { x.ProdutoId, x.FilialId, x.ProdutoVariacaoId }).IsUnique().AreNullsDistinct(false);
 
             // Estoque
             e.Property(x => x.EstoqueAtual).HasColumnType("numeric(10,3)");
