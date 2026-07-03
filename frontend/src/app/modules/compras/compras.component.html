@@ -158,21 +158,24 @@
             <option value="finalizadas">Finalizadas</option>
           </select>
         </div>
-        <div class="lista-filtro">
-          <label>PERIODO</label>
-          <select class="select-status" style="min-width:100px" [value]="filtroDataTipo()" (change)="filtroDataTipo.set($any($event.target).value); carregar()">
-            <option value="emissao">Emissao</option>
-            <option value="finalizacao">Finalizacao</option>
-          </select>
-        </div>
-        <div class="lista-filtro">
-          <label>DE</label>
-          <input type="date" class="input-data" [value]="filtroDataInicio()" (change)="filtroDataInicio.set($any($event.target).value); carregar()" />
-        </div>
-        <div class="lista-filtro">
-          <label>ATE</label>
-          <input type="date" class="input-data" [value]="filtroDataFim()" (change)="filtroDataFim.set($any($event.target).value); carregar()" />
-        </div>
+        <!-- Período/datas só valem para notas finalizadas; em "Pendentes" traz tudo. -->
+        @if (filtroStatus() !== 'pendentes') {
+          <div class="lista-filtro">
+            <label>PERIODO</label>
+            <select class="select-status" style="min-width:100px" [value]="filtroDataTipo()" (change)="filtroDataTipo.set($any($event.target).value); carregar()">
+              <option value="emissao">Emissao</option>
+              <option value="finalizacao">Finalizacao</option>
+            </select>
+          </div>
+          <div class="lista-filtro">
+            <label>DE</label>
+            <input type="date" class="input-data" [value]="filtroDataInicio()" (change)="filtroDataInicio.set($any($event.target).value); carregar()" />
+          </div>
+          <div class="lista-filtro">
+            <label>ATE</label>
+            <input type="date" class="input-data" [value]="filtroDataFim()" (change)="filtroDataFim.set($any($event.target).value); carregar()" />
+          </div>
+        }
       </div>
 
       <div class="grid-wrapper">
