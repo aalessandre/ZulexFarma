@@ -30,6 +30,10 @@ public class ProdutoDetalheDto
     public bool PermitirConferenciaDigitando { get; set; }
     public DateTime CriadoEm { get; set; }
 
+    /// <summary>Produto vendido por variações (grade). Quando true, o estoque
+    /// exibido em Dados é a SOMA dos SKUs por filial (não editável direto).</summary>
+    public bool ControlaGrade { get; set; }
+
     // FKs
     public long? FabricanteId { get; set; }
     public long? GrupoPrincipalId { get; set; }

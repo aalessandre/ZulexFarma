@@ -1,10 +1,8 @@
-import { Component, signal, OnInit } from '@angular/core';
+import { Component, signal, computed, OnInit, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { TabService } from '../../core/services/tab.service';
 import { ModalService } from '../../core/services/modal.service';
 
 interface ValorApi { id: number; valor: string; hex?: string | null; ordem: number; }
@@ -33,7 +31,14 @@ interface VariacaoLinha {
 export class ProdutoGradeComponent implements OnInit {
   private apiUrl = environment.apiUrl;
 
-  produtoId = 0;
+  /** Produto cuja grade será editada (modal sobre o cadastro de produto). */
+  @Input({ required: true }) produtoId = 0;
+  @Input() nome = '';
+  /** Fecha o modal sem recarregar o produto. */
+  @Output() fechar = new EventEmitter<void>();
+  /** Emitido após salvar; leva o estoque total (soma dos SKUs) da filial atual. */
+  @Output() salvou = new EventEmitter<number>();
+
   produtoNome = signal('');
   controlaGrade = signal(false);
   carregando = signal(false);
@@ -43,20 +48,17 @@ export class ProdutoGradeComponent implements OnInit {
   eixos = signal<EixoSel[]>([]);
   variacoes = signal<VariacaoLinha[]>([]);
 
-  constructor(
-    private http: HttpClient,
-    private route: ActivatedRoute,
-    private tabService: TabService,
-    private modal: ModalService
-  ) {}
+  /** Total de estoque = soma das variações (o que vira o estoque do produto). */
+  totalEstoque = computed(() => this.variacoes().reduce((s, v) => s + (+v.estoque || 0), 0));
+
+  constructor(private http: HttpClient, private modal: ModalService) {}
 
   ngOnInit() {
-    this.produtoId = +(this.route.snapshot.paramMap.get('id') || 0);
-    this.produtoNome.set(this.route.snapshot.queryParamMap.get('nome') || `#${this.produtoId}`);
+    this.produtoNome.set(this.nome || `#${this.produtoId}`);
     this.carregar();
   }
 
-  sairDaTela() { this.tabService.fecharTabAtiva(); }
+  fecharModal() { this.fechar.emit(); }
 
   carregar() {
     if (!this.produtoId) return;
@@ -218,7 +220,12 @@ export class ProdutoGradeComponent implements OnInit {
     };
     this.salvando.set(true);
     this.http.put<any>(`${this.apiUrl}/produtos/${this.produtoId}/grade`, body).subscribe({
-      next: () => { this.salvando.set(false); this.modal.sucesso('Grade', 'Grade salva.'); this.carregar(); },
+      next: () => {
+        this.salvando.set(false);
+        this.salvou.emit(this.totalEstoque());   // avisa o produto pra atualizar o estoque total
+        this.modal.sucesso('Grade', 'Grade salva.');
+        this.carregar();
+      },
       error: (e: any) => { this.salvando.set(false); this.modal.erro('Grade', e?.error?.message || 'Erro ao salvar.'); }
     });
   }

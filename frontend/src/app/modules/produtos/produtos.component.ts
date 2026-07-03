@@ -9,6 +9,7 @@ import { ModalService } from '../../core/services/modal.service';
 import { ToastrService } from 'ngx-toastr';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 import { CurrencyInputDirective } from '../../core/directives/currency-input.directive';
+import { ProdutoGradeComponent } from '../produto-grade/produto-grade.component';
 
 type AbaAtiva = 'produtos' | 'grupo-principal' | 'grupo' | 'sub-grupo' | 'secao' | 'familia' | 'kit';
 
@@ -173,6 +174,7 @@ interface ProdutoForm {
   barras: ProdutoBarrasItem[]; registrosMs: ProdutoMsItem[];
   substancias: ProdutoSubstanciaItem[]; fornecedores: ProdutoFornecedorItem[];
   fiscais: ProdutoFiscalItem[]; dados: ProdutoDadosItem[];
+  controlaGrade?: boolean;
 }
 
 const CLASSES_TERAPEUTICAS_PRODUTO: { codigo: string; descricao: string }[] = [
@@ -219,7 +221,7 @@ const NOME_ABA_MAP: Record<string, string> = {
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, EnterTabDirective, CurrencyInputDirective],
+  imports: [CommonModule, FormsModule, EnterTabDirective, CurrencyInputDirective, ProdutoGradeComponent],
   templateUrl: './produtos.component.html',
   styleUrl: './produtos.component.scss'
 })
@@ -374,16 +376,30 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   /** Grade só pra ramo com a feature 'grade' (Vestuário). */
   podeGrade(): boolean { return this.auth.temFeature('grade'); }
 
-  /** Abre o editor de grade do produto selecionado numa nova aba. */
+  // ── Grade (modal sobre o produto) ────────────────────────────────
+  modalGrade = signal(false);
+  gradeProdutoId = signal(0);
+  gradeProdutoNome = signal('');
+
+  /** Abre a grade do produto em edição como modal (mantém o produto por baixo). */
   abrirGrade() {
-    const p = this.produtoSelecionado();
-    if (!p?.id) return;
-    this.tabService.abrirTab({
-      id: `/erp/produto-grade/${p.id}`,
-      titulo: `Grade — ${p.nome ?? p.id}`,
-      rota: `/erp/produto-grade/${p.id}?nome=${encodeURIComponent(p.nome ?? '')}`,
-      iconKey: 'grid'
-    });
+    const id = this.produtoEditandoId();
+    if (!id) return;
+    this.gradeProdutoId.set(id);
+    this.gradeProdutoNome.set(this.produtoForm().nome || `#${id}`);
+    this.modalGrade.set(true);
+  }
+
+  fecharGrade() { this.modalGrade.set(false); }
+
+  /** Após salvar a grade, atualiza o estoque total (soma dos SKUs) na filial atual. */
+  onGradeSalva(total: number) {
+    const idx = this.dadosFilialIdx();
+    if (idx < 0) return;
+    this.produtoForm.update(f => ({
+      ...f,
+      dados: f.dados.map((d, i) => i === idx ? { ...d, estoqueAtual: total } : d)
+    }));
   }
 
   /**
@@ -1143,7 +1159,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
             ...dd,
             promocaoInicio: this.toDateInput(dd.promocaoInicio),
             promocaoFim: this.toDateInput(dd.promocaoFim)
-          }))
+          })),
+          controlaGrade: d.controlaGrade ?? false
         };
 
         this.salvarEstadoAbaAtiva();

@@ -240,6 +240,16 @@
   &.prod-field-full { grid-column: 1 / -1; }
   &.prod-field-check { justify-content: center; }
   &.prod-field-radio { grid-column: span 2; }
+
+  .prod-inp-readonly {
+    background: #f4f6f8; color: #6a7888; cursor: not-allowed; font-weight: 700;
+    &:focus { box-shadow: none; border-color: var(--erp-border-input, #d0d5dd); }
+  }
+  .prod-grade-tag {
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px;
+    background: #eaf3fb; color: #2471a3; font-size: 9px; font-weight: 700; letter-spacing: .3px;
+    vertical-align: middle;
+  }
 }
 
 /* ── Barras + botão ABCFarma ──────────────────────────────────────── */
