@@ -538,8 +538,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         this.produtoEditandoId.set(null); this.modo.set('form');
 
         // Exibe a filial da NF (onde os custos foram preenchidos) — senão a tela
-        // mostraria outra filial com custo zerado.
-        if (pre.filialId) this.filialSelecionada.set(Number(pre.filialId));
+        // mostraria outra filial com custo zerado. O flag impede o /sync/status
+        // (callback assíncrono do carregarFiliais) de sobrescrever depois.
+        if (pre.filialId) {
+          this.preCadastroFilial = Number(pre.filialId);
+          this.filialSelecionada.set(Number(pre.filialId));
+        }
 
         // Como a NF já traz o código de barras (o usuário não digita nem sai do
         // campo), dispara as buscas automáticas aqui — respeitando as flags.
@@ -555,6 +559,11 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     } catch { /* ignore parse errors */ }
   }
 
+  // Filial forçada pela pré-entrada de nota: quando setada, carregarFiliais NÃO
+  // sobrescreve a filial selecionada (senão o /sync/status resolveria depois e
+  // voltaria pra filial local, escondendo os custos preenchidos da NF).
+  private preCadastroFilial: number | null = null;
+
   private carregarFiliais() {
     this.http.get<any>(`${environment.apiUrl}/filiais`).subscribe({
       next: resp => {
@@ -566,10 +575,10 @@ export class ProdutosComponent implements OnInit, OnDestroy {
             const cod = sr?.data?.filialCodigo;
             const filialLocal = filiais.find((f: any) => f.id === cod);
             const fId = filialLocal?.id ?? filiais[0]?.id ?? 0;
-            this.filialSelecionada.set(fId);
             this.filialLocal.set(fId);
+            if (this.preCadastroFilial == null) this.filialSelecionada.set(fId);
           },
-          error: () => { if (filiais.length) this.filialSelecionada.set(filiais[0].id); }
+          error: () => { if (this.preCadastroFilial == null && filiais.length) this.filialSelecionada.set(filiais[0].id); }
         });
       }
     });
