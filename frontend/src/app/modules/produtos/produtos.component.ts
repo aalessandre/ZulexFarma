@@ -366,10 +366,27 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     private toastr: ToastrService
   ) {}
 
+  // Flags de config: buscar GT/ABCFarma automaticamente em novo cadastro (default: liga).
+  flagBuscarGt = signal(true);
+  flagBuscarAbc = signal(true);
+
+  private carregarFlagsCadastro() {
+    this.http.get<any>(`${environment.apiUrl}/configuracoes`).subscribe({
+      next: r => {
+        const configs: any[] = r?.data ?? [];
+        const gt = configs.find(c => c.chave === 'produto.buscar.gt.novo')?.valor;
+        const abc = configs.find(c => c.chave === 'produto.buscar.abcfarma.novo')?.valor;
+        this.flagBuscarGt.set(gt !== 'false');   // default true
+        this.flagBuscarAbc.set(abc !== 'false');
+      }
+    });
+  }
+
   ngOnInit() {
     const restaurou = this.restaurarEstado();
     if (!restaurou && !this.isProdutoAba()) this.carregar();
     this.carregarFiliais();
+    this.carregarFlagsCadastro();
     this.verificarPreCadastroCompra();
   }
 
@@ -445,19 +462,28 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           }];
         }
 
-        // Dados por filial (preços do XML)
+        // Dados por filial (preços do XML). Frete/ST/IPI/Outros vêm como TOTAL do
+        // item na NF — dividem por quantidade pra virar custo unitário.
         const qtdeCompra = pre.quantidade || 1;
         this.qtdeCompraAtual.set(qtdeCompra);
-        const stUnitario = qtdeCompra > 0 ? (pre.valorStTotal || 0) / qtdeCompra : 0;
-        const custoUnitarioTotal = (pre.valorUnitario || 0) + stUnitario;
+        const porUnid = (total: number) => qtdeCompra > 0 ? (total || 0) / qtdeCompra : 0;
+        const r2 = (v: number) => Math.round(v * 100) / 100;
+        const stUnitario = porUnid(pre.valorStTotal);
+        const ipiUnitario = porUnid(pre.valorIpiTotal);
+        const outrosUnitario = porUnid(pre.valorOutrosTotal);
+        const freteUnitario = porUnid(pre.valorFreteTotal);
+        const custoUnitarioTotal = (pre.valorUnitario || 0) + stUnitario + ipiUnitario + outrosUnitario + freteUnitario;
 
         novo.dados = filiais.map((f: any) => {
           const d = this.novoDadosFilial(f.id);
           if (f.id === pre.filialId) {
             d.ultimaCompraUnitario = pre.valorUnitario || 0;
-            d.ultimaCompraSt = Math.round(stUnitario * 100) / 100;
+            d.ultimaCompraSt = r2(stUnitario);
+            d.ultimaCompraIpi = r2(ipiUnitario);
+            d.ultimaCompraOutros = r2(outrosUnitario);
+            d.ultimaCompraFrete = r2(freteUnitario);
             // Custo médio = custo total unitário (produto novo, estoque zero)
-            d.custoMedio = Math.round(custoUnitarioTotal * 100) / 100;
+            d.custoMedio = r2(custoUnitarioTotal);
             d.pmc = pre.pmc || 0;
           }
           return d;
@@ -510,6 +536,14 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         this.produtoFormOriginal = JSON.stringify(novo);
         this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(false);
         this.produtoEditandoId.set(null); this.modo.set('form');
+
+        // Como a NF já traz o código de barras (o usuário não digita nem sai do
+        // campo), dispara as buscas automáticas aqui — respeitando as flags.
+        const barras = pre.codigoBarras;
+        if (barras && barras.length >= 7) {
+          if (this.flagBuscarAbc()) this.verificarBarrasDuplicado(barras, true);
+          if (this.flagBuscarGt() && barras.length >= 8) this.consultarGestorTributario(true);
+        }
       }, 100);
 
       // Safety: limpar interval após 10s
@@ -1866,7 +1900,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   onCodigoBarrasChange(valor: string) {
     this.updateProdutoForm('codigoBarras', valor);
     if (valor && valor.length >= 7) {
-      this.verificarBarrasDuplicado(valor, true);
+      // Verifica duplicidade sempre; só busca ABCFarma se a flag estiver ligada.
+      this.verificarBarrasDuplicado(valor, this.flagBuscarAbc());
     } else {
       this.abcFarmaInfo.set(null);
     }
@@ -1900,8 +1935,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     // Auto-consulta ao sair do campo se EAN válido e ainda não foi consultado
     if (!ean || ean.length < 8) return;
     if (ean === this.ultimoEanConsultadoGt) return;
-    // Só consulta automaticamente em modo de novo produto
+    // Só consulta automaticamente em modo de novo produto e se a flag estiver ligada
     if (this.produtoEditandoId()) return;
+    if (!this.flagBuscarGt()) return;
     this.consultarGestorTributario(true);
   }
 
