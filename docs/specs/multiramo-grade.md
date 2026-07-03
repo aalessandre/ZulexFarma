@@ -1,7 +1,7 @@
 # Spec — Multi-ramo (por filial) + Grade de variações configurável
 
-**Status:** v0.1 — 2026-07-01 — desenho aprovado, pré-codificação
-**Escopo:** Passo 1 (Ramo por filial) + Passo 2 (Grade configurável). Balança e Offline ficam pra depois (specs próprias).
+**Status:** v0.2 — 2026-07-02 — **Passo 1 (Ramo) e Passo 2a+2b IMPLEMENTADOS e na main**; falta 2c (PDV). Balança e Offline ficam pra depois (specs próprias). Ver §Estado de implementação no fim.
+**Escopo:** Passo 1 (Ramo por filial) + Passo 2 (Grade configurável).
 
 ## Contexto / objetivo
 O ErpPharma deixa de ser só farmácia e passa a atender **vários ramos** (vestuário, hortifruti, mercearia, …). A diferença entre ramos é **quais funcionalidades aparecem** e **como o produto é modelado**. Duas fundações:
@@ -99,6 +99,29 @@ Todas herdam `BaseEntity` → **entram no sync** automaticamente (FilialOrigemId
 - **Estoque por filial**: continua por filial (não colide no sync entre lojas).
 
 ## Ordem de execução
-1. **Passo 1 (Ramo)** — pequeno, destrava a visibilidade por ramo. Codar primeiro.
-2. **Passo 2 (Grade)** — modelo + telas + PDV. Depende só do gate `grade` do Passo 1.
+1. **Passo 1 (Ramo)** — pequeno, destrava a visibilidade por ramo. ✅ FEITO.
+2. **Passo 2 (Grade)** — 2a (modelo + Atributos) ✅ · 2b (grade no produto) ✅ · 2c (PDV) ⏳.
 3. (depois) Balança / Pesável, e Offline/servidor local — specs próprias.
+
+---
+
+## Estado de implementação (as-built)
+
+### Passo 1 — Ramo por filial ✅ (2026-07-01)
+- `Filial.Ramo` (enum `RamoFilial`: Generico/Farmacia/Vestuario/Hortifruti/Mercearia) + `RamoFeatures.Para(ramo)` (mapa ramo→features). Migration `AddFilialRamo` (default Farmacia).
+- Login (`LoginResponseDto`) devolve `Ramo` + `Features`; SISTEMA vê todas, admin de filial vê só as do ramo.
+- Frontend: `AuthService.temFeature(key)`; tiles do dashboard e da busca (`erp-shell`) filtrados por `feature`; `featureGuard` nas rotas `sngpc`/`substancias`/`prescritores`; campo Ramo na tela Filiais.
+- Feature keys: `sngpc`, `farmacia-popular`, `receita`, `substancias`, `grade`, `pesavel`.
+
+### Passo 2a — Modelo + Atributos ✅ (2026-07-01)
+- Entidades: `AtributoVariacao`, `ValorAtributo`, `ProdutoAtributo`, `ProdutoVariacao`, `ProdutoVariacaoValor` + `Produto.ControlaGrade` + `ProdutoDados.ProdutoVariacaoId` (nullable) + `VendaItem.ProdutoVariacaoId` (nullable). Migration `AddGradeVariacoes` (5 tabelas + colunas).
+- API `IAtributoVariacaoService` + `AtributosVariacaoController` (`/api/atributos-variacao`, CRUD com sincronia dos valores).
+- **Seed** de Tamanho (PP..46) e Cor (10 cores c/ hex) no `DatabaseSeeder` (guard `AnyAsync`; ⚠️ multi-instância: futuro ideal é semear só na central).
+- Frontend: tela `atributos-variacao` (grid + modal com lista inline de valores), rota + tiles gated `grade`.
+
+### Passo 2b — Grade no produto ✅ (2026-07-02)
+- `IProdutoGradeService`/`ProdutoGradeController`: `GET/PUT /api/produtos/{id}/grade`. Salvar: liga `ControlaGrade`, sincroniza eixos (`ProdutoAtributo`), gera/sincroniza `ProdutoVariacao` (+`ProdutoVariacaoValor`, combinação imutável por SKU) e grava estoque/preço por SKU em `ProdutoDados` da **filial atual** (`FilialContexto.FilialIdAtual`; exige filial > 0). Variação usada em venda → desativa (não apaga).
+- Frontend: editor `/erp/produto-grade/:id` (gated `grade`) — marca eixos + valores → **Gerar matriz** (produto cartesiano, mescla com existentes por chave de combinação) → edita barras/estoque/preço por célula. Botão **"Grade"** na toolbar do produto (`podeGrade()` = `temFeature('grade')`, só editando).
+
+### Passo 2c — PDV ⏳ (pendente)
+Falta: no caixa, resolver o `CodigoBarras` da variação → SKU, referenciar `VendaItem.ProdutoVariacaoId`, e baixar estoque no `ProdutoDados` da variação. `VendaItem.Quantidade` é **int** (revisar pra decimal quando for a fase Pesável/Balança).
