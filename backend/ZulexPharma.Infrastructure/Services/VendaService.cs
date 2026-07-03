@@ -298,6 +298,30 @@ public class VendaService : IVendaService
             var agora = Domain.Helpers.DataHoraHelper.Agora();
             var temPrazo = venda.Pagamentos.Any(p => p.TipoPagamento?.Modalidade == ModalidadePagamento.VendaPrazo);
 
+            // ── Estoque negativo: configuração (padrão PERMITE) ────────────
+            var cfgNeg = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "estoque.permitir.negativo");
+            var permitirEstoqueNegativo = cfgNeg == null
+                || !string.Equals(cfgNeg.Valor?.Trim(), "false", StringComparison.OrdinalIgnoreCase);
+
+            if (!permitirEstoqueNegativo)
+            {
+                // Valida ANTES de finalizar: nenhum item pode deixar o estoque negativo.
+                var faltantes = new List<string>();
+                foreach (var grp in venda.Itens.Where(i => i.Quantidade > 0)
+                             .GroupBy(i => new { i.ProdutoId, i.ProdutoVariacaoId }))
+                {
+                    var qtde = grp.Sum(i => (decimal)i.Quantidade);
+                    var d = await _db.ProdutosDados.FirstOrDefaultAsync(x =>
+                        x.ProdutoId == grp.Key.ProdutoId && x.FilialId == venda.FilialId
+                        && x.ProdutoVariacaoId == grp.Key.ProdutoVariacaoId);
+                    var saldo = d?.EstoqueAtual ?? 0;
+                    if (qtde > saldo)
+                        faltantes.Add($"{grp.First().ProdutoNome} (saldo {saldo}, venda {qtde})");
+                }
+                if (faltantes.Count > 0)
+                    throw new ArgumentException("Venda bloqueada por estoque insuficiente (a configuração não permite estoque negativo): " + string.Join("; ", faltantes));
+            }
+
             // ── Validações de venda a prazo ────────────────────────
             Cliente? cliente = null;
             Convenio? convenio = null;
@@ -469,7 +493,10 @@ public class VendaService : IVendaService
                         && d.ProdutoVariacaoId == item.ProdutoVariacaoId);
                 if (dados != null)
                 {
-                    dados.EstoqueAtual = Math.Max(0, dados.EstoqueAtual - qtdeTotal);
+                    // Permite estoque negativo se a config permitir (padrão); senão trava em 0.
+                    dados.EstoqueAtual = permitirEstoqueNegativo
+                        ? dados.EstoqueAtual - qtdeTotal
+                        : Math.Max(0, dados.EstoqueAtual - qtdeTotal);
                     dados.UltimaVendaEm = agora;
                 }
 

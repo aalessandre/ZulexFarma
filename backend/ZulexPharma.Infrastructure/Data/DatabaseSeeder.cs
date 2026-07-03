@@ -141,6 +141,7 @@ public static class DatabaseSeeder
             (2, "sessao.inatividade.minutos", "10",        "Tempo de inatividade para encerrar sessao (0 = sem limite)"),
             (3, "sistema.nome",              "ZulexPharma", "Nome do sistema exibido no topo"),
             (4, "produto.preco.regra",       "perguntar",  "Ao alterar preco: perguntar | todas | atual"),
+            (5, "estoque.permitir.negativo", "true",       "Permite vender com estoque negativo (true = permite)"),
             // ── SNGPC ────────────────────────────────────────────────
             (10, "sngpc.ativar",                         "false",       "SNGPC ativado no sistema"),
             (11, "sngpc.vendas.modo",                    "Obrigatorio", "Modo SNGPC na venda: Obrigatorio | NaoLancar | Misto"),
