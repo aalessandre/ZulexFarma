@@ -98,6 +98,7 @@ public class VendaItemDto
 {
     public long Id { get; set; }
     public long ProdutoId { get; set; }
+    public long? ProdutoVariacaoId { get; set; }
     public string ProdutoCodigo { get; set; } = string.Empty;
     public string ProdutoNome { get; set; } = string.Empty;
     public string? Fabricante { get; set; }
@@ -117,6 +118,7 @@ public class VendaItemDto
 public class VendaItemFormDto
 {
     public long ProdutoId { get; set; }
+    public long? ProdutoVariacaoId { get; set; }
     public string ProdutoCodigo { get; set; } = string.Empty;
     public string ProdutoNome { get; set; } = string.Empty;
     public string? Fabricante { get; set; }

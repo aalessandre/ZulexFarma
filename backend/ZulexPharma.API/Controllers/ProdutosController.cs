@@ -166,7 +166,7 @@ public class ProdutosController : ControllerBase
                 ))
                 .OrderBy(p => p.Nome)
                 .Take(limit)
-                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando, p.ClasseTerapeutica, p.PrecoFp, p.PrecoFpBolsaFamilia, p.ParticipaFarmaciaPopular, p.CodigoBarras })
+                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando, p.ClasseTerapeutica, p.PrecoFp, p.PrecoFpBolsaFamilia, p.ParticipaFarmaciaPopular, p.CodigoBarras, p.ControlaGrade })
                 .ToListAsync();
 
             // Buscar dados da filial
@@ -223,13 +223,112 @@ public class ProdutosController : ControllerBase
                     precoFp = p.PrecoFp,
                     precoFpBolsaFamilia = p.PrecoFpBolsaFamilia,
                     participaFarmaciaPopular = p.ParticipaFarmaciaPopular,
-                    codigoBarras = p.CodigoBarras
+                    codigoBarras = p.CodigoBarras,
+                    controlaGrade = p.ControlaGrade,
+                    produtoVariacaoId = (long?)null,
+                    variacaoDescricao = (string?)null
                 };
             });
 
-            return Ok(new { success = true, data = result });
+            // Também casa código de barras de VARIAÇÃO (grade): resolve direto o SKU,
+            // com preço da variação (ValorVenda do SKU) e fallback pro preço do produto.
+            var variacoes = await _db.ProdutosVariacoes
+                .Where(v => v.Ativo && v.CodigoBarras != null && v.CodigoBarras.ToUpper().Contains(termoNorm) && v.Produto.Ativo)
+                .Select(v => new
+                {
+                    v.Id, v.ProdutoId, v.CodigoBarras,
+                    Nome = v.Produto.Nome, Codigo = v.Produto.Codigo,
+                    Fabricante = v.Produto.Fabricante != null ? v.Produto.Fabricante.Nome : "",
+                    v.Produto.PermitirConferenciaDigitando, v.Produto.ClasseTerapeutica,
+                    v.Produto.PrecoFp, v.Produto.PrecoFpBolsaFamilia, v.Produto.ParticipaFarmaciaPopular,
+                    Labels = v.Valores.OrderBy(x => x.AtributoVariacao.Ordem).Select(x => x.ValorAtributo.Valor).ToList()
+                })
+                .Take(limit)
+                .ToListAsync();
+
+            var data = new List<object>();
+            if (variacoes.Count > 0)
+            {
+                var varIds = variacoes.Select(v => v.Id).ToList();
+                var prodIdsVar = variacoes.Select(v => v.ProdutoId).Distinct().ToList();
+                var dadosVar = await _db.ProdutosDados
+                    .Where(d => d.FilialId == filialId && (
+                        (d.ProdutoVariacaoId != null && varIds.Contains(d.ProdutoVariacaoId.Value)) ||
+                        (d.ProdutoVariacaoId == null && prodIdsVar.Contains(d.ProdutoId))))
+                    .Select(d => new { d.ProdutoId, d.ProdutoVariacaoId, d.ValorVenda, d.CustoMedio, d.EstoqueAtual, d.CurvaAbc })
+                    .ToListAsync();
+
+                foreach (var v in variacoes)
+                {
+                    var dSku = dadosVar.FirstOrDefault(x => x.ProdutoVariacaoId == v.Id);
+                    var dBase = dadosVar.FirstOrDefault(x => x.ProdutoId == v.ProdutoId && x.ProdutoVariacaoId == null);
+                    var preco = (dSku?.ValorVenda ?? 0) > 0 ? dSku!.ValorVenda : (dBase?.ValorVenda ?? 0);
+                    data.Add(new
+                    {
+                        id = v.ProdutoId, codigo = v.Codigo, nome = v.Nome, fabricante = v.Fabricante,
+                        valorVenda = preco, custoMedio = dSku?.CustoMedio ?? 0,
+                        estoqueAtual = dSku?.EstoqueAtual ?? 0, curvaAbc = dSku?.CurvaAbc ?? "",
+                        temPromocao = false,
+                        permitirConferenciaDigitando = v.PermitirConferenciaDigitando,
+                        classeTerapeutica = v.ClasseTerapeutica,
+                        precoFp = v.PrecoFp, precoFpBolsaFamilia = v.PrecoFpBolsaFamilia,
+                        participaFarmaciaPopular = v.ParticipaFarmaciaPopular,
+                        codigoBarras = v.CodigoBarras,
+                        controlaGrade = true,
+                        produtoVariacaoId = (long?)v.Id,
+                        variacaoDescricao = string.Join(" / ", v.Labels)
+                    });
+                }
+            }
+            data.AddRange(result.Cast<object>());
+
+            return Ok(new { success = true, data });
         }
         catch (Exception ex) { Log.Error(ex, "Erro em ProdutosController.Buscar"); return StatusCode(500, new { success = false, message = "Erro ao buscar produtos." }); }
+    }
+
+    /// <summary>Variações (SKUs) de um produto com grade, com preço/estoque resolvidos
+    /// pra filial — usado no PDV pra escolher qual variação está sendo vendida.</summary>
+    [HttpGet("{id:long}/variacoes-venda")]
+    public async Task<IActionResult> VariacoesVenda(long id, [FromQuery] long filialId = 1)
+    {
+        try
+        {
+            var variacoes = await _db.ProdutosVariacoes
+                .Where(v => v.ProdutoId == id && v.Ativo)
+                .Select(v => new
+                {
+                    v.Id, v.CodigoBarras,
+                    Labels = v.Valores.OrderBy(x => x.AtributoVariacao.Ordem).Select(x => x.ValorAtributo.Valor).ToList()
+                })
+                .ToListAsync();
+
+            var varIds = variacoes.Select(v => v.Id).ToList();
+            var dados = await _db.ProdutosDados
+                .Where(d => d.FilialId == filialId && (
+                    (d.ProdutoVariacaoId != null && varIds.Contains(d.ProdutoVariacaoId.Value)) ||
+                    (d.ProdutoVariacaoId == null && d.ProdutoId == id)))
+                .Select(d => new { d.ProdutoVariacaoId, d.ValorVenda, d.EstoqueAtual })
+                .ToListAsync();
+            var precoBase = dados.FirstOrDefault(x => x.ProdutoVariacaoId == null)?.ValorVenda ?? 0;
+
+            var lista = variacoes.Select(v =>
+            {
+                var dSku = dados.FirstOrDefault(x => x.ProdutoVariacaoId == v.Id);
+                var preco = (dSku?.ValorVenda ?? 0) > 0 ? dSku!.ValorVenda : precoBase;
+                return new
+                {
+                    produtoVariacaoId = v.Id,
+                    descricao = string.Join(" / ", v.Labels),
+                    codigoBarras = v.CodigoBarras,
+                    valorVenda = preco,
+                    estoqueAtual = dSku?.EstoqueAtual ?? 0
+                };
+            }).ToList();
+
+            return Ok(new { success = true, data = lista });
+        }
+        catch (Exception ex) { Log.Error(ex, "Erro em ProdutosController.VariacoesVenda"); return StatusCode(500, new { success = false, message = "Erro ao buscar variações." }); }
     }
 
     [HttpGet]

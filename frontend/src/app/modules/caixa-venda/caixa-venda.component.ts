@@ -24,6 +24,7 @@ interface ItemDesconto {
 
 interface PreVendaItem {
   produtoId: number;
+  produtoVariacaoId?: number | null;
   produtoCodigo: string;
   produtoNome: string;
   fabricante?: string;
@@ -153,6 +154,18 @@ interface ProdutoLookup {
   precoFpBolsaFamilia?: number;
   participaFarmaciaPopular?: boolean;
   codigoBarras?: string;
+  // Grade de variações
+  controlaGrade?: boolean;
+  produtoVariacaoId?: number | null;
+  variacaoDescricao?: string | null;
+}
+
+interface VariacaoVenda {
+  produtoVariacaoId: number;
+  descricao: string;
+  codigoBarras?: string;
+  valorVenda: number;
+  estoqueAtual: number;
 }
 
 interface ColunaDef {
@@ -878,6 +891,45 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Grade: picker de variação (bipou barras principal de produto com grade) ──
+  pickerVariacao = signal<{ base: ProdutoLookup; itens: VariacaoVenda[] } | null>(null);
+
+  private abrirPickerVariacao(p: ProdutoLookup) {
+    this.http.get<any>(`${this.apiUrl}/produtos/${p.id}/variacoes-venda`, {
+      params: { filialId: this.filialId().toString() }
+    }).subscribe({
+      next: r => {
+        const itens: VariacaoVenda[] = r.data ?? [];
+        if (itens.length === 0) {
+          this.modal.aviso('Grade', 'Este produto controla grade mas não tem variações cadastradas.');
+          return;
+        }
+        this.pickerVariacao.set({ base: p, itens });
+      },
+      error: () => this.modal.erro('Erro', 'Erro ao buscar variações do produto.')
+    });
+  }
+
+  escolherVariacao(v: VariacaoVenda) {
+    const picker = this.pickerVariacao();
+    if (!picker) return;
+    const resolved: ProdutoLookup = {
+      ...picker.base,
+      produtoVariacaoId: v.produtoVariacaoId,
+      variacaoDescricao: v.descricao,
+      valorVenda: v.valorVenda,
+      estoqueAtual: v.estoqueAtual,
+      codigoBarras: v.codigoBarras ?? picker.base.codigoBarras
+    };
+    this.pickerVariacao.set(null);
+    this.selecionarProduto(resolved);
+  }
+
+  fecharPickerVariacao() {
+    this.pickerVariacao.set(null);
+    setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
+  }
+
   // ── Cores para múltiplos vendedores ─────────────────────────────
   private readonly CORES_VENDEDOR = ['#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#E53935', '#00ACC1', '#6D4C41'];
   private vendedorCoresMap = new Map<number, string>();
@@ -915,9 +967,16 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // ── Grade: bipou barras PRINCIPAL de produto com grade → escolher variação.
+    // Se veio com produtoVariacaoId resolvido (barras da variação ou picker), segue direto.
+    if (p.controlaGrade && !p.produtoVariacaoId) {
+      this.abrirPickerVariacao(p);
+      return;
+    }
+
     // ── Modo conferência: bipar incrementa quantidade ──────────────
     if (this.modoConferencia()) {
-      const idxExist = this.itens().findIndex(i => i.produtoId === p.id);
+      const idxExist = this.itens().findIndex(i => i.produtoId === p.id && (i.produtoVariacaoId ?? null) === (p.produtoVariacaoId ?? null));
       if (idxExist >= 0) {
         this.itens.update(lista => {
           const arr = [...lista];
@@ -951,7 +1010,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
 
     // ── Duplicar linha: se desabilitado, incrementar quantidade ──
     if (!this.cfgDuplicarLinha()) {
-      const idxExistente = this.itens().findIndex(i => i.produtoId === p.id);
+      const idxExistente = this.itens().findIndex(i => i.produtoId === p.id && (i.produtoVariacaoId ?? null) === (p.produtoVariacaoId ?? null));
       if (idxExistente >= 0) {
         this.itens.update(lista => {
           const arr = [...lista];
@@ -983,8 +1042,9 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       : p.valorVenda;
     const novoItem: PreVendaItem = {
       produtoId: p.id,
+      produtoVariacaoId: p.produtoVariacaoId ?? null,
       produtoCodigo: p.codigo,
-      produtoNome: p.nome,
+      produtoNome: p.variacaoDescricao ? `${p.nome} (${p.variacaoDescricao})` : p.nome,
       fabricante: p.fabricante ?? '',
       precoVenda: precoFpEfetivo,
       precoFpNormal: p.precoFp,
@@ -1199,6 +1259,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         const exigirConf = this.cfgExigirConferencia();
         const itens: PreVendaItem[] = (d.itens ?? []).map((i: any) => ({
           produtoId: i.produtoId,
+          produtoVariacaoId: i.produtoVariacaoId ?? null,
           produtoCodigo: i.produtoCodigo,
           produtoNome: i.produtoNome,
           fabricante: i.fabricante ?? '',
@@ -2244,6 +2305,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       origem: 2,
       itens: this.itens().map(i => ({
         produtoId: i.produtoId,
+        produtoVariacaoId: i.produtoVariacaoId ?? null,
         produtoCodigo: i.produtoCodigo,
         produtoNome: i.produtoNome,
         fabricante: i.fabricante,
@@ -2569,6 +2631,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         this.cestaNumero.set(d.nrCesta ?? '');
         const itens: PreVendaItem[] = (d.itens ?? []).map((i: any) => ({
           produtoId: i.produtoId,
+          produtoVariacaoId: i.produtoVariacaoId ?? null,
           produtoCodigo: i.produtoCodigo,
           produtoNome: i.produtoNome,
           fabricante: i.fabricante ?? '',

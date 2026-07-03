@@ -102,7 +102,8 @@ public class VendaService : IVendaService
                     var d = dados.FirstOrDefault(x => x.ProdutoId == i.ProdutoId);
                     return new VendaItemDto
                     {
-                        Id = i.Id, ProdutoId = i.ProdutoId ?? 0, ProdutoCodigo = i.ProdutoCodigo,
+                        Id = i.Id, ProdutoId = i.ProdutoId ?? 0, ProdutoVariacaoId = i.ProdutoVariacaoId,
+                        ProdutoCodigo = i.ProdutoCodigo,
                         ProdutoNome = i.ProdutoNome, Fabricante = i.Fabricante,
                         PrecoVenda = i.PrecoVenda, Quantidade = i.Quantidade,
                         PercentualDesconto = i.PercentualDesconto, PercentualPromocao = i.PercentualPromocao,
@@ -461,9 +462,11 @@ public class VendaService : IVendaService
             {
                 var qtdeTotal = (decimal)item.Quantidade;
 
-                // Decrementa estoque global do ProdutoDados
+                // Decrementa estoque do ProdutoDados. Se o item é de uma variação (grade),
+                // baixa no SKU (ProdutoVariacaoId); senão na linha-base (ProdutoVariacaoId null).
                 var dados = await _db.ProdutosDados
-                    .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == venda.FilialId);
+                    .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == venda.FilialId
+                        && d.ProdutoVariacaoId == item.ProdutoVariacaoId);
                 if (dados != null)
                 {
                     dados.EstoqueAtual = Math.Max(0, dados.EstoqueAtual - qtdeTotal);
@@ -656,7 +659,8 @@ public class VendaService : IVendaService
         var precoUnit = dto.Quantidade > 0 ? Math.Round(total / dto.Quantidade, 2) : 0;
         var item = new VendaItem
         {
-            ProdutoId = dto.ProdutoId, ProdutoCodigo = dto.ProdutoCodigo, ProdutoNome = dto.ProdutoNome,
+            ProdutoId = dto.ProdutoId, ProdutoVariacaoId = dto.ProdutoVariacaoId,
+            ProdutoCodigo = dto.ProdutoCodigo, ProdutoNome = dto.ProdutoNome,
             Fabricante = dto.Fabricante, PrecoVenda = dto.PrecoVenda, Quantidade = dto.Quantidade,
             PercentualDesconto = dto.PercentualDesconto, PercentualPromocao = dto.PercentualPromocao,
             ValorDesconto = valorDesconto,

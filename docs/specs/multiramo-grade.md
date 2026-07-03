@@ -100,7 +100,7 @@ Todas herdam `BaseEntity` → **entram no sync** automaticamente (FilialOrigemId
 
 ## Ordem de execução
 1. **Passo 1 (Ramo)** — pequeno, destrava a visibilidade por ramo. ✅ FEITO.
-2. **Passo 2 (Grade)** — 2a (modelo + Atributos) ✅ · 2b (grade no produto) ✅ · 2c (PDV) ⏳.
+2. **Passo 2 (Grade)** — 2a (modelo + Atributos) ✅ · 2b (grade no produto) ✅ · 2c (PDV) ✅.
 3. (depois) Balança / Pesável, e Offline/servidor local — specs próprias.
 
 ---
@@ -129,5 +129,7 @@ Todas herdam `BaseEntity` → **entram no sync** automaticamente (FilialOrigemId
 - **Grade virou MODAL sobre o produto** (antes era tela/aba separada — perdia o contexto e obrigava a repesquisar). `ProdutoGradeComponent` agora é modal com `@Input produtoId/nome` + `@Output fechar/salvou`; aberto de dentro do cadastro de produto (`abrirGrade()` → `modalGrade` signal). Rota `produto-grade/:id` removida.
 - **Estoque do produto = soma das variações**: `ProdutoDetalheDto.ControlaGrade` + `MapDetalhe` filtra as linhas-base de `ProdutoDados` (`ProdutoVariacaoId == null`, 1 por filial) e, para produto com grade, sobrescreve `EstoqueAtual` com a **soma dos SKUs por filial**. No form, o campo Estoque Atual fica **read-only** (tag "grade") — edita-se pela Grade. Ao salvar a grade, o modal emite o total e o produto atualiza o campo na hora (sem repesquisar). Corrige de quebra o bug latente de `Dados` trazer linhas de variação misturadas.
 
-### Passo 2c — PDV ⏳ (pendente)
-Falta: no caixa, resolver o `CodigoBarras` da variação → SKU, referenciar `VendaItem.ProdutoVariacaoId`, e baixar estoque no `ProdutoDados` da variação. `VendaItem.Quantidade` é **int** (revisar pra decimal quando for a fase Pesável/Balança).
+### Passo 2c — PDV ✅ (2026-07-03)
+- **Backend**: `VendaItemFormDto`/`VendaItemDto` ganham `ProdutoVariacaoId`; `MapearItem` grava no `VendaItem`; **baixa de estoque** passa a casar `d.ProdutoVariacaoId == item.ProdutoVariacaoId` (SKU pra grade, linha-base pra normal). `ProdutosController.Buscar` casa também `ProdutoVariacao.CodigoBarras` (resolve o SKU direto, com preço da variação e fallback do produto) e devolve `controlaGrade`/`produtoVariacaoId`/`variacaoDescricao`. Novo endpoint `GET /produtos/{id}/variacoes-venda?filialId=` lista os SKUs com preço/estoque resolvidos.
+- **Frontend (caixa-venda + pre-venda)**: bipar barras **principal** de produto com grade abre um **picker de variação** (modal); bipar barras **da variação** insere direto. Item leva `produtoVariacaoId` + descrição "(P / Preto)" no nome; linhas de variações diferentes não se agrupam. Preço: variação prioritário, fallback pro cadastro (resolvido no backend).
+- **Pendente/futuro**: `VendaItem.Quantidade` é **int** (revisar pra decimal na fase Pesável/Balança). Fiscal (NCM/CFOP) herda do modelo — sem mudança.
