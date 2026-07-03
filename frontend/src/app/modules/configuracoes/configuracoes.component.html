@@ -191,6 +191,28 @@
                   <span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span>
                 </label>
               </div>
+
+              <div class="cfg-field cfg-field-lg cfg-field-inline">
+                <label>BUSCAR GESTOR TRIBUTÁRIO EM NOVO CADASTRO
+                  <span class="cfg-info" title="Ao cadastrar um novo produto (inclusive pela entrada de nota), busca automaticamente os dados fiscais no Gestor Tributário quando há código de barras.">i</span>
+                </label>
+                <label class="cfg-toggle">
+                  <input type="checkbox" [checked]="getBool('produto.buscar.gt.novo', true)"
+                         (change)="setBool('produto.buscar.gt.novo', $any($event.target).checked)" />
+                  <span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span>
+                </label>
+              </div>
+
+              <div class="cfg-field cfg-field-lg cfg-field-inline">
+                <label>BUSCAR ABCFARMA EM NOVO CADASTRO
+                  <span class="cfg-info" title="Ao cadastrar um novo produto (inclusive pela entrada de nota), busca automaticamente preço/PMC na base ABCFarma quando há código de barras.">i</span>
+                </label>
+                <label class="cfg-toggle">
+                  <input type="checkbox" [checked]="getBool('produto.buscar.abcfarma.novo', true)"
+                         (change)="setBool('produto.buscar.abcfarma.novo', $any($event.target).checked)" />
+                  <span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span>
+                </label>
+              </div>
             </div>
           }
         </div>

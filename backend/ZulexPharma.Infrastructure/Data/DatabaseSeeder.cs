@@ -142,6 +142,8 @@ public static class DatabaseSeeder
             (3, "sistema.nome",              "ZulexPharma", "Nome do sistema exibido no topo"),
             (4, "produto.preco.regra",       "perguntar",  "Ao alterar preco: perguntar | todas | atual"),
             (5, "estoque.permitir.negativo", "true",       "Permite vender com estoque negativo (true = permite)"),
+            (6, "produto.buscar.gt.novo",       "true",    "Buscar Gestor Tributario ao ter codigo de barras em novo cadastro"),
+            (7, "produto.buscar.abcfarma.novo", "true",    "Buscar ABCFarma ao ter codigo de barras em novo cadastro"),
             // ── SNGPC ────────────────────────────────────────────────
             (10, "sngpc.ativar",                         "false",       "SNGPC ativado no sistema"),
             (11, "sngpc.vendas.modo",                    "Obrigatorio", "Modo SNGPC na venda: Obrigatorio | NaoLancar | Misto"),
