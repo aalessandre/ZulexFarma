@@ -632,7 +632,14 @@
             <summary class="prod-acc-header acc-estoque">Estoque</summary>
             <div class="prod-acc-body">
               <div class="prod-grid">
-                <div class="prod-field"><label>ESTOQUE ATUAL</label><input type="number" [value]="dd.estoqueAtual" (input)="updateDados(dadosFilialIdx(), 'estoqueAtual', +$any($event.target).value)" step="0.01" /></div>
+                <div class="prod-field">
+                  <label>ESTOQUE ATUAL @if (produtoForm().controlaGrade) { <span class="prod-grade-tag">grade</span> }</label>
+                  @if (produtoForm().controlaGrade) {
+                    <input type="number" [value]="dd.estoqueAtual" step="0.01" readonly class="prod-inp-readonly" title="Total das variações — edite pela Grade" />
+                  } @else {
+                    <input type="number" [value]="dd.estoqueAtual" (input)="updateDados(dadosFilialIdx(), 'estoqueAtual', +$any($event.target).value)" step="0.01" />
+                  }
+                </div>
                 <div class="prod-field"><label>ESTOQUE MÍNIMO</label><input type="number" [value]="dd.estoqueMinimo" (input)="updateDados(dadosFilialIdx(), 'estoqueMinimo', +$any($event.target).value)" step="0.01" /></div>
                 <div class="prod-field"><label>ESTOQUE MÁXIMO</label><input type="number" [value]="dd.estoqueMaximo" (input)="updateDados(dadosFilialIdx(), 'estoqueMaximo', +$any($event.target).value)" step="0.01" /></div>
                 <div class="prod-field"><label>DEMANDA</label><input type="number" [value]="dd.demanda" (input)="updateDados(dadosFilialIdx(), 'demanda', +$any($event.target).value)" step="0.01" /></div>
@@ -1192,4 +1199,13 @@
 
     </div>
   </div>
+}
+
+<!-- Modal Grade (sobre o produto) -->
+@if (modalGrade()) {
+  <app-produto-grade
+    [produtoId]="gradeProdutoId()"
+    [nome]="gradeProdutoNome()"
+    (fechar)="fecharGrade()"
+    (salvou)="onGradeSalva($event)" />
 }

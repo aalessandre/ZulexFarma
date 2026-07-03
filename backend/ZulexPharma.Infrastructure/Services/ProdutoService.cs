@@ -726,14 +726,22 @@ public class ProdutoService : IProdutoService
 
     // ── Mapping ─────────────────────────────────────────────────────
 
-    private static ProdutoDetalheDto MapDetalhe(Produto p) => new()
+    private static ProdutoDetalheDto MapDetalhe(Produto p)
     {
+        // Estoque das variações (grade) por filial — o total do produto é a soma dos SKUs.
+        var estoqueGradePorFilial = p.Dados
+            .Where(d => d.ProdutoVariacaoId != null)
+            .GroupBy(d => d.FilialId)
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.EstoqueAtual));
+
+        return new ProdutoDetalheDto
+        {
         Id = p.Id, Nome = p.Nome, CodigoBarras = p.CodigoBarras,
         QtdeEmbalagem = p.QtdeEmbalagem, PrecoFp = p.PrecoFp,
         PrecoFpBolsaFamilia = p.PrecoFpBolsaFamilia, ParticipaFarmaciaPopular = p.ParticipaFarmaciaPopular,
         Lista = p.Lista, Fracao = p.Fracao, Ativo = p.Ativo,
         Eliminado = p.Eliminado, PermitirConferenciaDigitando = p.PermitirConferenciaDigitando,
-        CriadoEm = p.CriadoEm,
+        CriadoEm = p.CriadoEm, ControlaGrade = p.ControlaGrade,
         FabricanteId = p.FabricanteId,
         GrupoPrincipalId = p.GrupoPrincipalId,
         GrupoProdutoId = p.GrupoProdutoId,
@@ -790,10 +798,15 @@ public class ProdutoService : IProdutoService
             AtualizadoGestorTributarioEm = f.AtualizadoGestorTributarioEm,
             AtualizadoGestorTributarioProvider = f.AtualizadoGestorTributarioProvider
         }).ToList(),
-        Dados = p.Dados.OrderBy(d => d.FilialId).Select(d => new ProdutoDadosDto
+        Dados = p.Dados
+            .Where(d => d.ProdutoVariacaoId == null)   // só linhas-base (1 por filial); SKUs ficam na grade
+            .OrderBy(d => d.FilialId).Select(d => new ProdutoDadosDto
         {
             Id = d.Id, FilialId = d.FilialId,
-            EstoqueAtual = d.EstoqueAtual, EstoqueMinimo = d.EstoqueMinimo,
+            EstoqueAtual = p.ControlaGrade
+                ? (estoqueGradePorFilial.TryGetValue(d.FilialId, out var totGrade) ? totGrade : 0m)
+                : d.EstoqueAtual,
+            EstoqueMinimo = d.EstoqueMinimo,
             EstoqueMaximo = d.EstoqueMaximo, Demanda = d.Demanda, CurvaAbc = d.CurvaAbc,
             EstoqueDeposito = d.EstoqueDeposito,
             UltimaCompraUnitario = d.UltimaCompraUnitario, UltimaCompraSt = d.UltimaCompraSt,
@@ -820,5 +833,6 @@ public class ProdutoService : IProdutoService
             BaseCalculo = d.BaseCalculo,
             UltimaCompraEm = d.UltimaCompraEm, UltimaVendaEm = d.UltimaVendaEm
         }).ToList()
-    };
+        };
+    }
 }
