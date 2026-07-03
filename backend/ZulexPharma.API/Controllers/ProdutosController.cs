@@ -167,7 +167,7 @@ public class ProdutosController : ControllerBase
                 ))
                 .OrderBy(p => p.Nome)
                 .Take(limit)
-                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando, p.ClasseTerapeutica, p.PrecoFp, p.PrecoFpBolsaFamilia, p.ParticipaFarmaciaPopular, p.CodigoBarras, p.ControlaGrade })
+                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando, p.ClasseTerapeutica, p.PrecoFp, p.PrecoFpBolsaFamilia, p.ParticipaFarmaciaPopular, p.CodigoBarras, p.ControlaGrade, TemVariacoes = p.Variacoes.Any(v => v.Ativo) })
                 .ToListAsync();
 
             // Buscar dados da filial
@@ -225,7 +225,9 @@ public class ProdutosController : ControllerBase
                     precoFpBolsaFamilia = p.PrecoFpBolsaFamilia,
                     participaFarmaciaPopular = p.ParticipaFarmaciaPopular,
                     codigoBarras = p.CodigoBarras,
-                    controlaGrade = p.ControlaGrade,
+                    // Precisa do picker se o produto tem grade OU tem variações ativas
+                    // (mesmo que o flag ControlaGrade não tenha sido marcado no cadastro).
+                    controlaGrade = p.ControlaGrade || p.TemVariacoes,
                     produtoVariacaoId = (long?)null,
                     variacaoDescricao = (string?)null
                 };

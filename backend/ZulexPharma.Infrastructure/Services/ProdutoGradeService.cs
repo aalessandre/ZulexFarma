@@ -74,7 +74,9 @@ public class ProdutoGradeService : IProdutoGradeService
             .FirstOrDefaultAsync(p => p.Id == produtoId)
             ?? throw new KeyNotFoundException($"Produto {produtoId} não encontrado.");
 
-        produto.ControlaGrade = dto.ControlaGrade;
+        // Se há variações, o produto é vendido por elas — liga o flag mesmo que o
+        // toggle não tenha sido marcado (evita venda direta do modelo sem escolher SKU).
+        produto.ControlaGrade = dto.ControlaGrade || dto.Variacoes.Any();
         produto.AtualizadoEm = DateTime.UtcNow;
 
         SincronizarEixos(produto, dto.AtributoIds);
