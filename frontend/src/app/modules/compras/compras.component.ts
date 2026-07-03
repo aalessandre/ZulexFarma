@@ -424,9 +424,12 @@ export class ComprasComponent implements OnInit, OnDestroy {
     const params: any = {};
     if (this.filtroFilialId() > 0) params.filialId = this.filtroFilialId();
     if (this.filtroStatus()) params.status = this.filtroStatus();
-    if (this.filtroDataInicio()) params.dataInicio = this.filtroDataInicio();
-    if (this.filtroDataFim()) params.dataFim = this.filtroDataFim();
-    params.filtroData = this.filtroDataTipo();
+    // Pendentes: ignora o intervalo de datas (traz tudo que está em aberto).
+    if (this.filtroStatus() !== 'pendentes') {
+      if (this.filtroDataInicio()) params.dataInicio = this.filtroDataInicio();
+      if (this.filtroDataFim()) params.dataFim = this.filtroDataFim();
+      params.filtroData = this.filtroDataTipo();
+    }
     this.http.get<any>(this.apiUrl, { params }).subscribe({
       next: r => {
         this.compras.set(r.data ?? []);
