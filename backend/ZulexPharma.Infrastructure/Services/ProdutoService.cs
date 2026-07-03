@@ -733,6 +733,9 @@ public class ProdutoService : IProdutoService
             .Where(d => d.ProdutoVariacaoId != null)
             .GroupBy(d => d.FilialId)
             .ToDictionary(g => g.Key, g => g.Sum(d => d.EstoqueAtual));
+        // Trata como grade se o flag está ligado OU se já existem linhas de variação
+        // (assim o total aparece automaticamente ao abrir, sem depender do flag).
+        var temGrade = p.ControlaGrade || estoqueGradePorFilial.Count > 0;
 
         return new ProdutoDetalheDto
         {
@@ -741,7 +744,7 @@ public class ProdutoService : IProdutoService
         PrecoFpBolsaFamilia = p.PrecoFpBolsaFamilia, ParticipaFarmaciaPopular = p.ParticipaFarmaciaPopular,
         Lista = p.Lista, Fracao = p.Fracao, Ativo = p.Ativo,
         Eliminado = p.Eliminado, PermitirConferenciaDigitando = p.PermitirConferenciaDigitando,
-        CriadoEm = p.CriadoEm, ControlaGrade = p.ControlaGrade,
+        CriadoEm = p.CriadoEm, ControlaGrade = temGrade,
         FabricanteId = p.FabricanteId,
         GrupoPrincipalId = p.GrupoPrincipalId,
         GrupoProdutoId = p.GrupoProdutoId,
@@ -803,7 +806,7 @@ public class ProdutoService : IProdutoService
             .OrderBy(d => d.FilialId).Select(d => new ProdutoDadosDto
         {
             Id = d.Id, FilialId = d.FilialId,
-            EstoqueAtual = p.ControlaGrade
+            EstoqueAtual = temGrade
                 ? (estoqueGradePorFilial.TryGetValue(d.FilialId, out var totGrade) ? totGrade : 0m)
                 : d.EstoqueAtual,
             EstoqueMinimo = d.EstoqueMinimo,

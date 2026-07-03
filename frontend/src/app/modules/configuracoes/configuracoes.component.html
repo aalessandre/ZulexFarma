@@ -180,6 +180,17 @@
                   <option value="atual">Apenas filial atual (não propagar)</option>
                 </select>
               </div>
+
+              <div class="cfg-field cfg-field-lg cfg-field-inline">
+                <label>PERMITIR VENDER COM ESTOQUE NEGATIVO
+                  <span class="cfg-info" title="Se ligado, a venda é permitida mesmo sem saldo e o estoque fica negativo. Se desligado, a venda é bloqueada quando não há saldo suficiente.">i</span>
+                </label>
+                <label class="cfg-toggle">
+                  <input type="checkbox" [checked]="getBool('estoque.permitir.negativo', true)"
+                         (change)="setBool('estoque.permitir.negativo', $any($event.target).checked)" />
+                  <span class="cfg-toggle-track"></span><span class="cfg-toggle-thumb"></span>
+                </label>
+              </div>
             </div>
           }
         </div>

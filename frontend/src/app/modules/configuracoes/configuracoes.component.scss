@@ -81,6 +81,7 @@
 .cfg-field {
   display: flex; flex-direction: column; gap: 4px; min-width: 180px; flex: 1;
   &.cfg-field-lg { min-width: 300px; }
+  &.cfg-field-inline { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; margin-top: 12px; }
   label {
     font-size: var(--erp-fs-xs); font-weight: 700; color: var(--erp-text-muted);
     letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;
