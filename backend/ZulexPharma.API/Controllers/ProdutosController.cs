@@ -162,6 +162,7 @@ public class ProdutosController : ControllerBase
                 .Where(p => p.Ativo && (
                     p.Nome.ToUpper().Contains(termoNorm) ||
                     p.Codigo!.Contains(termoNorm) ||
+                    (p.CodigoBarras != null && p.CodigoBarras.Contains(termoNorm)) ||
                     p.Barras.Any(b => b.Barras.Contains(termoNorm))
                 ))
                 .OrderBy(p => p.Nome)
