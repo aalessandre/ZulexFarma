@@ -1,124 +1,133 @@
 <div class="tela-erp">
   <aside class="tela-sidebar">
-    <div class="sidebar-item tile-procurar" (click)="carregar()">
-      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Atualizar</span></div>
-      <span class="sidebar-sub">Recarregar lista</span>
-    </div>
-    <div class="sidebar-item tile-adicionar" (click)="novo()">
-      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Adicionar</span></div>
-      <span class="sidebar-sub">Novo atributo</span>
-    </div>
-    <div class="sidebar-item tile-sair" (click)="sairDaTela()">
-      <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div>
-      <span class="sidebar-sub">Fechar tela</span>
-    </div>
+    <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="fechar()"><div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Procurar</span></div><span class="sidebar-sub">Consulta</span></div>
+    <div class="sidebar-item tile-adicionar" (click)="incluir()"><div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Adicionar</span></div><span class="sidebar-sub">Novo atributo</span></div>
+    <div class="sidebar-item tile-editar" (click)="editar()"><div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Editar</span></div><span class="sidebar-sub">Alterar registro</span></div>
+    <div class="sidebar-item tile-sair" (click)="sairDaTela()"><div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sair</span></div><span class="sidebar-sub">Fechar tela</span></div>
   </aside>
 
   <div class="tela-main">
-    <div class="form-wrapper">
-      <div class="form-titulo">Atributos de Variação</div>
-
-      <div class="av-filtros">
-        <div class="av-filtro av-filtro-busca">
-          <label>BUSCAR</label>
-          <input type="text" placeholder="Por nome do atributo..."
-                 [value]="busca()" (input)="busca.set($any($event.target).value)" />
+    @if (modo() === 'lista') {
+      <div class="lista-header">
+        <div class="lista-filtro">
+          <label>PROCURAR POR</label>
+          <div class="input-busca-wrap">
+            <input class="input-busca" type="text" placeholder="Nome do atributo..." [value]="busca()" (input)="busca.set($any($event.target).value)" />
+            @if (busca()) { <button class="input-busca-limpar" (click)="busca.set('')" title="Limpar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button> }
+          </div>
+        </div>
+        <div class="lista-filtro">
+          <label>SITUAÇÃO</label>
+          <select class="select-status" [value]="filtroStatus()" (change)="filtroStatus.set($any($event.target).value)">
+            <option value="ativos">Ativos</option><option value="inativos">Inativos</option><option value="todos">Todos</option>
+          </select>
+        </div>
+        <div class="col-picker-wrap">
+          <button class="btn-colunas" (click)="painelColunas.update(v => !v)" title="Personalizar colunas">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Colunas
+          </button>
+          @if (painelColunas()) {
+            <div class="col-picker-overlay" (click)="painelColunas.set(false)"></div>
+            <div class="col-picker-painel">
+              <div class="col-picker-header"><span>Personalizar Colunas</span><button class="col-picker-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button></div>
+              <div class="col-picker-lista">@for (col of colunas(); track col.campo) { <label class="col-picker-item"><input type="checkbox" [checked]="col.visivel" (change)="toggleColunaVisivel(col.campo)" /><span>{{ col.label }}</span>@if (!col.padrao) { <span class="col-picker-opcional">opcional</span> }</label> }</div>
+            </div>
+          }
         </div>
       </div>
 
-      @if (carregando()) {
-        <div class="av-loading">Carregando atributos...</div>
-      } @else if (filtrados().length === 0) {
-        <div class="av-vazio">
-          Nenhum atributo. Clique em <strong>Adicionar</strong> pra criar um eixo (ex.: Tamanho, Cor, Voltagem) e seus valores.
-        </div>
-      } @else {
+      <div class="grid-wrapper">
         <table class="erp-grid">
-          <thead>
-            <tr>
-              <th style="width:70px">Ordem</th>
-              <th style="width:200px">Atributo</th>
-              <th>Valores</th>
-              <th style="width:70px">Ativo</th>
-              <th style="width:100px">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (a of filtrados(); track a.id) {
-              <tr>
-                <td>{{ a.ordem }}</td>
-                <td><strong>{{ a.nome }}</strong></td>
-                <td><small>{{ previewValores(a) || '—' }}</small></td>
-                <td>{{ a.ativo ? '✓' : '—' }}</td>
-                <td>
-                  <button class="av-btn-acao av-btn-editar" (click)="editar(a)" title="Editar">✎</button>
-                  <button class="av-btn-acao av-btn-excluir" (click)="excluir(a)" title="Excluir">✕</button>
-                </td>
-              </tr>
+          <thead><tr><th class="th-arrow"></th>
+            @for (col of colunasVisiveis(); track col.campo; let i = $index) {
+              <th class="th-sort th-resize" [style.width.px]="col.largura" [style.min-width.px]="col.minLargura" (click)="ordenar(col.campo)" draggable="true" (dragstart)="onDragStartCol(i)" (dragover)="onDragOverCol($event, i)" (drop)="onDropCol()">{{ col.label }} <span class="sort-icon">{{ sortIcon(col.campo) }}</span><div class="resize-handle" (mousedown)="iniciarResize($event, col.campo, col.largura)" (click)="$event.stopPropagation()"></div></th>
             }
+          </tr></thead>
+          <tbody>
+            @if (carregando()) { <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-loading">Carregando...</td></tr> }
+            @else if (registrosFiltrados().length === 0) { <tr><td [attr.colspan]="colunasVisiveis().length + 1" class="grid-vazio">Nenhum atributo. Clique em <strong>Adicionar</strong> pra criar um eixo (ex.: Tamanho, Cor, Voltagem) e seus valores.</td></tr> }
+            @else { @for (r of registrosFiltrados(); track r.id) {
+              <tr [class.selecionado]="selecionado()?.id === r.id" (click)="selecionar(r)" (dblclick)="editar()">
+                <td class="td-arrow">@if (selecionado()?.id === r.id) { <span><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4l8 8-8 8z"/></svg></span> }</td>
+                @for (col of colunasVisiveis(); track col.campo) { <td>{{ getCellValue(r, col.campo) }}</td> }
+              </tr>
+            } }
           </tbody>
         </table>
-      }
-    </div>
-  </div>
-</div>
-
-<!-- Modal Form -->
-@if (modalForm()) {
-  <div class="av-overlay" (click)="fecharForm()">
-    <div class="av-box" (click)="$event.stopPropagation()">
-      <div class="av-titulo">{{ editando() ? 'Editar Atributo' : 'Novo Atributo' }}</div>
-
-      <div class="av-linha">
-        <div class="av-campo" style="flex:1">
-          <label>NOME *</label>
-          <input type="text" [value]="form().nome"
-                 (input)="updateForm('nome', $any($event.target).value)"
-                 placeholder="Ex: Tamanho, Cor, Voltagem" />
-        </div>
-        <div class="av-campo" style="width:90px">
-          <label>ORDEM</label>
-          <input type="number" [value]="form().ordem"
-                 (input)="updateForm('ordem', +$any($event.target).value)" />
-        </div>
-        <div class="av-campo av-campo-toggle">
-          <label class="erp-toggle erp-toggle-ativo">
-            <input type="checkbox" [checked]="form().ativo" (change)="updateForm('ativo', $any($event.target).checked)" />
-            <span class="erp-toggle-track"><span class="erp-toggle-thumb"></span></span>
-            <span class="erp-toggle-label">{{ form().ativo ? 'Ativo' : 'Inativo' }}</span>
-          </label>
-        </div>
       </div>
+      <div class="grid-rodape"><span>Registro(s): <strong>{{ registrosFiltrados().length }}</strong></span></div>
+    }
 
-      <div class="av-valores">
-        <div class="av-valores-head">
-          <span>VALORES</span>
-          <button class="av-btn-add" (click)="addValor()">+ Adicionar valor</button>
-        </div>
+    @if (modo() === 'form') {
+      <div class="form-wrapper">
+        <div class="form-titulo">{{ modoEdicao() ? 'Editar Atributo de Variação' : 'Novo Atributo de Variação' }}</div>
 
-        @if (form().valores.length === 0) {
-          <div class="av-valores-vazio">Nenhum valor ainda. Ex.: P, M, G, GG.</div>
-        }
-
-        @for (v of form().valores; track $index) {
-          <div class="av-valor-row">
-            <input class="av-valor-txt" type="text" placeholder="Valor (ex.: M, Azul, 110V)"
-                   [value]="v.valor" (input)="updateValor($index, 'valor', $any($event.target).value)" />
-            <input class="av-valor-cor" type="color" title="Cor (opcional)"
-                   [value]="v.hex || '#cccccc'" (input)="updateValor($index, 'hex', $any($event.target).value)" />
-            <input class="av-valor-ordem" type="number" title="Ordem"
-                   [value]="v.ordem" (input)="updateValor($index, 'ordem', +$any($event.target).value)" />
-            <button class="av-valor-del" (click)="removeValor($index)" title="Remover">✕</button>
+        @if (modoEdicao()) {
+          <div class="form-grid form-grid-info">
+            <div class="field"><label>CÓDIGO</label><input type="text" [value]="form().id" disabled class="field-disabled" /></div>
+            <div class="field"><label>DATA CADASTRO</label><input type="text" [value]="form().criadoEm | date:'dd/MM/yyyy HH:mm'" disabled class="field-disabled" /></div>
           </div>
         }
+
+        @if (erro()) { <div class="form-erro">{{ erro() }}</div> }
+
+        <div class="form-secao">Dados do Atributo</div>
+        <div class="form-grid">
+          <div class="field field-3">
+            <label>NOME *</label>
+            <input type="text" [value]="form().nome" (input)="updateForm('nome', $any($event.target).value)" maxlength="60" placeholder="Ex.: Tamanho, Cor, Voltagem" />
+          </div>
+          <div class="field">
+            <label>ORDEM</label>
+            <input type="text" [value]="form().ordem" (input)="updateForm('ordem', +$any($event.target).value || 0)" />
+          </div>
+          <div class="field field-check">
+            <label class="check-label">
+              <input type="checkbox" [checked]="form().ativo" (change)="updateForm('ativo', $any($event.target).checked)" />
+              Ativo
+            </label>
+          </div>
+        </div>
+
+        <div class="form-secao">Valores</div>
+        <div class="valores-bloco">
+          <div class="valores-head">
+            <span class="valores-cabecalho">Cadastre os valores deste eixo (ex.: P, M, G, GG — ou Azul, Preto, Vermelho).</span>
+            <button class="valores-add" (click)="addValor()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar valor</button>
+          </div>
+
+          @if (form().valores.length === 0) {
+            <div class="valores-vazio">Nenhum valor ainda.</div>
+          } @else {
+            <div class="valores-lista">
+              <div class="valores-linha valores-linha-head">
+                <span class="vc-valor">VALOR</span>
+                <span class="vc-cor">COR</span>
+                <span class="vc-ordem">ORDEM</span>
+                <span class="vc-acao"></span>
+              </div>
+              @for (v of form().valores; track $index) {
+                <div class="valores-linha">
+                  <input class="vc-valor vinput" type="text" placeholder="Ex.: M, Azul, 110V" [value]="v.valor" (input)="updateValor($index, 'valor', $any($event.target).value)" />
+                  <input class="vc-cor vinput-cor" type="color" title="Cor (opcional)" [value]="v.hex || '#cccccc'" (input)="updateValor($index, 'hex', $any($event.target).value)" />
+                  <input class="vc-ordem vinput" type="text" [value]="v.ordem" (input)="updateValor($index, 'ordem', +$any($event.target).value || 0)" />
+                  <button class="vc-acao valores-del" (click)="removeValor($index)" title="Remover"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                </div>
+              }
+            </div>
+          }
+        </div>
       </div>
 
-      <div class="av-botoes">
-        <button class="av-btn av-btn-cancelar" (click)="fecharForm()">Cancelar</button>
-        <button class="av-btn av-btn-salvar" [disabled]="salvando()" (click)="salvar()">
-          {{ salvando() ? 'Salvando...' : 'Salvar' }}
-        </button>
-      </div>
-    </div>
+      <footer class="tela-toolbar">
+        @if (isDirty()) { <button class="tb-btn tb-salvar" [disabled]="salvando()" (click)="salvar()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>{{ salvando() ? 'Salvando...' : 'Salvar' }}</button> }
+        @if (isDirty()) { <button class="tb-btn tb-cancelar" (click)="cancelarEdicao()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar</button> }
+        <button class="tb-btn tb-fechar" (click)="fecharForm()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Fechar</button>
+        @if (modoEdicao()) {
+          <div class="tb-separador"></div>
+          <button class="tb-btn tb-excluir" [disabled]="excluindo()" (click)="excluir()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>Excluir</button>
+        }
+      </footer>
+    }
   </div>
-}
+</div>
