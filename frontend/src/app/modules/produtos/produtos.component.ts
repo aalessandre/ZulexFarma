@@ -476,13 +476,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
         novo.dados = filiais.map((f: any) => {
           const d = this.novoDadosFilial(f.id);
-          if (f.id === pre.filialId) {
-            d.ultimaCompraUnitario = pre.valorUnitario || 0;
+          if (Number(f.id) === Number(pre.filialId)) {
+            d.ultimaCompraUnitario = pre.valorUnitario || 0;   // vlr líquido unitário (sem impostos)
             d.ultimaCompraSt = r2(stUnitario);
             d.ultimaCompraIpi = r2(ipiUnitario);
             d.ultimaCompraOutros = r2(outrosUnitario);
             d.ultimaCompraFrete = r2(freteUnitario);
-            // Custo médio = custo total unitário (produto novo, estoque zero)
+            // Produto novo (estoque zero): custo médio = custo total da compra.
             d.custoMedio = r2(custoUnitarioTotal);
             d.pmc = pre.pmc || 0;
           }
@@ -536,6 +536,10 @@ export class ProdutosComponent implements OnInit, OnDestroy {
         this.produtoFormOriginal = JSON.stringify(novo);
         this.erro.set(''); this.isDirty.set(false); this.modoEdicao.set(false);
         this.produtoEditandoId.set(null); this.modo.set('form');
+
+        // Exibe a filial da NF (onde os custos foram preenchidos) — senão a tela
+        // mostraria outra filial com custo zerado.
+        if (pre.filialId) this.filialSelecionada.set(Number(pre.filialId));
 
         // Como a NF já traz o código de barras (o usuário não digita nem sai do
         // campo), dispara as buscas automáticas aqui — respeitando as flags.
