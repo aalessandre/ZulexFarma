@@ -915,9 +915,9 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append("<mod>55</mod>");
         sb.Append($"<serie>{serie}</serie>");
         sb.Append($"<nNF>{numero}</nNF>");
-        sb.Append($"<dhEmi>{agora:yyyy-MM-ddTHH:mm:sszzz}</dhEmi>");
+        sb.Append($"<dhEmi>{DataHoraHelper.ComOffset(agora):yyyy-MM-ddTHH:mm:sszzz}</dhEmi>");
         if (vf.DataSaidaEntrada.HasValue)
-            sb.Append($"<dhSaiEnt>{vf.DataSaidaEntrada.Value:yyyy-MM-ddTHH:mm:sszzz}</dhSaiEnt>");
+            sb.Append($"<dhSaiEnt>{DataHoraHelper.ComOffset(vf.DataSaidaEntrada.Value):yyyy-MM-ddTHH:mm:sszzz}</dhSaiEnt>");
         sb.Append($"<tpNF>{vf.TipoNf}</tpNF>");
         sb.Append($"<idDest>{vf.IdentificadorDestino}</idDest>");
         sb.Append($"<cMunFG>{filial.CodigoIbgeMunicipio ?? "0000000"}</cMunFG>");
@@ -1683,7 +1683,7 @@ public class VendaFiscalService : IVendaFiscalService
         sb.Append("<mod>65</mod>");
         sb.Append($"<serie>{serie}</serie>");
         sb.Append($"<nNF>{numero}</nNF>");
-        sb.Append($"<dhEmi>{agora:yyyy-MM-ddTHH:mm:sszzz}</dhEmi>");
+        sb.Append($"<dhEmi>{DataHoraHelper.ComOffset(agora):yyyy-MM-ddTHH:mm:sszzz}</dhEmi>");
         sb.Append("<tpNF>1</tpNF>");
         sb.Append("<idDest>1</idDest>");
         sb.Append($"<cMunFG>{filial.CodigoIbgeMunicipio ?? "0000000"}</cMunFG>");
@@ -2119,7 +2119,7 @@ public class VendaFiscalService : IVendaFiscalService
             $"<tpAmb>{ambiente}</tpAmb>" +
             $"<CNPJ>{cnpj}</CNPJ>" +
             $"<chNFe>{chaveAcesso}</chNFe>" +
-            $"<dhEvento>{agora:yyyy-MM-ddTHH:mm:sszzz}</dhEvento>" +
+            $"<dhEvento>{DataHoraHelper.ComOffset(agora):yyyy-MM-ddTHH:mm:sszzz}</dhEvento>" +
             $"<tpEvento>{tpEvento}</tpEvento>" +
             $"<nSeqEvento>{nSeqEvento}</nSeqEvento>" +
             "<verEvento>1.00</verEvento>" +
@@ -2152,7 +2152,7 @@ public class VendaFiscalService : IVendaFiscalService
             $"<tpAmb>{ambiente}</tpAmb>" +
             $"<CNPJ>{cnpj}</CNPJ>" +
             $"<chNFe>{chaveAcesso}</chNFe>" +
-            $"<dhEvento>{agora:yyyy-MM-ddTHH:mm:sszzz}</dhEvento>" +
+            $"<dhEvento>{DataHoraHelper.ComOffset(agora):yyyy-MM-ddTHH:mm:sszzz}</dhEvento>" +
             $"<tpEvento>{tpEvento}</tpEvento>" +
             $"<nSeqEvento>{nSeqEvento}</nSeqEvento>" +
             "<verEvento>1.00</verEvento>" +
