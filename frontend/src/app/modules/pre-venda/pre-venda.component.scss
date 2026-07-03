@@ -1083,3 +1083,28 @@ td[data-campo="percentualDesconto"] {
   font-weight: 600; cursor: pointer; transition: all 0.12s;
   &:hover { background: #f8f9fa; border-color: #bdc3c7; color: #2c3e50; }
 }
+
+/* ── Picker de variação (grade no PDV) ─────────────────────────────── */
+.grade-picker {
+  background: #fff; width: 460px; max-width: 94vw; max-height: 80vh;
+  display: flex; flex-direction: column; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3); animation: gp-in .16s ease-out;
+}
+@keyframes gp-in { from { opacity: 0; transform: scale(.94) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.grade-picker-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid #e8ecf1; font-weight: 700; color: #1f3a52; font-size: 15px;
+}
+.grade-picker-x { background: none; border: none; font-size: 24px; line-height: 1; color: #8895a6; cursor: pointer; padding: 0 4px; &:hover { color: #c0392b; } }
+.grade-picker-body { padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.grade-picker-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #fff;
+  cursor: pointer; text-align: left; transition: border-color .12s, background .12s;
+  &:hover { border-color: #1E88E5; background: #f4f9fd; }
+  &.sem-estoque { opacity: .55; }
+}
+.gpi-desc { font-weight: 700; color: #2c3e50; font-size: 14px; }
+.gpi-info { display: flex; align-items: center; gap: 14px; }
+.gpi-estoque { font-size: 12px; color: #7c8ea3; }
+.gpi-preco { font-weight: 700; color: #16a085; font-size: 14px; }

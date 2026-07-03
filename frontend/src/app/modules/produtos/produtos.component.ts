@@ -392,13 +392,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   fecharGrade() { this.modalGrade.set(false); }
 
-  /** Após salvar a grade, atualiza o estoque total (soma dos SKUs) na filial atual. */
-  onGradeSalva(total: number) {
+  /** Após salvar a grade, atualiza o estoque total (soma dos SKUs) e o flag de grade. */
+  onGradeSalva(ev: { total: number; controlaGrade: boolean }) {
     const idx = this.dadosFilialIdx();
-    if (idx < 0) return;
     this.produtoForm.update(f => ({
       ...f,
-      dados: f.dados.map((d, i) => i === idx ? { ...d, estoqueAtual: total } : d)
+      controlaGrade: ev.controlaGrade,
+      dados: idx < 0 ? f.dados : f.dados.map((d, i) => i === idx ? { ...d, estoqueAtual: ev.total } : d)
     }));
   }
 

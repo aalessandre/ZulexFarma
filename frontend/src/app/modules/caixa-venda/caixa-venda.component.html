@@ -991,4 +991,27 @@
   </div>
 }
 
+<!-- Picker de variação da grade (bipou barras principal de produto com grade) -->
+@if (pickerVariacao(); as picker) {
+  <div class="pv-modal-overlay" (click)="fecharPickerVariacao()">
+    <div class="grade-picker" (click)="$event.stopPropagation()">
+      <div class="grade-picker-head">
+        <span>Escolha a variação — {{ picker.base.nome }}</span>
+        <button class="grade-picker-x" (click)="fecharPickerVariacao()">&times;</button>
+      </div>
+      <div class="grade-picker-body">
+        @for (v of picker.itens; track v.produtoVariacaoId) {
+          <button class="grade-picker-item" [class.sem-estoque]="v.estoqueAtual <= 0" (click)="escolherVariacao(v)">
+            <span class="gpi-desc">{{ v.descricao }}</span>
+            <span class="gpi-info">
+              <span class="gpi-estoque">Est: {{ v.estoqueAtual }}</span>
+              <span class="gpi-preco">R$ {{ v.valorVenda | number:'1.2-2' }}</span>
+            </span>
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
 <app-modal-senha></app-modal-senha>
