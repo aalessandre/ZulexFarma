@@ -158,6 +158,9 @@ interface ProdutoLookup {
   controlaGrade?: boolean;
   produtoVariacaoId?: number | null;
   variacaoDescricao?: string | null;
+  // Balança (produto pesável)
+  pesavel?: boolean;
+  quantidadeBalanca?: number | null;
 }
 
 interface VariacaoVenda {
@@ -974,8 +977,12 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // ── Balança: item pesável traz a quantidade (peso) já resolvida do código de
+    // barras. Cada pesagem é uma linha própria (não agrupa/incrementa).
+    const qtdBalanca = p.quantidadeBalanca ?? null;
+
     // ── Modo conferência: bipar incrementa quantidade ──────────────
-    if (this.modoConferencia()) {
+    if (this.modoConferencia() && qtdBalanca == null) {
       const idxExist = this.itens().findIndex(i => i.produtoId === p.id && (i.produtoVariacaoId ?? null) === (p.produtoVariacaoId ?? null));
       if (idxExist >= 0) {
         this.itens.update(lista => {
@@ -1009,7 +1016,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     }
 
     // ── Duplicar linha: se desabilitado, incrementar quantidade ──
-    if (!this.cfgDuplicarLinha()) {
+    if (!this.cfgDuplicarLinha() && qtdBalanca == null) {
       const idxExistente = this.itens().findIndex(i => i.produtoId === p.id && (i.produtoVariacaoId ?? null) === (p.produtoVariacaoId ?? null));
       if (idxExistente >= 0) {
         this.itens.update(lista => {
@@ -1040,6 +1047,9 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
           ? p.precoFpBolsaFamilia
           : (p.precoFp ?? p.valorVenda))
       : p.valorVenda;
+    // Pesável: quantidade (peso) vem da balança; senão 1.
+    const qtdItem = qtdBalanca ?? 1;
+    const totalItem = Math.round(precoFpEfetivo * qtdItem * 100) / 100;
     const novoItem: PreVendaItem = {
       produtoId: p.id,
       produtoVariacaoId: p.produtoVariacaoId ?? null,
@@ -1050,12 +1060,12 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       precoFpNormal: p.precoFp,
       precoFpBolsaFamilia: p.precoFpBolsaFamilia,
       codigoBarras: p.codigoBarras,
-      quantidade: 1,
+      quantidade: qtdItem,
       percentualDesconto: 0,
       percentualPromocao: 0,
       valorDesconto: 0,
       precoUnitario: precoFpEfetivo,
-      total: precoFpEfetivo,
+      total: totalItem,
       estoqueAtual: p.estoqueAtual,
       vendedor: vendedorAtualNome,
       colaboradorId: vendedorAtualId ?? undefined,
@@ -1818,7 +1828,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
       const total = item.percentualDesconto + (item.percentualPromocao || 0);
       return this.formatarNumero(total);
     }
-    if (campo === 'quantidade') return String(Math.floor(item.quantidade));
+    if (campo === 'quantidade') return item.unidade === 'KG' ? String(item.quantidade) : String(Math.floor(item.quantidade));
     if (campo === 'qtdePorDia') return item.qtdePorDia != null ? String(Math.floor(item.qtdePorDia)) : '';
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
@@ -1878,7 +1888,8 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
     this.itens.update(lista => {
       const arr = [...lista];
       const item = { ...arr[idx] };
-      const inteiro = campo === 'quantidade' || campo === 'qtdePorDia';
+      // Pesável (KG) permite quantidade decimal; demais seguem inteiro.
+      const inteiro = campo === 'qtdePorDia' || (campo === 'quantidade' && item.unidade !== 'KG');
       (item as any)[campo] = inteiro ? Math.floor(num) : num;
       // qtdePorDia é apenas informativo pro FP — não recalcula total
       if (campo !== 'qtdePorDia') this.recalcularItem(item, campo);
@@ -1954,7 +1965,7 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
   }
 
   getEditValue(item: PreVendaItem, campo: string): string {
-    if (campo === 'quantidade') return String(Math.floor(item.quantidade));
+    if (campo === 'quantidade') return item.unidade === 'KG' ? String(item.quantidade) : String(Math.floor(item.quantidade));
     if (campo === 'qtdePorDia') return item.qtdePorDia != null ? String(Math.floor(item.qtdePorDia)) : '';
     const v = (item as any)[campo];
     if (v === null || v === undefined) return '';
