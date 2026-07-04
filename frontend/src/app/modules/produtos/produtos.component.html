@@ -331,6 +331,25 @@
           <div class="prod-field prod-field-check">
             <label class="check-label"><input type="checkbox" [checked]="produtoForm().permitirConferenciaDigitando" (change)="updateProdutoForm('permitirConferenciaDigitando', $any($event.target).checked)" /><span>Permitir conferência digitando</span></label>
           </div>
+
+          @if (podePesavel()) {
+            <div class="prod-field prod-field-check">
+              <label class="check-label"><input type="checkbox" [checked]="produtoForm().pesavel" (change)="togglePesavel($any($event.target).checked)" /><span>Pesável (vende por peso)</span></label>
+            </div>
+            @if (produtoForm().pesavel) {
+              <div class="prod-field">
+                <label>UNIDADE</label>
+                <select [value]="produtoForm().unidade || 'KG'" (change)="updateProdutoForm('unidade', $any($event.target).value)">
+                  <option value="KG">KG</option>
+                  <option value="UN">UN</option>
+                </select>
+              </div>
+              <div class="prod-field">
+                <label>CÓDIGO BALANÇA (PLU)</label>
+                <input type="number" [value]="produtoForm().codigoBalanca ?? ''" (input)="updateProdutoForm('codigoBalanca', +$any($event.target).value || null)" min="1" placeholder="Ex: 15" />
+              </div>
+            }
+          }
         </div>
 
         <div class="prod-section">Classificação</div>
