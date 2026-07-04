@@ -151,6 +151,11 @@ public static class DatabaseSeeder
             (13, "sngpc.validade_receita_b_dias",        "30",          "Validade (dias) das notificacoes B1/B2 (azul)"),
             (14, "sngpc.validade_receita_c_dias",        "30",          "Validade (dias) das receitas C1/C2/C4/C5"),
             (15, "sngpc.validade_receita_antimicrob_dias","10",         "Validade (dias) da receita de antimicrobiano"),
+            // ── Balança (produto pesável) ────────────────────────────
+            (20, "balanca.barcode.prefixo",    "2",     "Prefixo do codigo de barras da balanca (ex: 2)"),
+            (21, "balanca.barcode.tam_codigo", "6",     "Qtd de digitos do codigo interno (PLU) no codigo de barras da balanca"),
+            (22, "balanca.barcode.tam_valor",  "5",     "Qtd de digitos do valor (peso/preco) no codigo de barras da balanca"),
+            (23, "balanca.barcode.tipo_valor", "peso",  "O que o codigo de barras da balanca embute: peso (gramas) ou preco (centavos)"),
         };
         foreach (var (id, chave, valor, descricao) in configsSeed)
         {

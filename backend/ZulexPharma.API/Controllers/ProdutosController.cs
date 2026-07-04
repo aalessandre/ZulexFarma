@@ -156,6 +156,12 @@ public class ProdutosController : ControllerBase
             if (string.IsNullOrWhiteSpace(termo) || termo.Trim().Length < 3)
                 return Ok(new { success = true, data = Array.Empty<object>() });
 
+            // Código de barras de balança (peso/preço embutido) → resolve o produto pesável
+            // pelo PLU e devolve a quantidade (peso) já calculada.
+            var balanca = await TryResolverBalancaAsync(termo.Trim(), filialId);
+            if (balanca != null)
+                return Ok(new { success = true, data = new List<object> { balanca } });
+
             var termoNorm = termo.Trim().ToUpper();
 
             var produtos = await _db.Produtos
@@ -332,6 +338,71 @@ public class ProdutosController : ControllerBase
             return Ok(new { success = true, data = lista });
         }
         catch (Exception ex) { Log.Error(ex, "Erro em ProdutosController.VariacoesVenda"); return StatusCode(500, new { success = false, message = "Erro ao buscar variações." }); }
+    }
+
+    /// <summary>
+    /// Tenta interpretar o termo como código de barras de balança (produto pesável):
+    /// prefixo + PLU + valor(peso/preço) + verificador. Se casar, resolve o produto pelo
+    /// PLU e devolve o item com a quantidade (peso) e o preço já calculados. Formato via config.
+    /// Retorna null se não for um código de balança válido / produto não encontrado.
+    /// </summary>
+    private async Task<object?> TryResolverBalancaAsync(string termo, long filialId)
+    {
+        if (!termo.All(char.IsDigit)) return null;
+
+        var cfg = await _db.Configuracoes
+            .Where(c => c.Chave.StartsWith("balanca.barcode."))
+            .ToDictionaryAsync(c => c.Chave, c => c.Valor);
+        string Get(string k, string def) => cfg.TryGetValue("balanca.barcode." + k, out var v) && !string.IsNullOrWhiteSpace(v) ? v : def;
+
+        var prefixo = Get("prefixo", "2");
+        if (!int.TryParse(Get("tam_codigo", "6"), out var tamCodigo)) tamCodigo = 6;
+        if (!int.TryParse(Get("tam_valor", "5"), out var tamValor)) tamValor = 5;
+        var tipoValor = Get("tipo_valor", "peso").ToLower();
+
+        // EAN-13: prefixo + PLU + valor + 1 dígito verificador.
+        var totalLen = prefixo.Length + tamCodigo + tamValor + 1;
+        if (string.IsNullOrEmpty(prefixo) || termo.Length != totalLen || !termo.StartsWith(prefixo)) return null;
+
+        if (!int.TryParse(termo.Substring(prefixo.Length, tamCodigo), out var plu)) return null;
+        if (!int.TryParse(termo.Substring(prefixo.Length + tamCodigo, tamValor), out var valorNum)) return null;
+
+        var produto = await _db.Produtos
+            .Where(p => p.Ativo && p.Pesavel && p.CodigoBalanca == plu)
+            .Select(p => new { p.Id, p.Codigo, p.Nome, p.Unidade, p.CodigoBarras,
+                fabricante = p.Fabricante != null ? p.Fabricante.Nome : "" })
+            .FirstOrDefaultAsync();
+        if (produto == null) return null;
+
+        var dados = await _db.ProdutosDados
+            .Where(d => d.ProdutoId == produto.Id && d.FilialId == filialId && d.ProdutoVariacaoId == null)
+            .Select(d => new { d.ValorVenda, d.EstoqueAtual, d.CurvaAbc })
+            .FirstOrDefaultAsync();
+        var precoKg = dados?.ValorVenda ?? 0;
+
+        decimal quantidade;
+        if (tipoValor == "preco")
+        {
+            var precoItem = valorNum / 100m;                    // centavos → reais
+            quantidade = precoKg > 0 ? Math.Round(precoItem / precoKg, 3) : 0;
+        }
+        else
+        {
+            quantidade = Math.Round(valorNum / 1000m, 3);       // gramas → kg
+        }
+
+        return new
+        {
+            id = produto.Id, codigo = produto.Codigo, nome = produto.Nome, fabricante = produto.fabricante,
+            valorVenda = precoKg, custoMedio = 0m,
+            estoqueAtual = dados?.EstoqueAtual ?? 0, curvaAbc = dados?.CurvaAbc ?? "",
+            temPromocao = false, permitirConferenciaDigitando = false,
+            classeTerapeutica = (string?)null, precoFp = (decimal?)null, precoFpBolsaFamilia = (decimal?)null,
+            participaFarmaciaPopular = false, codigoBarras = produto.CodigoBarras,
+            controlaGrade = false, produtoVariacaoId = (long?)null, variacaoDescricao = (string?)null,
+            // Pesável: o PDV usa a quantidade (peso) já resolvida.
+            pesavel = true, unidade = produto.Unidade, quantidadeBalanca = quantidade
+        };
     }
 
     [HttpGet]

@@ -168,6 +168,7 @@ interface ProdutoForm {
   nome: string; codigoBarras?: string; qtdeEmbalagem: number; precoFp?: number;
   precoFpBolsaFamilia?: number; participaFarmaciaPopular: boolean;
   lista: string; fracao: number; ativo: boolean; eliminado: boolean; permitirConferenciaDigitando: boolean; criadoEm?: string;
+  pesavel?: boolean; unidade?: string; codigoBalanca?: number | null;
   fabricanteId?: number; grupoPrincipalId?: number; grupoProdutoId?: number; subGrupoId?: number; ncmId?: number;
   classeTerapeutica: string | null;
   fabricanteNome?: string; grupoPrincipalNome?: string; grupoProdutoNome?: string; subGrupoNome?: string; ncmCodigo?: string;
@@ -392,6 +393,17 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   /** Grade só pra ramo com a feature 'grade' (Vestuário). */
   podeGrade(): boolean { return this.auth.temFeature('grade'); }
+
+  /** Pesável só pra ramo com a feature 'pesavel' (Hortifruti/Mercado). */
+  podePesavel(): boolean { return this.auth.temFeature('pesavel'); }
+
+  togglePesavel(checked: boolean) {
+    this.updateProdutoForm('pesavel', checked);
+    if (checked && (!this.produtoForm().unidade || this.produtoForm().unidade === 'UN')) {
+      this.updateProdutoForm('unidade', 'KG');
+    }
+    if (!checked) this.updateProdutoForm('codigoBalanca', null);
+  }
 
   // ── Grade (modal sobre o produto) ────────────────────────────────
   modalGrade = signal(false);
@@ -1193,6 +1205,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
           nome: d.nome, codigoBarras: d.codigoBarras, qtdeEmbalagem: d.qtdeEmbalagem,
           precoFp: d.precoFp, precoFpBolsaFamilia: d.precoFpBolsaFamilia, participaFarmaciaPopular: d.participaFarmaciaPopular ?? false,
           lista: d.lista, fracao: d.fracao, ativo: d.ativo, eliminado: d.eliminado, permitirConferenciaDigitando: d.permitirConferenciaDigitando ?? false,
+          pesavel: d.pesavel ?? false, unidade: d.unidade ?? 'UN', codigoBalanca: d.codigoBalanca ?? null,
           fabricanteId: d.fabricanteId, grupoPrincipalId: d.grupoPrincipalId,
           grupoProdutoId: d.grupoProdutoId, subGrupoId: d.subGrupoId, ncmId: d.ncmId,
           classeTerapeutica: d.classeTerapeutica ?? null,
@@ -2225,6 +2238,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     return {
       nome: '', qtdeEmbalagem: 1, lista: 'Indefinida', fracao: 1, ativo: true, eliminado: false, permitirConferenciaDigitando: false,
       participaFarmaciaPopular: false,
+      pesavel: false, unidade: 'UN', codigoBalanca: null,
       classeTerapeutica: null,
       barras: [], registrosMs: [], substancias: [], fornecedores: [], fiscais: [], dados: []
     };

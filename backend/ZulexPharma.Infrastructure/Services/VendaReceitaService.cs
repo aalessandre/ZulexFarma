@@ -89,7 +89,7 @@ public class VendaReceitaService : IVendaReceitaService
                     ProdutoId = item.ProdutoId ?? 0,
                     ProdutoNome = item.ProdutoNome,
                     ClasseTerapeutica = item.Produto.ClasseTerapeutica,
-                    Quantidade = item.Quantidade,
+                    Quantidade = (int)item.Quantidade,   // controlados são unidades inteiras
                     LotesDisponiveis = lotes.Select(l => new LoteDisponivelDto
                     {
                         ProdutoLoteId = l.Id,

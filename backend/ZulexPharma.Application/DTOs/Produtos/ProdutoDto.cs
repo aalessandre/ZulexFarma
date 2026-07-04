@@ -34,6 +34,11 @@ public class ProdutoDetalheDto
     /// exibido em Dados é a SOMA dos SKUs por filial (não editável direto).</summary>
     public bool ControlaGrade { get; set; }
 
+    // Pesável / balança (ramo Hortifruti/Mercado)
+    public bool Pesavel { get; set; }
+    public string Unidade { get; set; } = "UN";
+    public int? CodigoBalanca { get; set; }
+
     // FKs
     public long? FabricanteId { get; set; }
     public long? GrupoPrincipalId { get; set; }
@@ -74,6 +79,11 @@ public class ProdutoFormDto
     public bool Ativo { get; set; } = true;
     public bool Eliminado { get; set; }
     public bool PermitirConferenciaDigitando { get; set; }
+
+    // Pesável / balança (ramo Hortifruti/Mercado)
+    public bool Pesavel { get; set; }
+    public string Unidade { get; set; } = "UN";
+    public int? CodigoBalanca { get; set; }
 
     public long? FabricanteId { get; set; }
     public long? GrupoPrincipalId { get; set; }
