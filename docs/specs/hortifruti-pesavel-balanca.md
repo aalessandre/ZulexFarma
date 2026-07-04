@@ -1,6 +1,6 @@
 # Spec — Hortifruti / Mercado: produto pesável + balança
 
-**Status:** v0.1 — 2026-07-03 — **PROPOSTA (não implementado)**. Decisões principais fechadas; faseamento definido. Abordagem de hardware do Esquema 2 fica **em aberto pra Fase 3**.
+**Status:** v0.2 — 2026-07-04 — **Fase 1 IMPLEMENTADA e na main**. Fases 2 (export PLU) e 3 (balança no caixa/hardware) pendentes. Ver §Estado de implementação no fim.
 **Escopo:** vender produtos **por peso** (kg) no ramo Hortifruti (que passa a atender mercado/açougue/hortifruti em geral, via feature `pesavel`). Dois esquemas de pesagem: (1) balança nos fundos → etiqueta lida no caixa; (2) balança no caixa → peso em tempo real.
 **Relacionado:** [[multiramo-grade]] (Passo 1 criou `RamoFilial.Hortifruti` + feature `pesavel`; já anotou que `VendaItem.Quantidade` é **int** e precisa virar decimal aqui).
 
@@ -100,3 +100,18 @@ Chaves de config (ou uma entidade `BalancaConfig`):
 
 ## Ordem de execução
 Fase 1 (núcleo: quantidade decimal + produto pesável + parse do EAN) → Fase 2 (export PLU) → Fase 3 (balança no caixa). A Fase 1 já entrega venda por peso via etiqueta, sem hardware.
+
+---
+
+## Estado de implementação (as-built)
+
+### Fase 1 — Núcleo ✅ (2026-07-04)
+- **`VendaItem.Quantidade` int → decimal** (`numeric(10,3)`) + DTOs de venda. SNGPC/controlados seguem inteiros (cast, pois controlado é sempre UN). Fiscal preserva o peso.
+- **NFC-e**: `qCom`/`qTrib` com peso decimal (`D4`) e `uCom`/`uTrib` = `Produto.Unidade` (antes era `UN` fixo + `Quantidade.0000`, que quebrava com peso). Migration `AddProdutoPesavelEQuantidadeDecimal`.
+- **Produto**: `Pesavel` + `Unidade` (UN/KG) + `CodigoBalanca` (PLU, índice único parcial). Tela de produto com os campos gated pela feature `pesavel`.
+- **Config do EAN de balança** (chaves `balanca.barcode.prefixo|tam_codigo|tam_valor|tipo_valor`, seed default: prefixo `2`, 6+5, `peso` em gramas).
+- **PDV (caixa + pré-venda)**: `ProdutosController.Buscar` parseia o EAN de balança → resolve o produto pesável pelo PLU → devolve item com quantidade (peso) + preço/kg. Item entra com quantidade decimal, unidade KG, linha própria (não agrupa). Grid permite quantidade decimal só pra itens KG.
+- **Falta na Fase 1 (melhorias):** exibir a coluna "Un." e o preço/kg mais explícito na grade do PDV; entrada manual de peso (hoje o peso vem do código de barras). Config do barcode ainda não tem tela (edita via seed/banco).
+
+### Fase 2 — Export PLU ⏳ / Fase 3 — Balança no caixa ⏳
+Pendentes.
