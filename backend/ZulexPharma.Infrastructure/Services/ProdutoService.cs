@@ -171,6 +171,9 @@ public class ProdutoService : IProdutoService
         p.Ativo = dto.Ativo;
         p.Eliminado = dto.Eliminado;
         p.PermitirConferenciaDigitando = dto.PermitirConferenciaDigitando;
+        p.Pesavel = dto.Pesavel;
+        p.Unidade = string.IsNullOrWhiteSpace(dto.Unidade) ? "UN" : dto.Unidade.Trim().ToUpper();
+        p.CodigoBalanca = dto.Pesavel ? dto.CodigoBalanca : null;
         p.FabricanteId = dto.FabricanteId;
         p.GrupoPrincipalId = dto.GrupoPrincipalId;
         p.GrupoProdutoId = dto.GrupoProdutoId;
@@ -744,6 +747,7 @@ public class ProdutoService : IProdutoService
         PrecoFpBolsaFamilia = p.PrecoFpBolsaFamilia, ParticipaFarmaciaPopular = p.ParticipaFarmaciaPopular,
         Lista = p.Lista, Fracao = p.Fracao, Ativo = p.Ativo,
         Eliminado = p.Eliminado, PermitirConferenciaDigitando = p.PermitirConferenciaDigitando,
+        Pesavel = p.Pesavel, Unidade = p.Unidade, CodigoBalanca = p.CodigoBalanca,
         CriadoEm = p.CriadoEm, ControlaGrade = temGrade,
         FabricanteId = p.FabricanteId,
         GrupoPrincipalId = p.GrupoPrincipalId,

@@ -103,7 +103,7 @@ public class VendaItemDto
     public string ProdutoNome { get; set; } = string.Empty;
     public string? Fabricante { get; set; }
     public decimal PrecoVenda { get; set; }
-    public int Quantidade { get; set; }
+    public decimal Quantidade { get; set; }
     public decimal PercentualDesconto { get; set; }
     public decimal PercentualPromocao { get; set; }
     public decimal ValorDesconto { get; set; }
@@ -123,7 +123,7 @@ public class VendaItemFormDto
     public string ProdutoNome { get; set; } = string.Empty;
     public string? Fabricante { get; set; }
     public decimal PrecoVenda { get; set; }
-    public int Quantidade { get; set; } = 1;
+    public decimal Quantidade { get; set; } = 1;
     public decimal PercentualDesconto { get; set; }
     public decimal PercentualPromocao { get; set; }
     public decimal ValorDesconto { get; set; }

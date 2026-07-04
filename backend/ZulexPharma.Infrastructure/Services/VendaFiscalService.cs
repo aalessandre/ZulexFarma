@@ -130,7 +130,7 @@ public class VendaFiscalService : IVendaFiscalService
                 ProdutoCodigo = itemDto.CodigoProduto,
                 ProdutoNome = itemDto.DescricaoProduto,
                 PrecoVenda = itemDto.ValorUnitario,
-                Quantidade = (int)itemDto.Quantidade,
+                Quantidade = itemDto.Quantidade,   // decimal: preserva peso
                 PrecoUnitario = itemDto.ValorUnitario,
                 ValorDesconto = itemDto.ValorDesconto,
                 Total = valorTotal - itemDto.ValorDesconto,
@@ -266,7 +266,7 @@ public class VendaFiscalService : IVendaFiscalService
                 ProdutoCodigo = itemDto.CodigoProduto,
                 ProdutoNome = itemDto.DescricaoProduto,
                 PrecoVenda = itemDto.ValorUnitario,
-                Quantidade = (int)itemDto.Quantidade,
+                Quantidade = itemDto.Quantidade,   // decimal: preserva peso
                 PrecoUnitario = itemDto.ValorUnitario,
                 ValorDesconto = itemDto.ValorDesconto,
                 Total = valorTotal - itemDto.ValorDesconto,
@@ -1811,13 +1811,14 @@ public class VendaFiscalService : IVendaFiscalService
                 if (cestDigits.Length == 7) sb.Append($"<CEST>{cestDigits}</CEST>");
             }
             sb.Append($"<CFOP>{cfop}</CFOP>");
-            sb.Append("<uCom>UN</uCom>");
-            sb.Append($"<qCom>{item.Quantidade}.0000</qCom>");
+            var unidadeItem = string.IsNullOrWhiteSpace(prod?.Unidade) ? "UN" : prod!.Unidade;
+            sb.Append($"<uCom>{unidadeItem}</uCom>");
+            sb.Append($"<qCom>{D4(item.Quantidade)}</qCom>");
             sb.Append($"<vUnCom>{D4(item.PrecoVenda)}</vUnCom>");
             sb.Append($"<vProd>{D2(valorBruto)}</vProd>");
             sb.Append("<cEANTrib>SEM GTIN</cEANTrib>");
-            sb.Append("<uTrib>UN</uTrib>");
-            sb.Append($"<qTrib>{item.Quantidade}.0000</qTrib>");
+            sb.Append($"<uTrib>{unidadeItem}</uTrib>");
+            sb.Append($"<qTrib>{D4(item.Quantidade)}</qTrib>");
             sb.Append($"<vUnTrib>{D4(item.PrecoVenda)}</vUnTrib>");
             if (valorDesc > 0) sb.Append($"<vDesc>{D2(valorDesc)}</vDesc>");
             if (vOutroItem > 0) sb.Append($"<vOutro>{D2(vOutroItem)}</vOutro>");

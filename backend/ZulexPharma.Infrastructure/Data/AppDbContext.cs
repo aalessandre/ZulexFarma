@@ -666,6 +666,9 @@ public class AppDbContext : DbContext
             e.Property(x => x.Lista).HasMaxLength(20).HasDefaultValue("Indefinida");
             e.Property(x => x.PrecoFp).HasColumnType("numeric(10,4)");
             e.Property(x => x.ClasseTerapeutica).HasMaxLength(30);
+            e.Property(x => x.Unidade).HasMaxLength(3).HasDefaultValue("UN");
+            // PLU único entre os pesáveis (índice parcial: só onde CodigoBalanca não é nulo).
+            e.HasIndex(x => x.CodigoBalanca).IsUnique().HasFilter("\"CodigoBalanca\" IS NOT NULL");
 
             e.HasOne(x => x.Fabricante).WithMany().HasForeignKey(x => x.FabricanteId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.GrupoPrincipal).WithMany().HasForeignKey(x => x.GrupoPrincipalId).OnDelete(DeleteBehavior.SetNull);
@@ -1197,7 +1200,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.ProdutoNome).HasMaxLength(300);
             e.Property(x => x.Fabricante).HasMaxLength(200);
             e.Property(x => x.PrecoVenda).HasPrecision(18, 2);
-            // Quantidade é int, não precisa de precision
+            e.Property(x => x.Quantidade).HasPrecision(10, 3);   // decimal: venda por peso (kg)
             e.Property(x => x.PercentualDesconto).HasPrecision(8, 4);
             e.Property(x => x.PercentualPromocao).HasPrecision(8, 4);
             e.Property(x => x.ValorDesconto).HasPrecision(18, 2);

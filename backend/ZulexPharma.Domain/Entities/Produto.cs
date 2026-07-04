@@ -15,6 +15,14 @@ public class Produto : BaseEntity
     public bool Eliminado { get; set; }
     public bool PermitirConferenciaDigitando { get; set; }
 
+    // ── Pesável / balança (ramo Hortifruti/Mercado) ───────────────
+    /// <summary>Produto vendido por peso (kg). Ver docs/specs/hortifruti-pesavel-balanca.md.</summary>
+    public bool Pesavel { get; set; }
+    /// <summary>Unidade de venda/tributação: "UN" (padrão) ou "KG".</summary>
+    public string Unidade { get; set; } = "UN";
+    /// <summary>Código interno (PLU) usado no código de barras da balança. Null se não pesável.</summary>
+    public int? CodigoBalanca { get; set; }
+
     /// <summary>Quando true, o produto é um "modelo" e é vendido pelas variações
     /// (grade tamanho/cor/etc). Ver docs/specs/multiramo-grade.md (Passo 2).</summary>
     public bool ControlaGrade { get; set; }
