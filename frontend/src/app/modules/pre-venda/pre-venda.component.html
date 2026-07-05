@@ -786,4 +786,28 @@
   </div>
 }
 
+<!-- Peso do produto pesável (entrada manual / balança no caixa) -->
+@if (pesoPrompt(); as pp) {
+  <div class="pv-modal-overlay" (click)="fecharPesoPrompt()">
+    <div class="peso-modal" (click)="$event.stopPropagation()">
+      <div class="peso-modal-head">Peso — {{ pp.base.nome }}</div>
+      <div class="peso-modal-body">
+        <label>PESO (KG)</label>
+        <input #inputPeso type="text" inputmode="decimal" class="peso-input"
+               [value]="pesoInput()" (input)="pesoInput.set($any($event.target).value)"
+               (keyup.enter)="confirmarPeso()" placeholder="Ex: 1,235" />
+        <div class="peso-hint">Preço/kg: R$ {{ pp.base.valorVenda | number:'1.2-2' }}
+          @if (+(pesoInput().replace(',','.')) > 0) {
+            · Total: <strong>R$ {{ (pp.base.valorVenda * +(pesoInput().replace(',','.'))) | number:'1.2-2' }}</strong>
+          }
+        </div>
+      </div>
+      <div class="peso-modal-foot">
+        <button class="peso-btn-ok" (click)="confirmarPeso()">Adicionar</button>
+        <button class="peso-btn-cancel" (click)="fecharPesoPrompt()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+}
+
 <app-modal-senha></app-modal-senha>

@@ -173,7 +173,7 @@ public class ProdutosController : ControllerBase
                 ))
                 .OrderBy(p => p.Nome)
                 .Take(limit)
-                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando, p.ClasseTerapeutica, p.PrecoFp, p.PrecoFpBolsaFamilia, p.ParticipaFarmaciaPopular, p.CodigoBarras, p.ControlaGrade, TemVariacoes = p.Variacoes.Any(v => v.Ativo) })
+                .Select(p => new { p.Id, p.Codigo, p.Nome, fabricante = p.Fabricante != null ? p.Fabricante.Nome : "", p.PermitirConferenciaDigitando, p.ClasseTerapeutica, p.PrecoFp, p.PrecoFpBolsaFamilia, p.ParticipaFarmaciaPopular, p.CodigoBarras, p.ControlaGrade, TemVariacoes = p.Variacoes.Any(v => v.Ativo), p.Pesavel, p.Unidade })
                 .ToListAsync();
 
             // Buscar dados da filial
@@ -235,7 +235,11 @@ public class ProdutosController : ControllerBase
                     // (mesmo que o flag ControlaGrade não tenha sido marcado no cadastro).
                     controlaGrade = p.ControlaGrade || p.TemVariacoes,
                     produtoVariacaoId = (long?)null,
-                    variacaoDescricao = (string?)null
+                    variacaoDescricao = (string?)null,
+                    // Pesável: o PDV pede o peso (entrada manual) quando não veio de etiqueta.
+                    pesavel = p.Pesavel,
+                    unidade = p.Unidade,
+                    quantidadeBalanca = (decimal?)null
                 };
             });
 

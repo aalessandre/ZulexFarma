@@ -111,7 +111,8 @@ Fase 1 (núcleo: quantidade decimal + produto pesável + parse do EAN) → Fase 
 - **Produto**: `Pesavel` + `Unidade` (UN/KG) + `CodigoBalanca` (PLU, índice único parcial). Tela de produto com os campos gated pela feature `pesavel`.
 - **Config do EAN de balança** (chaves `balanca.barcode.prefixo|tam_codigo|tam_valor|tipo_valor`, seed default: prefixo `2`, 6+5, `peso` em gramas).
 - **PDV (caixa + pré-venda)**: `ProdutosController.Buscar` parseia o EAN de balança → resolve o produto pesável pelo PLU → devolve item com quantidade (peso) + preço/kg. Item entra com quantidade decimal, unidade KG, linha própria (não agrupa). Grid permite quantidade decimal só pra itens KG.
-- **Falta na Fase 1 (melhorias):** exibir a coluna "Un." e o preço/kg mais explícito na grade do PDV; entrada manual de peso (hoje o peso vem do código de barras). Config do barcode ainda não tem tela (edita via seed/banco).
+- **Entrada manual de peso** ✅ (2026-07-05): ao selecionar um produto pesável **sem peso** (não veio de etiqueta), o caixa/pré-venda abre um prompt **"Peso (kg)"** com preço/kg + total ao vivo. Reaproveita o fluxo da balança (peso digitado = `quantidadeBalanca`). É o **Esquema 2 sem hardware** — na Fase 3 a balança só auto-preenche esse campo. `Buscar` normal passou a devolver `pesavel`/`unidade`.
+- **Falta na Fase 1 (melhorias):** exibir a coluna "Un." e o preço/kg mais explícito na grade do PDV. Config do barcode ainda não tem tela (edita via seed/banco).
 
 ### Fase 2 — Export PLU ⏳ / Fase 3 — Balança no caixa ⏳
 Pendentes.
