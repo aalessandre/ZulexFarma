@@ -2,6 +2,7 @@ import { Component, signal, computed, OnInit, OnDestroy, HostListener } from '@a
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -274,14 +275,19 @@ export class CaixaComponent implements OnInit, OnDestroy {
   fechamentoDeclarados = signal<{ tipoPagamentoId: number; nome: string; valor: string }[]>([]);
   fechamentoObs = signal('');
 
+  /** Caixa 2 (mercado/hortifruti): esconde cliente/vendedor/filial/cesta inline. */
+  simplificado = signal(false);
+
   constructor(
     private http: HttpClient,
     private tabService: TabService,
     private auth: AuthService,
-    private modal: ModalService
+    private modal: ModalService,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
+    this.simplificado.set(!!this.route.snapshot.data['simplificado']);
     this.carregarFiliais();
     this.verificarCaixaAberto();
     this.carregarCaixasDisponiveis();

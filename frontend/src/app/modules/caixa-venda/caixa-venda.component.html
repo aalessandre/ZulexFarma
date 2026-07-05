@@ -18,6 +18,7 @@
   <!-- HEADER -->
   <div class="pv-header">
 
+    @if (!simplificado()) {
     <!-- Filial + Cesta + Cliente -->
     <div class="pv-field-row">
       <label class="pv-label">FILIAL</label>
@@ -131,6 +132,7 @@
         }
       </div>
     </div>
+    }
 
     <!-- Payment type buttons -->
     <div class="pv-pagamentos">
@@ -491,6 +493,26 @@
         <div class="pv-opcoes-overlay" (click)="menuOpcoesAberto.set(false)"></div>
         <div class="pv-mega-menu">
           <div class="pv-mega-grid">
+            @if (simplificado()) {
+              <div class="pv-mega-item" (click)="modalCliente2.set(true); menuOpcoesAberto.set(false)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span class="pv-mega-label">Cliente</span>
+                @if (clienteId()) { <span class="pv-mega-atalho">✓</span> }
+              </div>
+              <div class="pv-mega-item" (click)="modalVendedor2.set(true); menuOpcoesAberto.set(false)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span class="pv-mega-label">Vendedor</span>
+                @if (colaboradorId()) { <span class="pv-mega-atalho">✓</span> }
+              </div>
+              <div class="pv-mega-item" (click)="modalFilial2.set(true); menuOpcoesAberto.set(false)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+                <span class="pv-mega-label">Filial</span>
+              </div>
+              <div class="pv-mega-item" (click)="modalCesta2.set(true); menuOpcoesAberto.set(false)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 11l4-7"/><path d="M19 11l-4-7"/><path d="M2 11h20l-2 9H4z"/></svg>
+                <span class="pv-mega-label">Cesta</span>
+              </div>
+            }
             <div class="pv-mega-item" (click)="novaAba(); menuOpcoesAberto.set(false)">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span class="pv-mega-label">Novo Atendimento</span>
@@ -1009,6 +1031,73 @@
             </span>
           </button>
         }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Caixa 2: modais de Cliente / Vendedor / Filial / Cesta (menu Opções) -->
+@if (modalCliente2()) {
+  <div class="pv-modal-overlay" (click)="modalCliente2.set(false)">
+    <div class="cx2-modal" (click)="$event.stopPropagation()">
+      <div class="cx2-modal-head">Cliente <button (click)="modalCliente2.set(false)">&times;</button></div>
+      <div class="cx2-modal-body">
+        <input type="text" [value]="clienteBusca()" (input)="onClienteBuscaInput($any($event.target).value)"
+               placeholder="Código, CPF/CNPJ, nome..." autocomplete="off" />
+        @if (clienteId()) {
+          <div class="cx2-sel">Selecionado: <strong>{{ clienteBusca() }}</strong> <button (click)="onClienteBuscaInput('')">limpar</button></div>
+        }
+        <div class="cx2-list">
+          @for (c of clienteResultados(); track c.clienteId) {
+            <button class="cx2-item" (mousedown)="selecionarCliente(c); modalCliente2.set(false)">
+              {{ c.nome }} <small>{{ c.cpfCnpj }}</small>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+@if (modalVendedor2()) {
+  <div class="pv-modal-overlay" (click)="modalVendedor2.set(false)">
+    <div class="cx2-modal" (click)="$event.stopPropagation()">
+      <div class="cx2-modal-head">Vendedor <button (click)="modalVendedor2.set(false)">&times;</button></div>
+      <div class="cx2-modal-body">
+        <input type="text" [value]="colaboradorBusca()" (input)="onColaboradorBuscaInput($any($event.target).value)"
+               placeholder="Código ou nome do vendedor..." autocomplete="off" />
+        @if (colaboradorId()) {
+          <div class="cx2-sel">Selecionado: <strong>{{ colaboradorNome() }}</strong> <button (click)="onColaboradorBuscaInput('')">limpar</button></div>
+        }
+        <div class="cx2-list">
+          @for (c of colaboradorResultados(); track c.id) {
+            <button class="cx2-item" (mousedown)="selecionarColaborador(c); modalVendedor2.set(false)">{{ c.nome }}</button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+@if (modalFilial2()) {
+  <div class="pv-modal-overlay" (click)="modalFilial2.set(false)">
+    <div class="cx2-modal" (click)="$event.stopPropagation()">
+      <div class="cx2-modal-head">Filial <button (click)="modalFilial2.set(false)">&times;</button></div>
+      <div class="cx2-modal-body">
+        <select class="cx2-select" [value]="filialId()" (change)="filialId.set(+$any($event.target).value)">
+          @for (f of filiais(); track f.id) { <option [value]="f.id">{{ f.nome }}</option> }
+        </select>
+        <button class="cx2-ok" (click)="modalFilial2.set(false)">OK</button>
+      </div>
+    </div>
+  </div>
+}
+@if (modalCesta2()) {
+  <div class="pv-modal-overlay" (click)="modalCesta2.set(false)">
+    <div class="cx2-modal" (click)="$event.stopPropagation()">
+      <div class="cx2-modal-head">Cesta <button (click)="modalCesta2.set(false)">&times;</button></div>
+      <div class="cx2-modal-body">
+        <input type="text" maxlength="24" [value]="cestaNumero()" (input)="cestaNumero.set($any($event.target).value)"
+               (keydown.enter)="buscarPorCesta(); modalCesta2.set(false)" placeholder="Nº Cesta" autocomplete="off" />
+        <button class="cx2-ok" (click)="modalCesta2.set(false)">OK</button>
       </div>
     </div>
   </div>

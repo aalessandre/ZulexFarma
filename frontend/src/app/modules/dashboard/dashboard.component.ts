@@ -82,6 +82,7 @@ export class DashboardComponent {
       tiles: [
         { label: 'Pré-Venda',        sigla: 'PV', iconKey: 'cart',      rota: '/erp/pre-venda' },
         { label: 'Caixa',            sigla: 'CX', iconKey: 'cash',      rota: '/erp/caixa' },
+        { label: 'Caixa 2',          sigla: 'C2', iconKey: 'cash',      rota: '/erp/caixa2' },
         { label: 'Self-Checkout',    sigla: 'SC', iconKey: 'cart',      rota: '/kiosk' },
         { label: 'Pendentes SC',     sigla: 'PS', iconKey: 'cash',      rota: '/erp/self-checkout-pendentes' },
         { label: 'Compras',          sigla: 'CP', iconKey: 'cart2',     rota: '/erp/compras' },

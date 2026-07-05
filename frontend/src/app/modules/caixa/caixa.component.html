@@ -80,7 +80,7 @@
       <!-- Painel: Vender e Checkout -->
       @if (painelAtivo() === 'vender') {
         <div class="cx-painel cx-painel-vender">
-          <app-caixa-venda [caixaId]="caixaAberto()?.id ?? null"></app-caixa-venda>
+          <app-caixa-venda [caixaId]="caixaAberto()?.id ?? null" [simplificado]="simplificado()"></app-caixa-venda>
         </div>
       }
 

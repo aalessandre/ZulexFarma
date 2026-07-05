@@ -229,6 +229,13 @@ export const ErpRoutes: Routes = [
           import('../caixa/caixa.component').then(m => m.CaixaComponent),
       },
       {
+        // Caixa 2: mesma tela em modo simplificado (mercado/hortifruti — sem cliente/vendedor inline).
+        path: 'caixa2',
+        data: { simplificado: true },
+        loadComponent: () =>
+          import('../caixa/caixa.component').then(m => m.CaixaComponent),
+      },
+      {
         path: 'hierarquia-descontos',
         loadComponent: () =>
           import('../hierarquia-descontos/hierarquia-descontos.component').then(m => m.HierarquiaDescontosComponent),
