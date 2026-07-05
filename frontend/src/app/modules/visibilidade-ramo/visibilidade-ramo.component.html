@@ -2,13 +2,18 @@
   <div class="vr-topo">
     <div>
       <div class="vr-titulo">Visibilidade por Ramo</div>
-      <div class="vr-sub">Marque quais elementos aparecem em cada ramo. Célula com <span class="vr-dot-ov"></span> = alterado do padrão. Vale a partir do próximo login/recarregar.</div>
+      <div class="vr-sub">Marque o que aparece em cada ramo. Célula com <span class="vr-dot-ov"></span> = alterado do padrão. Vale a partir do próximo login/recarregar.</div>
     </div>
     <div class="vr-acoes">
       <button class="vr-btn vr-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
       <button class="vr-btn vr-btn-salvar" [disabled]="salvando()" (click)="salvar()">{{ salvando() ? 'Salvando...' : 'Salvar' }}</button>
       <button class="vr-btn vr-btn-sair" (click)="sairDaTela()">Fechar</button>
     </div>
+  </div>
+
+  <div class="vr-abas">
+    <button class="vr-aba" [class.ativa]="aba() === 'tiles'" (click)="aba.set('tiles')">Tiles (tela principal)</button>
+    <button class="vr-aba" [class.ativa]="aba() === 'cadastros'" (click)="aba.set('cadastros')">Cadastros</button>
   </div>
 
   @if (carregando()) {
@@ -24,23 +29,46 @@
         </thead>
         <tbody>
           @for (g of grupos(); track g.cadastro) {
-            <tr class="vr-grupo"><td [attr.colspan]="ramos.length + 1">{{ g.cadastro }}</td></tr>
-            @for (e of g.elementos; track e.id) {
-              <tr>
+            <tr class="vr-cadastro"><td [attr.colspan]="ramos.length + 1">{{ g.cadastro }}</td></tr>
+            @for (s of g.secoes; track s.secao) {
+              <!-- Cabeçalho da seção: expandir + master-check por ramo -->
+              <tr class="vr-secao">
                 <td class="vr-col-elem">
-                  <span class="vr-tipo vr-tipo-{{ e.tipo }}">{{ e.tipo }}</span>
-                  {{ e.label }}
-                  <span class="vr-feature">{{ e.feature }}</span>
+                  <button class="vr-exp" (click)="toggleSecaoExpand(g.cadastro, s.secao)">{{ aberta(g.cadastro, s.secao) ? '▾' : '▸' }}</button>
+                  <span class="vr-secao-nome">{{ s.secao }}</span>
+                  <span class="vr-secao-cont">{{ s.elementos.length }}</span>
                 </td>
                 @for (r of ramos; track r) {
-                  <td class="vr-cell" [class.vr-cell-ov]="ehOverride(e.id, r)">
-                    <label class="vr-check">
-                      <input type="checkbox" [checked]="visivel(e.id, r)" (change)="toggle(e.id, r)" />
-                      <span class="vr-check-box"></span>
+                  <td class="vr-cell">
+                    <label class="vr-check" title="Marcar/desmarcar a seção toda">
+                      <input type="checkbox" [checked]="secaoTodos(s.elementos, r)"
+                             [indeterminate]="secaoParcial(s.elementos, r)"
+                             (change)="toggleSecao(s.elementos, r)" />
+                      <span class="vr-check-box vr-check-master"></span>
                     </label>
                   </td>
                 }
               </tr>
+              <!-- Campos da seção (quando expandida) -->
+              @if (aberta(g.cadastro, s.secao)) {
+                @for (e of s.elementos; track e.id) {
+                  <tr class="vr-item">
+                    <td class="vr-col-elem vr-item-elem">
+                      <span class="vr-tipo vr-tipo-{{ e.tipo }}">{{ e.tipo }}</span>
+                      {{ e.label }}
+                      @if (e.feature) { <span class="vr-feature">{{ e.feature }}</span> }
+                    </td>
+                    @for (r of ramos; track r) {
+                      <td class="vr-cell" [class.vr-cell-ov]="ehOverride(e.id, r)">
+                        <label class="vr-check">
+                          <input type="checkbox" [checked]="visivel(e.id, r)" (change)="toggle(e.id, r)" />
+                          <span class="vr-check-box"></span>
+                        </label>
+                      </td>
+                    }
+                  </tr>
+                }
+              }
             }
           }
         </tbody>

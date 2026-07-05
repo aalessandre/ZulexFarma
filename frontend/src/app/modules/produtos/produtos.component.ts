@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
 import { VisibilidadeService } from '../../core/services/visibilidade.service';
+import { VisDirective } from '../../core/directives/vis.directive';
 import { ModalService } from '../../core/services/modal.service';
 import { ToastrService } from 'ngx-toastr';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
@@ -223,7 +224,7 @@ const NOME_ABA_MAP: Record<string, string> = {
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, EnterTabDirective, CurrencyInputDirective, ProdutoGradeComponent],
+  imports: [CommonModule, FormsModule, EnterTabDirective, CurrencyInputDirective, ProdutoGradeComponent, VisDirective],
   templateUrl: './produtos.component.html',
   styleUrl: './produtos.component.scss'
 })

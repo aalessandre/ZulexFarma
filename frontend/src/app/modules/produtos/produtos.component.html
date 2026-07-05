@@ -266,7 +266,7 @@
               <input type="text" disabled class="field-disabled" [value]="produtoForm().criadoEm ? (produtoForm().criadoEm | date:'dd/MM/yyyy HH:mm') : ''" />
             </div>
           }
-          <div class="prod-field prod-field-2">
+          <div class="prod-field prod-field-2" *vis="'produto.campo.codigo-de-barras'">
             <label>CÓDIGO DE BARRAS</label>
             <div class="barras-row">
               <input type="text" [value]="produtoForm().codigoBarras || ''"
@@ -292,7 +292,7 @@
             <label>NOME *</label>
             <input type="text" [value]="produtoForm().nome" (input)="updateProdutoForm('nome', $any($event.target).value)" placeholder="Nome do produto" maxlength="120" />
           </div>
-          <div class="prod-field">
+          <div class="prod-field" *vis="'produto.campo.qtde-embalagem'">
             <label>QTDE EMBALAGEM</label>
             <input type="number" [value]="produtoForm().qtdeEmbalagem" (input)="updateProdutoForm('qtdeEmbalagem', +$any($event.target).value)" min="1" />
           </div>
@@ -318,7 +318,7 @@
             </label>
           </div>
           }
-          <div class="prod-field">
+          <div class="prod-field" *vis="'produto.campo.lista'">
             <label>LISTA</label>
             <select [value]="produtoForm().lista" (change)="updateProdutoForm('lista', $any($event.target).value)">
               <option value="Indefinida">Indefinida</option>
@@ -327,14 +327,14 @@
               <option value="Neutra">Neutra</option>
             </select>
           </div>
-          <div class="prod-field">
+          <div class="prod-field" *vis="'produto.campo.fracao'">
             <label>FRAÇÃO</label>
             <input type="number" [value]="produtoForm().fracao" (input)="updateProdutoForm('fracao', +$any($event.target).value)" min="1" />
           </div>
           <div class="prod-field prod-field-check">
             <label class="check-label"><input type="checkbox" [checked]="produtoForm().ativo" (change)="updateProdutoForm('ativo', $any($event.target).checked)" /><span>Ativo</span></label>
           </div>
-          <div class="prod-field prod-field-check">
+          <div class="prod-field prod-field-check" *vis="'produto.campo.permitir-conferencia'">
             <label class="check-label"><input type="checkbox" [checked]="produtoForm().permitirConferenciaDigitando" (change)="updateProdutoForm('permitirConferenciaDigitando', $any($event.target).checked)" /><span>Permitir conferência digitando</span></label>
           </div>
 
@@ -361,7 +361,7 @@
         <div class="prod-section">Classificação</div>
         <div class="prod-grid">
           <!-- FABRICANTE -->
-          <div class="prod-field">
+          <div class="prod-field" *vis="'produto.campo.fabricante'">
             <label>FABRICANTE</label>
             <div class="lookup-wrap">
               <input type="text" [value]="getLookupDisplay('fabricante')"
@@ -401,7 +401,7 @@
             </div>
           </div>
           <!-- GRUPO -->
-          <div class="prod-field">
+          <div class="prod-field" *vis="'produto.campo.grupo'">
             <label>GRUPO</label>
             <div class="lookup-wrap">
               <input type="text" [value]="getLookupDisplay('grupo')"
@@ -421,7 +421,7 @@
             </div>
           </div>
           <!-- SUBGRUPO -->
-          <div class="prod-field">
+          <div class="prod-field" *vis="'produto.campo.subgrupo'">
             <label>SUBGRUPO</label>
             <div class="lookup-wrap">
               <input type="text" [value]="getLookupDisplay('subGrupo')"
@@ -441,7 +441,7 @@
             </div>
           </div>
           <!-- NCM -->
-          <div class="prod-field">
+          <div class="prod-field" *vis="'produto.campo.ncm'">
             <label>NCM</label>
             <div class="lookup-wrap">
               <input type="text" [value]="getLookupDisplay('ncm')"
@@ -514,7 +514,7 @@
           }
 
           <!-- BARRAS ADICIONAIS -->
-          <details class="prod-accordion">
+          <details class="prod-accordion" *vis="'produto.secao.codigos-de-barras'">
             <summary class="prod-acc-header acc-estoque">Códigos de Barras ({{ produtoForm().barras.length }})</summary>
             <div class="prod-acc-body">
               <div class="acc-input-row">
@@ -537,7 +537,7 @@
           </details>
 
           <!-- REGISTROS MS -->
-          <details class="prod-accordion">
+          <details class="prod-accordion" *vis="'produto.secao.registros-ms'">
             <summary class="prod-acc-header acc-fiscal">Registros MS ({{ produtoForm().registrosMs.length }})</summary>
             <div class="prod-acc-body">
               <div class="acc-input-row">
@@ -561,7 +561,7 @@
 
           <!-- FISCAL (filial selecionada) -->
           @if (fiscalFilialAtual(); as fi) {
-          <details class="prod-accordion" open>
+          <details class="prod-accordion" open *vis="'produto.secao.fiscal'">
             <summary class="prod-acc-header acc-fiscal">
               Fiscal
               @if (fi.atualizadoGestorTributarioEm) {
@@ -657,7 +657,7 @@
 
           <!-- ESTOQUE (filial selecionada) -->
           @if (dadosFilialAtual(); as dd) {
-          <details class="prod-accordion">
+          <details class="prod-accordion" *vis="'produto.secao.estoque'">
             <summary class="prod-acc-header acc-estoque">Estoque</summary>
             <div class="prod-acc-body">
               <div class="prod-grid">
@@ -679,7 +679,7 @@
           </details>
 
           <!-- PREÇOS (filial selecionada) -->
-          <details class="prod-accordion">
+          <details class="prod-accordion" *vis="'produto.secao.precos'">
             <summary class="prod-acc-header acc-precos">Preços</summary>
             <div class="prod-acc-body">
               <div class="prod-section">Última Compra</div>
@@ -758,7 +758,7 @@
           </details>
 
           <!-- GERAL (filial selecionada) -->
-          <details class="prod-accordion">
+          <details class="prod-accordion" *vis="'produto.secao.geral'">
             <summary class="prod-acc-header acc-geral">Geral</summary>
             <div class="prod-acc-body">
               <div class="prod-grid">
@@ -839,7 +839,7 @@
           }
 
           <!-- VÍNCULOS FORNECEDORES -->
-          <details class="prod-accordion">
+          <details class="prod-accordion" *vis="'produto.secao.fornecedores'">
             <summary class="prod-acc-header acc-fornecedores">Fornecedores ({{ produtoForm().fornecedores.length }})</summary>
             <div class="prod-acc-body">
               @for (f of produtoForm().fornecedores; track $index; let i = $index) {
