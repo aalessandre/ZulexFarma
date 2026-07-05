@@ -283,6 +283,27 @@
                   </tr>
                 </tbody>
               </table>
+
+              <div class="cfg-field cfg-field-lg cfg-vend-wrap">
+                <label>VENDEDOR PADRÃO
+                  <span class="cfg-info" title="Se preenchido, a venda/caixa já entra com este vendedor pré-selecionado (pode trocar). Essencial no Caixa 2 (mercado/hortifruti), onde o campo vendedor fica no menu Opções.">i</span>
+                </label>
+                @if (getConfig('venda.vendedor.padrao.nome')) {
+                  <div class="cfg-vend-sel">
+                    <span>{{ getConfig('venda.vendedor.padrao.nome') }}</span>
+                    <button type="button" (click)="limparVendPadrao()">remover</button>
+                  </div>
+                } @else {
+                  <input type="text" [value]="vendPadraoBusca()" (input)="onVendPadraoInput($any($event.target).value)" (blur)="onVendPadraoBlur()" placeholder="Buscar vendedor por nome/código..." autocomplete="off" />
+                  @if (vendPadraoDropdown()) {
+                    <div class="cfg-vend-dropdown">
+                      @for (c of vendPadraoResultados(); track c.id) {
+                        <div class="cfg-vend-item" (mousedown)="selecionarVendPadrao(c)">{{ c.nome }}</div>
+                      }
+                    </div>
+                  }
+                }
+              </div>
             </div>
           }
         </div>

@@ -189,6 +189,40 @@ export class ConfiguracoesComponent implements OnInit {
     }
   }
 
+  // ── Lookup Vendedor padrão (config venda.vendedor.padrao.*) ─────────
+  vendPadraoBusca = signal('');
+  vendPadraoResultados = signal<{ id: number; nome: string; codigo?: string }[]>([]);
+  vendPadraoDropdown = signal(false);
+  private vendPadraoTimer: any = null;
+
+  onVendPadraoInput(valor: string) {
+    this.vendPadraoBusca.set(valor);
+    if (this.vendPadraoTimer) clearTimeout(this.vendPadraoTimer);
+    if (valor.trim().length < 2) { this.vendPadraoResultados.set([]); this.vendPadraoDropdown.set(false); return; }
+    this.vendPadraoTimer = setTimeout(() => {
+      this.http.get<any>(`${environment.apiUrl}/colaboradores/pesquisar`, { params: { termo: valor, status: 'ativos' } }).subscribe({
+        next: r => { this.vendPadraoResultados.set(r.data ?? []); this.vendPadraoDropdown.set((r.data ?? []).length > 0); },
+        error: () => { this.vendPadraoResultados.set([]); this.vendPadraoDropdown.set(false); }
+      });
+    }, 250);
+  }
+
+  selecionarVendPadrao(c: { id: number; nome: string }) {
+    this.setConfig('venda.vendedor.padrao.id', String(c.id));
+    this.setConfig('venda.vendedor.padrao.nome', c.nome);
+    this.vendPadraoBusca.set('');
+    this.vendPadraoResultados.set([]);
+    this.vendPadraoDropdown.set(false);
+  }
+
+  limparVendPadrao() {
+    this.setConfig('venda.vendedor.padrao.id', '');
+    this.setConfig('venda.vendedor.padrao.nome', '');
+    this.vendPadraoBusca.set('');
+  }
+
+  onVendPadraoBlur() { setTimeout(() => this.vendPadraoDropdown.set(false), 200); }
+
   getConfig(chave: string, padrao = ''): string {
     return this.configs()[chave] ?? padrao;
   }

@@ -345,3 +345,19 @@
   &:disabled { opacity: 0.4; cursor: not-allowed; }
   &.tb-salvar { background: #27ae60; color: #fff; }
 }
+
+/* ── Vendedor padrão (lookup) ───────────────────────────────────────── */
+.cfg-vend-wrap { position: relative; margin-top: 14px; max-width: 420px; }
+.cfg-vend-sel {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  height: 36px; padding: 0 10px; border: 1px solid var(--erp-border-input); border-radius: 6px;
+  background: var(--erp-input-bg); font-size: var(--erp-fs-body); color: var(--erp-text);
+  button { border: none; background: none; color: #c0392b; font-weight: 600; cursor: pointer; font-size: 12px; }
+}
+.cfg-vend-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 50; margin-top: 2px;
+  background: var(--erp-surface); border: 1px solid var(--erp-border); border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.14); max-height: 240px; overflow-y: auto;
+}
+.cfg-vend-item { padding: 9px 12px; cursor: pointer; font-size: var(--erp-fs-body); color: var(--erp-text);
+  &:hover { background: var(--erp-row-hover); } }

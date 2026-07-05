@@ -144,6 +144,8 @@ public static class DatabaseSeeder
             (5, "estoque.permitir.negativo", "true",       "Permite vender com estoque negativo (true = permite)"),
             (6, "produto.buscar.gt.novo",       "true",    "Buscar Gestor Tributario ao ter codigo de barras em novo cadastro"),
             (7, "produto.buscar.abcfarma.novo", "true",    "Buscar ABCFarma ao ter codigo de barras em novo cadastro"),
+            (8, "venda.vendedor.padrao.id",     "",        "Vendedor padrao pre-selecionado na venda/caixa (id do colaborador)"),
+            (9, "venda.vendedor.padrao.nome",   "",        "Nome do vendedor padrao (exibicao)"),
             // ── SNGPC ────────────────────────────────────────────────
             (10, "sngpc.ativar",                         "false",       "SNGPC ativado no sistema"),
             (11, "sngpc.vendas.modo",                    "Obrigatorio", "Modo SNGPC na venda: Obrigatorio | NaoLancar | Misto"),

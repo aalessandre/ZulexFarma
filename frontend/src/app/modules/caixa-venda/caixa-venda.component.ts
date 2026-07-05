@@ -1,4 +1,4 @@
-import { Component, signal, computed, OnInit, OnDestroy, HostListener, ElementRef, ViewChild, Input } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, HostListener, ElementRef, ViewChild, Input, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -232,6 +232,14 @@ const CORES_PAGAMENTO = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336', 
 })
 export class CaixaVendaComponent implements OnInit, OnDestroy {
   @Input() caixaId: number | null = null;
+  /** Caixa 2 (mercado/hortifruti): cliente/vendedor/filial/cesta saem do topo e vão pro menu Opções. */
+  simplificado = input(false);
+
+  // Modais do Caixa 2 (acessados pelo menu Opções — usados só em casos específicos).
+  modalCliente2 = signal(false);
+  modalVendedor2 = signal(false);
+  modalFilial2 = signal(false);
+  modalCesta2 = signal(false);
 
   private readonly STATE_KEY = 'zulex_caixa_venda_state';
   private readonly STORAGE_KEY_COLUNAS = 'zulex_colunas_caixa_itens';
@@ -605,6 +613,16 @@ export class CaixaVendaComponent implements OnInit, OnDestroy {
         this.cfgSngpcAtivar.set(map['sngpc.ativar'] === 'true');
         const modo = (map['sngpc.vendas.modo'] ?? 'Obrigatorio') as any;
         this.cfgSngpcVendasModo.set(modo === 'NaoLancar' || modo === 'Misto' ? modo : 'Obrigatorio');
+
+        // Vendedor padrão: pré-seleciona (vale pros dois caixas; campo continua editável).
+        const vendId = +(map['venda.vendedor.padrao.id'] || 0);
+        const vendNome = map['venda.vendedor.padrao.nome'] || '';
+        if (vendId > 0 && !this.colaboradorId()) {
+          this.colaboradorId.set(vendId);
+          this.colaboradorNome.set(vendNome);
+          this.colaboradorBusca.set(vendNome);
+        }
+
         this.configsCarregadas.set(true);
       }
     });
