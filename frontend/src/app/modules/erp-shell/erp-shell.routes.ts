@@ -79,6 +79,11 @@ export const ErpRoutes: Routes = [
           import('../atributos-variacao/atributos-variacao.component').then(m => m.AtributosVariacaoComponent),
       },
       {
+        path: 'visibilidade-ramo',
+        loadComponent: () =>
+          import('../visibilidade-ramo/visibilidade-ramo.component').then(m => m.VisibilidadeRamoComponent),
+      },
+      {
         path: 'gerenciar-produtos',
         loadComponent: () =>
           import('../produtos/produtos.component').then(m => m.ProdutosComponent),
