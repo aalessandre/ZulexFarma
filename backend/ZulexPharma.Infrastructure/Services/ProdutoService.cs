@@ -183,8 +183,9 @@ public class ProdutoService : IProdutoService
 
         SincronizarSubTabelas(p, dto);
 
-        // Propagação de preço para outras filiais conforme regra configurada
-        await PropagarPrecoAsync(p, dto);
+        // Produto uniforme: propaga tudo-exceto-estoque (preço, fiscal, fornecedores)
+        // da filial editada pras demais. Ver spec cadastro-produto.
+        await CopiarDadosParaOutrasFiliais(p.Id, dto);
 
         await _db.SaveChangesAsync();
 
@@ -446,10 +447,14 @@ public class ProdutoService : IProdutoService
     /// </summary>
     private async Task CopiarDadosParaOutrasFiliais(long produtoId, ProdutoFormDto dto)
     {
-        // Identificar a filial de origem (a que tem valores preenchidos — ex: ValorVenda > 0 ou Markup > 0)
-        var dadosOrigem = dto.Dados.FirstOrDefault(d =>
-            d.ValorVenda != 0 || d.Markup != 0 || d.ProjecaoLucro != 0 || d.CustoMedio != 0 ||
-            d.Comissao != 0 || d.ValorIncentivo != 0);
+        // Filial de origem: a explicitamente editada (FilialOrigem) ou, na falta,
+        // a primeira com valores preenchidos. Regra: produto uniforme, exceto estoque.
+        var dadosOrigem = (dto.FilialOrigem.HasValue
+                ? dto.Dados.FirstOrDefault(d => d.FilialId == dto.FilialOrigem.Value)
+                : null)
+            ?? dto.Dados.FirstOrDefault(d =>
+                d.ValorVenda != 0 || d.Markup != 0 || d.ProjecaoLucro != 0 || d.CustoMedio != 0 ||
+                d.Comissao != 0 || d.ValorIncentivo != 0);
         if (dadosOrigem != null)
         {
             var todosDados = await _db.ProdutosDados.Where(d => d.ProdutoId == produtoId && d.FilialId != dadosOrigem.FilialId).ToListAsync();
@@ -457,8 +462,11 @@ public class ProdutoService : IProdutoService
                 CopiarDadosSemEstoque(d, dadosOrigem);
         }
 
-        var fiscalOrigem = dto.Fiscais.FirstOrDefault(f =>
-            f.NcmId != null || f.AliquotaIcms != 0 || f.AliquotaPis != 0 || f.AliquotaCofins != 0);
+        var fiscalOrigem = (dto.FilialOrigem.HasValue
+                ? dto.Fiscais.FirstOrDefault(f => f.FilialId == dto.FilialOrigem.Value)
+                : null)
+            ?? dto.Fiscais.FirstOrDefault(f =>
+                f.NcmId != null || f.AliquotaIcms != 0 || f.AliquotaPis != 0 || f.AliquotaCofins != 0);
         if (fiscalOrigem != null)
         {
             var todosFiscal = await _db.ProdutosFiscal.Where(f => f.ProdutoId == produtoId && f.FilialId != fiscalOrigem.FilialId).ToListAsync();

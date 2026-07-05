@@ -106,6 +106,12 @@ public class ProdutoFormDto
     /// null = não propagar; lista com IDs = propagar para essas filiais.
     /// </summary>
     public List<long>? FiliaisPrecoAplicar { get; set; }
+
+    /// <summary>
+    /// Filial de origem da edição (a selecionada no form). Os dados-exceto-estoque
+    /// e o fiscal dela são propagados para todas as filiais. Ver spec cadastro-produto.
+    /// </summary>
+    public long? FilialOrigem { get; set; }
 }
 
 // ── Sub-tabelas ─────────────────────────────────────────────────────
