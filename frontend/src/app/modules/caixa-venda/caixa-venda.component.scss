@@ -1376,3 +1376,22 @@ td[data-campo="percentualDesconto"] {
 .gpi-info { display: flex; align-items: center; gap: 14px; }
 .gpi-estoque { font-size: 12px; color: #7c8ea3; }
 .gpi-preco { font-weight: 700; color: #16a085; font-size: 14px; }
+
+/* ── Prompt de peso (produto pesável) ──────────────────────────────── */
+.peso-modal {
+  background: #fff; width: 380px; max-width: 94vw; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3); animation: gp-in .16s ease-out;
+}
+.peso-modal-head { padding: 14px 18px; border-bottom: 1px solid #e8ecf1; font-weight: 700; color: #1f3a52; font-size: 15px; }
+.peso-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 6px;
+  label { font-size: 11px; font-weight: 700; color: #6a7888; letter-spacing: .5px; }
+}
+.peso-input {
+  height: 46px; font-size: 22px; font-weight: 700; text-align: center;
+  border: 1.5px solid #cbd5e0; border-radius: 8px; outline: none; color: #2c3e50;
+  &:focus { border-color: #1E88E5; }
+}
+.peso-hint { font-size: 12px; color: #7c8ea3; margin-top: 2px; strong { color: #16a085; } }
+.peso-modal-foot { display: flex; gap: 10px; padding: 0 18px 18px; }
+.peso-btn-ok { flex: 1; height: 42px; border: none; border-radius: 8px; background: #27ae60; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; &:hover { filter: brightness(1.08); } }
+.peso-btn-cancel { height: 42px; padding: 0 16px; border: none; border-radius: 8px; background: #7f8c8d; color: #fff; font-weight: 700; cursor: pointer; &:hover { filter: brightness(1.08); } }

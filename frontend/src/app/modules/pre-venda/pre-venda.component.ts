@@ -198,6 +198,7 @@ export class PreVendaComponent implements OnInit, OnDestroy {
   @ViewChild('inputCliente') inputClienteRef!: ElementRef<HTMLInputElement>;
   @ViewChild('inputVendedor') inputVendedorRef!: ElementRef<HTMLInputElement>;
   @ViewChild('inputProduto') inputProdutoRef!: ElementRef<HTMLInputElement>;
+  @ViewChild('inputPeso') inputPesoRef!: ElementRef<HTMLInputElement>;
   private saindo = false;
 
   // ── Configurações de venda ──────────────────────────────────────
@@ -761,6 +762,30 @@ export class PreVendaComponent implements OnInit, OnDestroy {
     setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
   }
 
+  // ── Peso (produto pesável, entrada manual / balança no caixa) ──────
+  pesoPrompt = signal<{ base: ProdutoLookup } | null>(null);
+  pesoInput = signal<string>('');
+
+  private abrirPesoPrompt(p: ProdutoLookup) {
+    this.pesoInput.set('');
+    this.pesoPrompt.set({ base: p });
+    setTimeout(() => this.inputPesoRef?.nativeElement?.focus(), 50);
+  }
+
+  confirmarPeso() {
+    const prompt = this.pesoPrompt();
+    if (!prompt) return;
+    const peso = parseFloat((this.pesoInput() || '').replace(',', '.'));
+    if (!(peso > 0)) { this.modal.aviso('Peso', 'Informe um peso válido (kg).'); return; }
+    this.pesoPrompt.set(null);
+    this.selecionarProduto({ ...prompt.base, quantidadeBalanca: peso });
+  }
+
+  fecharPesoPrompt() {
+    this.pesoPrompt.set(null);
+    setTimeout(() => this.inputProdutoRef?.nativeElement?.focus(), 50);
+  }
+
   // ── Cores para múltiplos vendedores ─────────────────────────────
   private readonly CORES_VENDEDOR = ['#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#E53935', '#00ACC1', '#6D4C41'];
   private vendedorCoresMap = new Map<number, string>();
@@ -806,6 +831,12 @@ export class PreVendaComponent implements OnInit, OnDestroy {
 
     // ── Balança: item pesável traz a quantidade (peso) resolvida; linha própria. ──
     const qtdBalanca = p.quantidadeBalanca ?? null;
+
+    // ── Pesável sem peso (não veio de etiqueta) → pede o peso (entrada manual). ──
+    if (p.pesavel && qtdBalanca == null) {
+      this.abrirPesoPrompt(p);
+      return;
+    }
 
     // ── Múltiplos vendedores: validar se vendedor mudou ──────────
     const vendedorAtualId = this.colaboradorId()!;
