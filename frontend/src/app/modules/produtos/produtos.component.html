@@ -296,15 +296,19 @@
             <label>QTDE EMBALAGEM</label>
             <input type="number" [value]="produtoForm().qtdeEmbalagem" (input)="updateProdutoForm('qtdeEmbalagem', +$any($event.target).value)" min="1" />
           </div>
-          @if (temFeature('farmacia-popular')) {
+          @if (mostra('produto.campo.preco-fp')) {
           <div class="prod-field">
             <label>PREÇO FP</label>
             <input type="text" currencyInput [currencyValue]="produtoForm().precoFp || 0" (currencyChange)="updateProdutoForm('precoFp', $event)" />
           </div>
+          }
+          @if (mostra('produto.campo.preco-fp-bolsa')) {
           <div class="prod-field">
             <label>PREÇO FP BOLSA FAMÍLIA</label>
             <input type="text" currencyInput [currencyValue]="produtoForm().precoFpBolsaFamilia || 0" (currencyChange)="updateProdutoForm('precoFpBolsaFamilia', $event)" />
           </div>
+          }
+          @if (mostra('produto.campo.participa-fp')) {
           <div class="prod-field">
             <label>PARTICIPA FARMÁCIA POPULAR</label>
             <label class="erp-toggle" style="padding-top:6px">
@@ -457,7 +461,7 @@
             </div>
           </div>
           <!-- CLASSE TERAPÊUTICA (SNGPC) -->
-          @if (temFeature('sngpc')) {
+          @if (mostra('produto.campo.classe-terapeutica')) {
           <div class="prod-field">
             <label>CLASSE TERAPÊUTICA
               <span class="field-info" title="Define se o produto é controlado SNGPC. Somente Psicotrópicos e Antimicrobianos são reportados à Anvisa.">i</span>
@@ -477,7 +481,7 @@
         <div class="prod-accordions">
 
           <!-- SUBSTÂNCIAS -->
-          @if (temFeature('substancias')) {
+          @if (mostra('produto.secao.substancias')) {
           <details class="prod-accordion">
             <summary class="prod-acc-header acc-geral">Substâncias ({{ produtoForm().substancias.length }})</summary>
             <div class="prod-acc-body">

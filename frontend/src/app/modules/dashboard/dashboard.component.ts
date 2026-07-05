@@ -56,6 +56,8 @@ export interface TileItem {
   tamanho?: 'normal' | 'largo';
   /** Feature de ramo exigida pra exibir o tile (ex.: 'sngpc'). Sem feature = sempre visível. */
   feature?: string;
+  /** Só aparece pro usuário SISTEMA/SH. */
+  soSistema?: boolean;
 }
 
 export interface BlocoTiles {
@@ -136,14 +138,19 @@ export class DashboardComponent {
         { label: 'Help',            sigla: 'HP', iconKey: 'help',      rota: '/erp/help' },
         { label: 'Dic. de Dados',   sigla: 'DD', iconKey: 'database',  rota: '/erp/dicionario-dados' },
         { label: 'Todo Board',      sigla: 'TD', iconKey: 'todo',      rota: '/erp/todo-board' },
+        { label: 'Visib. por Ramo', sigla: 'VR', iconKey: 'gear',      rota: '/erp/visibilidade-ramo', soSistema: true },
       ]
     }
   ];
 
+  private ehSistema(): boolean { return this.authService.usuarioLogado()?.login === 'SISTEMA'; }
+
   /** Blocos com os tiles filtrados pela feature do ramo da filial (esconde o que não está liberado). */
   get blocos(): BlocoTiles[] {
+    const sistema = this.ehSistema();
     return this.blocosRaw
-      .map(b => ({ ...b, tiles: b.tiles.filter(t => !t.feature || this.authService.temFeature(t.feature)) }))
+      .map(b => ({ ...b, tiles: b.tiles.filter(t =>
+        (!t.feature || this.authService.temFeature(t.feature)) && (!t.soSistema || sistema)) }))
       .filter(b => b.tiles.length > 0);
   }
 

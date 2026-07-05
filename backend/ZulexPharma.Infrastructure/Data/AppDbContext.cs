@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
     public DbSet<UsuarioFilialGrupo> UsuarioFilialGrupos => Set<UsuarioFilialGrupo>();
     public DbSet<Configuracao> Configuracoes => Set<Configuracao>();
+    public DbSet<RamoVisibilidade> RamosVisibilidade => Set<RamoVisibilidade>();
     public DbSet<DicionarioTabela> DicionarioTabelas => Set<DicionarioTabela>();
     public DbSet<DicionarioRevisao> DicionarioRevisoes => Set<DicionarioRevisao>();
     public DbSet<DicionarioRelacionamento> DicionarioRelacionamentos => Set<DicionarioRelacionamento>();
@@ -468,6 +469,15 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.Chave).IsUnique();
             e.Property(x => x.Valor).HasMaxLength(500).IsRequired();
             e.Property(x => x.Descricao).HasMaxLength(200);
+        });
+
+        // ── RamoVisibilidade (configurador de visibilidade por ramo) ──
+        modelBuilder.Entity<RamoVisibilidade>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.ElementoId).HasMaxLength(120).IsRequired();
+            e.HasIndex(x => new { x.Ramo, x.ElementoId }).IsUnique();
         });
 
         // ── PessoaContato ─────────────────────────────────────────────

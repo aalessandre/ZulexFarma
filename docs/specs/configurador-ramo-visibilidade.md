@@ -150,4 +150,13 @@ Fase 1 (seções do produto) → Fase 2 (manifesto) → Fase 3 (configurador SH)
 - Efeito: ramos não-farmácia (Hortifruti/Mercado/Vestuário) param de ver esses campos. `temFeature` é lenient (sessão sem features vê tudo).
 - **Pendente da Fase 1:** demais cadastros/telas; avaliar key nova pra "Registros MS" (medicamento) — hoje sem key própria, continua visível. Catálogo formal (id/label/tela) ainda não materializado (virá com o configurador).
 
-### Fases 2/3/4 — pendentes.
+### Fases 2 + 3 — Manifesto (tabela) + Configurador SH ✅ (2026-07-05)
+Decisão pragmática (ajuste do D2): o manifesto é uma **tabela no banco** (`RamoVisibilidade`), que guarda só **exceções** (overrides) ao default por feature — tabela vazia = comportamento por feature (nada muda). Editada pelo configurador SH. (JSON versionado fica como evolução futura.)
+
+- **Backend:** entidade `RamoVisibilidade (Ramo, ElementoId, Visivel)` + índice único `(Ramo, ElementoId)` + migration `AddRamoVisibilidade`. Controller `GET/PUT /api/visibilidade-ramo` — GET aberto (o front precisa dos overrides), **PUT só do SISTEMA/SH**.
+- **Frontend:** `VisibilidadeService` com o **catálogo** (`CATALOGO_VISIBILIDADE`: id/label/cadastro/tipo/feature) + `mostra(id) = override(ramo,id) ?? temFeature(feature)`. Carrega os overrides no init.
+- **Gates migrados** (cadastro de produto): FP (Preço FP / Bolsa Família / Participa), Classe terapêutica (SNGPC), Substâncias, Grade, Pesável → agora via `mostra(id)`. Sem override = mesmo comportamento da Fase 1.
+- **Configurador:** tile **"Visib. por Ramo"** no bloco Dev (**só SISTEMA**) → tela matriz **elemento × ramo** agrupada por cadastro; célula marcada = aparece; célula destacada = override do padrão; botões Restaurar padrão / Salvar. Vale a partir do próximo login/recarregar.
+
+### Fase 4 — mais cadastros/tiles no catálogo — pendente.
+Catálogo começa com o Cadastro de Produto; tiles/telas e outros cadastros entram adicionando itens ao `CATALOGO_VISIBILIDADE` + trocando o gate por `mostra(id)`.

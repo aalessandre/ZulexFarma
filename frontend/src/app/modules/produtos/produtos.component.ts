@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { TabService } from '../../core/services/tab.service';
 import { AuthService } from '../../core/services/auth.service';
+import { VisibilidadeService } from '../../core/services/visibilidade.service';
 import { ModalService } from '../../core/services/modal.service';
 import { ToastrService } from 'ngx-toastr';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
@@ -364,8 +365,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     private tabService: TabService,
     private auth: AuthService,
     private modal: ModalService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private vis: VisibilidadeService
   ) {}
+
+  /** Visibilidade por ramo com override do configurador (spec configurador-ramo-visibilidade). */
+  mostra(elementoId: string): boolean { return this.vis.mostra(elementoId); }
 
   // Flags de config: buscar GT/ABCFarma automaticamente em novo cadastro (default: liga).
   flagBuscarGt = signal(true);
@@ -391,13 +396,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
     this.verificarPreCadastroCompra();
   }
 
-  /** Grade só pra ramo com a feature 'grade' (Vestuário). */
-  podeGrade(): boolean { return this.auth.temFeature('grade'); }
+  /** Grade só pra ramo com a feature 'grade' (Vestuário) — via configurador. */
+  podeGrade(): boolean { return this.vis.mostra('produto.secao.grade'); }
 
-  /** Pesável só pra ramo com a feature 'pesavel' (Hortifruti/Mercado). */
-  podePesavel(): boolean { return this.auth.temFeature('pesavel'); }
+  /** Pesável só pra ramo com a feature 'pesavel' (Hortifruti/Mercado) — via configurador. */
+  podePesavel(): boolean { return this.vis.mostra('produto.secao.pesavel'); }
 
-  /** Visibilidade por ramo (Fase 1 do configurador): gate de seções/campos por feature-key. */
+  /** Visibilidade por ramo (feature-key direta, sem catálogo). */
   temFeature(key: string): boolean { return this.auth.temFeature(key); }
 
   togglePesavel(checked: boolean) {

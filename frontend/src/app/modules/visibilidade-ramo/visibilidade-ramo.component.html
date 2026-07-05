@@ -1,0 +1,50 @@
+<div class="vr-tela">
+  <div class="vr-topo">
+    <div>
+      <div class="vr-titulo">Visibilidade por Ramo</div>
+      <div class="vr-sub">Marque quais elementos aparecem em cada ramo. Célula com <span class="vr-dot-ov"></span> = alterado do padrão. Vale a partir do próximo login/recarregar.</div>
+    </div>
+    <div class="vr-acoes">
+      <button class="vr-btn vr-btn-restaurar" (click)="restaurarPadrao()">Restaurar padrão</button>
+      <button class="vr-btn vr-btn-salvar" [disabled]="salvando()" (click)="salvar()">{{ salvando() ? 'Salvando...' : 'Salvar' }}</button>
+      <button class="vr-btn vr-btn-sair" (click)="sairDaTela()">Fechar</button>
+    </div>
+  </div>
+
+  @if (carregando()) {
+    <div class="vr-loading">Carregando...</div>
+  } @else {
+    <div class="vr-scroll">
+      <table class="vr-grid">
+        <thead>
+          <tr>
+            <th class="vr-col-elem">Elemento</th>
+            @for (r of ramos; track r) { <th class="vr-col-ramo">{{ r }}</th> }
+          </tr>
+        </thead>
+        <tbody>
+          @for (g of grupos(); track g.cadastro) {
+            <tr class="vr-grupo"><td [attr.colspan]="ramos.length + 1">{{ g.cadastro }}</td></tr>
+            @for (e of g.elementos; track e.id) {
+              <tr>
+                <td class="vr-col-elem">
+                  <span class="vr-tipo vr-tipo-{{ e.tipo }}">{{ e.tipo }}</span>
+                  {{ e.label }}
+                  <span class="vr-feature">{{ e.feature }}</span>
+                </td>
+                @for (r of ramos; track r) {
+                  <td class="vr-cell" [class.vr-cell-ov]="ehOverride(e.id, r)">
+                    <label class="vr-check">
+                      <input type="checkbox" [checked]="visivel(e.id, r)" (change)="toggle(e.id, r)" />
+                      <span class="vr-check-box"></span>
+                    </label>
+                  </td>
+                }
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
