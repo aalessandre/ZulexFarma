@@ -5,6 +5,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AuthService } from '../../core/services/auth.service';
 import { TabService } from '../../core/services/tab.service';
 import { ErpSettingsService } from '../../core/services/erp-settings.service';
+import { VisibilidadeService, tileVisId } from '../../core/services/visibilidade.service';
 
 const ICONS: Record<string, string> = {
   cart:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
@@ -150,7 +151,7 @@ export class DashboardComponent {
     const sistema = this.ehSistema();
     return this.blocosRaw
       .map(b => ({ ...b, tiles: b.tiles.filter(t =>
-        (!t.feature || this.authService.temFeature(t.feature)) && (!t.soSistema || sistema)) }))
+        (!t.soSistema || sistema) && this.vis.mostra(tileVisId(t.rota))) }))
       .filter(b => b.tiles.length > 0);
   }
 
@@ -160,7 +161,8 @@ export class DashboardComponent {
     public settings: ErpSettingsService,
     private router: Router,
     private sanitizer: DomSanitizer,
-    private elRef: ElementRef
+    private elRef: ElementRef,
+    private vis: VisibilidadeService
   ) {}
 
   @HostListener('wheel', ['$event'])
