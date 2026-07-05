@@ -1,8 +1,10 @@
 # Spec — Configurador de visibilidade por ramo (tiles / telas / seções / campos)
 
-**Status:** v0.1 — 2026-07-03 — **PROPOSTA (não implementado)**. Decisão de arquitetura fechada; implementação faseada pendente.
+**Status:** v0.2 — 2026-07-05 — **PROPOSTA (não implementado)**. Decisão de arquitetura fechada; implementação faseada pendente.
 **Escopo:** definir, de forma **global** (uma config vale pra todos os clientes), o que aparece em cada **ramo** (`RamoFilial`): tiles do dashboard/busca, telas (rotas), e **seções/campos** dentro das telas — com um **configurador SH-only** no próprio ErpPharma.
 **Relacionado:** [[multiramo-grade]] (Passo 1 criou `RamoFilial` + `RamoFeatures` + `temFeature`/`featureGuard`).
+
+> **Decisão (2026-07-05):** foi avaliada uma **segunda camada por cliente** (override local por instalação, ex.: uma farmácia que não usa Farmácia Popular esconde `PREÇO FP BOLSA FAMÍLIA`). **Adiada** — neste primeiro momento fica **só por ramo** (global). O modelo de duas camadas (`visível = ramo permite E cliente não escondeu`) fica registrado como evolução futura, mas **fora do escopo agora**.
 
 ---
 
@@ -105,7 +107,12 @@ Observações:
 
 ## Faseamento
 
-1. **Fase 1 — Gating de seções (código, ganho rápido).** Condicionar por `temFeature` as seções do cadastro de produto não-inerentes ao ramo (Substâncias, SNGPC/classe, Farmácia Popular, e o que mais aparecer). Usa as keys que já existem. Entrega a dor imediata e **mapeia o catálogo** de seções/keys.
+1. **Fase 1 — Gating de seções/campos (código, ganho rápido).** Condicionar por `temFeature` os elementos do cadastro de produto não-inerentes ao ramo. Alvos concretos já levantados:
+   - Seção **Substâncias** → feature `substancias`.
+   - Seção/campos **SNGPC** (classe terapêutica) → `sngpc`.
+   - **Farmácia Popular**: campos `PREÇO FP`, **`PREÇO FP BOLSA FAMÍLIA`**, `PARTICIPA FARMÁCIA POPULAR` → `farmacia-popular`.
+   - **Prescritores/receita** → `receita`.
+   Usa as keys que já existem. Entrega a dor imediata (ramos não-farmácia param de ver campo de farmácia) e **mapeia o catálogo** de seções/campos/keys.
 2. **Fase 2 — Manifesto versionado.** Migrar `RamoFeatures.Para` (switch) → leitura do manifesto (`ramo-visibilidade.json`/tabela semeada). Login passa a derivar dele. Sem mudança visível pro usuário.
 3. **Fase 3 — Configurador SH.** Dev tile com a matriz Elemento × Ramo, preview e exportação do manifesto.
 4. **Fase 4 — Campos (opcional).** Gating campo-a-campo onde a seção é mista.
@@ -115,7 +122,7 @@ Observações:
 ## Impactos / riscos
 
 - **Sessões antigas:** `temFeature` lenient evita telas quebrarem; manter.
-- **Divergência entre clientes:** mitigada por D2 (manifesto versionado é a fonte; banco é cache). Se algum dia um cliente precisar de override, é decisão futura (fora do escopo — hoje é **global**).
+- **Divergência entre clientes:** mitigada por D2 (manifesto versionado é a fonte; banco é cache). Override **por cliente** foi avaliado e **adiado** (2026-07-05) — hoje é **só por ramo** (global). Quando/se voltar, entra como camada 2 (`ramo AND NOT override_local`).
 - **Catálogo desatualizado:** se um dev adiciona uma seção nova e não a registra no catálogo, ela não aparece no configurador. Mitigar com convenção/checklist ou um lint que cruza `temFeature('x')` usados no código × keys do manifesto.
 - **Não é multi-tenant de UI por cliente** — de propósito. É por **ramo**, global.
 
