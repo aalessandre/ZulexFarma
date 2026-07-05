@@ -136,3 +136,18 @@ Observações:
 
 ## Ordem de execução
 Fase 1 (seções do produto) → Fase 2 (manifesto) → Fase 3 (configurador SH) → Fase 4 (campos). Cada fase é entregável e reversível; a Fase 1 já resolve o problema atual do vestuário.
+
+---
+
+## Estado de implementação (as-built)
+
+### Fase 1 — Gating no cadastro de produto ✅ parcial (2026-07-05)
+- `ProdutosComponent.temFeature(key)` exposto pro template.
+- Gated por `temFeature` no form de produto:
+  - Campos **Farmácia Popular** (PREÇO FP, PREÇO FP BOLSA FAMÍLIA, PARTICIPA FARMÁCIA POPULAR) → `farmacia-popular`.
+  - Campo **CLASSE TERAPÊUTICA (SNGPC)** → `sngpc`.
+  - Accordion **Substâncias** → `substancias`.
+- Efeito: ramos não-farmácia (Hortifruti/Mercado/Vestuário) param de ver esses campos. `temFeature` é lenient (sessão sem features vê tudo).
+- **Pendente da Fase 1:** demais cadastros/telas; avaliar key nova pra "Registros MS" (medicamento) — hoje sem key própria, continua visível. Catálogo formal (id/label/tela) ainda não materializado (virá com o configurador).
+
+### Fases 2/3/4 — pendentes.
