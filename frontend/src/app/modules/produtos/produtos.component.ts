@@ -1269,14 +1269,9 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Verificar propagação de preço (só em edição)
-    if (this.modoEdicao() && f.dados?.length > 0) {
-      const original = JSON.parse(this.produtoFormOriginal);
-      const precoMudou = this.verificarPrecoMudou(original, f);
-      if (precoMudou) {
-        f.filiaisPrecoAplicar = await this.perguntarPropagacaoPreco();
-      }
-    }
+    // Produto uniforme entre filiais (exceto estoque): o backend propaga os dados
+    // da filial editada pras demais. Ver spec cadastro-produto.
+    f.filialOrigem = this.filialSelecionada();
 
     this.erro.set(''); this.salvando.set(true);
     const headers = this.headerLiberacao();
