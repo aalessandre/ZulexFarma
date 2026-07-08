@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { ErpShellComponent } from './erp-shell.component';
 import { authGuard } from '../../core/guards/auth.guard';
-import { featureGuard } from '../../core/guards/feature.guard';
 
 export const ErpRoutes: Routes = [
   {
@@ -66,15 +65,11 @@ export const ErpRoutes: Routes = [
       },
       {
         path: 'substancias',
-        canActivate: [featureGuard],
-        data: { feature: 'substancias' },
         loadComponent: () =>
           import('../substancias/substancias.component').then(m => m.SubstanciasComponent),
       },
       {
         path: 'atributos-variacao',
-        canActivate: [featureGuard],
-        data: { feature: 'grade' },
         loadComponent: () =>
           import('../atributos-variacao/atributos-variacao.component').then(m => m.AtributosVariacaoComponent),
       },
@@ -303,8 +298,6 @@ export const ErpRoutes: Routes = [
       // ── SNGPC ────────────────────────────────────────────────────
       {
         path: 'sngpc',
-        canActivate: [featureGuard],
-        data: { feature: 'sngpc' },
         loadComponent: () =>
           import('../sngpc-menu/sngpc-menu.component').then(m => m.SngpcMenuComponent),
       },
@@ -341,8 +334,6 @@ export const ErpRoutes: Routes = [
       },
       {
         path: 'prescritores',
-        canActivate: [featureGuard],
-        data: { feature: 'receita' },
         loadComponent: () =>
           import('../prescritores/prescritores.component').then(m => m.PrescritoresComponent),
       },

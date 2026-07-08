@@ -403,8 +403,6 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   /** Pesável só pra ramo com a feature 'pesavel' (Hortifruti/Mercado) — via configurador. */
   podePesavel(): boolean { return this.vis.mostra('produto.secao.pesavel'); }
 
-  /** Visibilidade por ramo (feature-key direta, sem catálogo). */
-  temFeature(key: string): boolean { return this.auth.temFeature(key); }
 
   togglePesavel(checked: boolean) {
     this.updateProdutoForm('pesavel', checked);
