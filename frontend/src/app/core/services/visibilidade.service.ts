@@ -103,38 +103,17 @@ export class VisibilidadeService {
     });
   }
 
-  private elemento(id: string): ElementoVisibilidade | undefined {
-    return CATALOGO_VISIBILIDADE.find(e => e.id === id);
-  }
-
-  /** Visibilidade efetiva de um elemento pro ramo do usuário logado. */
+  /**
+   * Visibilidade efetiva de um elemento pro ramo do usuário logado.
+   * O ocultamento é 100% controlado pela tela de configuração (SH): por padrão
+   * tudo aparece; só esconde se houver override explícito na config.
+   */
   mostra(elementoId: string, ramo?: string): boolean {
     const r = ramo ?? this.auth.usuarioLogado()?.ramo ?? 'Generico';
     const ov = this.overrides()[`${r}|${elementoId}`];
-    if (ov !== undefined) return ov;
-    const el = this.elemento(elementoId);
-    if (!el || !el.feature) return true;   // campo sem feature = visível por padrão
-    // Default: a feature do elemento pertence às features do ramo. Reusa temFeature
-    // quando é o ramo do próprio usuário; senão consulta o mapa por ramo do backend.
-    if (!ramo) return this.auth.temFeature(el.feature);
-    return this.featuresDoRamo(ramo).includes(el.feature);
+    return ov ?? true;
   }
 
-  /** Default (sem override) — usado pelo configurador pra mostrar o estado herdado. */
-  padrao(elementoId: string, ramo: string): boolean {
-    const el = this.elemento(elementoId);
-    if (!el || !el.feature) return true;
-    return this.featuresDoRamo(ramo).includes(el.feature);
-  }
-
-  /** Espelho do RamoFeatures.Para do backend (pra preview por ramo no configurador). */
-  private featuresDoRamo(ramo: string): string[] {
-    switch (ramo) {
-      case 'Farmacia':   return ['sngpc', 'farmacia-popular', 'receita', 'substancias'];
-      case 'Vestuario':  return ['grade'];
-      case 'Hortifruti': return ['pesavel'];
-      case 'Mercearia':  return ['pesavel'];
-      default:           return [];
-    }
-  }
+  /** Default (sem override) = visível. O configurador esconde manualmente por ramo. */
+  padrao(_elementoId: string, _ramo: string): boolean { return true; }
 }

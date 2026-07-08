@@ -158,5 +158,8 @@ Decisão pragmática (ajuste do D2): o manifesto é uma **tabela no banco** (`Ra
 - **Gates migrados** (cadastro de produto): FP (Preço FP / Bolsa Família / Participa), Classe terapêutica (SNGPC), Substâncias, Grade, Pesável → agora via `mostra(id)`. Sem override = mesmo comportamento da Fase 1.
 - **Configurador:** tile **"Visib. por Ramo"** no bloco Dev (**só SISTEMA**) → tela matriz **elemento × ramo** agrupada por cadastro; célula marcada = aparece; célula destacada = override do padrão; botões Restaurar padrão / Salvar. Vale a partir do próximo login/recarregar.
 
+### Ajuste (2026-07-08) — ocultamento 100% pela config (sem default por feature)
+Removido o **default hardcoded por feature**: `mostra(id)`/`padrao` passam a retornar **visível por padrão**; só esconde se houver **override** na tela de configuração. Removidos os `featureGuard` das rotas (sngpc/substancias/grade/receita) e os filtros `temFeature` do dashboard e da busca (erp-shell) — tudo passa por `mostra('tile:'+rota)`. Resultado: instalação nova mostra **tudo**; o SH esconde manualmente por ramo na tela. O campo `feature` do catálogo vira só rótulo informativo. (`AuthService.temFeature`/`RamoFeatures` continuam existindo, mas não gateiam mais visibilidade.)
+
 ### Fase 4 — mais cadastros/tiles no catálogo — pendente.
-Catálogo começa com o Cadastro de Produto; tiles/telas e outros cadastros entram adicionando itens ao `CATALOGO_VISIBILIDADE` + trocando o gate por `mostra(id)`.
+Catálogo começa com o Cadastro de Produto; tiles/telas e outros cadastros entram adicionando itens ao `CATALOGO_VISIBILIDADE` + trocando o gate por `mostra(id)`/`*vis`.

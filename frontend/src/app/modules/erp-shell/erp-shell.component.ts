@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
+import { VisibilidadeService, tileVisId } from '../../core/services/visibilidade.service';
 import { TabService } from '../../core/services/tab.service';
 import { ErpSettingsService, FonteEscala, Tema } from '../../core/services/erp-settings.service';
 import { ModalGlobalComponent } from '../../core/components/modal-global.component';
@@ -177,21 +178,11 @@ export class ErpShellComponent {
     }
   ];
 
-  /** Blocos com tiles filtrados pela feature do ramo (esconde SNGPC/Substâncias/Prescritores fora de farmácia). */
+  /** Blocos/busca com tiles filtrados pela config de visibilidade por ramo (não mais hardcoded). */
   get blocos(): BlocoTiles[] {
     return this.blocosRaw
-      .map(b => ({ ...b, tiles: b.tiles.filter(t => {
-        const f = t.feature ?? this.featureDaRota(t.rota);
-        return !f || this.authService.temFeature(f);
-      }) }))
+      .map(b => ({ ...b, tiles: b.tiles.filter(t => this.vis.mostra(tileVisId(t.rota))) }))
       .filter(b => b.tiles.length > 0);
-  }
-
-  private featureDaRota(rota: string): string | null {
-    if (rota.startsWith('/erp/sngpc')) return 'sngpc';
-    if (rota === '/erp/substancias') return 'substancias';
-    if (rota === '/erp/prescritores') return 'receita';
-    return null;
   }
 
   // ── Busca global ────────────────────────────────────────────────
@@ -238,7 +229,8 @@ export class ErpShellComponent {
     private router: Router,
     public settings: ErpSettingsService,
     private http: HttpClient,
-    private modal: ModalService
+    private modal: ModalService,
+    private vis: VisibilidadeService
   ) {
     this.carregarSyncStatus();
     this.syncIntervalId = setInterval(() => this.carregarSyncStatus(), 30000);
