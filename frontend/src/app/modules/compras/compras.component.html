@@ -41,19 +41,7 @@
       </div>
     }
 
-    @if (modo() === 'precificacao') {
-      <div class="sidebar-item tile-procurar" (click)="voltarDaPrecificacao()">
-        <span>Voltar</span>
-        <span class="sidebar-sub">Lista de notas</span>
-      </div>
-    }
-
-    @if (modo() === 'conferencia') {
-      <div class="sidebar-item tile-procurar" (click)="voltarDaConferencia()">
-        <span>Voltar</span>
-        <span class="sidebar-sub">Lista de notas</span>
-      </div>
-    }
+    <!-- Voltar dos passos (precificacao/conferencia/vincular) foi pro rodape de cada tela. -->
 
     @if (modo() === 'sefaz') {
       <div class="sidebar-item tile-procurar" (click)="voltarDoSefaz()">
@@ -77,19 +65,6 @@
       <div class="sidebar-item tile-sair" (click)="excluir()">
         <span>Excluir</span>
         <span class="sidebar-sub">Remover nota</span>
-      </div>
-    }
-
-    @if (modo() === 'vincular') {
-      <div class="sidebar-item tile-procurar" (click)="voltarDoVincular()">
-        <span>Voltar</span>
-        <span class="sidebar-sub">Lista de notas</span>
-      </div>
-      <div class="sidebar-item tile-atualizar" [class.disabled]="vinculandoLote()" (click)="vincularAutomatico()">
-        @if (vinculandoLote()) { <span>Vinculando...</span> } @else {
-          <span>Vincular automatico</span>
-          <span class="sidebar-sub">Por codigo de barras</span>
-        }
       </div>
     }
 
@@ -512,6 +487,13 @@
         <span>Vinculados: <strong>{{ vincularVinculados() }}</strong></span>
         <span class="rodape-sep">|</span>
         <span>Pendentes: <strong>{{ vincularPendentes() }}</strong></span>
+        <div class="rodape-passos">
+          <button class="passo-btn passo-auto" [disabled]="vinculandoLote()" (click)="vincularAutomatico()"
+                  title="Auto-vincula por codigo de barras / codigo do fornecedor">
+            {{ vinculandoLote() ? 'Vinculando...' : 'Vincular automatico' }}
+          </button>
+          <button class="passo-btn passo-voltar" (click)="voltarDoVincular()">Voltar</button>
+        </div>
       </div>
     }
 
@@ -644,6 +626,9 @@
 
       <div class="grid-rodape">
         <span>Produtos: <strong>{{ precificacaoItens().length }}</strong></span>
+        <div class="rodape-passos">
+          <button class="passo-btn passo-voltar" (click)="voltarDaPrecificacao()">Voltar</button>
+        </div>
       </div>
     }
 
@@ -795,6 +780,9 @@
         <span>Conferidos: <strong class="conf-ok-text">{{ confTotalConferidos() }}</strong></span>
         <span class="rodape-sep">|</span>
         <span>Pendentes: <strong class="conf-pend-text">{{ confTotalPendentes() }}</strong></span>
+        <div class="rodape-passos">
+          <button class="passo-btn passo-voltar" (click)="voltarDaConferencia()">Voltar</button>
+        </div>
       </div>
     }
 
