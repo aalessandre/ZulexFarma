@@ -61,6 +61,16 @@ interface CompraProduto {
   fiscal: any;
 }
 
+/** Item da nota + contexto da nota (usado na tela de vinculo em lote, que junta varias notas). */
+interface CompraProdutoVinc extends CompraProduto {
+  compraId: number;
+  compraNumeroNf: string;
+  compraSerieNf: string;
+  compraFornecedorId: number;
+  compraFornecedorNome: string;
+  compraFilialId: number;
+}
+
 interface CompraDetalhe {
   id: number;
   codigo: string;
@@ -120,7 +130,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   private readonly STATE_KEY = 'zulex_compras_state';
 
   // ── Estado ────────────────────────────────────────────────────
-  modo = signal<'lista' | 'detalhe' | 'precificacao' | 'conferencia' | 'finalizacao' | 'sefaz'>('lista');
+  modo = signal<'lista' | 'detalhe' | 'vincular' | 'precificacao' | 'conferencia' | 'finalizacao' | 'sefaz'>('lista');
   compras = signal<CompraList[]>([]);
   compraSelecionada = signal<CompraList | null>(null);
   compraDetalhe = signal<CompraDetalhe | null>(null);
@@ -160,8 +170,13 @@ export class ComprasComponent implements OnInit, OnDestroy {
   // ── Seleção de notas (checkboxes na lista) ─────────────────────
   notasSelecionadas = signal<Set<number>>(new Set());
 
-  // Vinculo em lote (passo 1): roda o re-vincular auto em cada nota selecionada.
-  vinculandoLote = signal(false);
+  // Passo 1 (Vincular): tela combinada com os produtos de TODAS as notas selecionadas.
+  vincularItens = signal<CompraProdutoVinc[]>([]);
+  vincularCarregando = signal(false);
+  vinculandoLote = signal(false); // "Vincular automatico" (re-vincular auto) dentro da tela
+  vincularVinculados = computed(() => this.vincularItens().filter(p => p.vinculado).length);
+  vincularPendentes = computed(() => this.vincularItens().filter(p => !p.vinculado).length);
+  vincularNotasCount = computed(() => new Set(this.vincularItens().map(p => p.compraId)).size);
 
   // ── Precificação ──────────────────────────────────────────────
   precificacaoItens = signal<PrecificacaoItem[]>([]);
@@ -555,14 +570,82 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Passo 1 em lote: para cada nota selecionada, roda o re-vincular (auto-match
-   * por codigo de barras/fornecedor — aditivo e idempotente no backend). Itens sem
-   * correspondencia continuam sem vinculo (precisam de cadastro manual na nota).
+   * Passo 1 (Vincular): abre a tela combinada com os produtos de TODAS as notas
+   * selecionadas. O usuario da duplo-clique num item pra pesquisar/cadastrar o
+   * produto (modal de vinculo). NAO vincula sozinho.
    */
-  async vincularLote() {
+  async abrirVincularLote() {
     const ids = Array.from(this.notasSelecionadas());
+    if (ids.length === 0 || this.vincularCarregando()) return;
+    this.vincularCarregando.set(true);
+    this.erro.set('');
+    try {
+      const { itens, falhas } = await this.carregarItensVincular(ids);
+      if (itens.length === 0 && falhas > 0) {
+        this.erro.set('Nao foi possivel carregar as notas selecionadas.');
+      } else {
+        this.vincularItens.set(itens);
+        this.modo.set('vincular');
+        if (falhas > 0) {
+          this.toastr.warning(`${falhas} nota(s) nao carregaram e ficaram de fora da tela.`, 'Vinculo', { timeOut: 4000, positionClass: 'toast-top-center' });
+        }
+      }
+    } catch {
+      this.erro.set('Erro ao carregar itens para vinculo.');
+    } finally {
+      this.vincularCarregando.set(false);
+    }
+  }
+
+  /**
+   * Carrega e achata os itens das notas (tagueando cada um com o contexto da nota).
+   * Usa allSettled: uma nota que falhe NAO derruba o lote todo (retorna quantas falharam).
+   */
+  private async carregarItensVincular(ids: number[]): Promise<{ itens: CompraProdutoVinc[]; falhas: number }> {
+    const settled = await Promise.allSettled(ids.map(id => this.http.get<any>(`${this.apiUrl}/${id}`).toPromise()));
+    const itens: CompraProdutoVinc[] = [];
+    let falhas = 0;
+    for (const s of settled) {
+      if (s.status !== 'fulfilled') { falhas++; continue; }
+      const d = s.value?.data;
+      if (!d) continue;
+      for (const p of (d.produtos ?? [])) {
+        itens.push({
+          ...p,
+          compraId: d.id,
+          compraNumeroNf: d.numeroNf,
+          compraSerieNf: d.serieNf,
+          compraFornecedorId: d.fornecedorId,
+          compraFornecedorNome: d.fornecedorNome,
+          compraFilialId: d.filialId,
+        });
+      }
+    }
+    // Nao vinculados primeiro; depois agrupa por nota e ordem do item.
+    itens.sort((a, b) =>
+      (a.vinculado === b.vinculado)
+        ? ((a.compraId - b.compraId) || (a.numeroItem - b.numeroItem))
+        : (a.vinculado ? 1 : -1)
+    );
+    return { itens, falhas };
+  }
+
+  voltarDoVincular() {
+    this.modo.set('lista');
+    this.vincularItens.set([]);
+    this.carregar();
+  }
+
+  /**
+   * Botao secundario dentro da tela de vinculo: tenta casar automaticamente
+   * (re-vincular por codigo de barras/fornecedor, idempotente) as notas da tela
+   * e recarrega a lista combinada. Itens sem match seguem pro cadastro manual.
+   */
+  async vincularAutomatico() {
+    const ids = Array.from(new Set(this.vincularItens().map(p => p.compraId)));
     if (ids.length === 0 || this.vinculandoLote()) return;
     this.vinculandoLote.set(true);
+    this.vincularCarregando.set(true); // trava o grid (esconde as linhas) enquanto roda
     this.erro.set('');
     let ok = 0, falhas = 0;
     for (const id of ids) {
@@ -573,12 +656,19 @@ export class ComprasComponent implements OnInit, OnDestroy {
         falhas++;
       }
     }
+    let recarregados: CompraProdutoVinc[] | null = null;
+    try {
+      recarregados = (await this.carregarItensVincular(ids)).itens;
+    } catch { /* mantem a lista atual se o reload falhar */ }
     this.vinculandoLote.set(false);
-    this.carregar(); // atualiza contadores/coluna Vinculados (mantem a selecao)
+    this.vincularCarregando.set(false);
+    // Anti-stale: se o usuario saiu da tela (Voltar) durante os awaits, nao repovoa nem avisa.
+    if (this.modo() !== 'vincular') return;
+    if (recarregados) this.vincularItens.set(recarregados);
     if (falhas > 0) {
-      this.toastr.warning(`${ok} nota(s) revinculada(s), ${falhas} com erro. Itens sem correspondencia precisam de cadastro manual.`, 'Vinculo em lote', { timeOut: 5000, positionClass: 'toast-top-center' });
+      this.toastr.warning(`${ok} nota(s) revinculada(s), ${falhas} com erro. Itens sem correspondencia: cadastre no duplo-clique.`, 'Vinculo automatico', { timeOut: 5000, positionClass: 'toast-top-center' });
     } else {
-      this.toastr.success(`${ok} nota(s) processada(s). Itens sem correspondencia ainda precisam de cadastro manual na nota.`, 'Vinculo em lote', { timeOut: 4000, positionClass: 'toast-top-center' });
+      this.toastr.success(`Auto-vinculo concluido. Itens sem correspondencia precisam de cadastro manual (duplo-clique no item).`, 'Vinculo automatico', { timeOut: 4000, positionClass: 'toast-top-center' });
     }
   }
 
@@ -689,8 +779,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.http.post<any>(`${this.apiUrl}/desvincular/${item.id}`, {}, { headers }).subscribe({
       next: r => {
         this.atualizarItemNoDetalhe(r.data);
-        // Atualizar o item na modal
-        this.itemParaVincular.set(r.data);
+        // Atualizar o item na modal preservando o contexto da nota (compra*) — que so'
+        // existe no item da tela de vinculo em lote e nao vem no r.data do backend.
+        this.itemParaVincular.set({ ...item, ...r.data });
         this.vinculando.set(null);
       },
       error: e => {
@@ -707,9 +798,17 @@ export class ComprasComponent implements OnInit, OnDestroy {
     if (!await this.verificarPermissao('a')) return;
     const item = this.itemParaVincular();
     const detalhe = this.compraDetalhe();
-    if (item && detalhe) {
+    const itemVinc = item as (CompraProdutoVinc | null);
+    // Contexto da nota: do detalhe (modo 'detalhe') OU do proprio item (modo 'vincular'
+    // em lote, onde compraDetalhe e' null e cada item carrega o contexto da sua nota).
+    const ctx = (itemVinc && itemVinc.compraId != null)
+      ? { compraId: itemVinc.compraId, fornecedorId: itemVinc.compraFornecedorId, fornecedorNome: itemVinc.compraFornecedorNome, filialId: itemVinc.compraFilialId }
+      : (detalhe
+          ? { compraId: detalhe.id, fornecedorId: detalhe.fornecedorId, fornecedorNome: detalhe.fornecedorNome, filialId: detalhe.filialId }
+          : null);
+    if (item && ctx) {
       sessionStorage.setItem('zulex_preCadastroProduto', JSON.stringify({
-        compraId: detalhe.id,
+        compraId: ctx.compraId,
         compraProdutoId: item.id,
         nome: item.descricaoXml,
         codigoBarras: item.codigoBarrasXml,
@@ -717,9 +816,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
         cestXml: item.cestXml,
         codigoProdutoFornecedor: item.codigoProdutoFornecedor,
         descricaoXml: item.descricaoXml,
-        fornecedorId: detalhe.fornecedorId,
-        fornecedorNome: detalhe.fornecedorNome,
-        filialId: detalhe.filialId,
+        fornecedorId: ctx.fornecedorId,
+        fornecedorNome: ctx.fornecedorNome,
+        filialId: ctx.filialId,
         quantidade: item.quantidade,
         valorUnitario: item.valorUnitario,
         valorStTotal: item.fiscal?.valorSt ?? 0,
@@ -773,11 +872,20 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   private atualizarItemNoDetalhe(itemAtualizado: CompraProduto) {
     const detalhe = this.compraDetalhe();
-    if (!detalhe) return;
-    const produtos = detalhe.produtos.map(p =>
-      p.id === itemAtualizado.id ? { ...p, ...itemAtualizado } : p
-    );
-    this.compraDetalhe.set({ ...detalhe, produtos });
+    if (detalhe) {
+      const produtos = detalhe.produtos.map(p =>
+        p.id === itemAtualizado.id ? { ...p, ...itemAtualizado } : p
+      );
+      this.compraDetalhe.set({ ...detalhe, produtos });
+    }
+    // Tela de vinculo em lote: atualiza o item na lista combinada (id e' PK global).
+    // Preserva o contexto da nota (spread do item existente primeiro).
+    const vinc = this.vincularItens();
+    if (vinc.length > 0 && vinc.some(p => p.id === itemAtualizado.id)) {
+      this.vincularItens.set(vinc.map(p =>
+        p.id === itemAtualizado.id ? { ...p, ...itemAtualizado } : p
+      ));
+    }
   }
 
   // ── Finalização ────────────────────────────────────────────────
