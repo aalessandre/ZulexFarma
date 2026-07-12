@@ -80,6 +80,19 @@
       </div>
     }
 
+    @if (modo() === 'vincular') {
+      <div class="sidebar-item tile-procurar" (click)="voltarDoVincular()">
+        <span>Voltar</span>
+        <span class="sidebar-sub">Lista de notas</span>
+      </div>
+      <div class="sidebar-item tile-atualizar" [class.disabled]="vinculandoLote()" (click)="vincularAutomatico()">
+        @if (vinculandoLote()) { <span>Vinculando...</span> } @else {
+          <span>Vincular automatico</span>
+          <span class="sidebar-sub">Por codigo de barras</span>
+        }
+      </div>
+    }
+
     <!-- Resumo vinculacao -->
     @if (modo() === 'detalhe' && compraDetalhe()) {
       <div class="sidebar-resumo">
@@ -264,10 +277,10 @@
           <!-- Passo a passo da entrada (1 vincular -> 5 finalizar). Passos 2-5
                exigem 100% vinculado; conferir lotes e finalizar exigem 1 nota. -->
           <div class="rodape-passos">
-            <button class="passo-btn passo-vincular" [disabled]="vinculandoLote() || carregando()"
-                    (click)="vincularLote()"
-                    title="Auto-vincula por codigo de barras os itens das notas selecionadas">
-              <span class="passo-num">1</span>{{ vinculandoLote() ? 'Vinculando...' : 'Vincular' }}
+            <button class="passo-btn passo-vincular" [disabled]="vincularCarregando() || carregando()"
+                    (click)="abrirVincularLote()"
+                    title="Abre a tela de vinculo com os produtos das notas selecionadas">
+              <span class="passo-num">1</span>{{ vincularCarregando() ? 'Abrindo...' : 'Vincular' }}
             </button>
             <button class="passo-btn passo-precificacao"
                     [disabled]="!todasSelecionadasVinculadas() || precificacaoCarregando()"
@@ -415,6 +428,90 @@
         <span>Itens: <strong>{{ totalItens() }}</strong></span>
         <span class="rodape-sep">|</span>
         <span>Vinculados: <strong>{{ totalVinculados() }}</strong></span>
+      </div>
+    }
+
+    <!-- ══════════ VINCULAR (lote — produtos das notas selecionadas) ══════════ -->
+    @if (modo() === 'vincular') {
+      <div class="detalhe-header">
+        <div class="detalhe-info">
+          <h2>Vincular Produtos</h2>
+          <div class="detalhe-meta">
+            <span><strong>{{ vincularNotasCount() }}</strong> nota(s)</span>
+            <span><strong>Pendentes:</strong> {{ vincularPendentes() }}</span>
+            <span><strong>Vinculados:</strong> {{ vincularVinculados() }} / {{ vincularItens().length }}</span>
+            <span class="vinc-dica">Duplo-clique num item pra pesquisar ou cadastrar o produto.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <table class="erp-grid">
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th style="width:100px">NF</th>
+              <th style="width:130px">Barras</th>
+              <th>Descricao XML</th>
+              <th style="width:280px">Produto Vinculado</th>
+              <th style="width:70px">Qtde</th>
+              <th style="width:44px">UN</th>
+              <th style="width:80px">Acoes</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (vincularCarregando()) {
+              <tr><td colspan="8" class="grid-loading">Carregando...</td></tr>
+            } @else if (vincularItens().length === 0) {
+              <tr><td colspan="8" class="grid-vazio">Nenhum item nas notas selecionadas.</td></tr>
+            } @else {
+              @for (p of vincularItens(); track p.id) {
+                <tr [class.nao-vinculado]="!p.vinculado" (dblclick)="abrirModalVincular(p)">
+                  <td class="td-arrow">
+                    @if (p.vinculado) {
+                      <span class="icon-vinc-ok">&#10004;</span>
+                    } @else {
+                      <span class="icon-vinc-nok">&#10006;</span>
+                    }
+                  </td>
+                  <td>{{ p.compraNumeroNf }}</td>
+                  <td>{{ p.codigoBarrasXml }}</td>
+                  <td [title]="p.descricaoXml">{{ p.descricaoXml }}</td>
+                  <td>
+                    @if (p.vinculado && p.produtoNome) {
+                      <span class="produto-vinculado" [title]="'ID: ' + p.produtoId">{{ p.produtoNome }}</span>
+                    } @else {
+                      <span class="produto-pendente">--</span>
+                    }
+                  </td>
+                  <td class="td-valor">{{ p.quantidade | number:'1.0-4':'pt-BR' }}</td>
+                  <td class="td-center">{{ p.unidadeXml }}</td>
+                  <td class="td-acoes">
+                    @if (vinculando() === p.id) {
+                      <span class="btn-acao disabled">...</span>
+                    } @else if (p.vinculado) {
+                      <button class="btn-acao btn-desvincular" (click)="desvincular(p)" title="Desvincular">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    } @else {
+                      <button class="btn-acao btn-vincular" (click)="abrirModalVincular(p)" title="Vincular produto">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-rodape">
+        <span>Itens: <strong>{{ vincularItens().length }}</strong></span>
+        <span class="rodape-sep">|</span>
+        <span>Vinculados: <strong>{{ vincularVinculados() }}</strong></span>
+        <span class="rodape-sep">|</span>
+        <span>Pendentes: <strong>{{ vincularPendentes() }}</strong></span>
       </div>
     }
 
