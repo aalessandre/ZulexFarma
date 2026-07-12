@@ -130,7 +130,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   private readonly STATE_KEY = 'zulex_compras_state';
 
   // ── Estado ────────────────────────────────────────────────────
-  modo = signal<'lista' | 'detalhe' | 'vincular' | 'precificacao' | 'conferencia' | 'finalizacao' | 'sefaz'>('lista');
+  modo = signal<'lista' | 'detalhe' | 'vincular' | 'precificacao' | 'conferencia' | 'conferir-lotes' | 'finalizacao' | 'sefaz'>('lista');
   compras = signal<CompraList[]>([]);
   compraSelecionada = signal<CompraList | null>(null);
   compraDetalhe = signal<CompraDetalhe | null>(null);
@@ -149,10 +149,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
   // ── Ordenacao lista ───────────────────────────────────────────
   sortColuna = signal<string>('id');
   sortDirecao = signal<'asc' | 'desc'>('desc');
-
-  // ── Ordenacao itens ───────────────────────────────────────────
-  sortItemColuna = signal<string>('numeroItem');
-  sortItemDirecao = signal<'asc' | 'desc'>('asc');
 
   // ── Resize de colunas ─────────────────────────────────────────
   private resizingCol: string | null = null;
@@ -258,16 +254,12 @@ export class ComprasComponent implements OnInit, OnDestroy {
   confCarregando = signal(false);
   confCompraIds = signal<number[]>([]);
 
-  // ── Conferir Lotes (SNGPC) ────────────────────────────────────
+  // ── Conferir Lotes (SNGPC) — tela (mode 'conferir-lotes'), 1+ notas ──
   confLotesCarregando = signal(false);
-  confLotesAberto = signal(false);
   confLotesSalvando = signal(false);
-  confLotesData = signal<any | null>(null);
-  confLotesSngpcOptOut = signal(false);
-
-  // ── Modal fiscal ──────────────────────────────────────────────
-  modalFiscal = signal(false);
-  itemFiscal = signal<CompraProduto | null>(null);
+  // Uma "nota" por compra selecionada: { compraId, numeroNf, fornecedorNome,
+  // dataEmissao, lotesConferidos, lotesConferidosEm, sngpcOptOut, itens: [...] }.
+  confLotesNotas = signal<any[]>([]);
 
   // ── Computed ──────────────────────────────────────────────────
   comprasFiltradas = computed(() => {
@@ -294,21 +286,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
     });
 
     return lista;
-  });
-
-  itensFiltrados = computed(() => {
-    const d = this.compraDetalhe();
-    if (!d) return [];
-    let itens = [...d.produtos];
-    const col = this.sortItemColuna();
-    const dir = this.sortItemDirecao() === 'asc' ? 1 : -1;
-    itens.sort((a: any, b: any) => {
-      const va = a[col] ?? '';
-      const vb = b[col] ?? '';
-      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
-      return String(va).localeCompare(String(vb)) * dir;
-    });
-    return itens;
   });
 
   constructor(
@@ -344,12 +321,12 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   private persistirEstado() {
-    const detalhe = this.compraDetalhe();
-    if (this.modo() === 'detalhe' && detalhe) {
-      sessionStorage.setItem(this.STATE_KEY, JSON.stringify({
-        modo: 'detalhe',
-        compraId: detalhe.id
-      }));
+    // Persiste a tela de vinculo (as notas abertas) pra reabri-la ao voltar de outra rota.
+    const ids = this.modo() === 'vincular'
+      ? Array.from(new Set(this.vincularItens().map((p: any) => p.compraId)))
+      : [];
+    if (ids.length > 0) {
+      sessionStorage.setItem(this.STATE_KEY, JSON.stringify({ modo: 'vincular', compraIds: ids }));
     } else {
       sessionStorage.removeItem(this.STATE_KEY);
     }
@@ -360,19 +337,10 @@ export class ComprasComponent implements OnInit, OnDestroy {
     if (!raw) return;
     try {
       const state = JSON.parse(raw);
-      if (state.modo === 'detalhe' && state.compraId) {
-        this.carregando.set(true);
-        this.http.get<any>(`${this.apiUrl}/${state.compraId}`).subscribe({
-          next: r => {
-            this.compraDetalhe.set(r.data);
-            this.modo.set('detalhe');
-            this.carregando.set(false);
-          },
-          error: () => {
-            sessionStorage.removeItem(this.STATE_KEY);
-            this.carregando.set(false);
-          }
-        });
+      // 'detalhe' e' legado (a tela virou a de vinculo). Restaura abrindo o vinculo das notas.
+      const ids: number[] = state.compraIds ?? (state.compraId ? [state.compraId] : []);
+      if ((state.modo === 'vincular' || state.modo === 'detalhe') && ids.length > 0) {
+        this.abrirVincularLote(ids);
       }
     } catch {
       sessionStorage.removeItem(this.STATE_KEY);
@@ -390,23 +358,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
     }
   }
 
-  ordenarItens(campo: string) {
-    if (this.sortItemColuna() === campo) {
-      this.sortItemDirecao.update(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      this.sortItemColuna.set(campo);
-      this.sortItemDirecao.set('asc');
-    }
-  }
-
   sortIcon(campo: string): string {
     return this.sortColuna() === campo
       ? (this.sortDirecao() === 'asc' ? '▲' : '▼') : '⇅';
-  }
-
-  sortItemIcon(campo: string): string {
-    return this.sortItemColuna() === campo
-      ? (this.sortItemDirecao() === 'asc' ? '▲' : '▼') : '⇅';
   }
 
   // ── Resize ────────────────────────────────────────────────────
@@ -479,22 +433,12 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.compraSelecionada.set(compra);
   }
 
+  /** Duplo-clique numa nota: abre a MESMA tela de vinculo do passo "Vincular". */
   abrirDetalhe(compra?: CompraList) {
     const c = compra || this.compraSelecionada();
     if (!c) return;
     this.compraSelecionada.set(c);
-    this.carregando.set(true);
-    this.http.get<any>(`${this.apiUrl}/${c.id}`).subscribe({
-      next: r => {
-        this.compraDetalhe.set(r.data);
-        this.modo.set('detalhe');
-        this.carregando.set(false);
-      },
-      error: e => {
-        this.erro.set(e?.error?.message || 'Erro ao carregar detalhe.');
-        this.carregando.set(false);
-      }
-    });
+    this.abrirVincularLote([c.id]);
   }
 
   voltarLista() {
@@ -539,10 +483,10 @@ export class ComprasComponent implements OnInit, OnDestroy {
     const headers = this.headerLiberacao();
     this.http.post<any>(`${this.apiUrl}/importar-xml`, { xmlConteudo, filialId }, { headers }).subscribe({
       next: r => {
-        this.compraDetalhe.set(r.data);
-        this.modo.set('detalhe');
         this.importando.set(false);
         this.carregar();
+        // Abre a tela de vinculo da nota recem-importada (tela unica).
+        this.abrirVincularLote([r.data.id]);
       },
       error: e => {
         this.erro.set(e?.error?.message || 'Erro ao importar XML.');
@@ -551,36 +495,19 @@ export class ComprasComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ── Atualizar (re-vincular automaticamente) ────────────────────
-
-  atualizarVinculos() {
-    const detalhe = this.compraDetalhe();
-    if (!detalhe) return;
-    this.carregando.set(true);
-    this.http.post<any>(`${this.apiUrl}/${detalhe.id}/re-vincular`, {}).subscribe({
-      next: r => {
-        this.compraDetalhe.set(r.data);
-        this.carregando.set(false);
-      },
-      error: e => {
-        this.erro.set(e?.error?.message || 'Erro ao atualizar.');
-        this.carregando.set(false);
-      }
-    });
-  }
-
   /**
-   * Passo 1 (Vincular): abre a tela combinada com os produtos de TODAS as notas
-   * selecionadas. O usuario da duplo-clique num item pra pesquisar/cadastrar o
-   * produto (modal de vinculo). NAO vincula sozinho.
+   * Passo 1 (Vincular): abre a tela de vinculo com os produtos das notas informadas
+   * (ou das selecionadas, se `ids` vier vazio). E' a UNICA tela de vinculo — tambem
+   * usada pelo duplo-clique numa nota e pos-importacao de XML. Duplo-clique num item
+   * abre o modal de pesquisar/cadastrar. NAO vincula sozinho.
    */
-  async abrirVincularLote() {
-    const ids = Array.from(this.notasSelecionadas());
-    if (ids.length === 0 || this.vincularCarregando()) return;
+  async abrirVincularLote(ids?: number[]) {
+    const notaIds = ids ?? Array.from(this.notasSelecionadas());
+    if (notaIds.length === 0 || this.vincularCarregando()) return;
     this.vincularCarregando.set(true);
     this.erro.set('');
     try {
-      const { itens, falhas } = await this.carregarItensVincular(ids);
+      const { itens, falhas } = await this.carregarItensVincular(notaIds);
       if (itens.length === 0 && falhas > 0) {
         this.erro.set('Nao foi possivel carregar as notas selecionadas.');
       } else {
@@ -886,6 +813,14 @@ export class ComprasComponent implements OnInit, OnDestroy {
         p.id === itemAtualizado.id ? { ...p, ...itemAtualizado } : p
       ));
     }
+  }
+
+  /** Edita a fracao (fator de conversao) do item na tela de vinculo; afeta o estoque na finalizacao. */
+  atualizarFracao(item: CompraProduto, fracao: number) {
+    if (fracao < 1 || fracao === (item.fracao || 1)) return;
+    this.http.post<any>(`${this.apiUrl}/atualizar-fracao/${item.id}`, { fracao }).subscribe({
+      next: r => { this.atualizarItemNoDetalhe(r.data); }
+    });
   }
 
   // ── Finalização ────────────────────────────────────────────────
@@ -1199,17 +1134,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
   confTotalConferidos(): number { return this.confItens().filter(i => this.confStatusClass(i) === 'conf-ok').length; }
   confTotalPendentes(): number { return this.confItens().filter(i => this.confStatusClass(i) === 'conf-pendente' || this.confStatusClass(i) === 'conf-parcial').length; }
 
-  // ── Atualizar fração ───────────────────────────────────────────
-
-  atualizarFracao(item: CompraProduto, fracao: number) {
-    if (fracao < 1 || fracao === (item.fracao || 1)) return;
-    this.http.post<any>(`${this.apiUrl}/atualizar-fracao/${item.id}`, { fracao }).subscribe({
-      next: r => {
-        this.atualizarItemNoDetalhe(r.data);
-      }
-    });
-  }
-
   // ── Excluir compra ────────────────────────────────────────────
 
   async excluir() {
@@ -1237,20 +1161,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
       });
     });
   }
-
-  // ── Modal fiscal ──────────────────────────────────────────────
-
-  abrirFiscal(item: CompraProduto) {
-    this.itemFiscal.set(item);
-    this.modalFiscal.set(true);
-  }
-
-  fecharFiscal() {
-    this.modalFiscal.set(false);
-    this.itemFiscal.set(null);
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────
 
   // ── Precificação ações ─────────────────────────────────────────
 
@@ -1627,20 +1537,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
     return map[status] || '';
   }
 
-  totalVinculados(): number {
-    return this.compraDetalhe()?.produtos.filter(p => p.vinculado).length ?? 0;
-  }
-
-  totalItens(): number {
-    return this.compraDetalhe()?.produtos.length ?? 0;
-  }
-
-  percentVinculados(): number {
-    const total = this.totalItens();
-    if (total === 0) return 0;
-    return Math.round((this.totalVinculados() / total) * 100);
-  }
-
   private async verificarPermissao(acao: string): Promise<boolean> {
     if (this.auth.temPermissao('compras', acao)) return true;
     const resultado = await this.modal.permissao('compras', acao);
@@ -1663,123 +1559,150 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   // ══ Conferir Lotes (SNGPC + rastreabilidade) ═══════════════════
-  abrirConferirLotes() {
-    if (this.qtdeNotasSelecionadas() !== 1) {
-      this.modal.aviso('Seleção', 'Selecione apenas uma nota para conferir os lotes.');
-      return;
-    }
-    const compraId = this.compras().find(c => this.notasSelecionadas().has(c.id))?.id;
-    if (!compraId) return;
-
+  /**
+   * Passo 4 (Conferir Lotes): abre a TELA (mode 'conferir-lotes') com uma secao por
+   * nota selecionada (cada uma tem seu toggle SNGPC e sua tabela de itens/lotes).
+   * Carrega N notas via allSettled — uma que falhe nao derruba o lote todo.
+   */
+  async abrirConferirLotes() {
+    const ids = Array.from(this.notasSelecionadas());
+    if (ids.length === 0 || this.confLotesCarregando()) return;
     this.confLotesCarregando.set(true);
-    this.http.get<any>(`${this.apiUrl}/${compraId}/conferencia-lotes`).subscribe({
-      next: r => {
-        this.confLotesCarregando.set(false);
-        this.confLotesData.set(r.data);
-        this.confLotesSngpcOptOut.set(r.data?.sngpcOptOut === true);
-        this.confLotesAberto.set(true);
-      },
-      error: (e: any) => {
-        this.confLotesCarregando.set(false);
-        this.modal.erro('Erro', e?.error?.message || 'Erro ao carregar conferência de lotes.');
+    this.erro.set('');
+    try {
+      const settled = await Promise.allSettled(
+        ids.map(id => this.http.get<any>(`${this.apiUrl}/${id}/conferencia-lotes`).toPromise())
+      );
+      const notas: any[] = [];
+      let falhas = 0;
+      for (const s of settled) {
+        if (s.status !== 'fulfilled') { falhas++; continue; }
+        const d = s.value?.data;
+        if (!d) continue;
+        notas.push({ ...d, sngpcOptOut: d.sngpcOptOut === true });
       }
+      if (notas.length === 0) {
+        this.modal.erro('Erro', 'Nao foi possivel carregar a conferencia de lotes das notas selecionadas.');
+      } else {
+        this.confLotesNotas.set(notas);
+        this.modo.set('conferir-lotes');
+        if (falhas > 0) {
+          this.toastr.warning(`${falhas} nota(s) nao carregaram e ficaram de fora da tela.`, 'Conferir lotes', { timeOut: 4000, positionClass: 'toast-top-center' });
+        }
+      }
+    } catch {
+      this.modal.erro('Erro', 'Erro ao carregar conferencia de lotes.');
+    } finally {
+      this.confLotesCarregando.set(false);
+    }
+  }
+
+  voltarDoConferirLotes() {
+    this.modo.set('lista');
+    this.confLotesNotas.set([]);
+    this.carregar();
+  }
+
+  /** Muta uma nota (por indice) na lista de conferencia. */
+  private atualizarNotaLotes(notaIdx: number, mut: (nota: any) => any) {
+    this.confLotesNotas.update((notas: any[]) => {
+      if (!notas[notaIdx]) return notas;
+      const novo = [...notas];
+      novo[notaIdx] = mut(novo[notaIdx]);
+      return novo;
     });
   }
 
-  fecharConferirLotes() {
-    this.confLotesAberto.set(false);
-    this.confLotesData.set(null);
+  setSngpcOptOut(notaIdx: number, valor: boolean) {
+    this.atualizarNotaLotes(notaIdx, nota => ({ ...nota, sngpcOptOut: valor }));
   }
 
-  adicionarLoteLinha(itemIdx: number) {
-    this.confLotesData.update((d: any) => {
-      if (!d) return d;
-      const novoLotes = [...d.itens[itemIdx].lotes, {
+  adicionarLoteLinha(notaIdx: number, itemIdx: number) {
+    this.atualizarNotaLotes(notaIdx, nota => {
+      const item = nota.itens[itemIdx];
+      const novoLotes = [...item.lotes, {
         id: null,
         numeroLote: '',
         dataFabricacao: null,
         dataValidade: null,
         quantidade: 0,
-        registroMs: d.itens[itemIdx].registroMs,
+        registroMs: item.registroMs,
         editadoPeloUsuario: true
       }];
-      const novosItens = [...d.itens];
-      novosItens[itemIdx] = { ...d.itens[itemIdx], lotes: novoLotes };
-      return { ...d, itens: novosItens };
+      const novosItens = [...nota.itens];
+      novosItens[itemIdx] = { ...item, lotes: novoLotes };
+      return { ...nota, itens: novosItens };
     });
   }
 
-  removerLoteLinha(itemIdx: number, loteIdx: number) {
-    this.confLotesData.update((d: any) => {
-      if (!d) return d;
-      const novoLotes = d.itens[itemIdx].lotes.filter((_: any, i: number) => i !== loteIdx);
-      const novosItens = [...d.itens];
-      novosItens[itemIdx] = { ...d.itens[itemIdx], lotes: novoLotes };
-      return { ...d, itens: novosItens };
+  removerLoteLinha(notaIdx: number, itemIdx: number, loteIdx: number) {
+    this.atualizarNotaLotes(notaIdx, nota => {
+      const novoLotes = nota.itens[itemIdx].lotes.filter((_: any, i: number) => i !== loteIdx);
+      const novosItens = [...nota.itens];
+      novosItens[itemIdx] = { ...nota.itens[itemIdx], lotes: novoLotes };
+      return { ...nota, itens: novosItens };
     });
   }
 
-  atualizarLoteCampo(itemIdx: number, loteIdx: number, campo: string, valor: any) {
-    this.confLotesData.update((d: any) => {
-      if (!d) return d;
-      const lote = { ...d.itens[itemIdx].lotes[loteIdx], [campo]: valor };
-      const novoLotes = [...d.itens[itemIdx].lotes];
+  atualizarLoteCampo(notaIdx: number, itemIdx: number, loteIdx: number, campo: string, valor: any) {
+    this.atualizarNotaLotes(notaIdx, nota => {
+      const lote = { ...nota.itens[itemIdx].lotes[loteIdx], [campo]: valor };
+      const novoLotes = [...nota.itens[itemIdx].lotes];
       novoLotes[loteIdx] = lote;
-      const novosItens = [...d.itens];
-      novosItens[itemIdx] = { ...d.itens[itemIdx], lotes: novoLotes };
-      return { ...d, itens: novosItens };
+      const novosItens = [...nota.itens];
+      novosItens[itemIdx] = { ...nota.itens[itemIdx], lotes: novoLotes };
+      return { ...nota, itens: novosItens };
     });
   }
 
-  atualizarItemRegistroMs(itemIdx: number, valor: string) {
-    this.confLotesData.update((d: any) => {
-      if (!d) return d;
-      const novosItens = [...d.itens];
-      novosItens[itemIdx] = { ...d.itens[itemIdx], registroMs: valor };
-      return { ...d, itens: novosItens };
-    });
-  }
+  /** Salva a conferencia de cada nota (loop por compra — o endpoint e' por-nota). */
+  async salvarConferirLotes() {
+    const notas = this.confLotesNotas();
+    if (notas.length === 0 || this.confLotesSalvando()) return;
 
-  salvarConferirLotes() {
-    const data = this.confLotesData();
-    if (!data) return;
-
-    for (const item of data.itens) {
-      for (const lote of item.lotes) {
-        if (!lote.numeroLote || !lote.numeroLote.trim()) {
-          this.modal.aviso('Lote inválido', `O item "${item.descricao}" tem um lote sem número.`);
-          return;
+    // Validacao: todo lote precisa de numero.
+    for (const nota of notas) {
+      for (const item of nota.itens) {
+        for (const lote of item.lotes) {
+          if (!lote.numeroLote || !lote.numeroLote.trim()) {
+            this.modal.aviso('Lote invalido', `NF ${nota.numeroNf}: o item "${item.descricao}" tem um lote sem numero.`);
+            return;
+          }
         }
       }
     }
 
     this.confLotesSalvando.set(true);
-    const body = {
-      sngpcOptOut: this.confLotesSngpcOptOut(),
-      itens: data.itens.map((i: any) => ({
-        compraProdutoId: i.compraProdutoId,
-        registroMs: i.registroMs,
-        lotes: i.lotes.map((l: any) => ({
-          id: l.id,
-          numeroLote: l.numeroLote,
-          dataFabricacao: l.dataFabricacao,
-          dataValidade: l.dataValidade,
-          quantidade: l.quantidade,
-          registroMs: l.registroMs
+    let ok = 0, falhas = 0;
+    for (const nota of notas) {
+      const body = {
+        sngpcOptOut: nota.sngpcOptOut === true,
+        itens: nota.itens.map((i: any) => ({
+          compraProdutoId: i.compraProdutoId,
+          registroMs: i.registroMs,
+          lotes: i.lotes.map((l: any) => ({
+            id: l.id,
+            numeroLote: l.numeroLote,
+            dataFabricacao: l.dataFabricacao,
+            dataValidade: l.dataValidade,
+            quantidade: l.quantidade,
+            registroMs: l.registroMs
+          }))
         }))
-      }))
-    };
-
-    this.http.post<any>(`${this.apiUrl}/${data.compraId}/conferencia-lotes`, body).subscribe({
-      next: () => {
-        this.confLotesSalvando.set(false);
-        this.toastr.success('Conferência de lotes salva.');
-        this.fecharConferirLotes();
-      },
-      error: (e: any) => {
-        this.confLotesSalvando.set(false);
-        this.modal.erro('Erro', e?.error?.message || 'Erro ao salvar conferência de lotes.');
+      };
+      try {
+        await this.http.post<any>(`${this.apiUrl}/${nota.compraId}/conferencia-lotes`, body).toPromise();
+        ok++;
+      } catch {
+        falhas++;
       }
-    });
+    }
+    this.confLotesSalvando.set(false);
+    if (falhas === 0) {
+      this.toastr.success(`Conferencia de lotes salva (${ok} nota(s)).`);
+      this.voltarDoConferirLotes();
+    } else {
+      this.modal.erro('Erro', `${ok} nota(s) salva(s), ${falhas} com erro. Revise e tente novamente.`);
+    }
   }
 }

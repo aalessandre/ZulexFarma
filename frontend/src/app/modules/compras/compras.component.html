@@ -57,29 +57,6 @@
       </div>
     }
 
-    @if (modo() === 'detalhe') {
-      <div class="sidebar-item tile-atualizar" (click)="atualizarVinculos()" [class.disabled]="carregando()">
-        <span>Atualizar</span>
-        <span class="sidebar-sub">Re-vincular itens</span>
-      </div>
-      <div class="sidebar-item tile-sair" (click)="excluir()">
-        <span>Excluir</span>
-        <span class="sidebar-sub">Remover nota</span>
-      </div>
-    }
-
-    <!-- Resumo vinculacao -->
-    @if (modo() === 'detalhe' && compraDetalhe()) {
-      <div class="sidebar-resumo">
-        <div class="resumo-titulo">VINCULACAO</div>
-        <div class="resumo-barra">
-          <div class="resumo-progresso" [style.width.%]="percentVinculados()"></div>
-        </div>
-        <div class="resumo-texto">
-          {{ totalVinculados() }} / {{ totalItens() }} ({{ percentVinculados() }}%)
-        </div>
-      </div>
-    }
   </aside>
 
   <!-- ── AREA PRINCIPAL ───────────────────────────────────────────── -->
@@ -270,9 +247,9 @@
               <span class="passo-num">3</span>{{ confCarregando() ? 'Carregando...' : 'Conferencia' }}
             </button>
             <button class="passo-btn passo-conferir-lotes"
-                    [disabled]="!todasSelecionadasVinculadas() || qtdeNotasSelecionadas() !== 1 || confLotesCarregando()"
+                    [disabled]="!todasSelecionadasVinculadas() || confLotesCarregando()"
                     (click)="abrirConferirLotes()"
-                    [title]="qtdeNotasSelecionadas() !== 1 ? 'Selecione 1 nota' : (todasSelecionadasVinculadas() ? 'Lotes e SNGPC' : 'Vincule 100% dos itens')">
+                    [title]="todasSelecionadasVinculadas() ? 'Lotes e SNGPC' : 'Vincule 100% dos itens das notas selecionadas'">
               <span class="passo-num">4</span>{{ confLotesCarregando() ? 'Carregando...' : 'Conferir Lotes' }}
             </button>
             <button class="passo-btn passo-finalizar"
@@ -286,125 +263,6 @@
       </div>
     }
 
-    <!-- ══════════ DETALHE DA COMPRA (PRE-ENTRADA) ══════════ -->
-    @if (modo() === 'detalhe' && compraDetalhe(); as d) {
-      <div class="detalhe-header">
-        <div class="detalhe-info">
-          <h2>NF {{ d.numeroNf }} - Serie {{ d.serieNf }}</h2>
-          <div class="detalhe-meta">
-            <span><strong>Fornecedor:</strong> {{ d.fornecedorNome }}</span>
-            <span><strong>CNPJ:</strong> {{ d.fornecedorCnpj }}</span>
-            <span><strong>Emissao:</strong> {{ d.dataEmissao | date:'dd/MM/yyyy' }}</span>
-            <span><strong>Valor:</strong> R$ {{ d.valorNota | number:'1.2-2':'pt-BR' }}</span>
-            <span class="badge-status" [class]="statusClass(d.status)">{{ statusLabel(d.status) }}</span>
-          </div>
-        </div>
-        <div class="detalhe-totais">
-          <div class="total-item"><span>Produtos</span><strong>R$ {{ d.valorProdutos | number:'1.2-2':'pt-BR' }}</strong></div>
-          <div class="total-item"><span>ST</span><strong>R$ {{ d.valorSt | number:'1.2-2':'pt-BR' }}</strong></div>
-          @if (d.valorFrete > 0) {
-            <div class="total-item"><span>Frete</span><strong>R$ {{ d.valorFrete | number:'1.2-2':'pt-BR' }}</strong></div>
-          }
-          @if (d.valorDesconto > 0) {
-            <div class="total-item"><span>Desconto</span><strong>R$ {{ d.valorDesconto | number:'1.2-2':'pt-BR' }}</strong></div>
-          }
-          <div class="total-item total-final"><span>Total NF</span><strong>R$ {{ d.valorNota | number:'1.2-2':'pt-BR' }}</strong></div>
-        </div>
-      </div>
-
-      <!-- ── Tabela de itens ──────────────────────────────── -->
-      <div class="grid-wrapper">
-        <table class="erp-grid">
-          <thead>
-            <tr>
-              <th style="width:36px"></th>
-              <th class="th-sort" style="width:44px" (click)="ordenarItens('numeroItem')">
-                # <span class="sort-icon">{{ sortItemIcon('numeroItem') }}</span>
-              </th>
-              <th class="th-sort th-resize" [attr.data-col]="'codigoBarrasXml'" style="width:130px" (click)="ordenarItens('codigoBarrasXml')">
-                Barras <span class="sort-icon">{{ sortItemIcon('codigoBarrasXml') }}</span>
-                <div class="resize-handle" (mousedown)="iniciarResize($event, 'codigoBarrasXml', 130)" (click)="$event.stopPropagation()"></div>
-              </th>
-              <th class="th-sort th-resize" [attr.data-col]="'descricaoXml'" style="width:320px" (click)="ordenarItens('descricaoXml')">
-                Descricao XML <span class="sort-icon">{{ sortItemIcon('descricaoXml') }}</span>
-                <div class="resize-handle" (mousedown)="iniciarResize($event, 'descricaoXml', 320)" (click)="$event.stopPropagation()"></div>
-              </th>
-              <th class="th-sort th-resize" [attr.data-col]="'produtoNome'" style="width:260px" (click)="ordenarItens('produtoNome')">
-                Produto Vinculado <span class="sort-icon">{{ sortItemIcon('produtoNome') }}</span>
-                <div class="resize-handle" (mousedown)="iniciarResize($event, 'produtoNome', 260)" (click)="$event.stopPropagation()"></div>
-              </th>
-              <th class="th-sort" style="width:70px" (click)="ordenarItens('quantidade')">
-                Qtde <span class="sort-icon">{{ sortItemIcon('quantidade') }}</span>
-              </th>
-              <th class="th-sort" style="width:55px" (click)="ordenarItens('fracao')">
-                Fracao <span class="sort-icon">{{ sortItemIcon('fracao') }}</span>
-              </th>
-              <th class="th-sort" style="width:90px" (click)="ordenarItens('valorUnitario')">
-                Unitario <span class="sort-icon">{{ sortItemIcon('valorUnitario') }}</span>
-              </th>
-              <th class="th-sort" style="width:90px" (click)="ordenarItens('valorItemNota')">
-                Total <span class="sort-icon">{{ sortItemIcon('valorItemNota') }}</span>
-              </th>
-              <th style="width:44px">UN</th>
-              <th style="width:80px">Acoes</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (p of itensFiltrados(); track p.id) {
-              <tr [class.nao-vinculado]="!p.vinculado" (dblclick)="abrirModalVincular(p)">
-                <td class="td-arrow">
-                  @if (p.vinculado) {
-                    <span class="icon-vinc-ok">&#10004;</span>
-                  } @else {
-                    <span class="icon-vinc-nok">&#10006;</span>
-                  }
-                </td>
-                <td>{{ p.numeroItem }}</td>
-                <td>{{ p.codigoBarrasXml }}</td>
-                <td [title]="p.descricaoXml">{{ p.descricaoXml }}</td>
-                <td>
-                  @if (p.vinculado && p.produtoNome) {
-                    <span class="produto-vinculado" [title]="'ID: ' + p.produtoId">{{ p.produtoNome }}</span>
-                  } @else {
-                    <span class="produto-pendente">--</span>
-                  }
-                </td>
-                <td class="td-valor">{{ p.quantidade | number:'1.0-4':'pt-BR' }}</td>
-                <td class="td-center">
-                  <input type="number" class="fracao-input" [value]="p.fracao || 1" min="1"
-                         (blur)="atualizarFracao(p, +$any($event.target).value)" />
-                </td>
-                <td class="td-valor">{{ p.valorUnitario | number:'1.2-6':'pt-BR' }}</td>
-                <td class="td-valor">{{ p.valorItemNota | number:'1.2-2':'pt-BR' }}</td>
-                <td class="td-center">{{ p.unidadeXml }}</td>
-                <td class="td-acoes">
-                  @if (vinculando() === p.id) {
-                    <span class="btn-acao disabled">...</span>
-                  } @else if (p.vinculado) {
-                    <button class="btn-acao btn-desvincular" (click)="desvincular(p)" title="Desvincular">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                    </button>
-                  } @else {
-                    <button class="btn-acao btn-vincular" (click)="abrirModalVincular(p)" title="Vincular produto">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-                    </button>
-                  }
-                  <button class="btn-acao btn-fiscal" (click)="abrirFiscal(p)" title="Ver dados fiscais">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                  </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      <div class="grid-rodape">
-        <span>Itens: <strong>{{ totalItens() }}</strong></span>
-        <span class="rodape-sep">|</span>
-        <span>Vinculados: <strong>{{ totalVinculados() }}</strong></span>
-      </div>
-    }
 
     <!-- ══════════ VINCULAR (lote — produtos das notas selecionadas) ══════════ -->
     @if (modo() === 'vincular') {
@@ -430,15 +288,16 @@
               <th>Descricao XML</th>
               <th style="width:280px">Produto Vinculado</th>
               <th style="width:70px">Qtde</th>
+              <th style="width:60px">Fracao</th>
               <th style="width:44px">UN</th>
               <th style="width:80px">Acoes</th>
             </tr>
           </thead>
           <tbody>
             @if (vincularCarregando()) {
-              <tr><td colspan="8" class="grid-loading">Carregando...</td></tr>
+              <tr><td colspan="9" class="grid-loading">Carregando...</td></tr>
             } @else if (vincularItens().length === 0) {
-              <tr><td colspan="8" class="grid-vazio">Nenhum item nas notas selecionadas.</td></tr>
+              <tr><td colspan="9" class="grid-vazio">Nenhum item nas notas selecionadas.</td></tr>
             } @else {
               @for (p of vincularItens(); track p.id) {
                 <tr [class.nao-vinculado]="!p.vinculado" (dblclick)="abrirModalVincular(p)">
@@ -460,6 +319,10 @@
                     }
                   </td>
                   <td class="td-valor">{{ p.quantidade | number:'1.0-4':'pt-BR' }}</td>
+                  <td class="td-center">
+                    <input type="number" class="fracao-input" [value]="p.fracao || 1" min="1"
+                           (blur)="atualizarFracao(p, +$any($event.target).value)" />
+                  </td>
                   <td class="td-center">{{ p.unidadeXml }}</td>
                   <td class="td-acoes">
                     @if (vinculando() === p.id) {
@@ -786,6 +649,137 @@
       </div>
     }
 
+    <!-- ══════════ CONFERIR LOTES (SNGPC + rastreabilidade — 1+ notas) ══════════ -->
+    @if (modo() === 'conferir-lotes') {
+      <div class="detalhe-header">
+        <div class="detalhe-info">
+          <h2>Conferir Lotes</h2>
+          <div class="detalhe-meta">
+            <span><strong>{{ confLotesNotas().length }}</strong> nota(s)</span>
+            <span class="vinc-dica">Informe lote, fabricacao e vencimento; use "+" pra adicionar linhas de lote.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-wrapper cl-tela-body">
+        @for (nota of confLotesNotas(); track nota.compraId; let notaIdx = $index) {
+          <div class="cl-nota-secao">
+            <div class="cl-nota-header">
+              <div class="cl-nota-titulo">
+                <strong>NF {{ nota.numeroNf }}</strong> — {{ nota.fornecedorNome }}
+                @if (nota.lotesConferidos) {
+                  <span class="modal-cl-ja-conferido">&#10004; Ja conferida em {{ nota.lotesConferidosEm | date:'dd/MM/yyyy HH:mm' }}</span>
+                }
+              </div>
+              <label class="cl-nota-toggle">
+                <input type="checkbox" [checked]="nota.sngpcOptOut"
+                       (change)="setSngpcOptOut(notaIdx, $any($event.target).checked)" />
+                <span>Nao lancar esta compra no SNGPC</span>
+              </label>
+            </div>
+
+            <table class="modal-cl-tabela">
+              <thead>
+                <tr>
+                  <th class="cl-icon-col"></th>
+                  <th>Codigo</th>
+                  <th>Nome</th>
+                  <th>Fabricante</th>
+                  <th class="td-valor">Qtde</th>
+                  <th>Lote</th>
+                  <th>Fabricacao</th>
+                  <th>Vencimento</th>
+                  <th>Registro MS</th>
+                  <th class="cl-acao-col"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of nota.itens; track item.compraProdutoId; let itemIdx = $index) {
+                  @for (lote of item.lotes; track $index; let loteIdx = $index) {
+                    <tr [class.cl-row-sngpc]="item.isSngpc" [class.cl-row-rastreavel]="!item.isSngpc && item.isRastreavel">
+                      @if (loteIdx === 0) {
+                        <td [attr.rowspan]="item.lotes.length" class="cl-icon-col">
+                          @if (item.isSngpc) {
+                            <span class="cl-badge-sngpc" title="Controlado SNGPC">SNGPC</span>
+                          } @else if (item.isRastreavel) {
+                            <span class="cl-badge-rastreavel" title="Rastreado por lote">LOTE</span>
+                          }
+                        </td>
+                        <td [attr.rowspan]="item.lotes.length">{{ item.codigo }}</td>
+                        <td [attr.rowspan]="item.lotes.length">{{ item.descricao }}</td>
+                        <td [attr.rowspan]="item.lotes.length">{{ item.fabricante }}</td>
+                        <td [attr.rowspan]="item.lotes.length" class="td-valor">{{ item.quantidade | number:'1.0-4':'pt-BR' }}</td>
+                      }
+                      <td>
+                        <input type="text" class="cl-input"
+                               [value]="lote.numeroLote"
+                               (input)="atualizarLoteCampo(notaIdx, itemIdx, loteIdx, 'numeroLote', $any($event.target).value)"
+                               [class.cl-editado]="lote.numeroLote !== lote.numeroLoteOriginal && lote.numeroLoteOriginal" />
+                      </td>
+                      <td>
+                        <input type="date" class="cl-input"
+                               [value]="lote.dataFabricacao?.substring(0, 10)"
+                               (input)="atualizarLoteCampo(notaIdx, itemIdx, loteIdx, 'dataFabricacao', $any($event.target).value)"
+                               [class.cl-editado]="lote.dataFabricacao !== lote.dataFabricacaoOriginal && lote.dataFabricacaoOriginal" />
+                      </td>
+                      <td>
+                        <input type="date" class="cl-input"
+                               [value]="lote.dataValidade?.substring(0, 10)"
+                               (input)="atualizarLoteCampo(notaIdx, itemIdx, loteIdx, 'dataValidade', $any($event.target).value)"
+                               [class.cl-editado]="lote.dataValidade !== lote.dataValidadeOriginal && lote.dataValidadeOriginal" />
+                      </td>
+                      <td>
+                        <input type="text" class="cl-input cl-input-ms"
+                               [value]="lote.registroMs"
+                               (input)="atualizarLoteCampo(notaIdx, itemIdx, loteIdx, 'registroMs', $any($event.target).value)" />
+                      </td>
+                      <td class="cl-acao-col">
+                        @if (item.lotes.length > 1) {
+                          <button class="cl-btn-remove" (click)="removerLoteLinha(notaIdx, itemIdx, loteIdx)" title="Remover lote">&times;</button>
+                        }
+                        @if (loteIdx === item.lotes.length - 1) {
+                          <button class="cl-btn-add" (click)="adicionarLoteLinha(notaIdx, itemIdx)" title="Adicionar lote">+</button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                  @if (item.lotes.length === 0) {
+                    <tr [class.cl-row-sngpc]="item.isSngpc" [class.cl-row-rastreavel]="!item.isSngpc && item.isRastreavel">
+                      <td class="cl-icon-col">
+                        @if (item.isSngpc) {
+                          <span class="cl-badge-sngpc">SNGPC</span>
+                        } @else if (item.isRastreavel) {
+                          <span class="cl-badge-rastreavel">LOTE</span>
+                        }
+                      </td>
+                      <td>{{ item.codigo }}</td>
+                      <td>{{ item.descricao }}</td>
+                      <td>{{ item.fabricante }}</td>
+                      <td class="td-valor">{{ item.quantidade | number:'1.0-4':'pt-BR' }}</td>
+                      <td colspan="4" class="cl-sem-lote">Sem lote informado no XML</td>
+                      <td class="cl-acao-col">
+                        <button class="cl-btn-add" (click)="adicionarLoteLinha(notaIdx, itemIdx)" title="Adicionar lote">+</button>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <div class="grid-rodape">
+        <span>Notas: <strong>{{ confLotesNotas().length }}</strong></span>
+        <div class="rodape-passos">
+          <button class="passo-btn passo-voltar" [disabled]="confLotesSalvando()" (click)="voltarDoConferirLotes()">Voltar</button>
+          <button class="passo-btn passo-conferir-lotes" [disabled]="confLotesSalvando()" (click)="salvarConferirLotes()">
+            {{ confLotesSalvando() ? 'Salvando...' : 'Confirmar Conferencia' }}
+          </button>
+        </div>
+      </div>
+    }
+
     <!-- ══════════ FINALIZAÇÃO ══════════ -->
     @if (modo() === 'finalizacao' && finDados(); as d) {
       <div class="fin-container">
@@ -1018,257 +1012,7 @@
   </div>
 }
 
-<!-- ══════════ MODAL DADOS FISCAIS ══════════ -->
-@if (modalFiscal() && itemFiscal(); as item) {
-  <div class="modal-overlay" (click)="fecharFiscal()">
-    <div class="modal-log-box modal-fiscal-box" (click)="$event.stopPropagation()">
 
-      <div class="modal-log-header">
-        <div class="modal-log-titulo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-          Dados Fiscais - Item {{ item.numeroItem }}
-        </div>
-        <button class="modal-log-fechar" (click)="fecharFiscal()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="modal-item-info">
-        <div class="info-campo"><strong>{{ item.descricaoXml }}</strong></div>
-      </div>
-
-      @if (item.fiscal; as f) {
-        <div class="modal-log-body">
-          <div class="modal-log-scroll">
-            <table class="log-grid fiscal-tabela">
-              <thead>
-                <tr>
-                  <th style="width:160px">Imposto</th>
-                  <th style="width:80px">CST</th>
-                  <th>Base</th>
-                  <th>Aliquota</th>
-                  <th>Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="campo-nome">ICMS (Orig: {{ f.origemMercadoria }})</td>
-                  <td>{{ f.cstIcms }}</td>
-                  <td class="td-valor">{{ f.baseIcms | number:'1.2-2':'pt-BR' }}</td>
-                  <td class="td-valor">{{ f.aliquotaIcms | number:'1.2-2':'pt-BR' }}%</td>
-                  <td class="td-valor">{{ f.valorIcms | number:'1.2-2':'pt-BR' }}</td>
-                </tr>
-                @if (f.baseSt > 0 || f.valorSt > 0) {
-                  <tr>
-                    <td class="campo-nome">ICMS ST (MVA: {{ f.mvaSt | number:'1.2-2':'pt-BR' }}%)</td>
-                    <td></td>
-                    <td class="td-valor">{{ f.baseSt | number:'1.2-2':'pt-BR' }}</td>
-                    <td class="td-valor">{{ f.aliquotaSt | number:'1.2-2':'pt-BR' }}%</td>
-                    <td class="td-valor">{{ f.valorSt | number:'1.2-2':'pt-BR' }}</td>
-                  </tr>
-                }
-                @if (f.baseFcpSt > 0 || f.valorFcpSt > 0) {
-                  <tr>
-                    <td class="campo-nome">FCP ST</td>
-                    <td></td>
-                    <td class="td-valor">{{ f.baseFcpSt | number:'1.2-2':'pt-BR' }}</td>
-                    <td class="td-valor">{{ f.aliquotaFcpSt | number:'1.2-2':'pt-BR' }}%</td>
-                    <td class="td-valor">{{ f.valorFcpSt | number:'1.2-2':'pt-BR' }}</td>
-                  </tr>
-                }
-                <tr>
-                  <td class="campo-nome">PIS</td>
-                  <td>{{ f.cstPis }}</td>
-                  <td class="td-valor">{{ f.basePis | number:'1.2-2':'pt-BR' }}</td>
-                  <td class="td-valor">{{ f.aliquotaPis | number:'1.4-4':'pt-BR' }}%</td>
-                  <td class="td-valor">{{ f.valorPis | number:'1.2-2':'pt-BR' }}</td>
-                </tr>
-                <tr>
-                  <td class="campo-nome">COFINS</td>
-                  <td>{{ f.cstCofins }}</td>
-                  <td class="td-valor">{{ f.baseCofins | number:'1.2-2':'pt-BR' }}</td>
-                  <td class="td-valor">{{ f.aliquotaCofins | number:'1.4-4':'pt-BR' }}%</td>
-                  <td class="td-valor">{{ f.valorCofins | number:'1.2-2':'pt-BR' }}</td>
-                </tr>
-                @if (f.cstIbsCbs) {
-                  <tr class="fiscal-separador">
-                    <td colspan="5"><strong>IBS/CBS (Reforma Tributaria)</strong> - Classe: {{ f.classeTributariaIbsCbs }}</td>
-                  </tr>
-                  <tr>
-                    <td class="campo-nome">IBS UF</td>
-                    <td>{{ f.cstIbsCbs }}</td>
-                    <td class="td-valor">{{ f.baseIbsCbs | number:'1.2-2':'pt-BR' }}</td>
-                    <td class="td-valor">{{ f.aliquotaIbsUf | number:'1.2-2':'pt-BR' }}%</td>
-                    <td class="td-valor">{{ f.valorIbsUf | number:'1.2-2':'pt-BR' }}</td>
-                  </tr>
-                  <tr>
-                    <td class="campo-nome">IBS Mun</td>
-                    <td></td>
-                    <td class="td-valor">{{ f.baseIbsCbs | number:'1.2-2':'pt-BR' }}</td>
-                    <td class="td-valor">{{ f.aliquotaIbsMun | number:'1.2-2':'pt-BR' }}%</td>
-                    <td class="td-valor">{{ f.valorIbsMun | number:'1.2-2':'pt-BR' }}</td>
-                  </tr>
-                  <tr>
-                    <td class="campo-nome">CBS</td>
-                    <td></td>
-                    <td class="td-valor">{{ f.baseIbsCbs | number:'1.2-2':'pt-BR' }}</td>
-                    <td class="td-valor">{{ f.aliquotaCbs | number:'1.2-2':'pt-BR' }}%</td>
-                    <td class="td-valor">{{ f.valorCbs | number:'1.2-2':'pt-BR' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
-      } @else {
-        <div class="modal-log-body">
-          <div class="grid-vazio">Sem dados fiscais para este item.</div>
-        </div>
-      }
-
-      <div class="modal-log-footer">
-        <button class="modal-btn modal-btn-cancelar" (click)="fecharFiscal()">Fechar</button>
-      </div>
-    </div>
-  </div>
-}
-
-<!-- ═══ MODAL CONFERIR LOTES (SNGPC + rastreabilidade) ═══ -->
-@if (confLotesAberto() && confLotesData(); as d) {
-  <div class="modal-overlay" (click)="fecharConferirLotes()">
-    <div class="modal-conf-lotes" (click)="$event.stopPropagation()">
-      <div class="modal-cl-header">
-        <div class="modal-cl-titulo">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>
-          </svg>
-          Conferir Lotes — NF {{ d.numeroNf }}
-        </div>
-        <div class="modal-cl-info">
-          <span>{{ d.fornecedorNome }}</span>
-          <span>Emissão: {{ d.dataEmissao | date:'dd/MM/yyyy' }}</span>
-          @if (d.lotesConferidos) {
-            <span class="modal-cl-ja-conferido">✓ Já conferida em {{ d.lotesConferidosEm | date:'dd/MM/yyyy HH:mm' }}</span>
-          }
-        </div>
-        <button class="modal-cl-fechar" (click)="fecharConferirLotes()">&times;</button>
-      </div>
-
-      <div class="modal-cl-toolbar">
-        <label class="modal-cl-toggle">
-          <input type="checkbox" [checked]="confLotesSngpcOptOut()"
-                 (change)="confLotesSngpcOptOut.set($any($event.target).checked)" />
-          <span>Não lançar esta compra no SNGPC</span>
-          <small>Quando marcado, produtos controlados desta nota não entram no relatório Anvisa (mas o rastreio de lote é mantido).</small>
-        </label>
-      </div>
-
-      <div class="modal-cl-body">
-        <table class="modal-cl-tabela">
-          <thead>
-            <tr>
-              <th class="cl-icon-col"></th>
-              <th>Código</th>
-              <th>Nome</th>
-              <th>Fabricante</th>
-              <th class="td-valor">Qtde</th>
-              <th>Lote</th>
-              <th>Fabricação</th>
-              <th>Vencimento</th>
-              <th>Registro MS</th>
-              <th class="cl-acao-col"></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (item of d.itens; track item.compraProdutoId; let itemIdx = $index) {
-              @for (lote of item.lotes; track $index; let loteIdx = $index) {
-                <tr [class.cl-row-sngpc]="item.isSngpc" [class.cl-row-rastreavel]="!item.isSngpc && item.isRastreavel">
-                  @if (loteIdx === 0) {
-                    <td [attr.rowspan]="item.lotes.length" class="cl-icon-col">
-                      @if (item.isSngpc) {
-                        <span class="cl-badge-sngpc" title="Controlado SNGPC">SNGPC</span>
-                      } @else if (item.isRastreavel) {
-                        <span class="cl-badge-rastreavel" title="Rastreado por lote">LOTE</span>
-                      }
-                    </td>
-                    <td [attr.rowspan]="item.lotes.length">{{ item.codigo }}</td>
-                    <td [attr.rowspan]="item.lotes.length">{{ item.descricao }}</td>
-                    <td [attr.rowspan]="item.lotes.length">{{ item.fabricante }}</td>
-                    <td [attr.rowspan]="item.lotes.length" class="td-valor">{{ item.quantidade | number:'1.0-4':'pt-BR' }}</td>
-                  }
-                  <td>
-                    <input type="text" class="cl-input"
-                           [value]="lote.numeroLote"
-                           (input)="atualizarLoteCampo(itemIdx, loteIdx, 'numeroLote', $any($event.target).value)"
-                           [class.cl-editado]="lote.numeroLote !== lote.numeroLoteOriginal && lote.numeroLoteOriginal" />
-                  </td>
-                  <td>
-                    <input type="date" class="cl-input"
-                           [value]="lote.dataFabricacao?.substring(0, 10)"
-                           (input)="atualizarLoteCampo(itemIdx, loteIdx, 'dataFabricacao', $any($event.target).value)"
-                           [class.cl-editado]="lote.dataFabricacao !== lote.dataFabricacaoOriginal && lote.dataFabricacaoOriginal" />
-                  </td>
-                  <td>
-                    <input type="date" class="cl-input"
-                           [value]="lote.dataValidade?.substring(0, 10)"
-                           (input)="atualizarLoteCampo(itemIdx, loteIdx, 'dataValidade', $any($event.target).value)"
-                           [class.cl-editado]="lote.dataValidade !== lote.dataValidadeOriginal && lote.dataValidadeOriginal" />
-                  </td>
-                  <td>
-                    <input type="text" class="cl-input cl-input-ms"
-                           [value]="lote.registroMs"
-                           (input)="atualizarLoteCampo(itemIdx, loteIdx, 'registroMs', $any($event.target).value)" />
-                  </td>
-                  <td class="cl-acao-col">
-                    @if (item.lotes.length > 1) {
-                      <button class="cl-btn-remove" (click)="removerLoteLinha(itemIdx, loteIdx)" title="Remover lote">&times;</button>
-                    }
-                    @if (loteIdx === item.lotes.length - 1) {
-                      <button class="cl-btn-add" (click)="adicionarLoteLinha(itemIdx)" title="Adicionar lote">+</button>
-                    }
-                  </td>
-                </tr>
-              }
-              @if (item.lotes.length === 0) {
-                <tr [class.cl-row-sngpc]="item.isSngpc" [class.cl-row-rastreavel]="!item.isSngpc && item.isRastreavel">
-                  <td class="cl-icon-col">
-                    @if (item.isSngpc) {
-                      <span class="cl-badge-sngpc">SNGPC</span>
-                    } @else if (item.isRastreavel) {
-                      <span class="cl-badge-rastreavel">LOTE</span>
-                    }
-                  </td>
-                  <td>{{ item.codigo }}</td>
-                  <td>{{ item.descricao }}</td>
-                  <td>{{ item.fabricante }}</td>
-                  <td class="td-valor">{{ item.quantidade | number:'1.0-4':'pt-BR' }}</td>
-                  <td colspan="4" class="cl-sem-lote">Sem lote informado no XML</td>
-                  <td class="cl-acao-col">
-                    <button class="cl-btn-add" (click)="adicionarLoteLinha(itemIdx)" title="Adicionar lote">+</button>
-                  </td>
-                </tr>
-              }
-            }
-          </tbody>
-        </table>
-      </div>
-
-      <div class="modal-cl-footer">
-        <button class="modal-btn modal-btn-cancelar" (click)="fecharConferirLotes()" [disabled]="confLotesSalvando()">
-          Cancelar
-        </button>
-        <button class="modal-btn modal-btn-ok" (click)="salvarConferirLotes()" [disabled]="confLotesSalvando()">
-          {{ confLotesSalvando() ? 'Salvando...' : 'Confirmar Conferência' }}
-        </button>
-      </div>
-    </div>
-  </div>
-}
 
 <!-- Modal: cadastro de produto (entrada de nota) — reusa o ProdutosComponent -->
 @if (modalCadastroProduto()) {
