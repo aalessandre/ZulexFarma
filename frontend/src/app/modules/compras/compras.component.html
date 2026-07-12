@@ -365,9 +365,6 @@
       <div class="prec-header">
         <h2>Ajuste de Precos</h2>
         <span class="prec-info">{{ precificacaoItens().length }} produto(s)</span>
-        @if (precSelecionados().size > 0) {
-          <span class="prec-info">| Selecionados: <strong>{{ precSelecionados().size }}</strong></span>
-        }
 
         <div class="prec-selecionar">
           <label>BASE DE CALCULO</label>
@@ -391,18 +388,6 @@
 
         <button class="btn-acatar-pmc" (click)="acatarPmc('NOTA')">Acatar PMC Nota</button>
         <button class="btn-acatar-pmc" (click)="acatarPmc('ABC')">Acatar PMC ABC</button>
-
-        <div class="prec-selecionar">
-          <label>APLICAR</label>
-          <select [value]="precMomentoAplicacao()" (change)="precMomentoAplicacao.set($any($event.target).value)">
-            <option value="AGORA">Agora</option>
-            <option value="FINALIZACAO">Na Finalizacao</option>
-          </select>
-        </div>
-
-        <button class="btn-aplicar-prec" [disabled]="precAplicando()" (click)="aplicarPrecificacao()">
-          @if (precAplicando()) { Aplicando... } @else { Aplicar Selecionados }
-        </button>
 
         <div class="col-picker-wrap">
           <button class="btn-colunas" (click)="painelColunasPrecAberto.update(v => !v)">
@@ -457,7 +442,8 @@
           </thead>
           <tbody>
             @for (p of precificacaoOrdenada(); track p.produtoId) {
-              <tr [class.item-selecionado]="isPrecSelecionado(p.produtoDadosId)">
+              <tr [class.item-selecionado]="isPrecSelecionado(p.produtoDadosId)"
+                  [class.prec-aplicado]="precAplicados().has(p.produtoDadosId)">
                 <td class="td-check" (click)="$event.stopPropagation()">
                   <input type="checkbox" class="grid-check" [checked]="isPrecSelecionado(p.produtoDadosId)" (change)="togglePrecItem(p.produtoDadosId)" />
                 </td>
@@ -489,7 +475,21 @@
 
       <div class="grid-rodape">
         <span>Produtos: <strong>{{ precificacaoItens().length }}</strong></span>
+        @if (precSelecionados().size > 0) {
+          <span class="rodape-sep">|</span>
+          <span>Selecionados: <strong>{{ precSelecionados().size }}</strong></span>
+        }
         <div class="rodape-passos">
+          <label class="rodape-aplicar">
+            <span>Aplicar:</span>
+            <select [value]="precMomentoAplicacao()" (change)="precMomentoAplicacao.set($any($event.target).value)">
+              <option value="AGORA">Agora</option>
+              <option value="FINALIZACAO">Na Finalizacao</option>
+            </select>
+          </label>
+          <button class="btn-aplicar-prec" [disabled]="precAplicando()" (click)="aplicarPrecificacao()">
+            @if (precAplicando()) { Aplicando... } @else { Aplicar Selecionados }
+          </button>
           <button class="passo-btn passo-voltar" (click)="voltarDaPrecificacao()">Voltar</button>
         </div>
       </div>

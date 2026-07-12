@@ -181,6 +181,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   sortPrecDir = signal<'asc' | 'desc'>('asc');
   painelColunasPrecAberto = signal(false);
   precSelecionados = signal<Set<number>>(new Set());
+  precAplicados = signal<Set<number>>(new Set()); // pinta a linha de verde apos aplicar
   precAplicando = signal(false);
   precBaseCalculo = signal<'CUSTO_COMPRA' | 'CUSTO_MEDIO'>('CUSTO_COMPRA');
   precMomentoAplicacao = signal<'AGORA' | 'FINALIZACAO'>('AGORA');
@@ -209,8 +210,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
       { campo: 'novoPrecoVenda', label: 'Sug. Vlr Venda', largura: 95, visivel: true },
       { campo: 'projecaoLucro', label: '% Proj. Lucro', largura: 85, visivel: true },
       { campo: 'markup', label: '% Markup', largura: 80, visivel: true },
-      { campo: 'pmcNota', label: 'PMC Nota', largura: 75, visivel: true },
       { campo: 'ajustado', label: 'Status', largura: 55, visivel: true },
+      { campo: 'pmcNota', label: 'PMC Nota', largura: 75, visivel: true },
       { campo: 'pmcAbcFarma', label: 'PMC ABC', largura: 75, visivel: true },
     ];
   }
@@ -1180,6 +1181,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: r => {
         this.precificacaoItens.set(r.data?.itens ?? []);
+        this.precSelecionados.set(new Set());
+        this.precAplicados.set(new Set());
         this.modo.set('precificacao');
         this.precificacaoCarregando.set(false);
       },
@@ -1194,6 +1197,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.modo.set('lista');
     this.precificacaoItens.set([]);
     this.precSelecionados.set(new Set());
+    this.precAplicados.set(new Set());
   }
 
   // Edição inline na precificação
@@ -1206,6 +1210,10 @@ export class ComprasComponent implements OnInit, OnDestroy {
     const raw = input.value.replace(/\./g, '').replace(',', '.');
     const valor = parseFloat(raw);
     if (isNaN(valor)) return;
+    // So' processa (e auto-seleciona) se o valor MUDOU de fato — blur sem edicao
+    // (Tab/click so' pra revisar) nao deve re-selecionar/reaplicar a linha.
+    const atual = Number((item as any)[campo]);
+    if (!isNaN(atual) && Math.abs(atual - valor) < 0.005) return;
     this.onPrecCellChange(item, campo, valor);
   }
 
@@ -1239,6 +1247,13 @@ export class ComprasComponent implements OnInit, OnDestroy {
         ? { ...i, novoPrecoVenda: venda, markup: mk, projecaoLucro: proj }
         : i
     ));
+    // Editou um preco -> marca o checkbox (indica alteracao a aplicar) e tira o verde
+    // de "aplicado" (o valor mudou, nao reflete mais o que ja foi aplicado).
+    this.precSelecionados.update(s => { const n = new Set(s); n.add(item.produtoDadosId); return n; });
+    this.precAplicados.update(s => {
+      if (!s.has(item.produtoDadosId)) return s;
+      const n = new Set(s); n.delete(item.produtoDadosId); return n;
+    });
   }
 
   recalcularTodosSugestao() {
@@ -1346,6 +1361,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
             this.precificacaoItens.update(all => all.map(i =>
               idsAplicados.has(i.produtoDadosId) ? { ...i, precoVendaAtual: i.novoPrecoVenda } : i
             ));
+            this.precAplicados.update(s => new Set([...s, ...idsAplicados]));
             this.precSelecionados.set(new Set());
             this.abrirPrecModal('Ajuste Aplicado',
               `${r.data?.alterados || 0} produto(s) atualizado(s) com sucesso.`, null);
@@ -1365,6 +1381,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
         }).subscribe({
           next: r => {
             this.precAplicando.set(false);
+            this.precAplicados.update(s => new Set([...s, ...itens.map(i => i.produtoDadosId)]));
+            this.precSelecionados.set(new Set());
             this.abrirPrecModal('Sugestoes Salvas',
               `${r.data?.salvos || 0} sugestao(oes) salva(s). Serao aplicadas na finalizacao da nota.`, null);
           },
