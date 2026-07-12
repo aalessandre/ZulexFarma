@@ -258,6 +258,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   // ── Conferir Lotes (SNGPC) — tela (mode 'conferir-lotes'), 1+ notas ──
   confLotesCarregando = signal(false);
   confLotesSalvando = signal(false);
+  confItemConferindo = signal<number | null>(null); // compraProdutoId sendo gravado
   // Uma "nota" por compra selecionada: { compraId, numeroNf, fornecedorNome,
   // dataEmissao, lotesConferidos, lotesConferidosEm, sngpcOptOut, itens: [...] }.
   confLotesNotas = signal<any[]>([]);
@@ -1635,40 +1636,62 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.atualizarNotaLotes(notaIdx, nota => ({ ...nota, sngpcOptOut: valor }));
   }
 
-  adicionarLoteLinha(notaIdx: number, itemIdx: number) {
-    this.atualizarNotaLotes(notaIdx, nota => {
-      const item = nota.itens[itemIdx];
-      const novoLotes = [...item.lotes, {
-        id: null,
-        numeroLote: '',
-        dataFabricacao: null,
-        dataValidade: null,
-        quantidade: 0,
-        registroMs: item.registroMs,
-        editadoPeloUsuario: true
-      }];
-      const novosItens = [...nota.itens];
-      novosItens[itemIdx] = { ...item, lotes: novoLotes };
-      return { ...nota, itens: novosItens };
-    });
-  }
+  /**
+   * Marca/desmarca UM item como conferido, gravando na hora (lotes daquele item + flag),
+   * pra o usuario parar no meio e retomar sabendo o que ja conferiu.
+   */
+  async toggleItemConferido(notaIdx: number, item: any) {
+    const nota = this.confLotesNotas()[notaIdx];
+    if (!nota || this.confItemConferindo() === item.compraProdutoId) return;
+    const novoConferido = !item.loteConferido;
 
-  removerLoteLinha(notaIdx: number, itemIdx: number, loteIdx: number) {
-    this.atualizarNotaLotes(notaIdx, nota => {
-      const novoLotes = nota.itens[itemIdx].lotes.filter((_: any, i: number) => i !== loteIdx);
-      const novosItens = [...nota.itens];
-      novosItens[itemIdx] = { ...nota.itens[itemIdx], lotes: novoLotes };
-      return { ...nota, itens: novosItens };
-    });
+    // Ao MARCAR, exige que todo lote tenha numero (mesma regra do salvar).
+    if (novoConferido) {
+      for (const l of item.lotes) {
+        if (!l.numeroLote || !l.numeroLote.trim()) {
+          this.modal.aviso('Lote invalido', `O item "${item.descricao}" tem um lote sem numero.`);
+          return;
+        }
+      }
+    }
+
+    this.confItemConferindo.set(item.compraProdutoId);
+    const body = {
+      conferido: novoConferido,
+      registroMs: item.registroMs,
+      lotes: item.lotes.map((l: any) => ({
+        id: l.id,
+        numeroLote: l.numeroLote,
+        dataFabricacao: l.dataFabricacao,
+        dataValidade: l.dataValidade,
+        quantidade: l.quantidade,
+        registroMs: l.registroMs
+      }))
+    };
+    try {
+      await this.http.post<any>(`${this.apiUrl}/${nota.compraId}/item-conferido/${item.compraProdutoId}`, body).toPromise();
+      this.atualizarNotaLotes(notaIdx, n => ({
+        ...n,
+        itens: n.itens.map((i: any) =>
+          i.compraProdutoId === item.compraProdutoId ? { ...i, loteConferido: novoConferido } : i)
+      }));
+    } catch (e: any) {
+      this.modal.erro('Erro', e?.error?.message || 'Erro ao marcar item conferido.');
+    } finally {
+      this.confItemConferindo.set(null);
+    }
   }
 
   atualizarLoteCampo(notaIdx: number, itemIdx: number, loteIdx: number, campo: string, valor: any) {
     this.atualizarNotaLotes(notaIdx, nota => {
-      const lote = { ...nota.itens[itemIdx].lotes[loteIdx], [campo]: valor };
-      const novoLotes = [...nota.itens[itemIdx].lotes];
+      const item = nota.itens[itemIdx];
+      const lote = { ...item.lotes[loteIdx], [campo]: valor };
+      const novoLotes = [...item.lotes];
       novoLotes[loteIdx] = lote;
       const novosItens = [...nota.itens];
-      novosItens[itemIdx] = { ...nota.itens[itemIdx], lotes: novoLotes };
+      // Editou um lote -> o item deixa de estar "conferido" (o botao volta pra "Conferir"
+      // pra reconfirmar/gravar): evita a edicao se perder com o item marcado como salvo.
+      novosItens[itemIdx] = { ...item, lotes: novoLotes, loteConferido: false };
       return { ...nota, itens: novosItens };
     });
   }

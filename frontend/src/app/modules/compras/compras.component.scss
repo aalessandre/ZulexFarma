@@ -1321,3 +1321,23 @@ tr.prec-aplicado > td { background-color: #e9f9ef !important; }
     &:focus { outline: none; border-color: var(--erp-blue); }
   }
 }
+
+/* ── Conferir Lotes na grid padrao (erp-grid) ────────────────────────── */
+/* Botao "Conferir/Conferido" por item */
+.cl-btn-conferido {
+  padding: 4px 12px; border: 1px solid var(--erp-border-input); border-radius: 4px;
+  background: var(--erp-surface); color: var(--erp-text-muted);
+  font-size: var(--erp-fs-xs); font-weight: 700; cursor: pointer; white-space: nowrap;
+  transition: filter .12s, background .12s, color .12s, border-color .12s;
+  &:hover:not(:disabled) { border-color: #27ae60; color: #27ae60; }
+  &.ativo { background: #27ae60; border-color: #27ae60; color: #fff; }
+  &:disabled { opacity: .5; cursor: not-allowed; }
+}
+/* Tintas de linha pintadas no TD pra vencer o zebra do erp-grid (ordem = prioridade) */
+.erp-grid tbody tr.cl-row-sngpc > td { background-color: #e8f5e9; }
+.erp-grid tbody tr.cl-row-rastreavel > td { background-color: #fff8e1; }
+.erp-grid tbody tr.cl-item-conferido > td { background-color: #eafaf1; }
+/* Dark mode: tintas translucidas (mantem o texto claro legivel) */
+:host-context([data-tema="escuro"]) .erp-grid tbody tr.cl-row-sngpc > td { background-color: rgba(22, 160, 133, 0.16); }
+:host-context([data-tema="escuro"]) .erp-grid tbody tr.cl-row-rastreavel > td { background-color: rgba(243, 156, 18, 0.14); }
+:host-context([data-tema="escuro"]) .erp-grid tbody tr.cl-item-conferido > td { background-color: rgba(39, 174, 96, 0.16); }

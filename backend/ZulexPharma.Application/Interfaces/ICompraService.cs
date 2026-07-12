@@ -23,4 +23,5 @@ public interface ICompraService
     // ── Conferência de Lotes ──────────────────────────────────────
     Task<ConferenciaLotesDto> ObterConferenciaLotesAsync(long compraId);
     Task SalvarConferenciaLotesAsync(long compraId, long usuarioId, SalvarConferenciaLotesDto dto);
+    Task MarcarItemConferidoAsync(long compraId, long compraProdutoId, long usuarioId, SalvarItemConferidoDto dto);
 }
