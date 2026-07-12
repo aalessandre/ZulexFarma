@@ -50,13 +50,6 @@
       </div>
     }
 
-    @if (modo() === 'finalizacao') {
-      <div class="sidebar-item tile-procurar" (click)="voltarDaFinalizacao()">
-        <span>Voltar</span>
-        <span class="sidebar-sub">Lista de notas</span>
-      </div>
-    }
-
   </aside>
 
   <!-- ── AREA PRINCIPAL ───────────────────────────────────────────── -->
@@ -781,10 +774,10 @@
       <div class="grid-rodape">
         <span>Notas: <strong>{{ confLotesNotas().length }}</strong></span>
         <div class="rodape-passos">
-          <button class="passo-btn passo-voltar" [disabled]="confLotesSalvando()" (click)="voltarDoConferirLotes()">Voltar</button>
           <button class="passo-btn passo-conferir-lotes" [disabled]="confLotesSalvando()" (click)="salvarConferirLotes()">
-            {{ confLotesSalvando() ? 'Salvando...' : 'Confirmar Conferencia' }}
+            {{ confLotesSalvando() ? 'Salvando...' : 'Confirmar Todos' }}
           </button>
+          <button class="passo-btn passo-voltar" [disabled]="confLotesSalvando()" (click)="voltarDoConferirLotes()">Voltar</button>
         </div>
       </div>
     }
@@ -794,11 +787,6 @@
       <div class="fin-container">
         <div class="fin-header-row">
           <h2>Finalizar Nota — NF {{ d.numeroNf }}</h2>
-          <div class="fin-etapas">
-            <span class="fin-etapa-badge" [class.ativo]="finEtapa() === 'duplicatas'">1. Duplicatas</span>
-            <span class="fin-etapa-seta">&#9654;</span>
-            <span class="fin-etapa-badge" [class.ativo]="finEtapa() === 'lotes'">2. Lotes e Finalizar</span>
-          </div>
         </div>
 
         <div class="fin-info-grid">
@@ -816,97 +804,60 @@
           </div>
         }
 
-        <!-- ETAPA 1: DUPLICATAS -->
-        @if (finEtapa() === 'duplicatas') {
-          @if (d.duplicatas.length > 0) {
-            <div class="fin-section">Duplicatas</div>
-            <div class="grid-wrapper fin-grid-wrapper">
-              <table class="erp-grid">
-                <thead>
-                  <tr>
-                    <th style="width:100px">N Duplicata</th>
-                    <th style="width:130px">Vencimento</th>
-                    <th style="width:100px">Descontos</th>
-                    <th style="width:100px">Encargos</th>
-                    <th style="width:120px">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (dup of d.duplicatas; track dup.numero; let i = $index) {
-                    <tr>
-                      <td>{{ dup.numero }}</td>
-                      <td><input type="date" class="fin-edit" [value]="dup.vencimento" (change)="d.duplicatas[i].vencimento = $any($event.target).value" /></td>
-                      <td><input type="number" class="fin-edit fin-edit-valor" [value]="dup.descontos" (change)="d.duplicatas[i].descontos = +$any($event.target).value" step="0.01" /></td>
-                      <td><input type="number" class="fin-edit fin-edit-valor" [value]="dup.encargos" (change)="d.duplicatas[i].encargos = +$any($event.target).value" step="0.01" /></td>
-                      <td class="td-valor"><strong>{{ dup.valor | number:'1.2-2':'pt-BR' }}</strong></td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          } @else {
-            <div class="fin-vazio">Nenhuma duplicata encontrada no XML.</div>
-          }
-
-          <div class="fin-checks">
-            <label class="check-label">
-              <input type="checkbox" [checked]="finDuplicatasEntregues()" (change)="finDuplicatasEntregues.set($any($event.target).checked)" />
-              <span>DUPLICATAS FORAM ENTREGUES</span>
-            </label>
-            <label class="check-label">
-              <input type="checkbox" [checked]="finNotaPaga()" (change)="finNotaPaga.set($any($event.target).checked)" />
-              <span>NOTA FISCAL JA FOI PAGA</span>
-            </label>
-          </div>
-
-          <div class="fin-acoes">
-            <button class="btn-avancar" (click)="finEtapa.set('lotes')">Avancar &#9654;</button>
-          </div>
-        }
-
-        <!-- ETAPA 2: LOTES E FINALIZAR -->
-        @if (finEtapa() === 'lotes') {
-          <div class="fin-section">Conferencia de Lotes e Vencimentos</div>
-          <div class="grid-wrapper">
-            <table class="erp-grid erp-grid-compact">
-              <thead>
+        <!-- DUPLICATAS (a conferencia de lotes e' feita no passo "Conferir Lotes") -->
+        <div class="fin-section">Duplicatas</div>
+        <div class="grid-wrapper fin-grid-wrapper">
+          <table class="erp-grid">
+            <thead>
+              <tr>
+                <th style="width:110px">N Duplicata</th>
+                <th style="width:140px">Vencimento</th>
+                <th style="width:110px">Descontos</th>
+                <th style="width:110px">Encargos</th>
+                <th style="width:130px">Valor</th>
+                <th style="width:44px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (dup of d.duplicatas; track $index; let i = $index) {
                 <tr>
-                  <th style="width:55px">Cod</th>
-                  <th style="width:220px">Produto</th>
-                  <th style="width:100px">Fabricante</th>
-                  <th style="width:60px">Qtde</th>
-                  <th style="width:80px">Total</th>
-                  <th style="width:110px">Lote</th>
-                  <th style="width:120px">Data Fabricacao</th>
-                  <th style="width:120px">Data Validade</th>
-                  <th style="width:130px">Registro MS</th>
+                  <td><input type="text" class="fin-edit" [value]="dup.numero" (change)="d.duplicatas[i].numero = $any($event.target).value" /></td>
+                  <td><input type="date" class="fin-edit" [value]="dup.vencimento" (change)="d.duplicatas[i].vencimento = $any($event.target).value" /></td>
+                  <td><input type="number" class="fin-edit fin-edit-valor" [value]="dup.descontos" (change)="d.duplicatas[i].descontos = +$any($event.target).value" step="0.01" /></td>
+                  <td><input type="number" class="fin-edit fin-edit-valor" [value]="dup.encargos" (change)="d.duplicatas[i].encargos = +$any($event.target).value" step="0.01" /></td>
+                  <td><input type="number" class="fin-edit fin-edit-valor" [value]="dup.valor" (change)="d.duplicatas[i].valor = +$any($event.target).value" step="0.01" /></td>
+                  <td class="td-center">
+                    <button class="cl-btn-remove" (click)="removerDuplicata(i)" title="Remover duplicata">&times;</button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                @for (l of d.lotes; track l.compraProdutoId; let i = $index) {
-                  <tr>
-                    <td>{{ l.produtoId }}</td>
-                    <td>{{ l.produtoNome }}</td>
-                    <td>{{ l.fabricante || '--' }}</td>
-                    <td class="td-center">{{ l.quantidade }}</td>
-                    <td class="td-valor">{{ l.valorTotal | number:'1.2-2':'pt-BR' }}</td>
-                    <td><input type="text" class="fin-edit" [value]="l.lote || ''" (change)="d.lotes[i].lote = $any($event.target).value" /></td>
-                    <td><input type="date" class="fin-edit" [value]="l.dataFabricacao || ''" (change)="d.lotes[i].dataFabricacao = $any($event.target).value" /></td>
-                    <td><input type="date" class="fin-edit" [value]="l.dataValidade || ''" (change)="d.lotes[i].dataValidade = $any($event.target).value" /></td>
-                    <td>{{ l.codigoAnvisa || '--' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+              }
+              @if (d.duplicatas.length === 0) {
+                <tr><td colspan="6" class="grid-vazio">Nenhuma duplicata. Use "Adicionar duplicata".</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="fin-dup-add">
+          <button class="btn-add-dup" (click)="adicionarDuplicata()">+ Adicionar duplicata</button>
+        </div>
 
-          <div class="fin-acoes fin-acoes-dual">
-            <button class="btn-voltar-etapa" (click)="finEtapa.set('duplicatas')">&#9664; Voltar</button>
-            <button class="btn-finalizar" [disabled]="finAplicando()" (click)="finalizar()">
-              @if (finAplicando()) { Finalizando... } @else { Finalizar Nota }
-            </button>
-          </div>
-        }
+        <div class="fin-checks">
+          <label class="check-label">
+            <input type="checkbox" [checked]="finDuplicatasEntregues()" (change)="finDuplicatasEntregues.set($any($event.target).checked)" />
+            <span>DUPLICATAS FORAM ENTREGUES</span>
+          </label>
+          <label class="check-label">
+            <input type="checkbox" [checked]="finNotaPaga()" (change)="finNotaPaga.set($any($event.target).checked)" />
+            <span>NOTA FISCAL JA FOI PAGA</span>
+          </label>
+        </div>
+
+        <div class="fin-acoes fin-acoes-dual">
+          <button class="btn-voltar-etapa" (click)="voltarDaFinalizacao()">&#9664; Voltar</button>
+          <button class="btn-finalizar" [disabled]="finAplicando()" (click)="finalizar()">
+            @if (finAplicando()) { Finalizando... } @else { Finalizar Nota }
+          </button>
+        </div>
       </div>
     }
   </div>

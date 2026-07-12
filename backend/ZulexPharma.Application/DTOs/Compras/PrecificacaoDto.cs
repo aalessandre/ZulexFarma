@@ -39,6 +39,9 @@ public class PrecificacaoItem
     public decimal Markup { get; set; }
     public decimal ProjecaoLucro { get; set; }
     public decimal Quantidade { get; set; }
+
+    /// <summary>True se o preco deste item ja foi aplicado (persistido) — pinta a linha verde ao reabrir.</summary>
+    public bool PrecificacaoAplicada { get; set; }
 }
 
 public class PrecificacaoResult
