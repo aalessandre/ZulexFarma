@@ -160,6 +160,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
   // ── Seleção de notas (checkboxes na lista) ─────────────────────
   notasSelecionadas = signal<Set<number>>(new Set());
 
+  // Vinculo em lote (passo 1): roda o re-vincular auto em cada nota selecionada.
+  vinculandoLote = signal(false);
+
   // ── Precificação ──────────────────────────────────────────────
   precificacaoItens = signal<PrecificacaoItem[]>([]);
   precificacaoCarregando = signal(false);
@@ -431,7 +434,9 @@ export class ComprasComponent implements OnInit, OnDestroy {
     }
     this.http.get<any>(this.apiUrl, { params }).subscribe({
       next: r => {
-        this.compras.set(r.data ?? []);
+        const lista: CompraList[] = r.data ?? [];
+        this.compras.set(lista);
+        this.podarSelecao(lista);
         this.carregando.set(false);
       },
       error: e => {
@@ -439,6 +444,20 @@ export class ComprasComponent implements OnInit, OnDestroy {
         this.carregando.set(false);
       }
     });
+  }
+
+  /**
+   * Poda a selecao pra conter so' notas ainda presentes na lista E selecionaveis.
+   * Sem isso, um id "fantasma" (nota finalizada ou fora do filtro atual) fica preso
+   * em notasSelecionadas e trava o gate dos passos (todasSelecionadasVinculadas falha
+   * porque notas.length !== sel.size) e faz o "Vincular" agir em notas invisiveis.
+   */
+  private podarSelecao(lista: CompraList[]) {
+    const atual = this.notasSelecionadas();
+    if (atual.size === 0) return;
+    const validos = new Set(lista.filter(c => this.isNotaSelecionavel(c)).map(c => c.id));
+    const podado = new Set([...atual].filter(id => validos.has(id)));
+    if (podado.size !== atual.size) this.notasSelecionadas.set(podado);
   }
 
   selecionar(compra: CompraList) {
@@ -533,6 +552,34 @@ export class ComprasComponent implements OnInit, OnDestroy {
         this.carregando.set(false);
       }
     });
+  }
+
+  /**
+   * Passo 1 em lote: para cada nota selecionada, roda o re-vincular (auto-match
+   * por codigo de barras/fornecedor — aditivo e idempotente no backend). Itens sem
+   * correspondencia continuam sem vinculo (precisam de cadastro manual na nota).
+   */
+  async vincularLote() {
+    const ids = Array.from(this.notasSelecionadas());
+    if (ids.length === 0 || this.vinculandoLote()) return;
+    this.vinculandoLote.set(true);
+    this.erro.set('');
+    let ok = 0, falhas = 0;
+    for (const id of ids) {
+      try {
+        await this.http.post<any>(`${this.apiUrl}/${id}/re-vincular`, {}).toPromise();
+        ok++;
+      } catch {
+        falhas++;
+      }
+    }
+    this.vinculandoLote.set(false);
+    this.carregar(); // atualiza contadores/coluna Vinculados (mantem a selecao)
+    if (falhas > 0) {
+      this.toastr.warning(`${ok} nota(s) revinculada(s), ${falhas} com erro. Itens sem correspondencia precisam de cadastro manual.`, 'Vinculo em lote', { timeOut: 5000, positionClass: 'toast-top-center' });
+    } else {
+      this.toastr.success(`${ok} nota(s) processada(s). Itens sem correspondencia ainda precisam de cadastro manual na nota.`, 'Vinculo em lote', { timeOut: 4000, positionClass: 'toast-top-center' });
+    }
   }
 
   // ── Vincular produto ──────────────────────────────────────────
@@ -1409,6 +1456,11 @@ export class ComprasComponent implements OnInit, OnDestroy {
     return c.totalItens > 0 && c.itensVinculados === c.totalItens && c.status !== 3; // 3 = Finalizada
   }
 
+  /** Selecionavel no fluxo (vinculo em lote/etapas): tem itens e nao esta finalizada/cancelada. */
+  isNotaSelecionavel(c: CompraList): boolean {
+    return c.totalItens > 0 && c.status !== 3 && c.status !== 4; // 3=Finalizada, 4=Cancelada
+  }
+
   toggleNotaSelecionada(id: number) {
     this.notasSelecionadas.update(s => {
       const novo = new Set(s);
@@ -1418,12 +1470,12 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   toggleTodasNotasSelecionadas() {
-    const completas = this.comprasFiltradas().filter(c => this.isNotaCompleta(c));
+    const selecionaveis = this.comprasFiltradas().filter(c => this.isNotaSelecionavel(c));
     const selecionadas = this.notasSelecionadas();
-    if (completas.length > 0 && completas.every(c => selecionadas.has(c.id))) {
+    if (selecionaveis.length > 0 && selecionaveis.every(c => selecionadas.has(c.id))) {
       this.notasSelecionadas.set(new Set());
     } else {
-      this.notasSelecionadas.set(new Set(completas.map(c => c.id)));
+      this.notasSelecionadas.set(new Set(selecionaveis.map(c => c.id)));
     }
   }
 
@@ -1431,9 +1483,20 @@ export class ComprasComponent implements OnInit, OnDestroy {
     return this.notasSelecionadas().has(id);
   }
 
-  todasNotasCompletasSelecionadas(): boolean {
-    const completas = this.comprasFiltradas().filter(c => this.isNotaCompleta(c));
-    return completas.length > 0 && completas.every(c => this.notasSelecionadas().has(c.id));
+  todasNotasSelecionaveisSelecionadas(): boolean {
+    const selecionaveis = this.comprasFiltradas().filter(c => this.isNotaSelecionavel(c));
+    return selecionaveis.length > 0 && selecionaveis.every(c => this.notasSelecionadas().has(c.id));
+  }
+
+  /**
+   * Todas as notas selecionadas estao 100% vinculadas (gate dos passos 2-5).
+   * Le da lista completa (compras()) pois uma selecionada pode estar fora do filtro.
+   */
+  todasSelecionadasVinculadas(): boolean {
+    const sel = this.notasSelecionadas();
+    if (sel.size === 0) return false;
+    const notas = this.compras().filter(c => sel.has(c.id));
+    return notas.length === sel.size && notas.every(c => this.isNotaCompleta(c));
   }
 
   qtdeNotasSelecionadas(): number {
@@ -1454,21 +1517,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
       1: 'status-preentrada', 2: 'status-conferencia', 3: 'status-finalizada', 4: 'status-cancelada'
     };
     return map[status] || '';
-  }
-
-  /** Na lista, se todos vinculados mostra badge verde mesmo sendo PreEntrada */
-  statusClassLista(c: CompraList): string {
-    if (c.status === 1 && c.totalItens > 0 && c.itensVinculados === c.totalItens) {
-      return 'status-vinculado-ok';
-    }
-    return this.statusClass(c.status);
-  }
-
-  statusLabelLista(c: CompraList): string {
-    if (c.status === 1 && c.totalItens > 0 && c.itensVinculados === c.totalItens) {
-      return 'Pre-Entrada OK';
-    }
-    return this.statusLabel(c.status);
   }
 
   totalVinculados(): number {

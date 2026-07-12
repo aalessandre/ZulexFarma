@@ -332,15 +332,64 @@
   font-size: var(--erp-fs-md);
   color: var(--erp-text-muted);
   flex-shrink: 0;
-  height: 52px;
+  min-height: 52px;   // cresce (wrap) em vez de cortar os passos em tela estreita/fonte grande
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  row-gap: 6px;
 
   strong { color: var(--erp-text); }
 }
 
 .rodape-sep { color: var(--erp-border); }
+
+/* ── Passo a passo no rodape (1 vincular -> 5 finalizar) ───────────── */
+.rodape-passos {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.passo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--erp-radius-sm);
+  color: #fff;
+  font-size: var(--erp-fs-md);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter .15s, transform .08s, opacity .15s;
+
+  &:hover:not(:disabled) { filter: brightness(1.08); }
+  &:active:not(:disabled) { transform: scale(0.97); }
+  &:disabled { opacity: .4; cursor: not-allowed; filter: grayscale(0.35); }
+
+  .passo-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    font-size: var(--erp-fs-xs);
+    font-weight: 800;
+  }
+}
+
+.passo-vincular       { background: linear-gradient(135deg, #2471a3, #2e86c1); }
+.passo-precificacao   { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
+.passo-conferencia    { background: linear-gradient(135deg, #d35400, #e67e22); }
+.passo-conferir-lotes { background: linear-gradient(135deg, #16a085, #27ae60); }
+.passo-finalizar      { background: linear-gradient(135deg, #1e8449, #27ae60); }
 
 /* ── Checkboxes ────────────────────────────────────────────────── */
 .grid-check {
@@ -379,7 +428,6 @@
 
 .status-pendente { background: #f8d7da; color: #721c24; }
 .status-preentrada { background: #fff3cd; color: #856404; }
-.status-vinculado-ok { background: #d4edda; color: #155724; }
 .status-conferencia { background: #cce5ff; color: #004085; }
 .status-finalizada { background: #d4edda; color: #155724; }
 .status-cancelada { background: #f8d7da; color: #721c24; }
