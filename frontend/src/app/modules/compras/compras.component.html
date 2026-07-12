@@ -656,7 +656,7 @@
           <h2>Conferir Lotes</h2>
           <div class="detalhe-meta">
             <span><strong>{{ confLotesNotas().length }}</strong> nota(s)</span>
-            <span class="vinc-dica">Informe lote, fabricacao e vencimento; use "+" pra adicionar linhas de lote.</span>
+            <span class="vinc-dica">Informe lote/fabricacao/vencimento e marque "Conferido" em cada item — grava na hora.</span>
           </div>
         </div>
       </div>
@@ -678,27 +678,29 @@
               </label>
             </div>
 
-            <table class="modal-cl-tabela">
+            <table class="erp-grid">
               <thead>
                 <tr>
-                  <th class="cl-icon-col"></th>
-                  <th>Codigo</th>
+                  <th style="width:52px"></th>
+                  <th style="width:90px">Codigo</th>
                   <th>Nome</th>
-                  <th>Fabricante</th>
-                  <th class="td-valor">Qtde</th>
-                  <th>Lote</th>
-                  <th>Fabricacao</th>
-                  <th>Vencimento</th>
-                  <th>Registro MS</th>
-                  <th class="cl-acao-col"></th>
+                  <th style="width:150px">Fabricante</th>
+                  <th class="td-valor" style="width:70px">Qtde</th>
+                  <th style="width:140px">Lote</th>
+                  <th style="width:130px">Fabricacao</th>
+                  <th style="width:130px">Vencimento</th>
+                  <th style="width:130px">Registro MS</th>
+                  <th style="width:120px">Conferido</th>
                 </tr>
               </thead>
               <tbody>
                 @for (item of nota.itens; track item.compraProdutoId; let itemIdx = $index) {
                   @for (lote of item.lotes; track $index; let loteIdx = $index) {
-                    <tr [class.cl-row-sngpc]="item.isSngpc" [class.cl-row-rastreavel]="!item.isSngpc && item.isRastreavel">
+                    <tr [class.cl-row-sngpc]="item.isSngpc"
+                        [class.cl-row-rastreavel]="!item.isSngpc && item.isRastreavel"
+                        [class.cl-item-conferido]="item.loteConferido">
                       @if (loteIdx === 0) {
-                        <td [attr.rowspan]="item.lotes.length" class="cl-icon-col">
+                        <td [attr.rowspan]="item.lotes.length" class="td-center">
                           @if (item.isSngpc) {
                             <span class="cl-badge-sngpc" title="Controlado SNGPC">SNGPC</span>
                           } @else if (item.isRastreavel) {
@@ -706,7 +708,7 @@
                           }
                         </td>
                         <td [attr.rowspan]="item.lotes.length">{{ item.codigo }}</td>
-                        <td [attr.rowspan]="item.lotes.length">{{ item.descricao }}</td>
+                        <td [attr.rowspan]="item.lotes.length" [title]="item.descricao">{{ item.descricao }}</td>
                         <td [attr.rowspan]="item.lotes.length">{{ item.fabricante }}</td>
                         <td [attr.rowspan]="item.lotes.length" class="td-valor">{{ item.quantidade | number:'1.0-4':'pt-BR' }}</td>
                       }
@@ -733,19 +735,22 @@
                                [value]="lote.registroMs"
                                (input)="atualizarLoteCampo(notaIdx, itemIdx, loteIdx, 'registroMs', $any($event.target).value)" />
                       </td>
-                      <td class="cl-acao-col">
-                        @if (item.lotes.length > 1) {
-                          <button class="cl-btn-remove" (click)="removerLoteLinha(notaIdx, itemIdx, loteIdx)" title="Remover lote">&times;</button>
-                        }
-                        @if (loteIdx === item.lotes.length - 1) {
-                          <button class="cl-btn-add" (click)="adicionarLoteLinha(notaIdx, itemIdx)" title="Adicionar lote">+</button>
-                        }
-                      </td>
+                      @if (loteIdx === 0) {
+                        <td [attr.rowspan]="item.lotes.length" class="td-center">
+                          <button class="cl-btn-conferido" [class.ativo]="item.loteConferido"
+                                  [disabled]="confItemConferindo() === item.compraProdutoId"
+                                  (click)="toggleItemConferido(notaIdx, item)">
+                            @if (item.loteConferido) { &#10004; Conferido } @else { Conferir }
+                          </button>
+                        </td>
+                      }
                     </tr>
                   }
                   @if (item.lotes.length === 0) {
-                    <tr [class.cl-row-sngpc]="item.isSngpc" [class.cl-row-rastreavel]="!item.isSngpc && item.isRastreavel">
-                      <td class="cl-icon-col">
+                    <tr [class.cl-row-sngpc]="item.isSngpc"
+                        [class.cl-row-rastreavel]="!item.isSngpc && item.isRastreavel"
+                        [class.cl-item-conferido]="item.loteConferido">
+                      <td class="td-center">
                         @if (item.isSngpc) {
                           <span class="cl-badge-sngpc">SNGPC</span>
                         } @else if (item.isRastreavel) {
@@ -753,12 +758,16 @@
                         }
                       </td>
                       <td>{{ item.codigo }}</td>
-                      <td>{{ item.descricao }}</td>
+                      <td [title]="item.descricao">{{ item.descricao }}</td>
                       <td>{{ item.fabricante }}</td>
                       <td class="td-valor">{{ item.quantidade | number:'1.0-4':'pt-BR' }}</td>
                       <td colspan="4" class="cl-sem-lote">Sem lote informado no XML</td>
-                      <td class="cl-acao-col">
-                        <button class="cl-btn-add" (click)="adicionarLoteLinha(notaIdx, itemIdx)" title="Adicionar lote">+</button>
+                      <td class="td-center">
+                        <button class="cl-btn-conferido" [class.ativo]="item.loteConferido"
+                                [disabled]="confItemConferindo() === item.compraProdutoId"
+                                (click)="toggleItemConferido(notaIdx, item)">
+                          @if (item.loteConferido) { &#10004; Conferido } @else { Conferir }
+                        </button>
                       </td>
                     </tr>
                   }

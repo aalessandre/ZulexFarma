@@ -304,6 +304,31 @@ public class ComprasController : ControllerBase
             return StatusCode(500, new { success = false, message = "Erro ao salvar conferência de lotes." });
         }
     }
+
+    /// <summary>
+    /// Marca/desmarca UM item como conferido, gravando na hora os lotes daquele item
+    /// (permite parar no meio da conferência e retomar sabendo o que já foi feito).
+    /// </summary>
+    [HttpPost("{compraId:long}/item-conferido/{compraProdutoId:long}")]
+    [Permissao("compras", "a")]
+    public async Task<IActionResult> MarcarItemConferido(long compraId, long compraProdutoId, [FromBody] SalvarItemConferidoDto dto)
+    {
+        try
+        {
+            var usuarioId = long.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+            await _service.MarcarItemConferidoAsync(compraId, compraProdutoId, usuarioId, dto);
+            return Ok(new { success = true });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em ComprasController.MarcarItemConferido | CompraId: {CompraId} ItemId: {ItemId}", compraId, compraProdutoId);
+            return StatusCode(500, new { success = false, message = "Erro ao marcar item conferido." });
+        }
+    }
 }
 
 public class ImportarXmlRequest

@@ -23,6 +23,9 @@ public class ConferenciaLotesItemDto
     /// <summary>Registro MS atual do Produto (pode ser editado e gera snapshot por lote).</summary>
     public string? RegistroMs { get; set; }
 
+    /// <summary>True se o usuário já marcou este item como conferido (persistido).</summary>
+    public bool LoteConferido { get; set; }
+
     /// <summary>Lista de lotes deste item (podem ser 0, 1 ou N).</summary>
     public List<ConferenciaLoteLinhaDto> Lotes { get; set; } = new();
 }
@@ -87,4 +90,15 @@ public class SalvarConferenciaLoteLinhaDto
     public DateTime? DataValidade { get; set; }
     public decimal Quantidade { get; set; }
     public string? RegistroMs { get; set; }
+}
+
+/// <summary>
+/// Marca (ou desmarca) UM item como conferido, gravando na hora os lotes daquele item
+/// para o usuário poder parar no meio da conferência e retomar de onde parou.
+/// </summary>
+public class SalvarItemConferidoDto
+{
+    public bool Conferido { get; set; }
+    public string? RegistroMs { get; set; }
+    public List<SalvarConferenciaLoteLinhaDto> Lotes { get; set; } = new();
 }

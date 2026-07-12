@@ -1477,7 +1477,8 @@ public class CompraService : ICompraService
                 UnidadeXml = item.UnidadeXml,
                 IsSngpc = isSngpc,
                 IsRastreavel = isRastreavel,
-                RegistroMs = registroMsAtual
+                RegistroMs = registroMsAtual,
+                LoteConferido = item.LoteConferido
             };
 
             // Se não tem lotes do XML mas tem lote simples no CompraProduto, cria 1 linha sintética
@@ -1543,97 +1544,7 @@ public class CompraService : ICompraService
         {
             var item = compra.Produtos.FirstOrDefault(p => p.Id == itemDto.CompraProdutoId);
             if (item == null) continue;
-
-            // Valores existentes indexados por ID pra detectar edições/remoções
-            var existentesPorId = item.Lotes.ToDictionary(l => l.Id);
-            var idsRecebidos = itemDto.Lotes.Where(l => l.Id.HasValue).Select(l => l.Id!.Value).ToHashSet();
-
-            // Remove lotes que o usuário tirou (não foram enviados)
-            foreach (var velho in item.Lotes.Where(l => !idsRecebidos.Contains(l.Id)).ToList())
-            {
-                _db.ComprasProdutosLotes.Remove(velho);
-            }
-
-            foreach (var loteDto in itemDto.Lotes)
-            {
-                if (loteDto.Id.HasValue && existentesPorId.TryGetValue(loteDto.Id.Value, out var existente))
-                {
-                    // Atualização — detecta edição e grava snapshot
-                    bool mudou =
-                        existente.NumeroLote != loteDto.NumeroLote ||
-                        existente.DataFabricacao != loteDto.DataFabricacao ||
-                        existente.DataValidade != loteDto.DataValidade ||
-                        existente.Quantidade != loteDto.Quantidade ||
-                        existente.RegistroMs != loteDto.RegistroMs;
-
-                    if (mudou)
-                    {
-                        auditoriaEdicoes.Add(new Dictionary<string, string?>
-                        {
-                            ["ItemId"] = item.Id.ToString(),
-                            ["LoteId"] = existente.Id.ToString(),
-                            ["NumeroLote (antes)"] = existente.NumeroLote,
-                            ["NumeroLote (depois)"] = loteDto.NumeroLote,
-                            ["Validade (antes)"] = existente.DataValidade?.ToString("dd/MM/yyyy"),
-                            ["Validade (depois)"] = loteDto.DataValidade?.ToString("dd/MM/yyyy"),
-                            ["Fabricacao (antes)"] = existente.DataFabricacao?.ToString("dd/MM/yyyy"),
-                            ["Fabricacao (depois)"] = loteDto.DataFabricacao?.ToString("dd/MM/yyyy"),
-                            ["RegistroMs (antes)"] = existente.RegistroMs,
-                            ["RegistroMs (depois)"] = loteDto.RegistroMs
-                        });
-
-                        existente.NumeroLote = loteDto.NumeroLote;
-                        existente.DataFabricacao = loteDto.DataFabricacao;
-                        existente.DataValidade = loteDto.DataValidade;
-                        existente.Quantidade = loteDto.Quantidade;
-                        existente.RegistroMs = loteDto.RegistroMs;
-                        existente.EditadoPeloUsuario = true;
-                        existente.EditadoEm = agora;
-                        existente.EditadoPorUsuarioId = usuarioId;
-                    }
-                }
-                else
-                {
-                    // Novo lote adicionado pelo usuário
-                    _db.ComprasProdutosLotes.Add(new CompraProdutoLote
-                    {
-                        CompraProdutoId = item.Id,
-                        NumeroLote = loteDto.NumeroLote,
-                        DataFabricacao = loteDto.DataFabricacao,
-                        DataValidade = loteDto.DataValidade,
-                        Quantidade = loteDto.Quantidade,
-                        RegistroMs = loteDto.RegistroMs,
-                        // Snapshot original == valores informados (não veio do XML)
-                        NumeroLoteOriginal = loteDto.NumeroLote,
-                        DataFabricacaoOriginal = loteDto.DataFabricacao,
-                        DataValidadeOriginal = loteDto.DataValidade,
-                        RegistroMsOriginal = loteDto.RegistroMs,
-                        EditadoPeloUsuario = true,
-                        EditadoEm = agora,
-                        EditadoPorUsuarioId = usuarioId
-                    });
-
-                    auditoriaEdicoes.Add(new Dictionary<string, string?>
-                    {
-                        ["ItemId"] = item.Id.ToString(),
-                        ["LoteId"] = "(novo)",
-                        ["NumeroLote"] = loteDto.NumeroLote,
-                        ["Validade"] = loteDto.DataValidade?.ToString("dd/MM/yyyy"),
-                        ["Quantidade"] = loteDto.Quantidade.ToString("N3"),
-                        ["Origem"] = "Adicionado manualmente na conferência"
-                    });
-                }
-            }
-
-            // Também atualiza o "lote primário" no CompraProduto para o primeiro lote
-            // (manter backward compat / controle simples quando SNGPC desativado)
-            var primeiroLote = itemDto.Lotes.FirstOrDefault();
-            if (primeiroLote != null)
-            {
-                item.Lote = primeiroLote.NumeroLote;
-                item.DataFabricacao = primeiroLote.DataFabricacao;
-                item.DataValidade = primeiroLote.DataValidade;
-            }
+            AplicarLotesDoItem(item, itemDto, usuarioId, agora, auditoriaEdicoes);
         }
 
         compra.LotesConferidos = true;
@@ -1655,6 +1566,143 @@ public class CompraService : ICompraService
         {
             await _log.RegistrarAsync("Compras", "EDIÇÃO LOTE", "CompraProdutoLote",
                 long.Parse(edicao["ItemId"] ?? "0"), novo: edicao);
+        }
+    }
+
+    /// <summary>
+    /// Marca/desmarca UM item como conferido, gravando na hora os lotes daquele item.
+    /// Permite o usuário parar no meio da conferência e retomar sabendo o que já foi feito.
+    /// NÃO mexe no flag de nota (LotesConferidos) — isso é do "Confirmar Conferência".
+    /// </summary>
+    public async Task MarcarItemConferidoAsync(long compraId, long compraProdutoId, long usuarioId, SalvarItemConferidoDto dto)
+    {
+        var item = await _db.ComprasProdutos
+            .Include(p => p.Lotes)
+            .FirstOrDefaultAsync(p => p.Id == compraProdutoId && p.CompraId == compraId)
+            ?? throw new KeyNotFoundException($"Item {compraProdutoId} da compra {compraId} não encontrado.");
+
+        var agora = DateTime.UtcNow;
+        var auditoria = new List<Dictionary<string, string?>>();
+
+        // Grava os lotes deste item na hora (mesma lógica do salvar em lote).
+        AplicarLotesDoItem(item, new SalvarConferenciaLotesItemDto
+        {
+            CompraProdutoId = compraProdutoId,
+            RegistroMs = dto.RegistroMs,
+            Lotes = dto.Lotes
+        }, usuarioId, agora, auditoria);
+
+        item.LoteConferido = dto.Conferido;
+        item.LoteConferidoEm = dto.Conferido ? agora : null;
+
+        await _db.SaveChangesAsync();
+
+        await _log.RegistrarAsync("Compras", dto.Conferido ? "ITEM CONFERIDO" : "ITEM DESMARCADO",
+            "CompraProduto", compraProdutoId, novo: new Dictionary<string, string?>
+            {
+                ["CompraId"] = compraId.ToString(),
+                ["Conferido"] = dto.Conferido.ToString(),
+                ["Lotes"] = dto.Lotes.Count.ToString()
+            });
+    }
+
+    /// <summary>
+    /// Persiste os lotes de UM item (remove/atualiza/insere em ComprasProdutosLotes) e
+    /// sincroniza o lote primário no próprio CompraProduto. Acumula auditoria de edições.
+    /// Reutilizado pelo salvar em lote e pelo marcar-item-conferido.
+    /// </summary>
+    private void AplicarLotesDoItem(CompraProduto item, SalvarConferenciaLotesItemDto itemDto,
+        long usuarioId, DateTime agora, List<Dictionary<string, string?>> auditoriaEdicoes)
+    {
+        // Valores existentes indexados por ID pra detectar edições/remoções
+        var existentesPorId = item.Lotes.ToDictionary(l => l.Id);
+        var idsRecebidos = itemDto.Lotes.Where(l => l.Id.HasValue).Select(l => l.Id!.Value).ToHashSet();
+
+        // Remove lotes que o usuário tirou (não foram enviados)
+        foreach (var velho in item.Lotes.Where(l => !idsRecebidos.Contains(l.Id)).ToList())
+        {
+            _db.ComprasProdutosLotes.Remove(velho);
+        }
+
+        foreach (var loteDto in itemDto.Lotes)
+        {
+            if (loteDto.Id.HasValue && existentesPorId.TryGetValue(loteDto.Id.Value, out var existente))
+            {
+                // Atualização — detecta edição e grava snapshot
+                bool mudou =
+                    existente.NumeroLote != loteDto.NumeroLote ||
+                    existente.DataFabricacao != loteDto.DataFabricacao ||
+                    existente.DataValidade != loteDto.DataValidade ||
+                    existente.Quantidade != loteDto.Quantidade ||
+                    existente.RegistroMs != loteDto.RegistroMs;
+
+                if (mudou)
+                {
+                    auditoriaEdicoes.Add(new Dictionary<string, string?>
+                    {
+                        ["ItemId"] = item.Id.ToString(),
+                        ["LoteId"] = existente.Id.ToString(),
+                        ["NumeroLote (antes)"] = existente.NumeroLote,
+                        ["NumeroLote (depois)"] = loteDto.NumeroLote,
+                        ["Validade (antes)"] = existente.DataValidade?.ToString("dd/MM/yyyy"),
+                        ["Validade (depois)"] = loteDto.DataValidade?.ToString("dd/MM/yyyy"),
+                        ["Fabricacao (antes)"] = existente.DataFabricacao?.ToString("dd/MM/yyyy"),
+                        ["Fabricacao (depois)"] = loteDto.DataFabricacao?.ToString("dd/MM/yyyy"),
+                        ["RegistroMs (antes)"] = existente.RegistroMs,
+                        ["RegistroMs (depois)"] = loteDto.RegistroMs
+                    });
+
+                    existente.NumeroLote = loteDto.NumeroLote;
+                    existente.DataFabricacao = loteDto.DataFabricacao;
+                    existente.DataValidade = loteDto.DataValidade;
+                    existente.Quantidade = loteDto.Quantidade;
+                    existente.RegistroMs = loteDto.RegistroMs;
+                    existente.EditadoPeloUsuario = true;
+                    existente.EditadoEm = agora;
+                    existente.EditadoPorUsuarioId = usuarioId;
+                }
+            }
+            else
+            {
+                // Novo lote adicionado pelo usuário
+                _db.ComprasProdutosLotes.Add(new CompraProdutoLote
+                {
+                    CompraProdutoId = item.Id,
+                    NumeroLote = loteDto.NumeroLote,
+                    DataFabricacao = loteDto.DataFabricacao,
+                    DataValidade = loteDto.DataValidade,
+                    Quantidade = loteDto.Quantidade,
+                    RegistroMs = loteDto.RegistroMs,
+                    // Snapshot original == valores informados (não veio do XML)
+                    NumeroLoteOriginal = loteDto.NumeroLote,
+                    DataFabricacaoOriginal = loteDto.DataFabricacao,
+                    DataValidadeOriginal = loteDto.DataValidade,
+                    RegistroMsOriginal = loteDto.RegistroMs,
+                    EditadoPeloUsuario = true,
+                    EditadoEm = agora,
+                    EditadoPorUsuarioId = usuarioId
+                });
+
+                auditoriaEdicoes.Add(new Dictionary<string, string?>
+                {
+                    ["ItemId"] = item.Id.ToString(),
+                    ["LoteId"] = "(novo)",
+                    ["NumeroLote"] = loteDto.NumeroLote,
+                    ["Validade"] = loteDto.DataValidade?.ToString("dd/MM/yyyy"),
+                    ["Quantidade"] = loteDto.Quantidade.ToString("N3"),
+                    ["Origem"] = "Adicionado manualmente na conferência"
+                });
+            }
+        }
+
+        // Também atualiza o "lote primário" no CompraProduto para o primeiro lote
+        // (manter backward compat / controle simples quando SNGPC desativado)
+        var primeiroLote = itemDto.Lotes.FirstOrDefault();
+        if (primeiroLote != null)
+        {
+            item.Lote = primeiroLote.NumeroLote;
+            item.DataFabricacao = primeiroLote.DataFabricacao;
+            item.DataValidade = primeiroLote.DataValidade;
         }
     }
 }

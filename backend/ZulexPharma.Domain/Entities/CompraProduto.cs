@@ -45,6 +45,8 @@ public class CompraProduto : BaseEntity
     // ── Conferência ─────────────────────────────────────────────
     public decimal QtdeConferida { get; set; }
     public string? InfoAdicional { get; set; }
+    public bool LoteConferido { get; set; }          // item marcado como conferido na tela de lotes
+    public DateTime? LoteConferidoEm { get; set; }
 
     // ── Sugestão de preço (preenchido na precificação, aplicado na finalização) ──
     public decimal? SugestaoVenda { get; set; }
