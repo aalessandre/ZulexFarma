@@ -248,7 +248,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
   finAplicando = signal(false);
   finDuplicatasEntregues = signal(false);
   finNotaPaga = signal(false);
-  finEtapa = signal<'duplicatas' | 'lotes'>('duplicatas');
 
   // ── Conferência ───────────────────────────────────────────────
   confItens = signal<CompraProduto[]>([]);
@@ -840,7 +839,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
         this.finDados.set(r.data);
         this.finDuplicatasEntregues.set(false);
         this.finNotaPaga.set(false);
-        this.finEtapa.set('duplicatas');
         this.modo.set('finalizacao');
         this.finCarregando.set(false);
       },
@@ -855,6 +853,23 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.modo.set('lista');
     this.finDados.set(null);
     this.carregar();
+  }
+
+  /** Adiciona uma linha de duplicata (o usuario pode lancar mais de uma). */
+  adicionarDuplicata() {
+    this.finDados.update((d: any) => {
+      if (!d) return d;
+      const duplicatas = d.duplicatas ?? [];
+      const nova = { numero: String(duplicatas.length + 1).padStart(3, '0'), vencimento: '', descontos: 0, encargos: 0, valor: 0 };
+      return { ...d, duplicatas: [...duplicatas, nova] };
+    });
+  }
+
+  removerDuplicata(i: number) {
+    this.finDados.update((d: any) => {
+      if (!d) return d;
+      return { ...d, duplicatas: (d.duplicatas ?? []).filter((_: any, idx: number) => idx !== i) };
+    });
   }
 
   finalizar() {
@@ -1181,9 +1196,11 @@ export class ComprasComponent implements OnInit, OnDestroy {
       compraIds: Array.from(selecionadas)
     }).subscribe({
       next: r => {
-        this.precificacaoItens.set(r.data?.itens ?? []);
+        const itens = r.data?.itens ?? [];
+        this.precificacaoItens.set(itens);
         this.precSelecionados.set(new Set());
-        this.precAplicados.set(new Set());
+        // Verde persistente: itens que ja tiveram preco aplicado (flag do backend).
+        this.precAplicados.set(new Set(itens.filter((i: any) => i.precificacaoAplicada).map((i: any) => i.produtoDadosId)));
         this.modo.set('precificacao');
         this.precificacaoCarregando.set(false);
       },
@@ -1382,7 +1399,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
         }).subscribe({
           next: r => {
             this.precAplicando.set(false);
-            this.precAplicados.update(s => new Set([...s, ...itens.map(i => i.produtoDadosId)]));
+            // FINALIZACAO nao "aplica" agora (fica pendente ate finalizar), entao nao pinta verde.
             this.precSelecionados.set(new Set());
             this.abrirPrecModal('Sugestoes Salvas',
               `${r.data?.salvos || 0} sugestao(oes) salva(s). Serao aplicadas na finalizacao da nota.`, null);
@@ -1447,7 +1464,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   getPrecCellValue(item: any, campo: string): string {
     if (campo === 'ajustado') {
-      return item.precoVendaAtual === item.novoPrecoVenda && item.novoPrecoVenda > 0 ? '✓' : '';
+      // Status = "aplicado": ✓ para itens cujo preco ja foi aplicado (sincronizado com o verde).
+      return this.precAplicados().has(item.produtoDadosId) ? '✓' : '';
     }
     const v = item[campo];
     if (v === null || v === undefined) return '--';
@@ -1457,7 +1475,7 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   getAjustadoClass(item: any): string {
-    return item.precoVendaAtual === item.novoPrecoVenda && item.novoPrecoVenda > 0 ? 'ajustado-ok' : '';
+    return this.precAplicados().has(item.produtoDadosId) ? 'ajustado-ok' : '';
   }
 
   isVarColumn(campo: string): boolean { return campo.startsWith('var'); }
@@ -1692,11 +1710,12 @@ export class ComprasComponent implements OnInit, OnDestroy {
       // Editou um lote -> o item deixa de estar "conferido" (o botao volta pra "Conferir"
       // pra reconfirmar/gravar): evita a edicao se perder com o item marcado como salvo.
       novosItens[itemIdx] = { ...item, lotes: novoLotes, loteConferido: false };
-      return { ...nota, itens: novosItens };
+      // A nota tambem deixa de estar "conferida" (senao o cabecalho 'Ja conferida' mascara a edicao).
+      return { ...nota, itens: novosItens, lotesConferidos: false, lotesConferidosEm: null };
     });
   }
 
-  /** Salva a conferencia de cada nota (loop por compra — o endpoint e' por-nota). */
+  /** "Confirmar Todos": salva a conferencia de cada nota e marca TODOS os itens como conferido. */
   async salvarConferirLotes() {
     const notas = this.confLotesNotas();
     if (notas.length === 0 || this.confLotesSalvando()) return;
@@ -1740,8 +1759,15 @@ export class ComprasComponent implements OnInit, OnDestroy {
     }
     this.confLotesSalvando.set(false);
     if (falhas === 0) {
-      this.toastr.success(`Conferencia de lotes salva (${ok} nota(s)).`);
-      this.voltarDoConferirLotes();
+      // Marca todos os itens como conferido (o backend ja gravou) e FICA na tela mostrando o resultado.
+      const agora = new Date().toISOString();
+      this.confLotesNotas.update(ns => ns.map(n => ({
+        ...n,
+        lotesConferidos: true,
+        lotesConferidosEm: agora,
+        itens: n.itens.map((i: any) => ({ ...i, loteConferido: true }))
+      })));
+      this.toastr.success(`Conferencia salva — ${ok} nota(s), todos os itens conferidos.`);
     } else {
       this.modal.erro('Erro', `${ok} nota(s) salva(s), ${falhas} com erro. Revise e tente novamente.`);
     }

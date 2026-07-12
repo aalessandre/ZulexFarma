@@ -593,7 +593,8 @@ public class CompraService : ICompraService
                 PmcAbcFarma = pmcAbcFarma,
                 Markup = markup,
                 ProjecaoLucro = projecao,
-                Quantidade = item.Quantidade
+                Quantidade = item.Quantidade,
+                PrecificacaoAplicada = item.PrecificacaoAplicada
             });
         }
 
@@ -1545,6 +1546,9 @@ public class CompraService : ICompraService
             var item = compra.Produtos.FirstOrDefault(p => p.Id == itemDto.CompraProdutoId);
             if (item == null) continue;
             AplicarLotesDoItem(item, itemDto, usuarioId, agora, auditoriaEdicoes);
+            // "Confirmar todos" tambem marca cada item como conferido.
+            item.LoteConferido = true;
+            item.LoteConferidoEm = agora;
         }
 
         compra.LotesConferidos = true;

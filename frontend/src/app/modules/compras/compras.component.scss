@@ -1341,3 +1341,12 @@ tr.prec-aplicado > td { background-color: #e9f9ef !important; }
 :host-context([data-tema="escuro"]) .erp-grid tbody tr.cl-row-sngpc > td { background-color: rgba(22, 160, 133, 0.16); }
 :host-context([data-tema="escuro"]) .erp-grid tbody tr.cl-row-rastreavel > td { background-color: rgba(243, 156, 18, 0.14); }
 :host-context([data-tema="escuro"]) .erp-grid tbody tr.cl-item-conferido > td { background-color: rgba(39, 174, 96, 0.16); }
+
+/* Adicionar duplicata (finalizacao) */
+.fin-dup-add { margin: 8px 0 4px; }
+.btn-add-dup {
+  padding: 5px 12px; border: 1px dashed var(--erp-border-input); border-radius: 4px;
+  background: transparent; color: var(--erp-blue); font-size: var(--erp-fs-md); font-weight: 600;
+  cursor: pointer;
+  &:hover { background: rgba(44, 95, 173, 0.08); border-style: solid; }
+}
