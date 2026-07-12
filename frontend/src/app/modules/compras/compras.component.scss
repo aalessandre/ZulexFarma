@@ -1175,3 +1175,19 @@
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* ── Modal do cadastro de produto (entrada de nota) ─────────────────── */
+.cx-prod-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(20, 30, 45, .45); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.cx-prod-modal {
+  background: #fff; width: 1280px; max-width: 97vw; height: 90vh; max-height: 90vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  border-radius: 14px; box-shadow: 0 24px 70px rgba(0, 0, 0, .35);
+  animation: cx-prod-in .18s ease-out;
+}
+@keyframes cx-prod-in { from { opacity: 0; transform: scale(.96) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+/* o ProdutosComponent preenche o modal */
+.cx-prod-modal app-produtos { display: flex; flex: 1; min-height: 0; }

@@ -1174,3 +1174,14 @@
     </div>
   </div>
 }
+
+<!-- Modal: cadastro de produto (entrada de nota) — reusa o ProdutosComponent -->
+@if (modalCadastroProduto()) {
+  <div class="cx-prod-overlay">
+    <div class="cx-prod-modal">
+      <app-produtos [modalMode]="true"
+                    (salvo)="onProdutoCadastrado($event)"
+                    (fecharCadastroModal)="fecharModalCadastroProduto()" />
+    </div>
+  </div>
+}

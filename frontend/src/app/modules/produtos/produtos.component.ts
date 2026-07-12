@@ -1,4 +1,4 @@
-import { Component, signal, computed, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, HostListener, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -230,6 +230,13 @@ const NOME_ABA_MAP: Record<string, string> = {
 })
 export class ProdutosComponent implements OnInit, OnDestroy {
 
+  // ── Modo modal (cadastro pela entrada de nota — esconde sidebar/abas) ──
+  modalMode = input(false);
+  /** Emite o produto recém-criado (id + nome) — o chamador faz o vínculo. */
+  salvo = output<{ id: number; nome: string }>();
+  /** Pede pro chamador fechar o modal. */
+  fecharCadastroModal = output<void>();
+
   // ── Abas ──────────────────────────────────────────────────────────
   abaAtiva = signal<AbaAtiva>('produtos');
 
@@ -390,6 +397,13 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    // Modo modal (entrada de nota): abre direto no form via pré-cadastro; sem lista/estado.
+    if (this.modalMode()) {
+      this.carregarFiliais();
+      this.carregarFlagsCadastro();
+      this.verificarPreCadastroCompra();
+      return;
+    }
     const restaurou = this.restaurarEstado();
     if (!restaurou && !this.isProdutoAba()) this.carregar();
     this.carregarFiliais();
@@ -453,12 +467,18 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       this.abaAtiva.set('produtos');
 
       // Aguardar filiais carregarem, depois abrir o form
-      const interval = setInterval(async () => {
+      this.preCadastroInterval = setInterval(async () => {
         const filiais = this.filiaisDisponiveis();
         if (filiais.length === 0) return;
-        clearInterval(interval);
+        clearInterval(this.preCadastroInterval);
+        clearTimeout(this.preCadastroTimeout);
 
-        if (!await this.verificarPermissao('i')) return;
+        if (!await this.verificarPermissao('i')) {
+          // Sem permissão de inserir: no modo modal, fecha o modal (senão fica
+          // preso na tela de "preparando"); no modo aba, apenas aborta.
+          if (this.modalMode()) this.fecharCadastroModal.emit();
+          return;
+        }
 
         const novo = this.novoProdutoForm();
         novo.nome = (pre.nome || '').toUpperCase();
@@ -574,7 +594,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       }, 100);
 
       // Safety: limpar interval após 10s
-      setTimeout(() => clearInterval(interval), 10000);
+      this.preCadastroTimeout = setTimeout(() => clearInterval(this.preCadastroInterval), 10000);
     } catch { /* ignore parse errors */ }
   }
 
@@ -582,6 +602,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   // sobrescreve a filial selecionada (senão o /sync/status resolveria depois e
   // voltaria pra filial local, escondendo os custos preenchidos da NF).
   private preCadastroFilial: number | null = null;
+
+  // Timers do pré-cadastro (aguardam filiais). Guardados em campos pra serem
+  // limpos no ngOnDestroy — senão, no modo modal, fechar antes do /filiais
+  // resolver deixa o interval zumbi rodando o pré-cadastro na instância morta.
+  private preCadastroInterval: any = null;
+  private preCadastroTimeout: any = null;
 
   private carregarFiliais() {
     this.http.get<any>(`${environment.apiUrl}/filiais`).subscribe({
@@ -647,6 +673,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   sairDaTela() {
+    if (this.modalMode()) { this.fecharCadastroModal.emit(); return; }
     this.abasEdicao.set([]);
     this.abaAtivaId.set(null);
     sessionStorage.removeItem(this.STORAGE_KEY_ESTADO);
@@ -905,6 +932,7 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   fecharForm() {
+    if (this.modalMode()) { this.fecharCadastroModal.emit(); return; }
     if (this.isProdutoAba()) {
       const key = this.abaAtivaId();
       if (key != null) {
@@ -1070,6 +1098,8 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     clearTimeout(this.buscaProdutoTimer);
+    clearInterval(this.preCadastroInterval);
+    clearTimeout(this.preCadastroTimeout);
     sessionStorage.removeItem(this.STORAGE_KEY_ESTADO);
   }
 
@@ -1291,6 +1321,12 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       next: (r: any) => {
         this.salvando.set(false); this.isDirty.set(false);
         if (!this.modoEdicao() && r?.data) {
+          // Modo modal (entrada de nota): avisa o chamador (que faz o vínculo) e fecha.
+          if (this.modalMode()) {
+            this.salvo.emit({ id: r.data.id, nome: r.data.nome });
+            this.fecharCadastroModal.emit();
+            return;
+          }
           // Atualizar aba: trocar key temporária pelo ID real
           const oldKey = this.abaAtivaId();
           const newId = r.data.id;
