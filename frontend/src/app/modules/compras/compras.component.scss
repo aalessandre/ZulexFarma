@@ -390,6 +390,43 @@
 .passo-vincular       { background: linear-gradient(135deg, #2471a3, #2e86c1); }
 .passo-voltar         { background: linear-gradient(135deg, #6b7684, #8895a6); }
 .passo-auto           { background: linear-gradient(135deg, #2980b9, #3498db); }
+
+/* ── Tela Conferir Lotes (1+ notas): uma secao por nota ──────────────── */
+.cl-nota-secao {
+  margin-bottom: 18px;
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius-sm);
+  overflow: hidden;
+}
+.cl-nota-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--erp-surface);
+  border-bottom: 1px solid var(--erp-border);
+}
+.cl-nota-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: var(--erp-fs-body);
+  color: var(--erp-text);
+  .modal-cl-ja-conferido { background: #d4edda; color: #155724; }
+}
+.cl-nota-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--erp-text-muted);
+  input { cursor: pointer; }
+}
 .passo-precificacao   { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
 .passo-conferencia    { background: linear-gradient(135deg, #d35400, #e67e22); }
 .passo-conferir-lotes { background: linear-gradient(135deg, #16a085, #27ae60); }
