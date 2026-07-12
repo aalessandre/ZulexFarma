@@ -1576,3 +1576,21 @@
   &:hover:not(:disabled) { filter: brightness(1.08); }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
+
+/* ── Header do cadastro em modal (entrada de nota) ─────────────────── */
+.prod-modal-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 18px; border-bottom: 1px solid var(--erp-border, #e8ecf1); flex-shrink: 0;
+}
+.prod-modal-titulo { font-size: 16px; font-weight: 700; color: var(--erp-primary, #1f3a52); }
+.prod-modal-x {
+  background: none; border: none; font-size: 26px; line-height: 1; color: #8895a6; cursor: pointer;
+  padding: 0 6px; border-radius: 6px; transition: background .12s, color .12s;
+  &:hover { background: #fde8e8; color: #c0392b; }
+  &:disabled { opacity: .4; cursor: not-allowed; background: none; color: #8895a6; }
+}
+
+.prod-modal-loading {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 220px; padding: 40px; color: #6b7684; font-size: 15px; font-weight: 500;
+}

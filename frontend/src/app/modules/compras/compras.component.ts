@@ -6,8 +6,8 @@ import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { ModalService } from '../../core/services/modal.service';
-import { TabService } from '../../core/services/tab.service';
 import { ToastrService } from 'ngx-toastr';
+import { ProdutosComponent } from '../produtos/produtos.component';
 
 interface CompraList {
   id: number;
@@ -109,7 +109,7 @@ interface PrecificacaoItem {
 @Component({
   selector: 'app-compras',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ProdutosComponent],
   templateUrl: './compras.component.html',
   styleUrls: ['./compras.component.scss']
 })
@@ -297,7 +297,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private auth: AuthService,
     private modal: ModalService,
-    private tabService: TabService,
     private toastr: ToastrService
   ) {}
 
@@ -654,7 +653,11 @@ export class ComprasComponent implements OnInit, OnDestroy {
     });
   }
 
-  cadastrarProduto() {
+  async cadastrarProduto() {
+    // Vincular o produto recém-criado exige 'compras/a' (igual ao vínculo manual).
+    // Checa ANTES de abrir o cadastro: evita criar produto órfão sem poder vincular
+    // e captura o token de liberação do supervisor pro vínculo automático (headerLiberacao).
+    if (!await this.verificarPermissao('a')) return;
     const item = this.itemParaVincular();
     const detalhe = this.compraDetalhe();
     if (item && detalhe) {
@@ -686,13 +689,38 @@ export class ComprasComponent implements OnInit, OnDestroy {
         aliquotaCofins: item.fiscal?.aliquotaCofins ?? 0,
         codigoAnvisa: item.codigoAnvisa,
       }));
+      // Guarda o item pra vincular automaticamente quando o produto for salvo.
+      this.cadastroItemId.set(item.id);
     }
     this.fecharModalVincular();
-    this.tabService.abrirTab({
-      id: 'gerenciar-produtos',
-      titulo: 'Gerenciar Produtos',
-      rota: '/erp/gerenciar-produtos',
-      iconKey: 'pill'
+    // Abre o cadastro de produto como MODAL sobre a entrada de nota (o pré-cadastro
+    // vai via sessionStorage; ao salvar, o modal emite e a gente vincula sozinho).
+    this.modalCadastroProduto.set(true);
+  }
+
+  // ── Cadastro de produto em modal (entrada de nota) ─────────────────
+  modalCadastroProduto = signal(false);
+  cadastroItemId = signal<number | null>(null);
+
+  fecharModalCadastroProduto() {
+    this.modalCadastroProduto.set(false);
+    this.cadastroItemId.set(null);
+    sessionStorage.removeItem('zulex_preCadastroProduto');
+  }
+
+  /** O produto acabou de ser criado no modal → vincula no item da nota e fecha. */
+  onProdutoCadastrado(produto: { id: number; nome: string }) {
+    const compraProdutoId = this.cadastroItemId();
+    this.modalCadastroProduto.set(false);
+    this.cadastroItemId.set(null);
+    if (!compraProdutoId) return;
+    this.vinculando.set(compraProdutoId);
+    const headers = this.headerLiberacao();
+    this.http.post<any>(`${this.apiUrl}/vincular`,
+      { compraProdutoId, produtoId: produto.id }, { headers }
+    ).subscribe({
+      next: r => { this.atualizarItemNoDetalhe(r.data); this.vinculando.set(null); },
+      error: e => { this.erro.set(e?.error?.message || 'Produto criado, mas houve erro ao vincular.'); this.vinculando.set(null); }
     });
   }
 

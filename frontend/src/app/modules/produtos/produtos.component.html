@@ -1,6 +1,7 @@
 <div class="tela-erp">
 
   <!-- SIDEBAR -->
+  @if (!modalMode()) {
   <aside class="tela-sidebar">
     <div class="sidebar-item tile-procurar" [class.ativo]="modo() === 'lista'" (click)="salvarEstadoAbaAtiva(); modo.set('lista'); isProdutoAba() ? pesquisarProdutos() : carregar()">
       <div class="sidebar-item-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Procurar</span></div>
@@ -42,10 +43,20 @@
       }
     }
   </aside>
+  }
 
   <!-- MAIN -->
   <div class="tela-main">
 
+    @if (modalMode()) {
+      <div class="prod-modal-header">
+        <span class="prod-modal-titulo">Cadastrar Produto — entrada de nota</span>
+        <button class="prod-modal-x" (click)="fecharCadastroModal.emit()" [disabled]="salvando()"
+                title="Fechar">&times;</button>
+      </div>
+    }
+
+    @if (!modalMode()) {
     <!-- ABAS COLORIDAS -->
     <div class="produto-abas">
       @for (aba of abas; track aba.id) {
@@ -60,6 +71,7 @@
         </button>
       }
     </div>
+    }
 
     <!-- LISTA (abas classificação — NÃO produtos) -->
     @if (modo() === 'lista' && isAbaImplementada() && !isProdutoAba()) {
@@ -172,8 +184,8 @@
       </div>
     }
 
-    <!-- LISTA PRODUTOS -->
-    @if (isProdutoAba() && modo() === 'lista') {
+    <!-- LISTA PRODUTOS (nunca no modo modal — lá abre direto no form) -->
+    @if (!modalMode() && isProdutoAba() && modo() === 'lista') {
       <div class="lista-header">
         <div class="lista-filtro">
           <label>PROCURAR PRODUTO</label>
@@ -227,6 +239,11 @@
       <div class="grid-rodape">
         <span>Registro(s): <strong>{{ produtosFiltrados().length }}</strong></span>
       </div>
+    }
+
+    <!-- Modal: enquanto o pré-cadastro monta o form (aguarda filiais/NCM) -->
+    @if (modalMode() && modo() !== 'form') {
+      <div class="prod-modal-loading">Preparando cadastro…</div>
     }
 
     <!-- FORM PRODUTO -->
