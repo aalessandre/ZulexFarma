@@ -31,32 +31,8 @@
       </button>
     </div>
 
-    @if (modo() === 'lista' && qtdeNotasSelecionadas() > 0) {
-      <div class="sidebar-item tile-precificacao" [class.disabled]="precificacaoCarregando()" (click)="abrirPrecificacao()">
-        @if (precificacaoCarregando()) { <span>Carregando...</span> } @else {
-          <span>Ajuste de Precos</span>
-          <span class="sidebar-sub">{{ qtdeNotasSelecionadas() }} nota(s)</span>
-        }
-      </div>
-      <div class="sidebar-item tile-conferencia" [class.disabled]="confCarregando()" (click)="abrirConferencia()">
-        @if (confCarregando()) { <span>Carregando...</span> } @else {
-          <span>Conferencia</span>
-          <span class="sidebar-sub">{{ qtdeNotasSelecionadas() }} nota(s)</span>
-        }
-      </div>
-      <div class="sidebar-item tile-conferir-lotes" [class.disabled]="confLotesCarregando() || qtdeNotasSelecionadas() !== 1" (click)="abrirConferirLotes()">
-        @if (confLotesCarregando()) { <span>Carregando...</span> } @else {
-          <span>Conferir Lotes</span>
-          <span class="sidebar-sub">{{ qtdeNotasSelecionadas() === 1 ? 'Lotes e SNGPC' : 'Selecione 1 nota' }}</span>
-        }
-      </div>
-      <div class="sidebar-item tile-finalizar" [class.disabled]="finCarregando()" (click)="abrirFinalizacao()">
-        @if (finCarregando()) { <span>Carregando...</span> } @else {
-          <span>Finalizar</span>
-          <span class="sidebar-sub">Fechar nota</span>
-        }
-      </div>
-    }
+    <!-- Passos 2-5 (Ajuste de Precos, Conferencia, Conferir Lotes, Finalizar)
+         foram movidos pro rodape da lista (grid-rodape). -->
 
     @if (modo() === 'lista') {
       <div class="sidebar-item tile-sair" (click)="excluir()">
@@ -183,7 +159,7 @@
           <thead>
             <tr>
               <th class="th-check">
-                <input type="checkbox" class="grid-check" [checked]="todasNotasCompletasSelecionadas()" (change)="toggleTodasNotasSelecionadas()" title="Selecionar todas as completas" />
+                <input type="checkbox" class="grid-check" [checked]="todasNotasSelecionaveisSelecionadas()" (change)="toggleTodasNotasSelecionadas()" title="Selecionar todas as notas pendentes" />
               </th>
               <th class="th-arrow"></th>
               <th class="th-sort th-resize" [attr.data-col]="'id'" style="width:60px" (click)="ordenar('id')">
@@ -214,9 +190,6 @@
                 Valor NF <span class="sort-icon">{{ sortIcon('valorNota') }}</span>
                 <div class="resize-handle" (mousedown)="iniciarResize($event, 'valorNota', 120)" (click)="$event.stopPropagation()"></div>
               </th>
-              <th class="th-sort" style="width:110px" (click)="ordenar('status')">
-                Status <span class="sort-icon">{{ sortIcon('status') }}</span>
-              </th>
               <th style="width:90px">Vinculados</th>
               <th style="width:90px">Precificacao</th>
               <th style="width:90px">Conferencia</th>
@@ -224,9 +197,9 @@
           </thead>
           <tbody>
             @if (carregando()) {
-              <tr><td colspan="11" class="grid-loading">Carregando...</td></tr>
+              <tr><td colspan="12" class="grid-loading">Carregando...</td></tr>
             } @else if (comprasFiltradas().length === 0) {
-              <tr><td colspan="11" class="grid-vazio">Nenhuma compra encontrada. Importe um XML para comecar.</td></tr>
+              <tr><td colspan="12" class="grid-vazio">Nenhuma compra encontrada. Importe um XML para comecar.</td></tr>
             } @else {
               @for (c of comprasFiltradas(); track c.id) {
                 <tr [class.selecionado]="compraSelecionada()?.id === c.id"
@@ -235,7 +208,7 @@
                   <td class="td-check" (click)="$event.stopPropagation()">
                     <input type="checkbox" class="grid-check"
                            [checked]="isNotaSelecionada(c.id)"
-                           [disabled]="!isNotaCompleta(c)"
+                           [disabled]="!isNotaSelecionavel(c)"
                            (change)="toggleNotaSelecionada(c.id)" />
                   </td>
                   <td class="td-arrow">
@@ -248,10 +221,13 @@
                   <td>{{ c.fornecedorCnpj }}</td>
                   <td>{{ c.dataEmissao | date:'dd/MM/yyyy' }}</td>
                   <td class="td-valor">{{ c.valorNota | number:'1.2-2':'pt-BR' }}</td>
-                  <td>
-                    <span class="badge-status" [class]="statusClassLista(c)">{{ statusLabelLista(c) }}</span>
+                  <td class="td-center">
+                    <span class="badge-status"
+                          [class.status-finalizada]="c.totalItens > 0 && c.itensVinculados === c.totalItens"
+                          [class.status-pendente]="!(c.totalItens > 0 && c.itensVinculados === c.totalItens)">
+                      {{ c.itensVinculados }}/{{ c.totalItens }}
+                    </span>
                   </td>
-                  <td class="td-center">{{ c.itensVinculados }}/{{ c.totalItens }}</td>
                   <td class="td-center">
                     @if (c.totalItens > 0 && c.itensPrecificados === c.totalItens) {
                       <span class="badge-status status-finalizada">OK</span>
@@ -284,6 +260,40 @@
         @if (qtdeNotasSelecionadas() > 0) {
           <span class="rodape-sep">|</span>
           <span>Selecionadas: <strong>{{ qtdeNotasSelecionadas() }}</strong></span>
+
+          <!-- Passo a passo da entrada (1 vincular -> 5 finalizar). Passos 2-5
+               exigem 100% vinculado; conferir lotes e finalizar exigem 1 nota. -->
+          <div class="rodape-passos">
+            <button class="passo-btn passo-vincular" [disabled]="vinculandoLote() || carregando()"
+                    (click)="vincularLote()"
+                    title="Auto-vincula por codigo de barras os itens das notas selecionadas">
+              <span class="passo-num">1</span>{{ vinculandoLote() ? 'Vinculando...' : 'Vincular' }}
+            </button>
+            <button class="passo-btn passo-precificacao"
+                    [disabled]="!todasSelecionadasVinculadas() || precificacaoCarregando()"
+                    (click)="abrirPrecificacao()"
+                    [title]="todasSelecionadasVinculadas() ? 'Ajuste de precos' : 'Vincule 100% dos itens das notas selecionadas'">
+              <span class="passo-num">2</span>{{ precificacaoCarregando() ? 'Carregando...' : 'Ajuste de Precos' }}
+            </button>
+            <button class="passo-btn passo-conferencia"
+                    [disabled]="!todasSelecionadasVinculadas() || confCarregando()"
+                    (click)="abrirConferencia()"
+                    [title]="todasSelecionadasVinculadas() ? 'Conferencia' : 'Vincule 100% dos itens das notas selecionadas'">
+              <span class="passo-num">3</span>{{ confCarregando() ? 'Carregando...' : 'Conferencia' }}
+            </button>
+            <button class="passo-btn passo-conferir-lotes"
+                    [disabled]="!todasSelecionadasVinculadas() || qtdeNotasSelecionadas() !== 1 || confLotesCarregando()"
+                    (click)="abrirConferirLotes()"
+                    [title]="qtdeNotasSelecionadas() !== 1 ? 'Selecione 1 nota' : (todasSelecionadasVinculadas() ? 'Lotes e SNGPC' : 'Vincule 100% dos itens')">
+              <span class="passo-num">4</span>{{ confLotesCarregando() ? 'Carregando...' : 'Conferir Lotes' }}
+            </button>
+            <button class="passo-btn passo-finalizar"
+                    [disabled]="!todasSelecionadasVinculadas() || qtdeNotasSelecionadas() !== 1 || finCarregando()"
+                    (click)="abrirFinalizacao()"
+                    [title]="qtdeNotasSelecionadas() !== 1 ? 'Selecione 1 nota' : (todasSelecionadasVinculadas() ? 'Fechar nota' : 'Vincule 100% dos itens')">
+              <span class="passo-num">5</span>{{ finCarregando() ? 'Carregando...' : 'Finalizar' }}
+            </button>
+          </div>
         }
       </div>
     }
