@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ZulexPharma.Application.DTOs.Grade;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Enums;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -15,11 +16,13 @@ public class ProdutoGradeService : IProdutoGradeService
 {
     private readonly AppDbContext _db;
     private readonly FilialContexto _ctx;
+    private readonly IMovimentoEstoqueService _movimentos;
 
-    public ProdutoGradeService(AppDbContext db, FilialContexto ctx)
+    public ProdutoGradeService(AppDbContext db, FilialContexto ctx, IMovimentoEstoqueService movimentos)
     {
         _db = db;
         _ctx = ctx;
+        _movimentos = movimentos;
     }
 
     public async Task<ProdutoGradeDto> ObterAsync(long produtoId)
@@ -165,9 +168,12 @@ public class ProdutoGradeService : IProdutoGradeService
                 d = new ProdutoDados { ProdutoId = produto.Id, FilialId = filialId, ProdutoVariacaoId = entidade.Id };
                 _db.ProdutosDados.Add(d);
             }
+            var antes = d.EstoqueAtual;
             d.EstoqueAtual = vf.Estoque;
             d.ValorVenda = vf.Preco;
             d.AtualizadoEm = DateTime.UtcNow;
+            _movimentos.Registrar(produto.Id, filialId, entidade.Id, d.EstoqueAtual - antes, d.EstoqueAtual,
+                TipoMovimentoEstoque.Grade, observacao: "Ajuste pela edicao da grade");
         }
 
         await _db.SaveChangesAsync();

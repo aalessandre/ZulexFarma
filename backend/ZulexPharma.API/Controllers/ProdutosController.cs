@@ -17,12 +17,14 @@ public class ProdutosController : ControllerBase
 {
     private readonly IProdutoService _service;
     private readonly ILogAcaoService _log;
+    private readonly IMovimentoEstoqueService _movimentos;
     private readonly AppDbContext _db;
 
-    public ProdutosController(IProdutoService service, ILogAcaoService log, AppDbContext db)
+    public ProdutosController(IProdutoService service, ILogAcaoService log, IMovimentoEstoqueService movimentos, AppDbContext db)
     {
         _service = service;
         _log = log;
+        _movimentos = movimentos;
         _db = db;
     }
 
@@ -454,6 +456,14 @@ public class ProdutosController : ControllerBase
     {
         try { return Ok(new { success = true, data = await _log.ListarPorRegistroAsync("Produto", id, dataInicio, dataFim) }); }
         catch (Exception ex) { return await ErroInterno(ex, "ObterLog", id); }
+    }
+
+    [HttpGet("{id:long}/movimentacao")]
+    public async Task<IActionResult> ObterMovimentacao(long id, [FromQuery] long? filialId = null,
+        [FromQuery] DateTime? dataInicio = null, [FromQuery] DateTime? dataFim = null)
+    {
+        try { return Ok(new { success = true, data = await _movimentos.ListarPorProdutoAsync(id, filialId, dataInicio, dataFim) }); }
+        catch (Exception ex) { return await ErroInterno(ex, "ObterMovimentacao", id); }
     }
 
     /// <summary>

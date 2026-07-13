@@ -18,11 +18,13 @@ public class VendaService : IVendaService
     private readonly IVendaReceitaService _receitaService;
     private readonly IEntregaService _entregaService;
     private readonly IFarmaciaPopularService _fpService;
+    private readonly IMovimentoEstoqueService _movimentos;
     private const string TELA = "Venda";
     private const string ENTIDADE = "Venda";
 
     public VendaService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService,
-        IVendaReceitaService receitaService, IEntregaService entregaService, IFarmaciaPopularService fpService)
+        IVendaReceitaService receitaService, IEntregaService entregaService, IFarmaciaPopularService fpService,
+        IMovimentoEstoqueService movimentos)
     {
         _db = db;
         _log = log;
@@ -30,6 +32,7 @@ public class VendaService : IVendaService
         _receitaService = receitaService;
         _entregaService = entregaService;
         _fpService = fpService;
+        _movimentos = movimentos;
     }
 
     public async Task<List<VendaListDto>> ListarAsync(long? filialId = null, string? status = null, long? caixaId = null)
@@ -482,6 +485,28 @@ public class VendaService : IVendaService
 
             // ── Decrementa estoque e, para produtos rastreáveis, baixa por FEFO ─
             int lotesBaixados = 0;
+
+            // Contexto do movimento de estoque (mesmo p/ todos os itens da venda) — resolvido uma vez.
+            var tipoMov = venda.TipoOperacao switch
+            {
+                TipoOperacao.Transferencia => TipoMovimentoEstoque.Transferencia,
+                TipoOperacao.Perda => TipoMovimentoEstoque.Perda,
+                TipoOperacao.AjusteEntrada or TipoOperacao.AjusteSaida or TipoOperacao.Inventario => TipoMovimentoEstoque.Ajuste,
+                _ => TipoMovimentoEstoque.Venda
+            };
+            long? pessoaMovId = null; string? pessoaMovNome = null;
+            if (venda.ClienteId.HasValue)
+            {
+                pessoaMovId = venda.ClienteId;
+                pessoaMovNome = await _db.Clientes.Where(c => c.Id == venda.ClienteId).Select(c => c.Pessoa.Nome).FirstOrDefaultAsync();
+            }
+            else if (venda.DestinatarioPessoaId.HasValue)
+            {
+                pessoaMovId = venda.DestinatarioPessoaId;
+                pessoaMovNome = await _db.Set<Pessoa>().Where(p => p.Id == venda.DestinatarioPessoaId).Select(p => p.Nome).FirstOrDefaultAsync();
+            }
+            var docVenda = string.IsNullOrWhiteSpace(venda.Codigo) ? $"#{venda.Id}" : venda.Codigo;
+
             foreach (var item in venda.Itens.Where(i => i.Quantidade > 0))
             {
                 var qtdeTotal = (decimal)item.Quantidade;
@@ -493,11 +518,14 @@ public class VendaService : IVendaService
                         && d.ProdutoVariacaoId == item.ProdutoVariacaoId);
                 if (dados != null)
                 {
+                    var antes = dados.EstoqueAtual;
                     // Permite estoque negativo se a config permitir (padrão); senão trava em 0.
                     dados.EstoqueAtual = permitirEstoqueNegativo
                         ? dados.EstoqueAtual - qtdeTotal
                         : Math.Max(0, dados.EstoqueAtual - qtdeTotal);
                     dados.UltimaVendaEm = agora;
+                    _movimentos.Registrar(item.ProdutoId ?? 0, venda.FilialId, item.ProdutoVariacaoId,
+                        dados.EstoqueAtual - antes, dados.EstoqueAtual, tipoMov, docVenda, pessoaMovId, pessoaMovNome, vendaId: venda.Id);
                 }
 
                 // Se o produto é rastreável, baixa lotes via FEFO automático

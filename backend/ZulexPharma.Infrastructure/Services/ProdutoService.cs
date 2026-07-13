@@ -4,6 +4,7 @@ using Serilog;
 using ZulexPharma.Application.DTOs.Produtos;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Enums;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -12,14 +13,16 @@ public class ProdutoService : IProdutoService
 {
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
+    private readonly IMovimentoEstoqueService _movimentos;
     private readonly int _filialCodigo;
     private const string TELA = "Produtos";
     private const string ENTIDADE = "Produto";
 
-    public ProdutoService(AppDbContext db, ILogAcaoService log, IConfiguration config)
+    public ProdutoService(AppDbContext db, ILogAcaoService log, IMovimentoEstoqueService movimentos, IConfiguration config)
     {
         _db = db;
         _log = log;
+        _movimentos = movimentos;
         _filialCodigo = int.TryParse(config["Filial:Codigo"], out var f) ? f : 0;
     }
 
@@ -272,7 +275,7 @@ public class ProdutoService : IProdutoService
             if (d.Id.HasValue)
             {
                 var e = p.Dados.FirstOrDefault(x => x.Id == d.Id.Value);
-                if (e != null) MapDados(e, d);
+                if (e != null) { var antes = e.EstoqueAtual; MapDados(e, d); RegistrarAjuste(p, e, antes); }
             }
             else
             {
@@ -280,16 +283,28 @@ public class ProdutoService : IProdutoService
                 var existente = p.Dados.FirstOrDefault(x => x.FilialId == d.FilialId);
                 if (existente != null)
                 {
+                    var antes = existente.EstoqueAtual;
                     MapDados(existente, d);
+                    RegistrarAjuste(p, existente, antes);
                 }
                 else
                 {
                     var e = new ProdutoDados { ProdutoId = p.Id };
                     MapDados(e, d);
                     _db.ProdutosDados.Add(e);
+                    RegistrarAjuste(p, e, 0m);
                 }
             }
         }
+    }
+
+    // Registra o ajuste manual de estoque (cadastro) no ledger. Ignora produto novo
+    // (Id ainda 0 antes do SaveChanges) e delta zero (Registrar ja' descarta delta 0).
+    private void RegistrarAjuste(Produto p, ProdutoDados e, decimal antes)
+    {
+        if (p.Id <= 0) return;
+        _movimentos.Registrar(p.Id, e.FilialId, null, e.EstoqueAtual - antes, e.EstoqueAtual,
+            TipoMovimentoEstoque.Ajuste, observacao: "Ajuste manual no cadastro");
     }
 
     private void SyncFiscal(Produto p, List<ProdutoFiscalDto> dtos)
