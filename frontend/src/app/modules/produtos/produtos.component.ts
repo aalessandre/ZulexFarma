@@ -12,6 +12,7 @@ import { ToastrService } from 'ngx-toastr';
 import { EnterTabDirective } from '../../core/directives/enter-tab.directive';
 import { CurrencyInputDirective } from '../../core/directives/currency-input.directive';
 import { ProdutoGradeComponent } from '../produto-grade/produto-grade.component';
+import { MatMenuModule } from '@angular/material/menu';
 
 type AbaAtiva = 'produtos' | 'grupo-principal' | 'grupo' | 'sub-grupo' | 'secao' | 'familia' | 'kit';
 
@@ -77,6 +78,21 @@ interface LogEntry {
   acao: string;
   nomeUsuario: string;
   campos: LogCampo[];
+}
+
+interface MovEstoque {
+  id: number;
+  data: string;
+  tipo: string;
+  sentido: string;        // Entrada | Saida
+  quantidade: number;
+  saldoApos: number;
+  documento?: string;
+  pessoaNome?: string;
+  usuarioNome?: string;
+  variacao?: string;
+  observacao?: string;
+  filialId: number;
 }
 
 // ── Produto interfaces ──────────────────────────────────────────────
@@ -224,7 +240,7 @@ const NOME_ABA_MAP: Record<string, string> = {
 @Component({
   selector: 'app-produtos',
   standalone: true,
-  imports: [CommonModule, FormsModule, EnterTabDirective, CurrencyInputDirective, ProdutoGradeComponent, VisDirective],
+  imports: [CommonModule, FormsModule, EnterTabDirective, CurrencyInputDirective, ProdutoGradeComponent, VisDirective, MatMenuModule],
   templateUrl: './produtos.component.html',
   styleUrl: './produtos.component.scss'
 })
@@ -290,6 +306,19 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   logSelecionado = signal<LogEntry | null>(null);
   logDataInicio = signal<string>(this.hoje(-30));
   logDataFim    = signal<string>(this.hoje(0));
+
+  // ── Movimentacao de estoque (ledger) ─────────────────────────────
+  modalMov = signal(false);
+  movRegistros = signal<MovEstoque[]>([]);
+  carregandoMov = signal(false);
+  movDataInicio = signal<string>(this.hoje(-30));
+  movDataFim    = signal<string>(this.hoje(0));
+  // Filial efetiva do extrato: a selecionada, senao a local, senao a 1a (evita filialId=0 =
+  // "todas as filiais", que misturaria saldos de filiais diferentes sem como distinguir).
+  filialMovEfetiva = computed(() =>
+    this.filialSelecionada() || this.filialLocal() || (this.filiaisDisponiveis()[0]?.id ?? 0));
+  nomeFilialMov = computed(() =>
+    this.filiaisDisponiveis().find(f => f.id === this.filialMovEfetiva())?.nome ?? '');
 
   // ── Estado Produto ─────────────────────────────────────────────────
   private produtoApiUrl = `${environment.apiUrl}/produtos`;
@@ -1009,6 +1038,32 @@ export class ProdutosComponent implements OnInit, OnDestroy {
 
   selecionarLogEntry(entry: LogEntry) { this.logSelecionado.set(entry); }
   fecharLog() { this.modalLog.set(false); }
+
+  // ── Movimentacao de estoque ──────────────────────────────────────
+  abrirMovimentacao() {
+    if (!this.produtoEditandoId()) return;
+    this.movDataInicio.set(this.hoje(-30));
+    this.movDataFim.set(this.hoje(0));
+    this.modalMov.set(true);
+    this.filtrarMovimentacao();
+  }
+
+  filtrarMovimentacao() {
+    const id = this.produtoEditandoId();
+    if (!id) return;
+    this.carregandoMov.set(true);
+    const filial = this.filialMovEfetiva();
+    const params = `filialId=${filial}&dataInicio=${this.movDataInicio()}&dataFim=${this.movDataFim()}`;
+    this.http.get<any>(`${this.produtoApiUrl}/${id}/movimentacao?${params}`).subscribe({
+      next: resp => {
+        this.movRegistros.set(resp.data ?? []);
+        this.carregandoMov.set(false);
+      },
+      error: () => { this.carregandoMov.set(false); }
+    });
+  }
+
+  fecharMovimentacao() { this.modalMov.set(false); }
 
   acaoCss(acao: string): string {
     if (acao === 'CRIAÇÃO')     return 'badge-criacao';

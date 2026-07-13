@@ -73,6 +73,7 @@ public class AppDbContext : DbContext
     public DbSet<CompraFiscal> ComprasFiscal => Set<CompraFiscal>();
     public DbSet<ProdutoLote> ProdutosLotes => Set<ProdutoLote>();
     public DbSet<MovimentoLote> MovimentosLote => Set<MovimentoLote>();
+    public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
     public DbSet<InventarioSngpc> InventariosSngpc => Set<InventarioSngpc>();
     public DbSet<InventarioSngpcItem> InventariosSngpcItens => Set<InventarioSngpcItem>();
     public DbSet<SngpcMapa> SngpcMapas => Set<SngpcMapa>();
@@ -1007,6 +1008,21 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Venda).WithMany().HasForeignKey(x => x.VendaId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.CompraProdutoLote).WithMany().HasForeignKey(x => x.CompraProdutoLoteId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.ProdutoLoteId, x.DataMovimento });
+        });
+
+        // ── MovimentoEstoque (ledger universal de estoque) ────────
+        // Ledger desacoplado: so' ids puros (SEM navigation/FK) — nao bloqueia exclusao
+        // de produto/filial/usuario e o insert nunca falha por FK. Nome de pessoa = snapshot.
+        modelBuilder.Entity<MovimentoEstoque>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Quantidade).HasColumnType("numeric(12,4)");
+            e.Property(x => x.SaldoApos).HasColumnType("numeric(12,4)");
+            e.Property(x => x.Documento).HasMaxLength(80);
+            e.Property(x => x.PessoaNome).HasMaxLength(200);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.HasIndex(x => new { x.ProdutoId, x.FilialId, x.Data });
         });
 
         // ── InventarioSngpc (cabeçalho) ───────────────────────────

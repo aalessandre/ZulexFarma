@@ -909,15 +909,26 @@
         <button class="tb-btn tb-fechar" (click)="fecharForm()">Fechar</button>
         @if (modoEdicao()) {
           <div class="tb-separador"></div>
-          <button class="tb-btn tb-log" (click)="abrirLog()">
+          <button class="tb-btn tb-log" [matMenuTriggerFor]="logMenu" title="Log do produto">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
               <line x1="16" y1="13" x2="8" y2="13"/>
               <line x1="16" y1="17" x2="8" y2="17"/>
             </svg>
-            Histórico
+            Log
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:2px"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
+          <mat-menu #logMenu="matMenu" class="log-mega-menu">
+            <button mat-menu-item (click)="abrirMovimentacao()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><path d="M3 3v18h18"/><polyline points="7 12 11 8 14 11 20 5"/></svg>
+              Movimentação
+            </button>
+            <button mat-menu-item (click)="abrirLog()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Alteração
+            </button>
+          </mat-menu>
           @if (podeGrade()) {
             <button class="tb-btn tb-log" (click)="abrirGrade()" title="Editar grade (tamanho/cor)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
@@ -1241,6 +1252,95 @@
 
       <div class="modal-log-footer">
         <button class="modal-btn modal-btn-cancelar" (click)="fecharLog()">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- MODAL MOVIMENTAÇÃO DE ESTOQUE -->
+@if (modalMov()) {
+  <div class="modal-overlay" (click)="fecharMovimentacao()">
+    <div class="modal-log-box" (click)="$event.stopPropagation()">
+
+      <div class="modal-log-header">
+        <div class="modal-log-titulo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3v18h18"/><polyline points="7 12 11 8 14 11 20 5"/>
+          </svg>
+          Movimentação de Estoque — {{ produtoForm().nome }}@if (nomeFilialMov()) { <span class="mov-titulo-filial"> · {{ nomeFilialMov() }}</span> }
+        </div>
+        <button class="modal-log-fechar" (click)="fecharMovimentacao()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-log-filtros">
+        <div class="log-filtro-campo">
+          <label>DATA INICIAL</label>
+          <input type="date" [value]="movDataInicio()" (change)="movDataInicio.set($any($event.target).value)" />
+        </div>
+        <div class="log-filtro-campo">
+          <label>DATA FINAL</label>
+          <input type="date" [value]="movDataFim()" (change)="movDataFim.set($any($event.target).value)" />
+        </div>
+        <button class="log-btn-filtrar" (click)="filtrarMovimentacao()" [disabled]="carregandoMov()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          {{ carregandoMov() ? 'Buscando...' : 'Filtrar' }}
+        </button>
+        <span class="log-total">
+          @if (!carregandoMov()) { {{ movRegistros().length }} movimento(s) }
+        </span>
+      </div>
+
+      <div class="modal-log-body">
+        @if (carregandoMov()) {
+          <div class="log-loading">Carregando movimentação...</div>
+        } @else if (movRegistros().length === 0) {
+          <div class="log-vazio">Nenhuma movimentação no período.</div>
+        } @else {
+          <table class="mov-tabela">
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Documento</th>
+                <th>Tipo</th>
+                <th class="num">Qtde</th>
+                <th class="num">Saldo</th>
+                <th>Pessoa</th>
+                <th>Usuário</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of movRegistros(); track m.id) {
+                <tr>
+                  <td>{{ m.data | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ m.documento || '—' }}</td>
+                  <td>
+                    <span class="mov-badge" [class.entrada]="m.sentido === 'Entrada'" [class.saida]="m.sentido === 'Saida'">
+                      {{ m.sentido === 'Entrada' ? '▲' : '▼' }} {{ m.tipo }}
+                    </span>
+                    @if (m.variacao) { <span class="mov-variacao">{{ m.variacao }}</span> }
+                  </td>
+                  <td class="num" [class.pos]="m.sentido === 'Entrada'" [class.neg]="m.sentido === 'Saida'">
+                    {{ m.sentido === 'Entrada' ? '+' : '−' }}{{ m.quantidade | number:'1.0-3' }}
+                  </td>
+                  <td class="num">{{ m.saldoApos | number:'1.0-3' }}</td>
+                  <td>{{ m.pessoaNome || '—' }}</td>
+                  <td>{{ m.usuarioNome || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+
+      <div class="modal-log-footer">
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharMovimentacao()">Fechar</button>
       </div>
 
     </div>

@@ -16,17 +16,19 @@ public class CompraService : ICompraService
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
     private readonly IProdutoLoteService _loteService;
+    private readonly IMovimentoEstoqueService _movimentos;
 
     private const string TELA = "Compras";
     private const string ENTIDADE = "Compra";
 
     private static readonly XNamespace _nfe = "http://www.portalfiscal.inf.br/nfe";
 
-    public CompraService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService)
+    public CompraService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService, IMovimentoEstoqueService movimentos)
     {
         _db = db;
         _log = log;
         _loteService = loteService;
+        _movimentos = movimentos;
     }
 
     // ── Listar ───────────────────────────────────────────────────────
@@ -784,6 +786,11 @@ public class CompraService : ICompraService
         decimal estoqueAdicionado = 0;
         int lotesRegistrados = 0;
 
+        // Contexto do movimento (mesmo p/ todos os itens da nota) — resolvido uma vez.
+        var fornecedorNome = await _db.Fornecedores.Where(f => f.Id == compra.FornecedorId)
+            .Select(f => f.Pessoa.Nome).FirstOrDefaultAsync();
+        var docCompra = string.IsNullOrWhiteSpace(compra.NumeroNf) ? $"Compra #{compra.Id}" : $"NF {compra.NumeroNf}";
+
         foreach (var item in compra.Produtos.Where(p => p.Vinculado && p.ProdutoId.HasValue))
         {
             // Estoque da compra sempre entra na linha-base (estoque simples, sem variacao de grade),
@@ -845,10 +852,17 @@ public class CompraService : ICompraService
                     }
                     dv.EstoqueAtual += s.Quantidade;
                     dv.AtualizadoEm = DateTime.UtcNow;
+                    _movimentos.Registrar(item.ProdutoId!.Value, compra.FilialId, s.VariacaoId, s.Quantidade,
+                        dv.EstoqueAtual, TipoMovimentoEstoque.Compra, docCompra, compra.FornecedorId, fornecedorNome, compraId: compra.Id);
                 }
                 // Sobra nao distribuida vai pro estoque simples (linha-base).
                 var sobra = qtdeTotal - totalDesm;
-                if (sobra > 0) dados.EstoqueAtual += sobra;
+                if (sobra > 0)
+                {
+                    dados.EstoqueAtual += sobra;
+                    _movimentos.Registrar(item.ProdutoId!.Value, compra.FilialId, null, sobra,
+                        dados.EstoqueAtual, TipoMovimentoEstoque.Compra, docCompra, compra.FornecedorId, fornecedorNome, compraId: compra.Id);
+                }
                 // Persiste o desmembramento pra reverter no estoque dos SKUs ao excluir a compra.
                 item.DesmembramentoJson = System.Text.Json.JsonSerializer.Serialize(
                     skusDesm.Select(s => new { s.VariacaoId, s.Quantidade }));
@@ -856,6 +870,8 @@ public class CompraService : ICompraService
             else
             {
                 dados.EstoqueAtual += qtdeTotal;
+                _movimentos.Registrar(item.ProdutoId!.Value, compra.FilialId, null, qtdeTotal,
+                    dados.EstoqueAtual, TipoMovimentoEstoque.Compra, docCompra, compra.FornecedorId, fornecedorNome, compraId: compra.Id);
             }
             estoqueAdicionado += qtdeTotal;
 
@@ -1042,6 +1058,10 @@ public class CompraService : ICompraService
             // Se finalizada, reverter estoque e preços
             if (compra.Status == CompraStatus.Finalizada)
             {
+                var fornecedorNome = await _db.Fornecedores.Where(f => f.Id == compra.FornecedorId)
+                    .Select(f => f.Pessoa.Nome).FirstOrDefaultAsync();
+                var docCompra = string.IsNullOrWhiteSpace(compra.NumeroNf) ? $"Compra #{compra.Id}" : $"NF {compra.NumeroNf}";
+
                 foreach (var item in compra.Produtos.Where(p => p.Vinculado && p.ProdutoId.HasValue))
                 {
                     var fracao = item.Fracao > 0 ? item.Fracao : (short)1;
@@ -1057,9 +1077,12 @@ public class CompraService : ICompraService
                         var dv = await _db.ProdutosDados
                             .FirstOrDefaultAsync(x => x.ProdutoVariacaoId == s.VariacaoId && x.FilialId == compra.FilialId);
                         if (dv == null) continue;
+                        var antesDv = dv.EstoqueAtual;
                         dv.EstoqueAtual = Math.Max(0, dv.EstoqueAtual - s.Quantidade);
                         dv.AtualizadoEm = DateTime.UtcNow;
                         revertidoSkus += s.Quantidade;
+                        _movimentos.Registrar(item.ProdutoId!.Value, compra.FilialId, s.VariacaoId, dv.EstoqueAtual - antesDv,
+                            dv.EstoqueAtual, TipoMovimentoEstoque.EstornoCompra, docCompra, compra.FornecedorId, fornecedorNome, compraId: compra.Id);
                     }
 
                     // O que nao foi desmembrado estava no estoque simples (linha-base).
@@ -1068,7 +1091,12 @@ public class CompraService : ICompraService
                         .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == compra.FilialId
                                                && d.ProdutoVariacaoId == null);
                     if (dados != null && doBase > 0)
+                    {
+                        var antesBase = dados.EstoqueAtual;
                         dados.EstoqueAtual = Math.Max(0, dados.EstoqueAtual - doBase);
+                        _movimentos.Registrar(item.ProdutoId!.Value, compra.FilialId, null, dados.EstoqueAtual - antesBase,
+                            dados.EstoqueAtual, TipoMovimentoEstoque.EstornoCompra, docCompra, compra.FornecedorId, fornecedorNome, compraId: compra.Id);
+                    }
 
                     // Log de reversão por produto
                     await _log.RegistrarAsync("Produtos", "EXCLUSÃO COMPRA (REVERSÃO)", "Produto", item.ProdutoId!.Value,

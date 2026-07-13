@@ -1460,6 +1460,57 @@
 .campo-anterior { color: #922b21; background: #fff8f8; }
 .campo-atual    { color: #1a7a40; background: #f8fff9; }
 
+/* -- Movimentação de estoque (ledger) ------------------------------------- */
+.mov-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--erp-fs-sm);
+  margin: 4px 0;
+  border: 1px solid var(--erp-border);
+  border-radius: 6px;
+  overflow: hidden;
+
+  thead tr { background: var(--erp-log-detalhe-bg); position: sticky; top: 0; z-index: 1; }
+
+  th {
+    padding: 7px 12px;
+    text-align: left;
+    font-weight: 700;
+    color: var(--erp-blue);
+    border-bottom: 1px solid var(--erp-border);
+    white-space: nowrap;
+    &.num { text-align: right; }
+  }
+
+  td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--erp-border);
+    white-space: nowrap;
+    &.num { text-align: right; font-variant-numeric: tabular-nums; }
+    &.num.pos { color: #1a7a40; font-weight: 600; }
+    &.num.neg { color: #922b21; font-weight: 600; }
+  }
+
+  tbody tr:hover { background: var(--erp-log-detalhe-bg); }
+  tr:last-child td { border-bottom: none; }
+}
+
+.mov-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  &.entrada { color: #1a7a40; background: #e8f7ee; }
+  &.saida   { color: #922b21; background: #fdecea; }
+}
+.mov-variacao {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--erp-text-muted, #667);
+}
+.mov-titulo-filial { font-weight: 500; opacity: 0.8; }
+
 /* -- Comissão Accordion (dentro do form classificação) -------------------- */
 .comissao-accordion {
   margin-top: 18px;

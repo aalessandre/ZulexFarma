@@ -17,14 +17,16 @@ public class PerdaService : IPerdaService
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
     private readonly IProdutoLoteService _loteService;
+    private readonly IMovimentoEstoqueService _movimentos;
     private const string TELA = "Perdas";
     private const string ENTIDADE = "Perda";
 
-    public PerdaService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService)
+    public PerdaService(AppDbContext db, ILogAcaoService log, IProdutoLoteService loteService, IMovimentoEstoqueService movimentos)
     {
         _db = db;
         _log = log;
         _loteService = loteService;
+        _movimentos = movimentos;
     }
 
     public async Task<List<PerdaListDto>> ListarAsync(long? filialId = null, DateTime? dataInicio = null, DateTime? dataFim = null)
@@ -146,7 +148,11 @@ public class PerdaService : IPerdaService
             .FirstOrDefaultAsync(d => d.ProdutoId == dto.ProdutoId && d.FilialId == dto.FilialId);
         if (dados != null)
         {
+            var antes = dados.EstoqueAtual;
             dados.EstoqueAtual = Math.Max(0, dados.EstoqueAtual - dto.Quantidade);
+            _movimentos.Registrar(dto.ProdutoId, dto.FilialId, null, dados.EstoqueAtual - antes, dados.EstoqueAtual,
+                TipoMovimentoEstoque.Perda, $"Perda #{venda.Id}", usuarioId: usuarioId, vendaId: venda.Id,
+                observacao: $"{motivo}{(string.IsNullOrEmpty(dto.NumeroBoletim) ? "" : $" BO {dto.NumeroBoletim}")}");
             await _db.SaveChangesAsync();
         }
 
@@ -193,6 +199,8 @@ public class PerdaService : IPerdaService
         if (dados != null)
         {
             dados.EstoqueAtual += mov.Quantidade;
+            _movimentos.Registrar(item.ProdutoId ?? 0, venda.FilialId, null, mov.Quantidade, dados.EstoqueAtual,
+                TipoMovimentoEstoque.EstornoPerda, $"Perda #{id}", vendaId: venda.Id, observacao: "Estorno de perda");
         }
         _db.Vendas.Remove(venda);
         await _db.SaveChangesAsync();
