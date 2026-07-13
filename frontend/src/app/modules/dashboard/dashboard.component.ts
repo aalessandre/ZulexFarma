@@ -65,6 +65,8 @@ export interface BlocoTiles {
   nome: string;
   cor: string;
   tiles: TileItem[];
+  /** Seção inteira só aparece pro usuário SISTEMA/SH (ex.: Dev). */
+  soSistema?: boolean;
 }
 
 @Component({
@@ -134,6 +136,7 @@ export class DashboardComponent {
     {
       nome: 'Dev',
       cor: '#546e7a',
+      soSistema: true, // a seção Dev inteira so' aparece pro usuario SISTEMA
       tiles: [
         { label: 'Help',            sigla: 'HP', iconKey: 'help',      rota: '/erp/help' },
         { label: 'Dic. de Dados',   sigla: 'DD', iconKey: 'database',  rota: '/erp/dicionario-dados' },
@@ -149,6 +152,7 @@ export class DashboardComponent {
   get blocos(): BlocoTiles[] {
     const sistema = this.ehSistema();
     return this.blocosRaw
+      .filter(b => !b.soSistema || sistema) // seção soSistema (Dev) so' pro usuario SISTEMA
       .map(b => ({ ...b, tiles: b.tiles.filter(t =>
         (!t.soSistema || sistema) && this.vis.mostra(tileVisId(t.rota))) }))
       .filter(b => b.tiles.length > 0);
