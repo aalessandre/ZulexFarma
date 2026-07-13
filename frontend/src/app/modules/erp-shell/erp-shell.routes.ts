@@ -19,11 +19,6 @@ export const ErpRoutes: Routes = [
           import('../filiais/filiais.component').then(m => m.FiliaisComponent),
       },
       {
-        path: 'usuarios',
-        loadComponent: () =>
-          import('../usuarios/usuarios.component').then(m => m.UsuariosComponent),
-      },
-      {
         path: 'grupos',
         loadComponent: () =>
           import('../grupos/grupos.component').then(m => m.GruposComponent),
