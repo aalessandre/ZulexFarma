@@ -426,11 +426,14 @@ export class ProdutosComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Modo modal (entrada de nota): abre direto no form via pré-cadastro; sem lista/estado.
+    // Modo modal: abre direto no form. Com pré-cadastro (entrada de nota) preenche pelos dados
+    // da NF; sem pré-cadastro (botão "Produto" dos rodapés de compras) abre um form em branco.
     if (this.modalMode()) {
       this.carregarFiliais();
       this.carregarFlagsCadastro();
+      const temPreCadastro = !!sessionStorage.getItem('zulex_preCadastroProduto');
       this.verificarPreCadastroCompra();
+      if (!temPreCadastro) this.incluirProduto();
       return;
     }
     const restaurou = this.restaurarEstado();

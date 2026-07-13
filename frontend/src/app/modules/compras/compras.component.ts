@@ -14,6 +14,7 @@ interface CompraList {
   codigo: string;
   numeroNf: string;
   serieNf: string;
+  chaveNfe: string;
   fornecedorNome: string;
   fornecedorCnpj: string;
   dataEmissao: string;
@@ -164,6 +165,14 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   // ── Seleção de notas (checkboxes na lista) ─────────────────────
   notasSelecionadas = signal<Set<number>>(new Set());
+
+  // Quando exatamente 1 nota esta selecionada, expoe seus dados (chave/razao/CNPJ) pro rodape.
+  notaUnicaSelecionada = computed(() => {
+    const sel = this.notasSelecionadas();
+    if (sel.size !== 1) return null;
+    const id = Array.from(sel)[0];
+    return this.compras().find(c => c.id === id) ?? null;
+  });
 
   // Passo 1 (Vincular): tela combinada com os produtos de TODAS as notas selecionadas.
   vincularItens = signal<CompraProdutoVinc[]>([]);
@@ -756,6 +765,14 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.modalCadastroProduto.set(false);
     this.cadastroItemId.set(null);
     sessionStorage.removeItem('zulex_preCadastroProduto');
+  }
+
+  /** Abre o cadastro de produto AVULSO (botao "Produto" nos rodapes) — sem pre-cadastro nem
+   *  vinculo automatico a um item; abre a busca/cadastro de produto. */
+  abrirCadastroProdutoAvulso() {
+    sessionStorage.removeItem('zulex_preCadastroProduto');
+    this.cadastroItemId.set(null);
+    this.modalCadastroProduto.set(true);
   }
 
   /** O produto acabou de ser criado no modal → vincula no item da nota e fecha. */

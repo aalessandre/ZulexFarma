@@ -390,6 +390,30 @@
 .passo-vincular       { background: linear-gradient(135deg, #2471a3, #2e86c1); }
 .passo-voltar         { background: linear-gradient(135deg, #6b7684, #8895a6); }
 .passo-auto           { background: linear-gradient(135deg, #2980b9, #3498db); }
+.passo-produto        { background: linear-gradient(135deg, #0f766e, #14b8a6); }
+
+/* Barra com os dados da nota (aparece quando 1 nota esta selecionada) */
+.nota-info-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 28px;
+  padding: 10px 20px;
+  background: var(--erp-surface);
+  border-top: 1px solid var(--erp-border);
+  flex-shrink: 0;
+}
+.nota-info-item  { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nota-info-chave { flex: 1 1 380px; min-width: 240px; }
+.nota-info-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--erp-text-muted);
+}
+.nota-info-valor {
+  font-size: var(--erp-fs-body); font-weight: 600; color: var(--erp-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  &.mono { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-weight: 500; letter-spacing: .02em; }
+}
 
 /* ── Tela Conferir Lotes (1+ notas): uma secao por nota ──────────────── */
 .cl-nota-secao {

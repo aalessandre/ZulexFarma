@@ -77,6 +77,7 @@ public class CompraService : ICompraService
                     Codigo = c.Codigo,
                     NumeroNf = c.NumeroNf,
                     SerieNf = c.SerieNf,
+                    ChaveNfe = c.ChaveNfe,
                     FornecedorNome = c.Fornecedor.Pessoa.Nome,
                     FornecedorCnpj = c.Fornecedor.Pessoa.CpfCnpj,
                     DataEmissao = c.DataEmissao,
