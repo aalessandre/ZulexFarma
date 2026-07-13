@@ -909,7 +909,10 @@
   border-bottom: 2px solid var(--erp-border);
 }
 
-.fin-grid-wrapper { max-width: 600px; }
+.fin-grid-wrapper { max-width: 640px; }
+// table-layout fixed faz a tabela SEMPRE caber no wrapper (sem scroll horizontal),
+// mantendo a coluna de acao (lixeira) sempre visivel.
+.fin-dup-grid { table-layout: fixed; width: 100%; }
 
 .fin-checks {
   display: flex; flex-direction: column; gap: 10px; padding: 8px 0;
@@ -1237,15 +1240,19 @@
   text-align: center;
 }
 .cl-btn-add, .cl-btn-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: 1px solid transparent;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 4px;
   cursor: pointer;
   font-weight: 700;
   font-size: 14px;
   margin: 0 2px;
+  svg { display: block; }
 }
 .cl-btn-add {
   color: #2e7d32;
