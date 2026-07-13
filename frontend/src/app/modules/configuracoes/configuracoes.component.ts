@@ -274,6 +274,7 @@ export class ConfiguracoesComponent implements OnInit {
     { chave: 'pc.venda_vista', label: 'Venda à Vista' },
     { chave: 'pc.venda_prazo', label: 'Venda a Prazo' },
     { chave: 'pc.venda_cartao', label: 'Venda Cartão' },
+    { chave: 'pc.venda_pix', label: 'Venda Pix' },
     { chave: 'pc.transferencia_mercadoria', label: 'Transferência de Mercadoria' },
     { chave: 'pc.desconto_obtido', label: 'Desconto Obtido' },
     { chave: 'pc.desconto_concedido', label: 'Desconto Concedido' },
@@ -294,21 +295,19 @@ export class ConfiguracoesComponent implements OnInit {
   private pcTimer: any = null;
 
   carregarNomesPc() {
-    // Para cada chave que tem valor (id), buscar o nome
+    // Resolve o NOME de cada plano salvo pelo ID. Antes usava /pesquisar?termo=${id}, mas esse
+    // endpoint filtra por DESCRICAO — passar o id como termo nunca achava nada e o campo vinha
+    // vazio. O /{id}/resumo busca por id (mesmo padrao do plano da Farmacia Popular).
     const configs = this.configs();
     for (const item of this.pcChaves) {
       const id = configs[item.chave];
-      if (id) {
-        // Busca individual por ID via listagem
-        this.http.get<any>(`${environment.apiUrl}/planoscontas/pesquisar?termo=${id}`).subscribe({
-          next: r => {
-            const encontrado = (r.data ?? []).find((p: any) => p.id === Number(id));
-            if (encontrado) {
-              this.pcNomes.update(n => ({ ...n, [item.chave]: `${encontrado.codigoHierarquico} - ${encontrado.descricao}` }));
-            }
-          }
-        });
-      }
+      if (!id) continue;
+      this.http.get<any>(`${environment.apiUrl}/planoscontas/${id}/resumo`).subscribe({
+        next: r => {
+          const p = r?.data;
+          if (p) this.pcNomes.update(n => ({ ...n, [item.chave]: `${p.codigoHierarquico} - ${p.descricao}` }));
+        }
+      });
     }
   }
 
