@@ -782,6 +782,15 @@ public class CompraService : ICompraService
         if (compra.Status == CompraStatus.Finalizada)
             throw new ArgumentException("Esta compra já foi finalizada.");
 
+        // Plano de contas do débito (Compra de Mercadorias) — VALIDADO ANTES de mexer no estoque.
+        // Se so' fosse checado no fim, um plano invalido estouraria APOS o lote ja' ter commitado o
+        // estoque (RegistrarEntradaAsync salva sozinho), e refinalizar dobraria o estoque.
+        var configPc = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "pc.compra_mercadorias");
+        if (configPc == null || string.IsNullOrWhiteSpace(configPc.Valor) || !long.TryParse(configPc.Valor, out var planoCompraId))
+            throw new ArgumentException("O plano de contas padrão de 'Compra de Mercadorias' não está configurado. Configure em: Configurações > Plano de Contas Padrão antes de finalizar a nota.");
+        if (!await _db.PlanosContas.AnyAsync(p => p.Id == planoCompraId))
+            throw new ArgumentException("O plano de contas configurado em 'Compra de Mercadorias' não existe mais. Reconfigure em: Configurações > Plano de Contas Padrão.");
+
         var produtosAtualizados = 0;
         var precosAplicados = 0;
         decimal estoqueAdicionado = 0;
@@ -984,44 +993,82 @@ public class CompraService : ICompraService
             produtosAtualizados++;
         }
 
-        // ── Verificar plano de contas antes de finalizar ────────────
-        var configPc = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "pc.compra_mercadorias");
-        if (configPc == null || string.IsNullOrWhiteSpace(configPc.Valor))
-            throw new ArgumentException("O plano de contas padrão de 'Compra de Mercadorias' não está configurado. Configure em: Configurações > Plano de Contas Padrão antes de finalizar a nota.");
-
         // Atualizar compra
         compra.Status = CompraStatus.Finalizada;
         compra.DuplicatasEntregues = request.DuplicatasEntregues;
         compra.NotaPaga = request.NotaPaga;
         compra.DataFinalizacao = DataHoraHelper.Agora();
 
-        // ── Gerar Conta a Pagar ─────────────────────────────────────
+        // ── Gerar Conta a Pagar (o débito da compra) ────────────────
+        // Uma conta POR DUPLICATA (respeita o desdobramento informado na finalizacao); sem
+        // duplicatas, cai numa conta unica (valor cheio, vencimento +30 dias). Plano de contas =
+        // "Compra de Mercadorias" da config. Fornecedor -> PessoaId.
         var jaExiste = await _db.ContasPagar.AnyAsync(cp => cp.CompraId == compra.Id);
         if (!jaExiste)
         {
-            var planoContaId = long.TryParse(configPc.Valor, out var pcId) ? pcId : (long?)null;
+            long? planoContaId = planoCompraId; // plano "Compra de Mercadorias" (validado no inicio)
             var fornecedor = await _db.Fornecedores.FirstOrDefaultAsync(f => f.Id == compra.FornecedorId);
+            var pessoaId = fornecedor?.PessoaId;
+            var descricaoBase = $"NF {compra.NumeroNf} - {request.NomeUsuario}".ToUpper();
+            var emissao = compra.DataEmissao ?? DataHoraHelper.Agora();
+            var pago = compra.NotaPaga;
 
-            var contaPagar = new ContaPagar
+            var dups = request.Duplicatas?.Where(d => d.Valor > 0).ToList() ?? new();
+            if (dups.Count > 0)
             {
-                Descricao = $"NF {compra.NumeroNf} - {request.NomeUsuario}".ToUpper(),
-                PessoaId = fornecedor?.PessoaId,
-                PlanoContaId = planoContaId,
-                FilialId = compra.FilialId,
-                CompraId = compra.Id,
-                Valor = compra.ValorNota,
-                Desconto = 0,
-                Juros = 0,
-                Multa = 0,
-                ValorFinal = compra.ValorNota,
-                DataEmissao = compra.DataEmissao ?? DataHoraHelper.Agora(),
-                DataVencimento = compra.DataEmissao?.AddDays(30) ?? DataHoraHelper.Agora().AddDays(30),
-                DataPagamento = compra.NotaPaga ? DataHoraHelper.Agora() : null,
-                NrNotaFiscal = compra.NumeroNf,
-                Status = compra.NotaPaga ? StatusConta.Pago : StatusConta.Aberto,
-                Ativo = true
-            };
-            _db.ContasPagar.Add(contaPagar);
+                var grupo = Guid.NewGuid();
+                for (int i = 0; i < dups.Count; i++)
+                {
+                    var dup = dups[i];
+                    var venc = DateTime.TryParse(dup.Vencimento, out var dv)
+                        ? DateTime.SpecifyKind(dv, emissao.Kind)
+                        : emissao.AddDays(30);
+                    _db.ContasPagar.Add(new ContaPagar
+                    {
+                        Descricao = descricaoBase,
+                        PessoaId = pessoaId,
+                        PlanoContaId = planoContaId,
+                        FilialId = compra.FilialId,
+                        CompraId = compra.Id,
+                        Valor = dup.Valor,
+                        Desconto = dup.Descontos,
+                        Juros = dup.Encargos,
+                        Multa = 0,
+                        ValorFinal = dup.Valor - dup.Descontos + dup.Encargos,
+                        DataEmissao = emissao,
+                        DataVencimento = venc,
+                        DataPagamento = pago ? DataHoraHelper.Agora() : null,
+                        NrDocumento = string.IsNullOrWhiteSpace(dup.Numero) ? null : dup.Numero,
+                        NrNotaFiscal = compra.NumeroNf,
+                        Status = pago ? StatusConta.Pago : StatusConta.Aberto,
+                        RecorrenciaGrupo = dups.Count > 1 ? grupo : (Guid?)null,
+                        RecorrenciaParcela = dups.Count > 1 ? $"{i + 1}/{dups.Count}" : null,
+                        Ativo = true
+                    });
+                }
+            }
+            else
+            {
+                _db.ContasPagar.Add(new ContaPagar
+                {
+                    Descricao = descricaoBase,
+                    PessoaId = pessoaId,
+                    PlanoContaId = planoContaId,
+                    FilialId = compra.FilialId,
+                    CompraId = compra.Id,
+                    Valor = compra.ValorNota,
+                    Desconto = 0,
+                    Juros = 0,
+                    Multa = 0,
+                    ValorFinal = compra.ValorNota,
+                    DataEmissao = emissao,
+                    DataVencimento = emissao.AddDays(30),
+                    DataPagamento = pago ? DataHoraHelper.Agora() : null,
+                    NrNotaFiscal = compra.NumeroNf,
+                    Status = pago ? StatusConta.Pago : StatusConta.Aberto,
+                    Ativo = true
+                });
+            }
         }
 
         await _db.SaveChangesAsync();
@@ -1058,6 +1105,14 @@ public class CompraService : ICompraService
             // Se finalizada, reverter estoque e preços
             if (compra.Status == CompraStatus.Finalizada)
             {
+                // Débito da compra (Contas a Pagar): bloqueia a exclusao se ja' houve pagamento de
+                // alguma parcela (nao se apaga registro financeiro liquidado); senao remove as contas
+                // Abertas — senao ficariam ORFAS (a compra some mas o débito continua vivo e seria pago).
+                var contasCompra = await _db.ContasPagar.Where(cp => cp.CompraId == compra.Id).ToListAsync();
+                if (contasCompra.Any(cp => cp.Status == StatusConta.Pago || cp.DataPagamento != null))
+                    throw new ArgumentException("Não é possível excluir: há conta a pagar PAGA vinculada a esta compra. Estorne o pagamento antes de excluir.");
+                if (contasCompra.Count > 0) _db.ContasPagar.RemoveRange(contasCompra);
+
                 var fornecedorNome = await _db.Fornecedores.Where(f => f.Id == compra.FornecedorId)
                     .Select(f => f.Pessoa.Nome).FirstOrDefaultAsync();
                 var docCompra = string.IsNullOrWhiteSpace(compra.NumeroNf) ? $"Compra #{compra.Id}" : $"NF {compra.NumeroNf}";
