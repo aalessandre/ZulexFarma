@@ -86,11 +86,9 @@ public class ContaPagarService : IContaPagarService
             if (!Enum.IsDefined(dto.Periodicidade))
                 throw new ArgumentException("Periodicidade invalida.");
 
-            // Periodicidades em MESES usam dia fixo do mes; as em DIAS somam dias sobre a data base.
+            // Periodicidades em MESES repetem o DIA do 1o vencimento; as em DIAS somam dias sobre ele.
             var porMes = dto.Periodicidade is Periodicidade.Mensal or Periodicidade.Trimestral
                 or Periodicidade.Semestral or Periodicidade.Anual or Periodicidade.PersonalizadoMeses;
-            if (porMes && (dto.DiaVencimento < 1 || dto.DiaVencimento > 28))
-                throw new ArgumentException("Dia de vencimento deve ser entre 1 e 28.");
             if ((dto.Periodicidade is Periodicidade.PersonalizadoDias or Periodicidade.PersonalizadoMeses)
                 && (dto.IntervaloPersonalizado < 1 || dto.IntervaloPersonalizado > 365))
                 throw new ArgumentException("Intervalo da periodicidade personalizada deve ser entre 1 e 365.");
@@ -121,9 +119,12 @@ public class ContaPagarService : IContaPagarService
                 DateTime venc;
                 if (porMes)
                 {
+                    // O usuario escolhe o dia pela data do 1o vencimento: a parcela i=0 cai EXATAMENTE
+                    // nessa data (nunca retroativa) e as seguintes repetem o mesmo dia (clampado ao
+                    // ultimo dia dos meses mais curtos).
                     var m = new DateTime(dto.Modelo.DataVencimento.Year, dto.Modelo.DataVencimento.Month, 1)
                         .AddMonths(passoMeses * i);
-                    var dia = Math.Min(dto.DiaVencimento, DateTime.DaysInMonth(m.Year, m.Month));
+                    var dia = Math.Min(dto.Modelo.DataVencimento.Day, DateTime.DaysInMonth(m.Year, m.Month));
                     venc = new DateTime(m.Year, m.Month, dia);
                 }
                 else
