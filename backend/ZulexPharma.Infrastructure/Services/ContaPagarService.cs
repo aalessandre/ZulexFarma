@@ -81,21 +81,55 @@ public class ContaPagarService : IContaPagarService
     {
         try
         {
-            if (dto.QuantidadeMeses < 2 || dto.QuantidadeMeses > 36)
-                throw new ArgumentException("Quantidade de meses deve ser entre 2 e 36.");
-            if (dto.DiaVencimento < 1 || dto.DiaVencimento > 28)
+            if (dto.QuantidadeParcelas < 2 || dto.QuantidadeParcelas > 120)
+                throw new ArgumentException("Quantidade de parcelas deve ser entre 2 e 120.");
+            if (!Enum.IsDefined(dto.Periodicidade))
+                throw new ArgumentException("Periodicidade invalida.");
+
+            // Periodicidades em MESES usam dia fixo do mes; as em DIAS somam dias sobre a data base.
+            var porMes = dto.Periodicidade is Periodicidade.Mensal or Periodicidade.Trimestral
+                or Periodicidade.Semestral or Periodicidade.Anual or Periodicidade.PersonalizadoMeses;
+            if (porMes && (dto.DiaVencimento < 1 || dto.DiaVencimento > 28))
                 throw new ArgumentException("Dia de vencimento deve ser entre 1 e 28.");
+            if ((dto.Periodicidade is Periodicidade.PersonalizadoDias or Periodicidade.PersonalizadoMeses)
+                && (dto.IntervaloPersonalizado < 1 || dto.IntervaloPersonalizado > 365))
+                throw new ArgumentException("Intervalo da periodicidade personalizada deve ser entre 1 e 365.");
             Validar(dto.Modelo);
+
+            var passoMeses = dto.Periodicidade switch
+            {
+                Periodicidade.Mensal => 1,
+                Periodicidade.Trimestral => 3,
+                Periodicidade.Semestral => 6,
+                Periodicidade.Anual => 12,
+                Periodicidade.PersonalizadoMeses => dto.IntervaloPersonalizado,
+                _ => 0
+            };
+            var passoDias = dto.Periodicidade switch
+            {
+                Periodicidade.Semanal => 7,
+                Periodicidade.Quinzenal => 14,
+                Periodicidade.PersonalizadoDias => dto.IntervaloPersonalizado,
+                _ => 0
+            };
 
             var grupo = Guid.NewGuid();
             var resultado = new List<ContaPagarListDto>();
 
-            for (int i = 0; i < dto.QuantidadeMeses; i++)
+            for (int i = 0; i < dto.QuantidadeParcelas; i++)
             {
-                var venc = new DateTime(dto.Modelo.DataVencimento.Year, dto.Modelo.DataVencimento.Month, 1)
-                    .AddMonths(i);
-                var dia = Math.Min(dto.DiaVencimento, DateTime.DaysInMonth(venc.Year, venc.Month));
-                venc = new DateTime(venc.Year, venc.Month, dia);
+                DateTime venc;
+                if (porMes)
+                {
+                    var m = new DateTime(dto.Modelo.DataVencimento.Year, dto.Modelo.DataVencimento.Month, 1)
+                        .AddMonths(passoMeses * i);
+                    var dia = Math.Min(dto.DiaVencimento, DateTime.DaysInMonth(m.Year, m.Month));
+                    venc = new DateTime(m.Year, m.Month, dia);
+                }
+                else
+                {
+                    venc = dto.Modelo.DataVencimento.AddDays(passoDias * i);
+                }
 
                 var form = new ContaPagarFormDto
                 {
@@ -117,7 +151,7 @@ public class ContaPagarService : IContaPagarService
 
                 var cp = Mapear(form);
                 cp.RecorrenciaGrupo = grupo;
-                cp.RecorrenciaParcela = $"{i + 1}/{dto.QuantidadeMeses}";
+                cp.RecorrenciaParcela = $"{i + 1}/{dto.QuantidadeParcelas}";
                 _db.ContasPagar.Add(cp);
             }
 

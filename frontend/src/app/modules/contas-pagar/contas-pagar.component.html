@@ -341,13 +341,30 @@
           <div class="form-secao">Recorrência</div>
           <div class="form-grid">
             <div class="field">
-              <label>QTD. MESES</label>
-              <input type="number" [value]="recQtdMeses()" (input)="recQtdMeses.set(+$any($event.target).value)" min="2" max="36" />
+              <label>PERIODICIDADE</label>
+              <select class="select-campo" [value]="recPeriodicidade()"
+                      (change)="recPeriodicidade.set(+$any($event.target).value)">
+                @for (p of periodicidades; track p.v) {
+                  <option [value]="p.v">{{ p.label }}</option>
+                }
+              </select>
             </div>
+            @if (recPersonalizado()) {
+              <div class="field">
+                <label>A CADA ({{ recUnidadePersonalizada() }})</label>
+                <input type="number" [value]="recIntervalo()" (input)="recIntervalo.set(+$any($event.target).value)" min="1" max="365" />
+              </div>
+            }
             <div class="field">
-              <label>DIA VENCIMENTO</label>
-              <input type="number" [value]="recDiaVencimento()" (input)="recDiaVencimento.set(+$any($event.target).value)" min="1" max="28" />
+              <label>QTD. PARCELAS</label>
+              <input type="number" [value]="recQtdParcelas()" (input)="recQtdParcelas.set(+$any($event.target).value)" min="2" max="120" />
             </div>
+            @if (recPorMes()) {
+              <div class="field">
+                <label>DIA VENCIMENTO</label>
+                <input type="number" [value]="recDiaVencimento()" (input)="recDiaVencimento.set(+$any($event.target).value)" min="1" max="28" />
+              </div>
+            }
             <div class="field">
               <label>A PARTIR DE</label>
               <input type="date" [value]="form().dataVencimento" (change)="upd('dataVencimento', $any($event.target).value)" />

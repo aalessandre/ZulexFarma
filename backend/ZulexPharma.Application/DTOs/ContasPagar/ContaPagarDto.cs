@@ -57,6 +57,11 @@ public class ContaPagarFormDto
 public class ContaPagarRecorrenteDto
 {
     public ContaPagarFormDto Modelo { get; set; } = new();
-    public int QuantidadeMeses { get; set; }
+    /// <summary>Quantas parcelas gerar (antes chamava "QuantidadeMeses").</summary>
+    public int QuantidadeParcelas { get; set; }
+    /// <summary>Dia fixo do mes (1-28) — so' vale para periodicidades em meses.</summary>
     public int DiaVencimento { get; set; }
+    public Periodicidade Periodicidade { get; set; } = Periodicidade.Mensal;
+    /// <summary>Intervalo (X) quando Periodicidade e' PersonalizadoDias/PersonalizadoMeses.</summary>
+    public int IntervaloPersonalizado { get; set; }
 }

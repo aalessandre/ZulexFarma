@@ -127,7 +127,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
   private apiUrl = `${environment.apiUrl}/compras`;
   private produtosApiUrl = `${environment.apiUrl}/produtos`;
   private tokenLiberacao: string | null = null;
-  private readonly STATE_KEY = 'zulex_compras_state';
 
   // ── Estado ────────────────────────────────────────────────────
   modo = signal<'lista' | 'detalhe' | 'vincular' | 'precificacao' | 'conferencia' | 'conferir-lotes' | 'finalizacao' | 'sefaz'>('lista');
@@ -303,7 +302,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.carregar();
-    this.restaurarEstado();
     this.http.get<any>(`${environment.apiUrl}/filiais`).subscribe({
       next: r => this.filiaisDisponiveis.set((r.data ?? []).map((f: any) => ({ id: f.id, nome: f.nomeFilial || `Filial ${f.id}` })))
     });
@@ -317,40 +315,14 @@ export class ComprasComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.persistirEstado();
+    // O estado da tela sobrevive ao navegar via RouteReuseStrategy (data:{reuse:true}
+    // na rota lancar-compras); a aba so' e' destruida ao ser fechada.
     this.buscaProduto$.complete();
   }
 
   onBuscaProdutoInput(valor: string) {
     this.buscaProduto.set(valor);
     this.buscaProduto$.next(valor);
-  }
-
-  private persistirEstado() {
-    // Persiste a tela de vinculo (as notas abertas) pra reabri-la ao voltar de outra rota.
-    const ids = this.modo() === 'vincular'
-      ? Array.from(new Set(this.vincularItens().map((p: any) => p.compraId)))
-      : [];
-    if (ids.length > 0) {
-      sessionStorage.setItem(this.STATE_KEY, JSON.stringify({ modo: 'vincular', compraIds: ids }));
-    } else {
-      sessionStorage.removeItem(this.STATE_KEY);
-    }
-  }
-
-  private restaurarEstado() {
-    const raw = sessionStorage.getItem(this.STATE_KEY);
-    if (!raw) return;
-    try {
-      const state = JSON.parse(raw);
-      // 'detalhe' e' legado (a tela virou a de vinculo). Restaura abrindo o vinculo das notas.
-      const ids: number[] = state.compraIds ?? (state.compraId ? [state.compraId] : []);
-      if ((state.modo === 'vincular' || state.modo === 'detalhe') && ids.length > 0) {
-        this.abrirVincularLote(ids);
-      }
-    } catch {
-      sessionStorage.removeItem(this.STATE_KEY);
-    }
   }
 
   // ── Ordenacao ─────────────────────────────────────────────────
@@ -451,7 +423,6 @@ export class ComprasComponent implements OnInit, OnDestroy {
     this.modo.set('lista');
     this.compraDetalhe.set(null);
     this.compraSelecionada.set(null);
-    sessionStorage.removeItem(this.STATE_KEY);
     this.carregar();
   }
 
