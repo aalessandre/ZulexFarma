@@ -802,7 +802,6 @@ public class CompraService : ICompraService
             if (dados == null) continue;
 
             var anterior = new Dictionary<string, string?> {
-                ["Estoque"] = dados.EstoqueAtual.ToString("N3"),
                 ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
                 ["Custo Médio"] = dados.CustoMedio.ToString("N2"),
                 ["Ult. Compra Unit."] = dados.UltimaCompraUnitario.ToString("N4")
@@ -922,7 +921,7 @@ public class CompraService : ICompraService
             await _log.RegistrarAsync("Produtos", "FINALIZAÇÃO COMPRA", "Produto", item.ProdutoId!.Value,
                 anterior: anterior,
                 novo: new Dictionary<string, string?> {
-                    ["Estoque"] = dados.EstoqueAtual.ToString("N3"),
+                    // A quantidade em estoque nao entra na Alteracao — vive no extrato de Movimentacao.
                     ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
                     ["Custo Médio"] = dados.CustoMedio.ToString("N4"),
                     ["Ult. Compra Unit."] = dados.UltimaCompraUnitario.ToString("N4"),

@@ -683,7 +683,7 @@
                   @if (produtoForm().controlaGrade) {
                     <input type="number" [value]="dd.estoqueAtual" step="0.01" readonly class="prod-inp-readonly" title="Total das variações — edite pela Grade" />
                   } @else {
-                    <input type="number" [value]="dd.estoqueAtual" (input)="updateDados(dadosFilialIdx(), 'estoqueAtual', +$any($event.target).value)" step="0.01" />
+                    <input type="number" [value]="dd.estoqueAtual" step="0.01" readonly class="prod-inp-readonly" title="A quantidade muda por movimento de estoque (compra/venda/perda) — veja Log → Movimentação" />
                   }
                 </div>
                 <div class="prod-field"><label>ESTOQUE MÍNIMO</label><input type="number" [value]="dd.estoqueMinimo" (input)="updateDados(dadosFilialIdx(), 'estoqueMinimo', +$any($event.target).value)" step="0.01" /></div>
