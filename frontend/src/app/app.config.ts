@@ -11,7 +11,9 @@ import {
   provideRouter,
   withComponentInputBinding,
   withInMemoryScrolling,
+  RouteReuseStrategy,
 } from '@angular/router';
+import { TabReuseStrategy } from './core/services/tab-reuse.strategy';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideClientHydration } from '@angular/platform-browser';
 import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
@@ -74,6 +76,8 @@ export const appConfig: ApplicationConfig = {
       }),
       withComponentInputBinding()
     ),
+    // Mantem vivas as telas com data:{reuse:true} (produtos, lancar-compras) ao trocar de aba.
+    { provide: RouteReuseStrategy, useExisting: TabReuseStrategy },
     provideHttpClient(withInterceptorsFromDi(), withInterceptors([authInterceptor, noCacheInterceptor, errorInterceptor])),
     provideClientHydration(),
     provideAnimationsAsync(),

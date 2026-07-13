@@ -80,6 +80,7 @@ export const ErpRoutes: Routes = [
       },
       {
         path: 'gerenciar-produtos',
+        data: { reuse: true }, // mantem estado (edicao) ao navegar pra outra aba
         loadComponent: () =>
           import('../produtos/produtos.component').then(m => m.ProdutosComponent),
       },
@@ -90,6 +91,7 @@ export const ErpRoutes: Routes = [
       },
       {
         path: 'produtos',
+        data: { reuse: true }, // mantem estado (edicao) ao navegar pra outra aba
         loadComponent: () =>
           import('../produtos/produtos.component').then(m => m.ProdutosComponent),
       },
@@ -160,6 +162,7 @@ export const ErpRoutes: Routes = [
       },
       {
         path: 'lancar-compras',
+        data: { reuse: true }, // mantem estado do lancamento ao navegar pra outra aba
         loadComponent: () =>
           import('../compras/compras.component').then(m => m.ComprasComponent),
       },

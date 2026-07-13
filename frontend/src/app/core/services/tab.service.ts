@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { TabReuseStrategy } from './tab-reuse.strategy';
 
 export interface Tab {
   id: string;
@@ -24,7 +25,12 @@ export class TabService {
   /** Callbacks registrados por componentes para interceptar fechamento de tab */
   private beforeCloseHandlers = new Map<string, () => Promise<boolean>>();
 
-  constructor(private router: Router) {}
+  constructor(private router: Router, private reuse: TabReuseStrategy) {}
+
+  /** '/erp/gerenciar-produtos' -> 'gerenciar-produtos' (bate com o path da rota). */
+  private pathDaRota(rota: string): string {
+    return rota.split('?')[0].split('/').filter(Boolean).pop() ?? '';
+  }
 
   /** Registra um callback que será chamado antes de fechar a tab. Retorna false para cancelar. */
   registrarBeforeClose(tabId: string, handler: () => Promise<boolean>): void {
@@ -63,6 +69,9 @@ export class TabService {
       if (!podeFechar) return;
       this.beforeCloseHandlers.delete(id);
     }
+
+    // Descarta o componente guardado dessa aba (RouteReuseStrategy) — reabrir comeca do zero.
+    this.reuse.invalidate(this.pathDaRota(lista[idx].rota), this.tabAtiva() === id);
 
     const novaLista = lista.filter(t => t.id !== id);
     this.tabs.set(novaLista);
@@ -115,6 +124,8 @@ export class TabService {
   }
 
   fecharTodas(): void {
+    const ativa = this.tabs().find(t => t.id === this.tabAtiva());
+    this.reuse.invalidateAll(ativa ? this.pathDaRota(ativa.rota) : undefined);
     this.tabs.set([]);
     this.tabAtiva.set('');
     this.historico = [];
