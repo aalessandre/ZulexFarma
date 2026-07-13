@@ -143,7 +143,6 @@ export class ContasPagarComponent implements OnInit, OnDestroy {
   // Tipo lançamento (Normal / Recorrente)
   tipoLancamento = signal<'normal' | 'recorrente'>('normal');
   recQtdParcelas = signal(12);
-  recDiaVencimento = signal(10);
   // Periodicidade (valores batem com o enum Periodicidade do backend)
   recPeriodicidade = signal(3); // 3 = Mensal
   recIntervalo = signal(30);    // X de "a cada X dias/meses"
@@ -157,8 +156,6 @@ export class ContasPagarComponent implements OnInit, OnDestroy {
     { v: 7, label: 'A cada X dias' },
     { v: 8, label: 'A cada X meses' },
   ];
-  // Periodicidades em MESES usam dia fixo do mes; as em dias somam dias sobre a data base.
-  recPorMes = computed(() => [3, 4, 5, 6, 8].includes(this.recPeriodicidade()));
   recPersonalizado = computed(() => this.recPeriodicidade() === 7 || this.recPeriodicidade() === 8);
   recUnidadePersonalizada = computed(() => this.recPeriodicidade() === 7 ? 'dias' : 'meses');
 
@@ -490,7 +487,6 @@ export class ContasPagarComponent implements OnInit, OnDestroy {
     this.formOriginal = this.clonar(this.novoRegistro());
     this.tipoLancamento.set('normal');
     this.recQtdParcelas.set(12);
-    this.recDiaVencimento.set(10);
     this.recPeriodicidade.set(3);
     this.recIntervalo.set(30);
     this.pessoaSelecionadaNome.set(''); this.pessoaBusca.set(''); this.pessoaResultados.set([]);
@@ -543,7 +539,6 @@ export class ContasPagarComponent implements OnInit, OnDestroy {
           nrDocumento: f.nrDocumento, observacao: f.observacao, status: 1, ativo: true
         },
         quantidadeParcelas: this.recQtdParcelas(),
-        diaVencimento: this.recDiaVencimento(),
         periodicidade: this.recPeriodicidade(),
         intervaloPersonalizado: this.recIntervalo()
       };

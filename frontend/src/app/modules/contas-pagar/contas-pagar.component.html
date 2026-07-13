@@ -359,14 +359,8 @@
               <label>QTD. PARCELAS</label>
               <input type="number" [value]="recQtdParcelas()" (input)="recQtdParcelas.set(+$any($event.target).value)" min="2" max="120" />
             </div>
-            @if (recPorMes()) {
-              <div class="field">
-                <label>DIA VENCIMENTO</label>
-                <input type="number" [value]="recDiaVencimento()" (input)="recDiaVencimento.set(+$any($event.target).value)" min="1" max="28" />
-              </div>
-            }
             <div class="field">
-              <label>A PARTIR DE</label>
+              <label>1º VENCIMENTO</label>
               <input type="date" [value]="form().dataVencimento" (change)="upd('dataVencimento', $any($event.target).value)" />
             </div>
           </div>

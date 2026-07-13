@@ -198,8 +198,18 @@ public class PerdaService : IPerdaService
         var dados = await _db.ProdutosDados.FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == venda.FilialId);
         if (dados != null)
         {
-            dados.EstoqueAtual += mov.Quantidade;
-            _movimentos.Registrar(item.ProdutoId ?? 0, venda.FilialId, null, mov.Quantidade, dados.EstoqueAtual,
+            // Credita/loga apenas o que a criacao REALMENTE baixou do estoque: o Math.Max na
+            // criacao pode ter removido MENOS que a quantidade cheia do lote (estoque baixo). O
+            // movimento de estoque da perda guarda esse delta real; sem ele (perda antiga, pre-
+            // ledger) cai pra quantidade do lote.
+            var baixaReal = await _db.MovimentosEstoque
+                .Where(m => m.VendaId == id && m.Tipo == TipoMovimentoEstoque.Perda)
+                .OrderByDescending(m => m.Id)
+                .Select(m => (decimal?)m.Quantidade)
+                .FirstOrDefaultAsync();
+            var credito = baixaReal.HasValue ? -baixaReal.Value : mov.Quantidade;
+            dados.EstoqueAtual += credito;
+            _movimentos.Registrar(item.ProdutoId ?? 0, venda.FilialId, null, credito, dados.EstoqueAtual,
                 TipoMovimentoEstoque.EstornoPerda, $"Perda #{id}", vendaId: venda.Id, observacao: "Estorno de perda");
         }
         _db.Vendas.Remove(venda);
