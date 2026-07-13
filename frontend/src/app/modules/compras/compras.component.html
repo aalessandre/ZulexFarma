@@ -852,6 +852,42 @@
           </label>
         </div>
 
+        <!-- Produtos de grade: desmembrar a quantidade da nota entre os SKUs -->
+        @if (itensGrade().length > 0) {
+          <div class="fin-section">Produtos de grade — desmembrar em SKUs</div>
+          <div class="grid-wrapper fin-grid-wrapper">
+            <table class="erp-grid">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th style="width:90px">Qtde</th>
+                  <th style="width:130px">Desmembrado</th>
+                  <th style="width:150px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of itensGrade(); track item.compraProdutoId) {
+                  <tr>
+                    <td><strong>{{ item.produtoNome }}</strong></td>
+                    <td class="td-center">{{ item.qtdeEstoque }}</td>
+                    <td class="td-center">
+                      <span class="badge-status"
+                            [class.status-finalizada]="totalDesmembradoItem(item.compraProdutoId) === item.qtdeEstoque"
+                            [class.status-pendente]="totalDesmembradoItem(item.compraProdutoId) !== item.qtdeEstoque">
+                        {{ totalDesmembradoItem(item.compraProdutoId) }} / {{ item.qtdeEstoque }}
+                      </span>
+                    </td>
+                    <td class="td-center">
+                      <button class="btn-add-dup" (click)="abrirDesmembrar(item)">Desmembrar</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="vinc-dica">O que nao for desmembrado entra como estoque simples (linha-base) do produto.</div>
+        }
+
         <div class="fin-acoes fin-acoes-dual">
           <button class="btn-voltar-etapa" (click)="voltarDaFinalizacao()">&#9664; Voltar</button>
           <button class="btn-finalizar" [disabled]="finAplicando()" (click)="finalizar()">
@@ -981,6 +1017,42 @@
       <app-produtos [modalMode]="true"
                     (salvo)="onProdutoCadastrado($event)"
                     (fecharCadastroModal)="fecharModalCadastroProduto()" />
+    </div>
+  </div>
+}
+
+<!-- Modal: desmembrar item de grade na finalizacao -->
+@if (finDesmembrarItem(); as it) {
+  <div class="modal-overlay" (click)="fecharDesmembrar()">
+    <div class="modal-conf-lotes fin-desm-modal" (click)="$event.stopPropagation()">
+      <div class="modal-cl-header">
+        <div class="modal-cl-titulo">Desmembrar em grade — {{ it.produtoNome }}</div>
+        <button class="modal-cl-fechar" (click)="fecharDesmembrar()">&times;</button>
+      </div>
+      <div class="modal-cl-body fin-desm-body">
+        <p class="vinc-dica">Distribua a quantidade da nota (<strong>{{ it.qtdeEstoque }}</strong> un) entre os SKUs.</p>
+        <table class="erp-grid">
+          <thead><tr><th>SKU</th><th style="width:150px">Quantidade</th></tr></thead>
+          <tbody>
+            @for (s of finDesmembrarSkus(); track s.variacaoId; let i = $index) {
+              <tr>
+                <td><strong>{{ s.descricao }}</strong></td>
+                <td>
+                  <input type="number" class="fin-edit fin-edit-valor" min="0" [value]="s.quantidade"
+                         (input)="setDesmembrarSkuQtd(i, $any($event.target).value)" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <div class="fin-desm-total" [class.fin-desm-erro]="totalDesmembrarModal() > it.qtdeEstoque">
+          Distribuido: <strong>{{ totalDesmembrarModal() }}</strong> / {{ it.qtdeEstoque }}
+        </div>
+      </div>
+      <div class="modal-cl-footer">
+        <button class="modal-btn modal-btn-cancelar" (click)="fecharDesmembrar()">Cancelar</button>
+        <button class="modal-btn modal-btn-ok" [disabled]="totalDesmembrarModal() > it.qtdeEstoque" (click)="salvarDesmembrar()">Aplicar</button>
+      </div>
     </div>
   </div>
 }

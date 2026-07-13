@@ -818,9 +818,9 @@ public class ProdutoService : IProdutoService
             .OrderBy(d => d.FilialId).Select(d => new ProdutoDadosDto
         {
             Id = d.Id, FilialId = d.FilialId,
-            EstoqueAtual = temGrade
-                ? (estoqueGradePorFilial.TryGetValue(d.FilialId, out var totGrade) ? totGrade : 0m)
-                : d.EstoqueAtual,
+            // Total = estoque simples (linha-base, ex.: entrada de nota nao desmembrada) + soma dos SKUs.
+            // Assim o que a compra alimentou aparece na hora, tenha sido desmembrado na grade ou nao.
+            EstoqueAtual = d.EstoqueAtual + (estoqueGradePorFilial.TryGetValue(d.FilialId, out var totGrade) ? totGrade : 0m),
             EstoqueMinimo = d.EstoqueMinimo,
             EstoqueMaximo = d.EstoqueMaximo, Demanda = d.Demanda, CurvaAbc = d.CurvaAbc,
             EstoqueDeposito = d.EstoqueDeposito,

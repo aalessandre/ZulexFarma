@@ -713,14 +713,16 @@ public class CompraService : ICompraService
 
         var vinculados = compra.Produtos.Where(p => p.Vinculado).ToList();
 
-        // Buscar nomes de produtos e fabricantes
+        // Buscar nomes de produtos, fabricantes e variacoes (grade, pra desmembrar na finalizacao)
         var produtoIds = vinculados.Where(p => p.ProdutoId.HasValue).Select(p => p.ProdutoId!.Value).Distinct().ToList();
         var produtos = await _db.Produtos.Include(p => p.Fabricante)
+            .Include(p => p.Variacoes).ThenInclude(v => v.Valores).ThenInclude(vv => vv.ValorAtributo)
             .Where(p => produtoIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p);
 
         // Lotes: itens vinculados com dados de lote do XML
         var lotes = vinculados.Select(p => {
             produtos.TryGetValue(p.ProdutoId ?? 0, out var prod);
+            var variacoesAtivas = (prod?.Variacoes ?? new List<ProdutoVariacao>()).Where(v => v.Ativo).ToList();
             return new LoteItemDto
             {
                 CompraProdutoId = p.Id,
@@ -729,11 +731,20 @@ public class CompraService : ICompraService
                 CodigoBarras = prod?.CodigoBarras ?? p.CodigoBarrasXml,
                 Fabricante = prod?.Fabricante?.Nome,
                 Quantidade = p.Quantidade,
+                QtdeEstoque = p.Quantidade * (p.Fracao > 0 ? p.Fracao : (short)1),
                 ValorTotal = p.ValorTotal,
                 Lote = p.Lote,
                 DataFabricacao = p.DataFabricacao?.ToString("yyyy-MM-dd"),
                 DataValidade = p.DataValidade?.ToString("yyyy-MM-dd"),
-                CodigoAnvisa = p.CodigoAnvisa
+                CodigoAnvisa = p.CodigoAnvisa,
+                ControlaGrade = (prod?.ControlaGrade == true) || variacoesAtivas.Count > 0,
+                Variacoes = variacoesAtivas.Select(v => new VariacaoSimplesDto
+                {
+                    Id = v.Id,
+                    Descricao = string.Join(" / ", v.Valores
+                        .Select(vv => vv.ValorAtributo?.Valor)
+                        .Where(x => !string.IsNullOrEmpty(x)))
+                }).ToList()
             };
         }).ToList();
 
@@ -775,8 +786,12 @@ public class CompraService : ICompraService
 
         foreach (var item in compra.Produtos.Where(p => p.Vinculado && p.ProdutoId.HasValue))
         {
+            // Estoque da compra sempre entra na linha-base (estoque simples, sem variacao de grade),
+            // pois a nota nao vem por grade. Em filial de grade, o cadastro soma base + SKUs; a
+            // distribuicao pros SKUs e' feita depois pela funcao "desmembrar em grade".
             var dados = await _db.ProdutosDados
-                .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == compra.FilialId);
+                .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == compra.FilialId
+                                       && d.ProdutoVariacaoId == null);
             if (dados == null) continue;
 
             var anterior = new Dictionary<string, string?> {
@@ -805,8 +820,43 @@ public class CompraService : ICompraService
             var fracao = item.Fracao > 0 ? item.Fracao : (short)1;
             var qtdeTotal = item.Quantidade * fracao;
 
-            // 1. Atualizar estoque
-            dados.EstoqueAtual += qtdeTotal;
+            // 1. Atualizar estoque — item de grade desmembrado distribui pros SKUs; o resto
+            //    (e itens sem grade) entra no estoque simples (linha-base).
+            var desm = request.Desmembramentos.FirstOrDefault(d => d.CompraProdutoId == item.Id);
+            var skusDesm = desm?.Skus.Where(s => s.Quantidade > 0).ToList() ?? new();
+            if (skusDesm.Count > 0)
+            {
+                var totalDesm = skusDesm.Sum(s => s.Quantidade);
+                if (totalDesm > qtdeTotal)
+                    throw new ArgumentException($"Desmembramento de \"{item.DescricaoXml}\" soma {totalDesm} — maior que a quantidade da nota ({qtdeTotal}).");
+
+                var varIds = await _db.ProdutosVariacoes
+                    .Where(v => v.ProdutoId == item.ProdutoId).Select(v => v.Id).ToListAsync();
+                foreach (var s in skusDesm)
+                {
+                    if (!varIds.Contains(s.VariacaoId))
+                        throw new ArgumentException($"Variação {s.VariacaoId} não pertence ao produto \"{item.DescricaoXml}\".");
+                    var dv = await _db.ProdutosDados
+                        .FirstOrDefaultAsync(x => x.ProdutoVariacaoId == s.VariacaoId && x.FilialId == compra.FilialId);
+                    if (dv == null)
+                    {
+                        dv = new ProdutoDados { ProdutoId = item.ProdutoId!.Value, FilialId = compra.FilialId, ProdutoVariacaoId = s.VariacaoId };
+                        _db.ProdutosDados.Add(dv);
+                    }
+                    dv.EstoqueAtual += s.Quantidade;
+                    dv.AtualizadoEm = DateTime.UtcNow;
+                }
+                // Sobra nao distribuida vai pro estoque simples (linha-base).
+                var sobra = qtdeTotal - totalDesm;
+                if (sobra > 0) dados.EstoqueAtual += sobra;
+                // Persiste o desmembramento pra reverter no estoque dos SKUs ao excluir a compra.
+                item.DesmembramentoJson = System.Text.Json.JsonSerializer.Serialize(
+                    skusDesm.Select(s => new { s.VariacaoId, s.Quantidade }));
+            }
+            else
+            {
+                dados.EstoqueAtual += qtdeTotal;
+            }
             estoqueAdicionado += qtdeTotal;
 
             // 2. Atualizar última compra
@@ -822,14 +872,21 @@ public class CompraService : ICompraService
             dados.UltimaCompraSt = Math.Round(stUnit, 4);
             dados.UltimaCompraEm = DataHoraHelper.Agora();
 
-            // 3. Custo médio ponderado
-            var estoqueAnterior = dados.EstoqueAtual - qtdeTotal;
+            // 3. Custo médio ponderado sobre o estoque TOTAL do produto na filial (base + SKUs).
+            //    Em produto de grade o estoque vai pros SKUs (a base pode ficar 0 apos desmembrar),
+            //    entao o custo medio precisa considerar o estoque todo — nao so' a linha-base — senao
+            //    o desmembramento (base cresce so' a 'sobra') corromperia o custo/margem.
+            var estoqueSkusAntes = await _db.ProdutosDados
+                .Where(x => x.ProdutoId == item.ProdutoId && x.FilialId == compra.FilialId && x.ProdutoVariacaoId != null)
+                .SumAsync(x => x.EstoqueAtual);
+            var estoqueTotal = dados.EstoqueAtual + estoqueSkusAntes + skusDesm.Sum(s => s.Quantidade);
+            var estoqueAnterior = estoqueTotal - qtdeTotal;
             if (estoqueAnterior <= 0)
                 dados.CustoMedio = Math.Round(custoCompraUnit, 4);
             else
                 dados.CustoMedio = Math.Round(
                     ((estoqueAnterior * dados.CustoMedio) + (qtdeTotal * custoCompraUnit))
-                    / dados.EstoqueAtual, 4);
+                    / estoqueTotal, 4);
 
             // 4. Preços pendentes (sugestão salva mas não aplicada)
             if (item.SugestaoVenda.HasValue && !item.PrecificacaoAplicada)
@@ -987,21 +1044,38 @@ public class CompraService : ICompraService
             {
                 foreach (var item in compra.Produtos.Where(p => p.Vinculado && p.ProdutoId.HasValue))
                 {
-                    var dados = await _db.ProdutosDados
-                        .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == compra.FilialId);
-                    if (dados == null) continue;
-
                     var fracao = item.Fracao > 0 ? item.Fracao : (short)1;
                     var qtdeTotal = item.Quantidade * fracao;
 
-                    // Reverter estoque
-                    dados.EstoqueAtual = Math.Max(0, dados.EstoqueAtual - qtdeTotal);
+                    // Reverte primeiro dos SKUs que receberam o desmembramento na finalizacao.
+                    var skus = string.IsNullOrWhiteSpace(item.DesmembramentoJson)
+                        ? new List<DesmembramentoSkuDto>()
+                        : (System.Text.Json.JsonSerializer.Deserialize<List<DesmembramentoSkuDto>>(item.DesmembramentoJson) ?? new());
+                    decimal revertidoSkus = 0;
+                    foreach (var s in skus)
+                    {
+                        var dv = await _db.ProdutosDados
+                            .FirstOrDefaultAsync(x => x.ProdutoVariacaoId == s.VariacaoId && x.FilialId == compra.FilialId);
+                        if (dv == null) continue;
+                        dv.EstoqueAtual = Math.Max(0, dv.EstoqueAtual - s.Quantidade);
+                        dv.AtualizadoEm = DateTime.UtcNow;
+                        revertidoSkus += s.Quantidade;
+                    }
+
+                    // O que nao foi desmembrado estava no estoque simples (linha-base).
+                    var doBase = qtdeTotal - revertidoSkus;
+                    var dados = await _db.ProdutosDados
+                        .FirstOrDefaultAsync(d => d.ProdutoId == item.ProdutoId && d.FilialId == compra.FilialId
+                                               && d.ProdutoVariacaoId == null);
+                    if (dados != null && doBase > 0)
+                        dados.EstoqueAtual = Math.Max(0, dados.EstoqueAtual - doBase);
 
                     // Log de reversão por produto
                     await _log.RegistrarAsync("Produtos", "EXCLUSÃO COMPRA (REVERSÃO)", "Produto", item.ProdutoId!.Value,
                         novo: new Dictionary<string, string?> {
                             ["Estoque revertido"] = $"-{qtdeTotal:N3}",
-                            ["Estoque atual"] = dados.EstoqueAtual.ToString("N3"),
+                            ["Nos SKUs (grade)"] = revertidoSkus.ToString("N3"),
+                            ["No estoque simples"] = doBase.ToString("N3"),
                             ["NF excluída"] = compra.NumeroNf
                         });
                 }

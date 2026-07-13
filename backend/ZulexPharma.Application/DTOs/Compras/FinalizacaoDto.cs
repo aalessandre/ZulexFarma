@@ -8,6 +8,23 @@ public class FinalizarCompraRequest
     public string? NomeUsuario { get; set; }
     public List<DuplicataEditDto> Duplicatas { get; set; } = new();
     public List<LoteEditDto> Lotes { get; set; } = new();
+    /// <summary>
+    /// Desmembramento por item de grade: distribui a quantidade da nota entre os SKUs.
+    /// Itens sem desmembramento entram no estoque simples (linha-base).
+    /// </summary>
+    public List<DesmembramentoItemDto> Desmembramentos { get; set; } = new();
+}
+
+public class DesmembramentoItemDto
+{
+    public long CompraProdutoId { get; set; }
+    public List<DesmembramentoSkuDto> Skus { get; set; } = new();
+}
+
+public class DesmembramentoSkuDto
+{
+    public long VariacaoId { get; set; }
+    public decimal Quantidade { get; set; }
 }
 
 public class DuplicataEditDto
@@ -51,11 +68,22 @@ public class LoteItemDto
     public string? CodigoBarras { get; set; }
     public string? Fabricante { get; set; }
     public decimal Quantidade { get; set; }
+    /// <summary>Quantidade em UNIDADES de estoque (Quantidade * Fracao) — base do desmembramento.</summary>
+    public decimal QtdeEstoque { get; set; }
     public decimal ValorTotal { get; set; }
     public string? Lote { get; set; }
     public string? DataFabricacao { get; set; }
     public string? DataValidade { get; set; }
     public string? CodigoAnvisa { get; set; }
+    /// <summary>Produto de grade — permite desmembrar a quantidade da nota entre os SKUs na finalização.</summary>
+    public bool ControlaGrade { get; set; }
+    public List<VariacaoSimplesDto> Variacoes { get; set; } = new();
+}
+
+public class VariacaoSimplesDto
+{
+    public long Id { get; set; }
+    public string Descricao { get; set; } = "";
 }
 
 public class DadosFinalizacaoDto

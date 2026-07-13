@@ -248,6 +248,11 @@ export class ComprasComponent implements OnInit, OnDestroy {
   finAplicando = signal(false);
   finDuplicatasEntregues = signal(false);
   finNotaPaga = signal(false);
+  // Desmembrar em grade na finalizacao: distribui a qtde da nota entre os SKUs.
+  finDesmembramentos = signal<Record<number, { variacaoId: number; quantidade: number }[]>>({}); // por compraProdutoId
+  finDesmembrarItem = signal<any | null>(null); // item (lote) sendo desmembrado no modal
+  finDesmembrarSkus = signal<{ variacaoId: number; descricao: string; quantidade: number }[]>([]);
+  totalDesmembrarModal = computed(() => this.finDesmembrarSkus().reduce((s, x) => s + (+x.quantidade || 0), 0));
 
   // ── Conferência ───────────────────────────────────────────────
   confItens = signal<CompraProduto[]>([]);
@@ -839,6 +844,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
         this.finDados.set(r.data);
         this.finDuplicatasEntregues.set(false);
         this.finNotaPaga.set(false);
+        this.finDesmembramentos.set({});
+        this.finDesmembrarItem.set(null);
         this.modo.set('finalizacao');
         this.finCarregando.set(false);
       },
@@ -872,6 +879,42 @@ export class ComprasComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Desmembrar em grade (finalizacao) ──────────────────────────
+  /** Itens da nota que sao produto de grade (podem ser desmembrados). */
+  itensGrade(): any[] {
+    return (this.finDados()?.lotes ?? []).filter((l: any) => l.controlaGrade && (l.variacoes?.length ?? 0) > 0);
+  }
+
+  totalDesmembradoItem(compraProdutoId: number): number {
+    return (this.finDesmembramentos()[compraProdutoId] ?? []).reduce((s, x) => s + (+x.quantidade || 0), 0);
+  }
+
+  abrirDesmembrar(item: any) {
+    const salvos = new Map((this.finDesmembramentos()[item.compraProdutoId] ?? []).map(s => [s.variacaoId, s.quantidade]));
+    this.finDesmembrarSkus.set((item.variacoes ?? []).map((v: any) => ({
+      variacaoId: v.id, descricao: v.descricao, quantidade: salvos.get(v.id) ?? 0
+    })));
+    this.finDesmembrarItem.set(item);
+  }
+
+  fecharDesmembrar() { this.finDesmembrarItem.set(null); }
+
+  setDesmembrarSkuQtd(i: number, valor: any) {
+    this.finDesmembrarSkus.update(sk => sk.map((s, idx) => idx === i ? { ...s, quantidade: Math.max(0, +valor || 0) } : s));
+  }
+
+  salvarDesmembrar() {
+    const item = this.finDesmembrarItem();
+    if (!item) return;
+    if (this.totalDesmembrarModal() > item.qtdeEstoque) {
+      this.toastr.warning(`A soma (${this.totalDesmembrarModal()}) excede a quantidade da nota (${item.qtdeEstoque}).`, 'Desmembrar', { timeOut: 3500, positionClass: 'toast-top-center' });
+      return;
+    }
+    const skus = this.finDesmembrarSkus().filter(s => s.quantidade > 0).map(s => ({ variacaoId: s.variacaoId, quantidade: s.quantidade }));
+    this.finDesmembramentos.update(m => ({ ...m, [item.compraProdutoId]: skus }));
+    this.finDesmembrarItem.set(null);
+  }
+
   finalizar() {
     const dados = this.finDados();
     if (!dados) return;
@@ -891,7 +934,10 @@ export class ComprasComponent implements OnInit, OnDestroy {
           lote: l.lote,
           dataFabricacao: l.dataFabricacao,
           dataValidade: l.dataValidade
-        }))
+        })),
+        desmembramentos: Object.entries(this.finDesmembramentos())
+          .filter(([, skus]) => skus.length > 0)
+          .map(([compraProdutoId, skus]) => ({ compraProdutoId: +compraProdutoId, skus }))
       }).subscribe({
         next: r => {
           this.finAplicando.set(false);
