@@ -159,7 +159,6 @@ export class ErpShellComponent {
       tiles: [
         { label: 'Sincronismo',      sigla: 'SI', iconKey: 'wrench',   rota: '/erp/sync' },
         { label: 'Grupo de Usuarios', sigla: 'GU', iconKey: 'lock',     rota: '/erp/grupos' },
-        { label: 'Usuarios',          sigla: 'US', iconKey: 'users',    rota: '/erp/usuarios' },
         { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },
         { label: 'Sistema',           sigla: 'ST', iconKey: 'gear',     rota: '/erp/sistema' },
         { label: 'Configuracoes',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },

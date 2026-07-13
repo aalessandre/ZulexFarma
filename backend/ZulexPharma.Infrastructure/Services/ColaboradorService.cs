@@ -12,14 +12,16 @@ public class ColaboradorService : IColaboradorService
 {
     private readonly AppDbContext _db;
     private readonly ILogAcaoService _log;
+    private readonly FilialContexto _ctx;
 
     private const string TELA     = "Colaboradores";
     private const string ENTIDADE = "Colaborador";
 
-    public ColaboradorService(AppDbContext db, ILogAcaoService log)
+    public ColaboradorService(AppDbContext db, ILogAcaoService log, FilialContexto ctx)
     {
         _db  = db;
         _log = log;
+        _ctx = ctx;
     }
 
     // ── Listar ───────────────────────────────────────────────────────
@@ -142,6 +144,27 @@ public class ColaboradorService : IColaboradorService
                 .Where(ufg => ufg.UsuarioId == c.Usuario.Id)
                 .ToListAsync();
 
+            var listaFg = filialGrupos.Select(fg => new FilialGrupoDetalheDto
+            {
+                FilialId       = fg.FilialId,
+                NomeFilial     = fg.Filial.NomeFantasia,
+                GrupoUsuarioId = fg.GrupoUsuarioId,
+                NomeGrupo      = fg.GrupoUsuario.Nome
+            }).ToList();
+
+            // Fallback: usuario legado/adotado sem linhas em UsuarioFilialGrupo, mas com acesso na
+            // propria linha Usuario (FilialId + GrupoUsuarioId). Mostra esse acesso em vez de "SEM ACESSO".
+            if (listaFg.Count == 0 && c.Usuario.GrupoUsuarioId > 0 && c.Usuario.FilialId > 0)
+            {
+                listaFg.Add(new FilialGrupoDetalheDto
+                {
+                    FilialId       = c.Usuario.FilialId,
+                    NomeFilial     = c.Usuario.Filial?.NomeFantasia ?? string.Empty,
+                    GrupoUsuarioId = c.Usuario.GrupoUsuarioId,
+                    NomeGrupo      = c.Usuario.GrupoUsuario?.Nome ?? string.Empty
+                });
+            }
+
             dto.Acesso = new AcessoDetalheDto
             {
                 UsuarioId       = c.Usuario.Id,
@@ -151,13 +174,7 @@ public class ColaboradorService : IColaboradorService
                 InatividadeMinutos  = c.Usuario.InatividadeMinutos,
                 FilialPadraoId  = c.Usuario.FilialId,
                 NomeFilialPadrao = c.Usuario.Filial?.NomeFantasia ?? string.Empty,
-                FilialGrupos    = filialGrupos.Select(fg => new FilialGrupoDetalheDto
-                {
-                    FilialId       = fg.FilialId,
-                    NomeFilial     = fg.Filial.NomeFantasia,
-                    GrupoUsuarioId = fg.GrupoUsuarioId,
-                    NomeGrupo      = fg.GrupoUsuario.Nome
-                }).ToList()
+                FilialGrupos    = listaFg
             };
         }
 
@@ -578,30 +595,69 @@ public class ColaboradorService : IColaboradorService
         // Determinar a filial/grupo principal (primeiro com acesso)
         var primeiroAcesso = acesso.FilialGrupos.FirstOrDefault();
 
+        // So' um admin pode CONCEDER acesso de administrador (a tela e' aberta a nao-admins com
+        // permissao de colaboradores) ou VINCULAR/ADOTAR uma conta que ja' e' admin.
+        var callerAdmin = _ctx.IsAdmin;
+
         if (usuario == null)
         {
-            if (await _db.Usuarios.AnyAsync(u => u.Login == acesso.Login.Trim()))
-                throw new ArgumentException("Login já está em uso por outro usuário.");
+            var login = acesso.Login.Trim();
+            var existentePorLogin = await _db.Usuarios.FirstOrDefaultAsync(u => u.Login == login);
 
-            usuario = new Usuario
+            if (existentePorLogin != null)
             {
-                Nome            = pessoa.Nome,
-                Login           = acesso.Login.Trim(),
-                SenhaHash       = BCrypt.Net.BCrypt.HashPassword(acesso.Senha ?? throw new ArgumentException("Senha é obrigatória para novo acesso.")),
-                FilialId        = acesso.FilialPadraoId > 0 ? acesso.FilialPadraoId : (primeiroAcesso?.FilialId ?? (await _db.Filiais.Select(f => f.Id).FirstOrDefaultAsync())),
-                GrupoUsuarioId  = primeiroAcesso?.GrupoUsuarioId ?? (await _db.UsuariosGrupos.Select(g => g.Id).FirstOrDefaultAsync()),
-                IsAdministrador = acesso.IsAdministrador,
-                ColaboradorId   = colaborador.Id,
-                SessaoMaximaMinutos = acesso.SessaoMaximaMinutos,
-                InatividadeMinutos  = acesso.InatividadeMinutos
-            };
-            _db.Usuarios.Add(usuario);
-            await _db.SaveChangesAsync();
+                // ADOTA um usuario que ja' existe com esse login (ex.: criado pela antiga tela de
+                // Usuarios ou pelo seeder, sem vinculo). Vincula ao colaborador em vez de barrar,
+                // preservando a senha. So' bloqueia se o login ja' e' de OUTRO colaborador.
+                if (existentePorLogin.ColaboradorId != null && existentePorLogin.ColaboradorId != colaborador.Id)
+                    throw new ArgumentException("Login já está em uso por outro colaborador.");
+                // Nao deixar nao-admin SEQUESTRAR uma conta de administrador (ex.: o admin do seeder)
+                // — adotaria a conta, resetaria a senha e trancaria o admin real.
+                if (existentePorLogin.IsAdministrador && !callerAdmin)
+                    throw new ArgumentException("Somente um administrador pode vincular uma conta de administrador.");
+                if (acesso.IsAdministrador && !existentePorLogin.IsAdministrador && !callerAdmin)
+                    throw new ArgumentException("Somente um administrador pode conceder acesso de administrador.");
+
+                usuario = existentePorLogin;
+                usuario.ColaboradorId   = colaborador.Id;
+                usuario.Ativo           = true;
+                usuario.Nome            = pessoa.Nome;
+                usuario.IsAdministrador = acesso.IsAdministrador;
+                usuario.SessaoMaximaMinutos = acesso.SessaoMaximaMinutos;
+                usuario.InatividadeMinutos  = acesso.InatividadeMinutos;
+                if (acesso.FilialPadraoId > 0) usuario.FilialId = acesso.FilialPadraoId;
+                else if (primeiroAcesso != null) usuario.FilialId = primeiroAcesso.FilialId;
+                if (primeiroAcesso != null) usuario.GrupoUsuarioId = primeiroAcesso.GrupoUsuarioId;
+                if (!string.IsNullOrWhiteSpace(acesso.Senha)) // adotar NAO exige nova senha
+                    usuario.SenhaHash = BCrypt.Net.BCrypt.HashPassword(acesso.Senha);
+                await _db.SaveChangesAsync();
+            }
+            else
+            {
+                if (acesso.IsAdministrador && !callerAdmin)
+                    throw new ArgumentException("Somente um administrador pode conceder acesso de administrador.");
+                usuario = new Usuario
+                {
+                    Nome            = pessoa.Nome,
+                    Login           = login,
+                    SenhaHash       = BCrypt.Net.BCrypt.HashPassword(acesso.Senha ?? throw new ArgumentException("Senha é obrigatória para novo acesso.")),
+                    FilialId        = acesso.FilialPadraoId > 0 ? acesso.FilialPadraoId : (primeiroAcesso?.FilialId ?? (await _db.Filiais.Select(f => f.Id).FirstOrDefaultAsync())),
+                    GrupoUsuarioId  = primeiroAcesso?.GrupoUsuarioId ?? (await _db.UsuariosGrupos.Select(g => g.Id).FirstOrDefaultAsync()),
+                    IsAdministrador = acesso.IsAdministrador,
+                    ColaboradorId   = colaborador.Id,
+                    SessaoMaximaMinutos = acesso.SessaoMaximaMinutos,
+                    InatividadeMinutos  = acesso.InatividadeMinutos
+                };
+                _db.Usuarios.Add(usuario);
+                await _db.SaveChangesAsync();
+            }
         }
         else
         {
             if (await _db.Usuarios.AnyAsync(u => u.Login == acesso.Login.Trim() && u.Id != usuario.Id))
                 throw new ArgumentException("Login já está em uso por outro usuário.");
+            if (acesso.IsAdministrador && !usuario.IsAdministrador && !callerAdmin)
+                throw new ArgumentException("Somente um administrador pode conceder acesso de administrador.");
 
             usuario.Nome            = pessoa.Nome;
             usuario.Login           = acesso.Login.Trim();

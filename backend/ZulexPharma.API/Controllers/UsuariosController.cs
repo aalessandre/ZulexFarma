@@ -3,9 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using ZulexPharma.Application.DTOs.Usuarios;
 using ZulexPharma.Application.Interfaces;
+using ZulexPharma.API.Filters;
 
 namespace ZulexPharma.API.Controllers;
 
+// Tela de "Usuarios" aposentada: usuarios sao geridos pela tela de Colaboradores.
+// Estes endpoints ficam gateados pela permissao de colaboradores (ou admin) — antes
+// eram [Authorize] puro, o que deixava QUALQUER autenticado criar/editar/excluir
+// usuarios e resetar senhas (caminho de takeover).
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
@@ -16,6 +21,7 @@ public class UsuariosController : ControllerBase
     public UsuariosController(IUsuarioService service) => _service = service;
 
     [HttpGet]
+    [Permissao("colaboradores", "c")]
     public async Task<IActionResult> Listar()
     {
         try
@@ -31,6 +37,7 @@ public class UsuariosController : ControllerBase
     }
 
     [HttpPost]
+    [Permissao("colaboradores", "i")]
     public async Task<IActionResult> Criar([FromBody] UsuarioFormDto dto)
     {
         try
@@ -50,6 +57,7 @@ public class UsuariosController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [Permissao("colaboradores", "a")]
     public async Task<IActionResult> Atualizar(long id, [FromBody] UsuarioFormDto dto)
     {
         try
@@ -69,6 +77,7 @@ public class UsuariosController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Permissao("colaboradores", "e")]
     public async Task<IActionResult> Excluir(long id)
     {
         try

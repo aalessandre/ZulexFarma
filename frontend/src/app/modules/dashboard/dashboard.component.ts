@@ -124,7 +124,6 @@ export class DashboardComponent {
       tiles: [
         { label: 'Sincronismo',      sigla: 'SI', iconKey: 'sync',      rota: '/erp/sync' },
         { label: 'Grupo de Usuarios', sigla: 'GU', iconKey: 'lock',     rota: '/erp/grupos' },
-        { label: 'Usuarios',          sigla: 'US', iconKey: 'users',    rota: '/erp/usuarios' },
         { label: 'Filiais',           sigla: 'FL', iconKey: 'building', rota: '/erp/filiais' },
         { label: 'Sistema',           sigla: 'ST', iconKey: 'sistema',  rota: '/erp/sistema' },
         { label: 'Configuracoes',     sigla: 'CF', iconKey: 'gear',     rota: '/erp/configuracoes' },
