@@ -47,6 +47,9 @@ public class CompraProduto : BaseEntity
     public string? InfoAdicional { get; set; }
     public bool LoteConferido { get; set; }          // item marcado como conferido na tela de lotes
     public DateTime? LoteConferidoEm { get; set; }
+    /// <summary>Desmembramento de grade aplicado na finalizacao (JSON [{variacaoId,quantidade}]),
+    /// pra reverter no estoque dos SKUs ao excluir a compra finalizada.</summary>
+    public string? DesmembramentoJson { get; set; }
 
     // ── Sugestão de preço (preenchido na precificação, aplicado na finalização) ──
     public decimal? SugestaoVenda { get; set; }
