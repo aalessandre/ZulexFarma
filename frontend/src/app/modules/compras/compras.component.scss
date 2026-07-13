@@ -1384,6 +1384,20 @@ tr.prec-aplicado > td { background-color: #e9f9ef !important; }
 /* Grid de produtos de grade (finalizacao) — padrao full-width do projeto, sem cap/scroll */
 .fin-grade-wrapper { max-width: 100%; margin: 8px 0 0; }
 
+/* Aviso: soma das duplicatas diverge do valor da nota (nao bloqueia — encargos/boleto). */
+.fin-dup-aviso {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 2px 0 10px; padding: 10px 14px;
+  border-radius: 8px; background: #fff7e6; border: 1px solid #ffd591; color: #ad6800;
+  font-size: var(--erp-fs-body); line-height: 1.35;
+  svg { flex-shrink: 0; margin-top: 1px; }
+  strong { color: #8a5300; }
+}
+:host-context([data-tema="escuro"]) .fin-dup-aviso {
+  background: rgba(250, 173, 20, 0.12); border-color: rgba(250, 173, 20, 0.35); color: #ffd591;
+  strong { color: #ffe0a3; }
+}
+
 /* Adicionar duplicata (finalizacao) */
 .fin-dup-add { margin: 8px 0 4px; }
 .btn-add-dup {

@@ -867,6 +867,15 @@ export class ComprasComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Metodos (nao computeds): as duplicatas sao editadas in-place, entao reavaliam no CD apos cada change.
+  somaDuplicatas(d: any): number {
+    return (d?.duplicatas ?? []).reduce((s: number, x: any) => s + (+x.valor || 0), 0);
+  }
+  duplicatasDivergem(d: any): boolean {
+    if (!d || !(d.duplicatas?.length)) return false;
+    return Math.abs(this.somaDuplicatas(d) - (+d.valorNota || 0)) > 0.01;
+  }
+
   // ── Desmembrar em grade (finalizacao) ──────────────────────────
   /** Itens da nota que sao produto de grade (podem ser desmembrados). */
   itensGrade(): any[] {
