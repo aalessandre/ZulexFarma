@@ -1024,6 +1024,8 @@
 }
 .modal-btn-cancelar { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
 .modal-btn-confirmar { background: #8e44ad; color: #fff; }
+.modal-btn-ok { background: #1e8449; color: #fff; }
+.modal-btn-ok:disabled { opacity: .5; cursor: not-allowed; }
 
 .prec-header {
   display: flex; align-items: center; gap: 12px; padding: 8px 16px 0;
@@ -1350,10 +1352,13 @@ tr.prec-aplicado > td { background-color: #e9f9ef !important; }
 :host-context([data-tema="escuro"]) .erp-grid tbody tr.cl-item-conferido > td { background-color: rgba(39, 174, 96, 0.16); }
 
 /* Desmembrar em grade (modal da finalizacao) */
-.fin-desm-modal { max-width: 640px; }
-.fin-desm-body { padding: 16px 20px; }
-.fin-desm-total { margin-top: 12px; text-align: right; font-size: var(--erp-fs-body); color: var(--erp-text); }
+.fin-desm-modal { max-width: 760px; width: 92vw; }
+.fin-desm-body { padding: 18px 22px; }
+.fin-desm-total { margin-top: 14px; text-align: right; font-size: var(--erp-fs-body); color: var(--erp-text); }
 .fin-desm-erro { color: #c0392b; font-weight: 700; }
+
+/* Grid de produtos de grade (finalizacao) — padrao full-width do projeto, sem cap/scroll */
+.fin-grade-wrapper { max-width: 100%; margin: 8px 0 0; }
 
 /* Adicionar duplicata (finalizacao) */
 .fin-dup-add { margin: 8px 0 4px; }
