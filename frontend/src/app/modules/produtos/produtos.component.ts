@@ -643,17 +643,14 @@ export class ProdutosComponent implements OnInit, OnDestroy {
       next: resp => {
         const filiais = (resp?.data ?? []).map((f: any) => ({ id: f.id, nome: f.nomeFilial || `Filial ${f.id}` }));
         this.filiaisDisponiveis.set(filiais);
-        // Buscar filial local via status do sync
-        this.http.get<any>(`${environment.apiUrl}/sync/status`).subscribe({
-          next: sr => {
-            const cod = sr?.data?.filialCodigo;
-            const filialLocal = filiais.find((f: any) => f.id === cod);
-            const fId = filialLocal?.id ?? filiais[0]?.id ?? 0;
-            this.filialLocal.set(fId);
-            if (this.preCadastroFilial == null) this.filialSelecionada.set(fId);
-          },
-          error: () => { if (this.preCadastroFilial == null && filiais.length) this.filialSelecionada.set(filiais[0].id); }
-        });
+        // Filial local = filial do USUARIO logado (JWT). Antes vinha do /sync/status
+        // (Filial:Codigo do appsettings), que e' o codigo de ORIGEM do servidor no sync — nao a
+        // filial do usuario — e comparado contra Filiais.Id disparava "Visualizando outra filial"
+        // indevidamente (ex.: usuario na filial 1, servidor com Filial:Codigo=3).
+        const userFilialId = parseInt(this.auth.usuarioLogado()?.filialId || '0', 10);
+        const fId = filiais.find((f: any) => f.id === userFilialId)?.id ?? filiais[0]?.id ?? 0;
+        this.filialLocal.set(fId);
+        if (this.preCadastroFilial == null) this.filialSelecionada.set(fId);
       }
     });
   }
