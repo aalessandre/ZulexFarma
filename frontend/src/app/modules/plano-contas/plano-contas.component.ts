@@ -171,7 +171,14 @@ export class PlanoContasComponent implements OnInit, OnDestroy {
     this.carregando.set(true);
     this.http.get<any>(this.apiUrl).subscribe({
       next: r => {
-        this.registros.set(r.data ?? []);
+        // A API serializa enums como STRING (JsonStringEnumConverter global). A tela usa numeros
+        // (1/2/3, 1/2), entao normaliza nivel/natureza pra numero — senao os dropdowns e o filtro
+        // de "Conta Pai" (r.nivel === N) nunca casam e vem tudo em branco/vazio.
+        this.registros.set((r.data ?? []).map((x: any) => ({
+          ...x,
+          nivel: this.enumParaNumero(x.nivel, { Grupo: 1, SubGrupo: 2, PlanoConta: 3 }),
+          natureza: this.enumParaNumero(x.natureza, { Credito: 1, Debito: 2 }),
+        })));
         this.carregando.set(false);
         if (this.primeiroCarregamento) {
           this.primeiroCarregamento = false;
@@ -228,6 +235,14 @@ export class PlanoContasComponent implements OnInit, OnDestroy {
       .filter(r => r.nivel === nivelPai && r.ativo)
       .sort((a, b) => (a.codigoHierarquico ?? '').localeCompare(b.codigoHierarquico ?? ''));
   });
+
+  /** Enum vindo da API pode ser string ("Grupo") ou numero \u2014 normaliza pra numero. */
+  private enumParaNumero(v: any, map: Record<string, number>): number {
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string' && map[v] != null) return map[v];
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
 
   private normalizar(s: string): string {
     return (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
