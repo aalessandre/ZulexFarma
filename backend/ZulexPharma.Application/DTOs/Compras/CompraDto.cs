@@ -9,6 +9,7 @@ public class CompraListDto
     public string? Codigo { get; set; }
     public string NumeroNf { get; set; } = string.Empty;
     public string? SerieNf { get; set; }
+    public string? ChaveNfe { get; set; }
     public string FornecedorNome { get; set; } = string.Empty;
     public string? FornecedorCnpj { get; set; }
     public DateTime? DataEmissao { get; set; }

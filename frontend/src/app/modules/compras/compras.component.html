@@ -213,6 +213,23 @@
         </table>
       </div>
 
+      @if (notaUnicaSelecionada(); as nota) {
+        <div class="nota-info-bar">
+          <div class="nota-info-item nota-info-chave">
+            <span class="nota-info-label">CHAVE</span>
+            <span class="nota-info-valor mono">{{ nota.chaveNfe || '—' }}</span>
+          </div>
+          <div class="nota-info-item">
+            <span class="nota-info-label">RAZÃO SOCIAL</span>
+            <span class="nota-info-valor">{{ nota.fornecedorNome }}</span>
+          </div>
+          <div class="nota-info-item">
+            <span class="nota-info-label">CNPJ</span>
+            <span class="nota-info-valor mono">{{ nota.fornecedorCnpj || '—' }}</span>
+          </div>
+        </div>
+      }
+
       <div class="grid-rodape">
         <span>Registro(s): <strong>{{ comprasFiltradas().length }}</strong></span>
         @if (qtdeNotasSelecionadas() > 0) {
@@ -344,6 +361,7 @@
         <span class="rodape-sep">|</span>
         <span>Pendentes: <strong>{{ vincularPendentes() }}</strong></span>
         <div class="rodape-passos">
+          <button class="passo-btn passo-produto" (click)="abrirCadastroProdutoAvulso()" title="Cadastro de produto">Produto</button>
           <button class="passo-btn passo-auto" [disabled]="vinculandoLote()" (click)="vincularAutomatico()"
                   title="Auto-vincula por codigo de barras / codigo do fornecedor">
             {{ vinculandoLote() ? 'Vinculando...' : 'Vincular automatico' }}
@@ -473,6 +491,7 @@
           <span>Selecionados: <strong>{{ precSelecionados().size }}</strong></span>
         }
         <div class="rodape-passos">
+          <button class="passo-btn passo-produto" (click)="abrirCadastroProdutoAvulso()" title="Cadastro de produto">Produto</button>
           <label class="rodape-aplicar">
             <span>Aplicar:</span>
             <select [value]="precMomentoAplicacao()" (change)="precMomentoAplicacao.set($any($event.target).value)">
@@ -637,6 +656,7 @@
         <span class="rodape-sep">|</span>
         <span>Pendentes: <strong class="conf-pend-text">{{ confTotalPendentes() }}</strong></span>
         <div class="rodape-passos">
+          <button class="passo-btn passo-produto" (click)="abrirCadastroProdutoAvulso()" title="Cadastro de produto">Produto</button>
           <button class="passo-btn passo-voltar" (click)="voltarDaConferencia()">Voltar</button>
         </div>
       </div>
@@ -774,6 +794,7 @@
       <div class="grid-rodape">
         <span>Notas: <strong>{{ confLotesNotas().length }}</strong></span>
         <div class="rodape-passos">
+          <button class="passo-btn passo-produto" (click)="abrirCadastroProdutoAvulso()" title="Cadastro de produto">Produto</button>
           <button class="passo-btn passo-conferir-lotes" [disabled]="confLotesSalvando()" (click)="salvarConferirLotes()">
             {{ confLotesSalvando() ? 'Salvando...' : 'Confirmar Todos' }}
           </button>
