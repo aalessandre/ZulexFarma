@@ -878,7 +878,8 @@ export class ComprasComponent implements OnInit, OnDestroy {
     const item = this.finDesmembrarItem();
     if (!item) return;
     if (this.totalDesmembrarModal() > item.qtdeEstoque) {
-      this.toastr.warning(`A soma (${this.totalDesmembrarModal()}) excede a quantidade da nota (${item.qtdeEstoque}).`, 'Desmembrar', { timeOut: 3500, positionClass: 'toast-top-center' });
+      this.modal.aviso('Quantidade inválida',
+        `A quantidade distribuída (${this.totalDesmembrarModal()}) é maior que a quantidade da nota (${item.qtdeEstoque}). Ajuste os SKUs para que a soma não ultrapasse ${item.qtdeEstoque}.`);
       return;
     }
     const skus = this.finDesmembrarSkus().filter(s => s.quantidade > 0).map(s => ({ variacaoId: s.variacaoId, quantidade: s.quantidade }));

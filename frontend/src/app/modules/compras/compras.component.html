@@ -862,13 +862,13 @@
         <!-- Produtos de grade: desmembrar a quantidade da nota entre os SKUs -->
         @if (itensGrade().length > 0) {
           <div class="fin-section">Produtos de grade — desmembrar em SKUs</div>
-          <div class="grid-wrapper fin-grid-wrapper">
+          <div class="grid-wrapper fin-grade-wrapper">
             <table class="erp-grid">
               <thead>
                 <tr>
                   <th>Produto</th>
-                  <th style="width:90px">Qtde</th>
-                  <th style="width:130px">Desmembrado</th>
+                  <th style="width:90px" class="td-center">Qtde</th>
+                  <th style="width:140px" class="td-center">Desmembrado</th>
                   <th style="width:150px"></th>
                 </tr>
               </thead>
@@ -1058,7 +1058,7 @@
       </div>
       <div class="modal-cl-footer">
         <button class="modal-btn modal-btn-cancelar" (click)="fecharDesmembrar()">Cancelar</button>
-        <button class="modal-btn modal-btn-ok" [disabled]="totalDesmembrarModal() > it.qtdeEstoque" (click)="salvarDesmembrar()">Aplicar</button>
+        <button class="modal-btn modal-btn-ok" (click)="salvarDesmembrar()">Aplicar</button>
       </div>
     </div>
   </div>
