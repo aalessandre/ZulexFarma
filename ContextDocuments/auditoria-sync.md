@@ -117,15 +117,22 @@
 - **FASE 4 — confiabilidade e escala do transporte**: idempotência fim-a-fim, cursor à prova de gap,
   retenção/compactação, backoff+jitter, TLS real, lote adaptativo, ordem causal cross-batch.
 
-## PERGUNTAS ABERTAS (decisão do dono)
+## DECISÕES do dono (2026-07-14)
 
-1. **Codigo visível**: globalmente único (índice único) ou único-por-nó (índice composto Nó+Codigo)?
-   Define o formato do nextval e o que o usuário lê na tela.
-2. **Autoridade fiscal**: a nuvem PODE emitir documento fiscal em nome da filial na rua? Se sim,
-   particiona série por nó/terminal ou pinna toda emissão fiscal ao nó dono (nuvem não emite fiscal)?
-   Decisão regulatória, não só técnica.
-3. **Conflito no mesmo registro GLOBAL**: LWW por LINHA (aceita lost-update quando 2 nós editam campos
-   diferentes do mesmo Produto quase juntos) basta, ou vale merge por coluna (timestamp por campo)?
+1. **Codigo visível = ÚNICO-POR-NÓ** ✅ (curto/legível é a intenção). `Codigo` guarda só o sequencial
+   (sem embutir o nó); a unicidade vem de **índice composto (NoOrigem, Codigo)**. Sequencial via
+   `nextval` nativo por (tabela, nó), local — funciona offline (o mito de "global quebra sem internet"
+   não procede: cada nó já tem faixa própria, sem coordenação). **FK nunca corre risco** porque FK usa
+   o `Id` bigint (globalmente único por faixa), não o Codigo — o Codigo é só cosmético/humano.
+2. **Autoridade fiscal = PINAR AO NÓ DONO** ✅. A nuvem NÃO emite documento fiscal. Venda mobile na rua =
+   pré-venda/não-fiscal; o documento é emitido/numerado pelo nó da filial ao sincronizar. `SequenciaCentral`
+   fica não-replicável; zero risco de número duplicado. Fiscal NÃO migra pra nextval (mantém Serializable+
+   FOR UPDATE, autoridade única por (filial,série)).
+3. **Conflito = LWW POR LINHA** ✅ (por `AtualizadoEm`, tie-break por nó). Aceita lost-update de campo
+   concorrente (raro em cadastro); documentar. Sem merge por coluna.
+
+## PERGUNTAS AINDA ABERTAS (operacionais — resolver depois)
+
 4. **Tenant**: 1-banco-por-tenant confirma que `TenantId` NÃO precisa virar coluna em toda entidade?
    Onde o tenant é resolvido (subdomínio / chave de instalação / claim no token)? Onde vive o catálogo de
    connection strings e como cada segredo de sync por tenant é provisionado?
@@ -135,3 +142,8 @@
    precisam de reconciliação histórica ao entrar no dicionário, ou só passam a replicar dali pra frente?
 7. **Onboarding de nó novo**: registro/validação do código de nó numa fonte central no 1º handshake
    (rejeitar código já usado por nó ativo), à la o incidente do ProviderInstanceId reaproveitado no ZulexSac.
+
+## PRÓXIMO PASSO recomendado
+FASE 1 (corretude de conflito no applicator) é barata, não mexe em schema pesado e **para a corrupção
+que já acontece hoje** (LWW mentiroso, AtualizadoEm recarimbado, 23505 engolido, ponteiro que avança em
+erro). Candidata a subir ANTES do resto do redesenho. FASE 0 (eixos/nó/tenant) e demais fases vêm depois.
