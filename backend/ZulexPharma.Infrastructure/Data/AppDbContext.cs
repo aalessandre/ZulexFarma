@@ -10,7 +10,7 @@ namespace ZulexPharma.Infrastructure.Data;
 public class AppDbContext : DbContext
 {
     private readonly IHttpContextAccessor? _http;
-    private readonly int _filialCodigo;
+    private readonly int _noCodigo;
 
     /// <summary>Se true, não gera Codigo nem registra na SyncFila (usado ao aplicar sync remoto).</summary>
     public bool AplicandoSync { get; set; }
@@ -18,7 +18,9 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? http = null, IConfiguration? config = null) : base(options)
     {
         _http = http;
-        _filialCodigo = int.TryParse(config?["Filial:Codigo"], out var c) ? c : 1;
+        // Codigo do NO (servidor/deployment), eixo Origem/No. Fallback pra chave antiga "Filial:Codigo".
+        // Default 0 (unificado com Program/Seeder); o boot faz fail-fast se ausente/invalido.
+        _noCodigo = int.TryParse(config?["No:Codigo"] ?? config?["Filial:Codigo"], out var c) ? c : 0;
     }
 
     public DbSet<Filial> Filiais => Set<Filial>();
@@ -2001,7 +2003,9 @@ public class AppDbContext : DbContext
             e.Property(x => x.RegistroCodigo).HasMaxLength(50);
             e.Property(x => x.Erro).HasMaxLength(500);
             e.HasIndex(x => x.Enviado);
-            e.HasIndex(x => x.FilialOrigemId);
+            e.HasIndex(x => x.NoOrigemId);
+            // Indice pro roteamento por-filial do PULL (Fase 3); null = GLOBAL.
+            e.HasIndex(x => x.FilialDonoId);
         });
 
         // ── SequenciaLocal ──────────────────────────────────────────
@@ -2041,6 +2045,44 @@ public class AppDbContext : DbContext
         "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais", "SefazNotas"
     };
 
+    // Entidades POR-FILIAL (eixo escopo): o dado pertence a UMA filial (FilialId do usuario logado).
+    // Fonte unica pra carimbar SyncFila.FilialDonoId. O que NAO esta aqui e' GLOBAL (replica pra todos).
+    // Nota: Usuario/UsuarioFilialGrupo/PromocaoFilial/CampanhaFidelidadeFilial TEM FilialId mas sao
+    // GLOBAIS (cadastro/juncao). CertificadoDigital/SefazNota/SequenciaCentral/Feriado ficam de fora
+    // (infra ou global). Fase 0 apenas POPULA FilialDonoId; o roteamento por-filial e' Fase 3.
+    // DIVIDA FASE 3: entidades FILHAS de agregados por-filial que herdam BaseEntity mas NAO tem
+    // FilialId direto (CaixaMovimento, MovimentoLote, MovimentoContaBancaria, CompraProduto/Lote/Fiscal,
+    // VendaFiscal/VendaItemFiscal/VendaReceitaItem/VendaFarmaciaPopular*, EntregaEvento/EntregaFaixa,
+    // InventarioSngpcItem, AtualizacaoPrecoItem, SelfCheckout*) ficam com FilialDonoId=null (=GLOBAL)
+    // hoje. Antes de LIGAR o roteamento (Fase 3), essas precisam herdar a filial do pai (ver
+    // ContextDocuments/classificacao-replicacao.md, Lista de Trabalho 1) senao vazam/quebram FK.
+    private static readonly HashSet<Type> _entidadesPorFilial = new()
+    {
+        typeof(ProdutoDados), typeof(ProdutoFiscal), typeof(ProdutoFornecedor), typeof(ProdutoLote),
+        typeof(MovimentoEstoque), typeof(AtualizacaoPreco),
+        typeof(Venda), typeof(VendaReceita), typeof(Caixa),
+        typeof(Compra), typeof(ContaPagar), typeof(ContaReceber), typeof(ContaBancaria),
+        typeof(Entrega), typeof(EntregaPerfil), typeof(EntregaAgenda),
+        typeof(InventarioSngpc), typeof(SngpcMapa),
+        typeof(SelfCheckoutTerminal), typeof(SelfCheckoutConfiguracao)
+    };
+
+    /// <summary>
+    /// Le o FilialId (filial-dona) de uma entidade por-filial via ChangeTracker, tratando
+    /// FilialId long e long? (hibridos como ContaBancaria). Retorna null pra entidade GLOBAL.
+    /// </summary>
+    private static long? ResolverFilialDono(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        // ClrType (nao entry.Entity.GetType()) pra ser imune a proxy de lazy-loading do EF.
+        if (!_entidadesPorFilial.Contains(entry.Metadata.ClrType)) return null;
+        var prop = entry.Metadata.FindProperty("FilialId");
+        if (prop == null) return null;
+        // Deleted usa OriginalValues (CurrentValues de entidade deletada pode nao refletir o valor).
+        var values = entry.State == EntityState.Deleted ? entry.OriginalValues : entry.CurrentValues;
+        var valor = values[prop];
+        return valor == null ? null : Convert.ToInt64(valor);
+    }
+
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         if (AplicandoSync)
@@ -2054,9 +2096,9 @@ public class AppDbContext : DbContext
             return await base.SaveChangesAsync(cancellationToken);
         }
 
-        // FilialOrigemId usa o codigo do SERVIDOR (config), nao a filial do usuario (JWT)
-        var filialOrigem = _filialCodigo > 0 ? _filialCodigo : GetFilialIdFromContext();
-        var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade)>();
+        // NoOrigemId usa o codigo do NO (config do servidor), nao a filial-dona do usuario (JWT)
+        var noOrigem = _noCodigo > 0 ? _noCodigo : GetFilialIdFromContext();
+        var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade, long? filialDono)>();
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
@@ -2064,26 +2106,26 @@ public class AppDbContext : DbContext
 
             if (entry.State == EntityState.Added)
             {
-                if (entry.Entity.FilialOrigemId == null && filialOrigem > 0)
-                    entry.Entity.FilialOrigemId = filialOrigem;
+                if (entry.Entity.NoOrigemId == null && noOrigem > 0)
+                    entry.Entity.NoOrigemId = noOrigem;
 
-                // Gerar Codigo visível (FilialCodigo.Sequencial)
+                // Gerar Codigo visível (sequencial local; o no fica na coluna NoOrigemId)
                 if (entry.Entity.Codigo == null && !_tabelasSemSync.Contains(tabela))
                     entry.Entity.Codigo = await GerarCodigo(tabela, cancellationToken);
 
                 if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "I", entry.Entity));
+                    operacoesPendentes.Add((tabela, "I", entry.Entity, ResolverFilialDono(entry)));
             }
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
                 if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "U", entry.Entity));
+                    operacoesPendentes.Add((tabela, "U", entry.Entity, ResolverFilialDono(entry)));
             }
             else if (entry.State == EntityState.Deleted)
             {
                 if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "D", entry.Entity));
+                    operacoesPendentes.Add((tabela, "D", entry.Entity, ResolverFilialDono(entry)));
             }
         }
 
@@ -2092,7 +2134,7 @@ public class AppDbContext : DbContext
         // Registrar operações na SyncFila APÓS o save (para ter o Id gerado)
         if (operacoesPendentes.Count > 0)
         {
-            foreach (var (tabela, op, entidade) in operacoesPendentes)
+            foreach (var (tabela, op, entidade, filialDono) in operacoesPendentes)
             {
                 SyncFila.Add(new SyncFila
                 {
@@ -2101,7 +2143,8 @@ public class AppDbContext : DbContext
                     RegistroId = entidade.Id,
                     RegistroCodigo = entidade.Codigo,
                     DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }) : null,
-                    FilialOrigemId = _filialCodigo > 0 ? _filialCodigo : (entidade.FilialOrigemId ?? 0),
+                    NoOrigemId = _noCodigo > 0 ? _noCodigo : (entidade.NoOrigemId ?? 0),
+                    FilialDonoId = filialDono,
                     Enviado = false
                 });
             }
@@ -2127,7 +2170,8 @@ public class AppDbContext : DbContext
 
         var result = await cmd.ExecuteScalarAsync(ct);
         var ultimo = Convert.ToInt64(result);
-        return $"{_filialCodigo}{ultimo}";
+        // Fase 0 mantem o formato atual ({no}{seq}); a troca por nextval + coluna separada e' Fase 2.
+        return $"{_noCodigo}{ultimo}";
     }
 
     private long GetFilialIdFromContext()

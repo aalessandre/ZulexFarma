@@ -12,7 +12,8 @@ interface SyncItem {
   registroId: number;
   registroCodigo: string;
   dadosJson: string | null;
-  filialOrigemId: number;
+  noOrigemId: number;
+  filialDonoId: number | null;
   criadoEm: string;
   enviado: boolean;
   enviadoEm: string | null;
@@ -148,14 +149,14 @@ export class SyncComponent implements OnInit {
 
   getStatusLabel(item: SyncItem): string {
     if (item.erro) return 'Erro';
-    if (item.enviado && item.filialOrigemId !== this.status()?.filialCodigo) return 'Recebido';
+    if (item.enviado && item.noOrigemId !== this.status()?.filialCodigo) return 'Recebido';
     if (item.enviado) return 'Enviado';
     return 'Pendente';
   }
 
   getStatusClass(item: SyncItem): string {
     if (item.erro) return 'status-erro';
-    if (item.enviado && item.filialOrigemId !== this.status()?.filialCodigo) return 'status-recebido';
+    if (item.enviado && item.noOrigemId !== this.status()?.filialCodigo) return 'status-recebido';
     if (item.enviado) return 'status-enviado';
     return 'status-pendente';
   }

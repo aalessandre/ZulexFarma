@@ -13,7 +13,7 @@ public static class DatabaseSeeder
     /// </summary>
     private const long ID_RANGE_PER_FILIAL = 1_000_000_000L;
 
-    public static async Task SeedAsync(AppDbContext context, int filialCodigo = 0)
+    public static async Task SeedAsync(AppDbContext context, int noCodigo = 0)
     {
         await context.Database.MigrateAsync();
 
@@ -44,19 +44,19 @@ public static class DatabaseSeeder
         ");
 
         // Configurar sequences para a faixa de IDs da filial
-        if (filialCodigo > 0)
-            await ConfigurarSequences(context, filialCodigo);
+        if (noCodigo > 0)
+            await ConfigurarSequences(context, noCodigo);
 
         // Seed é setup local — não deve entrar na SyncFila
         context.AplicandoSync = true;
 
         // Filial seed com ID fixo baseado no código da filial (ou 1 para Railway/default)
-        var filialSeedId = filialCodigo > 0 ? (long)filialCodigo : 1L;
+        var filialSeedId = noCodigo > 0 ? (long)noCodigo : 1L;
         if (!await context.Filiais.AnyAsync(f => f.Id == filialSeedId))
         {
             var filial = new Filial
             {
-                NomeFilial    = filialCodigo > 0 ? $"Filial {filialCodigo:D2}" : "Matriz",
+                NomeFilial    = noCodigo > 0 ? $"Filial {noCodigo:D2}" : "Matriz",
                 RazaoSocial   = "ZulexPharma Farmácia LTDA",
                 NomeFantasia  = "ZulexPharma",
                 Cnpj          = $"00.000.000/{filialSeedId:D4}-00",
@@ -68,8 +68,8 @@ public static class DatabaseSeeder
                 Uf            = "SP",
                 Telefone      = "(11) 0000-0000",
                 Email         = "contato@zulexpharma.com.br",
-                Codigo        = filialCodigo > 0 ? $"{filialCodigo}1" : null,
-                FilialOrigemId = filialCodigo > 0 ? filialCodigo : null
+                Codigo        = noCodigo > 0 ? $"{noCodigo}1" : null,
+                NoOrigemId = noCodigo > 0 ? noCodigo : null
             };
             context.Filiais.Add(filial);
             await context.SaveChangesAsync();
@@ -102,25 +102,25 @@ public static class DatabaseSeeder
             }
         }
 
-        var loginAdmin = filialCodigo > 0 ? $"admin{filialCodigo}" : "admin";
+        var loginAdmin = noCodigo > 0 ? $"admin{noCodigo}" : "admin";
         if (!await context.Usuarios.AnyAsync(u => u.Login == loginAdmin))
         {
             context.Usuarios.Add(new Usuario
             {
-                Nome           = filialCodigo > 0 ? $"Administrador Filial {filialCodigo}" : "Administrador",
+                Nome           = noCodigo > 0 ? $"Administrador Filial {noCodigo}" : "Administrador",
                 Login          = loginAdmin,
                 SenhaHash      = BCrypt.Net.BCrypt.HashPassword("admin123"),
                 IsAdministrador = true,
                 GrupoUsuarioId = 1,
                 FilialId       = filialSeedId,
-                Codigo         = filialCodigo > 0 ? $"{filialCodigo}1" : null,
-                FilialOrigemId = filialCodigo > 0 ? filialCodigo : null
+                Codigo         = noCodigo > 0 ? $"{noCodigo}1" : null,
+                NoOrigemId = noCodigo > 0 ? noCodigo : null
             });
             await context.SaveChangesAsync();
         }
 
         // Inicializar SequenciasLocais para tabelas que o seed já gerou Codigo
-        if (filialCodigo > 0)
+        if (noCodigo > 0)
         {
             var tabelasSeed = new[] { "Filiais", "Usuarios" };
             foreach (var t in tabelasSeed)
@@ -271,13 +271,13 @@ public static class DatabaseSeeder
         // Seed: Tipos de Pagamento padrão do sistema
         if (!await context.TiposPagamento.AnyAsync(t => t.PadraoSistema))
         {
-            var tpBase = filialCodigo > 0 ? filialCodigo * ID_RANGE_PER_FILIAL : 0;
+            var tpBase = noCodigo > 0 ? noCodigo * ID_RANGE_PER_FILIAL : 0;
             var tiposPadrao = new[]
             {
-                new TipoPagamento { Id = tpBase + 1, Nome = "DINHEIRO", Modalidade = Domain.Enums.ModalidadePagamento.VendaVista, Ordem = 1, PadraoSistema = true, AceitaPromocao = true, FilialOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 2, Nome = "A PRAZO", Modalidade = Domain.Enums.ModalidadePagamento.VendaPrazo, Ordem = 2, PadraoSistema = true, AceitaPromocao = true, FilialOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 3, Nome = "CARTÃO", Modalidade = Domain.Enums.ModalidadePagamento.VendaCartao, Ordem = 3, PadraoSistema = true, AceitaPromocao = true, FilialOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 4, Nome = "PIX", Modalidade = Domain.Enums.ModalidadePagamento.VendaPix, Ordem = 4, PadraoSistema = true, AceitaPromocao = true, FilialOrigemId = filialSeedId },
+                new TipoPagamento { Id = tpBase + 1, Nome = "DINHEIRO", Modalidade = Domain.Enums.ModalidadePagamento.VendaVista, Ordem = 1, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
+                new TipoPagamento { Id = tpBase + 2, Nome = "A PRAZO", Modalidade = Domain.Enums.ModalidadePagamento.VendaPrazo, Ordem = 2, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
+                new TipoPagamento { Id = tpBase + 3, Nome = "CARTÃO", Modalidade = Domain.Enums.ModalidadePagamento.VendaCartao, Ordem = 3, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
+                new TipoPagamento { Id = tpBase + 4, Nome = "PIX", Modalidade = Domain.Enums.ModalidadePagamento.VendaPix, Ordem = 4, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
             };
             context.TiposPagamento.AddRange(tiposPadrao);
             await context.SaveChangesAsync();
@@ -288,8 +288,8 @@ public static class DatabaseSeeder
 
         // Enfileirar na SyncFila registros do seed que precisam replicar
         // (Filial e Usuario — GruposUsuario têm IDs fixos idênticos em todos os PCs)
-        if (filialCodigo > 0)
-            await EnfileirarSeedParaSync(context, filialCodigo);
+        if (noCodigo > 0)
+            await EnfileirarSeedParaSync(context, noCodigo);
     }
 
     /// <summary>
@@ -297,7 +297,7 @@ public static class DatabaseSeeder
     /// Filial e Usuario replicam (dados únicos por filial: CNPJ, Login).
     /// Configuracoes e GruposUsuario NÃO replicam (IDs fixos idênticos em todos os PCs — skip por idempotência).
     /// </summary>
-    private static async Task EnfileirarSeedParaSync(AppDbContext context, int filialCodigo)
+    private static async Task EnfileirarSeedParaSync(AppDbContext context, int noCodigo)
     {
         var jsonOpts = new System.Text.Json.JsonSerializerOptions
         {
@@ -307,7 +307,7 @@ public static class DatabaseSeeder
         };
 
         // Filial — CNPJ único por filial
-        var filial = await context.Filiais.FindAsync((long)filialCodigo);
+        var filial = await context.Filiais.FindAsync((long)noCodigo);
         if (filial != null && !await context.SyncFila.AnyAsync(s => s.Tabela == "Filiais" && s.RegistroId == filial.Id && s.Operacao == "I"))
         {
             context.SyncFila.Add(new SyncFila
@@ -315,12 +315,12 @@ public static class DatabaseSeeder
                 Tabela = "Filiais", Operacao = "I", RegistroId = filial.Id,
                 RegistroCodigo = filial.Codigo,
                 DadosJson = System.Text.Json.JsonSerializer.Serialize(filial, jsonOpts),
-                FilialOrigemId = filialCodigo, Enviado = false
+                NoOrigemId = noCodigo, Enviado = false
             });
         }
 
         // Usuarios — Login único por filial (admin1, admin2, etc.)
-        var usuarios = await context.Usuarios.Where(u => u.FilialOrigemId == filialCodigo).ToListAsync();
+        var usuarios = await context.Usuarios.Where(u => u.NoOrigemId == noCodigo).ToListAsync();
         foreach (var usuario in usuarios)
         {
             if (!await context.SyncFila.AnyAsync(s => s.Tabela == "Usuarios" && s.RegistroId == usuario.Id && s.Operacao == "I"))
@@ -330,7 +330,7 @@ public static class DatabaseSeeder
                     Tabela = "Usuarios", Operacao = "I", RegistroId = usuario.Id,
                     RegistroCodigo = usuario.Codigo,
                     DadosJson = System.Text.Json.JsonSerializer.Serialize(usuario, jsonOpts),
-                    FilialOrigemId = filialCodigo, Enviado = false
+                    NoOrigemId = noCodigo, Enviado = false
                 });
             }
         }
@@ -364,9 +364,9 @@ public static class DatabaseSeeder
     /// Filial 1 → IDs a partir de 1.000.000.000, Filial 2 → 2.000.000.000, etc.
     /// Só ajusta se o valor atual da sequence estiver abaixo da faixa (não reduz nunca).
     /// </summary>
-    private static async Task ConfigurarSequences(AppDbContext context, int filialCodigo)
+    private static async Task ConfigurarSequences(AppDbContext context, int noCodigo)
     {
-        var offset = (long)filialCodigo * ID_RANGE_PER_FILIAL;
+        var offset = (long)noCodigo * ID_RANGE_PER_FILIAL;
 
         var conn = context.Database.GetDbConnection();
         if (conn.State != System.Data.ConnectionState.Open)
@@ -402,6 +402,6 @@ public static class DatabaseSeeder
             }
         }
 
-        Log.Information("Faixa de IDs configurada para Filial {Filial}: {Offset}+", filialCodigo, offset);
+        Log.Information("Faixa de IDs configurada para Filial {Filial}: {Offset}+", noCodigo, offset);
     }
 }
