@@ -329,7 +329,7 @@ public class NcmService : INcmService
                 CodigoNcm = codigo,
                 Descricao = descricao,
                 Ativo = true,
-                FilialOrigemId = filialId > 0 ? filialId : null
+                NoOrigemId = filialId > 0 ? filialId : null
             });
             inseridos++;
 

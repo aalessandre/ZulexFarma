@@ -98,7 +98,7 @@
                 <td class="col-tabela">{{ item.tabela }}</td>
                 <td class="col-op"><span class="op-badge" [class]="getOpClass(item.operacao)">{{ getOpLabel(item.operacao) }}</span></td>
                 <td class="col-codigo">{{ item.registroCodigo || item.registroId }}</td>
-                <td class="col-filial">{{ item.filialOrigemId }}</td>
+                <td class="col-filial">{{ item.noOrigemId }}</td>
                 <td class="col-data">{{ formatarData(item.criadoEm) }}</td>
                 <td class="col-status"><span class="status-badge" [class]="getStatusClass(item)">{{ getStatusLabel(item) }}</span></td>
                 <td class="col-enviado">{{ item.enviadoEm ? formatarData(item.enviadoEm) : '-' }}</td>

@@ -263,8 +263,14 @@ using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-        var filialCodigo = int.TryParse(config["Filial:Codigo"], out var fc) ? fc : 0;
-        await DatabaseSeeder.SeedAsync(db, filialCodigo);
+        // Codigo do NO (eixo Origem/No) — fonte unica com fail-fast. Fallback pra chave antiga "Filial:Codigo".
+        var noCodigo = int.TryParse(config["No:Codigo"] ?? config["Filial:Codigo"], out var fc) ? fc : 0;
+        if (noCodigo <= 0)
+            throw new InvalidOperationException(
+                "Config 'No:Codigo' ausente ou invalida. Todo deployment (no local OU nuvem) precisa de um " +
+                "codigo de no unico e > 0 — ele define a faixa de Id e a origem do sync. " +
+                "Defina 'No:Codigo' no appsettings/variavel de ambiente antes de subir.");
+        await DatabaseSeeder.SeedAsync(db, noCodigo);
 
         Log.Information("Banco de dados inicializado com sucesso.");
     }

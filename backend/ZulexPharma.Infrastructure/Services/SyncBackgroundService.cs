@@ -20,7 +20,7 @@ public class SyncBackgroundService : BackgroundService
     private readonly IConfiguration _config;
     private readonly int _intervaloSegundos;
     private readonly bool _habilitado;
-    private readonly int _filialCodigo;
+    private readonly int _noCodigo;
     private readonly string _urlCentral;
     private readonly HttpClient _httpClient;
 
@@ -45,7 +45,7 @@ public class SyncBackgroundService : BackgroundService
         _config = config;
         _intervaloSegundos = int.TryParse(config["Sync:IntervaloSegundos"], out var i) ? i : 30;
         _habilitado = config["Sync:Habilitado"]?.ToLower() == "true";
-        _filialCodigo = int.TryParse(config["Filial:Codigo"], out var f) ? f : 0;
+        _noCodigo = int.TryParse(config["No:Codigo"] ?? config["Filial:Codigo"], out var f) ? f : 0;
         _urlCentral = config["Sync:UrlCentral"]?.TrimEnd('/') ?? "";
 
         var handler = new HttpClientHandler
@@ -58,14 +58,14 @@ public class SyncBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_habilitado || _filialCodigo == 0 || string.IsNullOrEmpty(_urlCentral))
+        if (!_habilitado || _noCodigo == 0 || string.IsNullOrEmpty(_urlCentral))
         {
-            Log.Information("Sync v2 desabilitado. Configure Sync:Habilitado, Filial:Codigo e Sync:UrlCentral.");
+            Log.Information("Sync v2 desabilitado. Configure Sync:Habilitado, No:Codigo e Sync:UrlCentral.");
             return;
         }
 
         Log.Information("Sync v2 iniciado. Filial: {Filial} | Central: {Url} | Intervalo: {Int}s",
-            _filialCodigo, _urlCentral, _intervaloSegundos);
+            _noCodigo, _urlCentral, _intervaloSegundos);
         Rodando = true;
 
         await Task.Delay(10_000, stoppingToken);
@@ -122,7 +122,7 @@ public class SyncBackgroundService : BackgroundService
         var json = JsonSerializer.Serialize(pendentes.Select(p => new
         {
             p.Tabela, p.Operacao, p.RegistroId, p.RegistroCodigo,
-            p.DadosJson, p.FilialOrigemId, p.CriadoEm
+            p.DadosJson, p.NoOrigemId, p.FilialDonoId, p.CriadoEm
         }), _jsonOpts);
 
         var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -152,7 +152,7 @@ public class SyncBackgroundService : BackgroundService
         var ultimoId = long.TryParse(ultimoIdConfig?.Valor, out var u) ? u : 0;
 
         var response = await _httpClient.GetAsync(
-            $"{_urlCentral}/api/sync/receber?filialId={_filialCodigo}&ultimoId={ultimoId}", ct);
+            $"{_urlCentral}/api/sync/receber?filialId={_noCodigo}&ultimoId={ultimoId}", ct);
 
         if (!response.IsSuccessStatusCode) return;
 
@@ -209,7 +209,8 @@ public class SyncBackgroundService : BackgroundService
                         Operacao = op.Operacao,
                         RegistroId = op.RegistroId,
                         RegistroCodigo = op.RegistroCodigo,
-                        FilialOrigemId = op.FilialOrigemId,
+                        NoOrigemId = op.NoOrigemId,
+                        FilialDonoId = op.FilialDonoId,
                         Enviado = true, // Não tentar reenviar
                         EnviadoEm = DateTime.UtcNow,
                         Erro = erroMsg
@@ -259,7 +260,8 @@ public class SyncBackgroundService : BackgroundService
             Operacao = op.Operacao,
             RegistroId = op.RegistroId,
             RegistroCodigo = op.RegistroCodigo,
-            FilialOrigemId = op.FilialOrigemId,
+            NoOrigemId = op.NoOrigemId,
+            FilialDonoId = op.FilialDonoId,
             Enviado = true,
             EnviadoEm = DateTime.UtcNow
         });
@@ -300,7 +302,12 @@ public class SyncBackgroundService : BackgroundService
 
         try
         {
-            var chave = _config["SistemaKey"] ?? "ZulexPharma2026!";
+            var chave = _config["SistemaKey"];
+            if (string.IsNullOrWhiteSpace(chave))
+            {
+                Log.Error("Sync: 'SistemaKey' nao configurada — o no nao autentica no hub. Defina um segredo por deployment (sem fallback compartilhado).");
+                return null;
+            }
             var data = DateTime.UtcNow.ToString("yyyyMMdd");
             using var sha = SHA256.Create();
             var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(data + chave));
@@ -347,6 +354,7 @@ internal class SyncOperacao
     public long RegistroId { get; set; }
     public string? RegistroCodigo { get; set; }
     public string? DadosJson { get; set; }
-    public long FilialOrigemId { get; set; }
+    public long NoOrigemId { get; set; }
+    public long? FilialDonoId { get; set; }
     public DateTime CriadoEm { get; set; }
 }

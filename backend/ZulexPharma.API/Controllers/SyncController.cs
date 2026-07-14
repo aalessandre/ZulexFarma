@@ -16,12 +16,13 @@ namespace ZulexPharma.API.Controllers;
 public class SyncController : ControllerBase
 {
     private readonly AppDbContext _db;
-    private readonly int _filialCodigo;
+    private readonly int _noCodigo;
 
     public SyncController(AppDbContext db, IConfiguration config)
     {
         _db = db;
-        _filialCodigo = int.TryParse(config["Filial:Codigo"], out var c) ? c : 0;
+        // Codigo do NO (eixo Origem/No). Fallback pra chave antiga "Filial:Codigo".
+        _noCodigo = int.TryParse(config["No:Codigo"] ?? config["Filial:Codigo"], out var c) ? c : 0;
     }
 
     /// <summary>
@@ -83,7 +84,8 @@ public class SyncController : ControllerBase
                     RegistroId = op.RegistroId,
                     RegistroCodigo = op.RegistroCodigo,
                     DadosJson = op.DadosJson,
-                    FilialOrigemId = op.FilialOrigemId,
+                    NoOrigemId = op.NoOrigemId,
+                    FilialDonoId = op.FilialDonoId,
                     CriadoEm = op.CriadoEm,
                     Enviado = false
                 });
@@ -113,13 +115,13 @@ public class SyncController : ControllerBase
         try
         {
             var operacoes = await _db.SyncFila
-                .Where(f => f.Id > ultimoId && f.FilialOrigemId != filialId)
+                .Where(f => f.Id > ultimoId && f.NoOrigemId != filialId)
                 .OrderBy(f => f.Id)
                 .Take(limite)
                 .Select(f => new
                 {
                     f.Id, f.Tabela, f.Operacao, f.RegistroId, f.RegistroCodigo,
-                    f.DadosJson, f.FilialOrigemId, f.CriadoEm
+                    f.DadosJson, f.NoOrigemId, f.FilialDonoId, f.CriadoEm
                 })
                 .ToListAsync();
 
@@ -159,7 +161,7 @@ public class SyncController : ControllerBase
                     falhasConsecutivas = SyncBackgroundService.FalhasConsecutivas,
                     pendentesLocal = pendentes,
                     ultimoEnvio,
-                    filialCodigo = _filialCodigo
+                    filialCodigo = _noCodigo // key mantida p/ compat do painel; valor e' o codigo do NO
                 }
             });
         }
@@ -195,8 +197,8 @@ public class SyncController : ControllerBase
             }
 
             if (status == "pendentes") query = query.Where(f => !f.Enviado && f.Erro == null);
-            else if (status == "enviados") query = query.Where(f => f.Enviado && f.Erro == null && f.FilialOrigemId == _filialCodigo);
-            else if (status == "recebidos") query = query.Where(f => f.Enviado && f.Erro == null && f.FilialOrigemId != _filialCodigo);
+            else if (status == "enviados") query = query.Where(f => f.Enviado && f.Erro == null && f.NoOrigemId == _noCodigo);
+            else if (status == "recebidos") query = query.Where(f => f.Enviado && f.Erro == null && f.NoOrigemId != _noCodigo);
             else if (status == "erros") query = query.Where(f => f.Erro != null);
 
             if (!string.IsNullOrWhiteSpace(tabela))
@@ -279,5 +281,5 @@ public class SyncController : ControllerBase
 
 public record SyncOperacaoDto(
     string Tabela, string Operacao, long RegistroId, string? RegistroCodigo,
-    string? DadosJson, long FilialOrigemId, DateTime CriadoEm
+    string? DadosJson, long NoOrigemId, long? FilialDonoId, DateTime CriadoEm
 );

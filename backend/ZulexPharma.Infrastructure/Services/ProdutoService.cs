@@ -21,7 +21,7 @@ public class ProdutoService : IProdutoService
     {
         _db = db;
         _log = log;
-        _filialCodigo = int.TryParse(config["Filial:Codigo"], out var f) ? f : 0;
+        _filialCodigo = int.TryParse(config["No:Codigo"] ?? config["Filial:Codigo"], out var f) ? f : 0;
     }
 
     public async Task<List<ProdutoListDto>> ListarAsync(string? busca = null)
