@@ -50,9 +50,12 @@ public static class DatabaseSeeder
         // Seed é setup local — não deve entrar na SyncFila
         context.AplicandoSync = true;
 
-        // Filial seed com ID fixo baseado no código da filial (ou 1 para Railway/default)
+        // Filial seed com ID fixo baseado no código do NO (loja). O NO 0 e' o HUB/central
+        // (nuvem): NAO seeda filial propria — recebe as filiais das lojas via sync. Assim evita
+        // a colisao de Filial Id=1/CNPJ entre a "Matriz" do hub e a "Filial 01" da loja no 1.
+        // Cliente "so nuvem" = uma LOJA hospedada na nuvem (no >= 1), nao o hub.
         var filialSeedId = noCodigo > 0 ? (long)noCodigo : 1L;
-        if (!await context.Filiais.AnyAsync(f => f.Id == filialSeedId))
+        if (noCodigo > 0 && !await context.Filiais.AnyAsync(f => f.Id == filialSeedId))
         {
             var filial = new Filial
             {
@@ -102,8 +105,10 @@ public static class DatabaseSeeder
             }
         }
 
+        // Admin tambem so' no NO >= 1 (loja). O hub (no 0) recebe os usuarios via sync;
+        // login direto no hub usa o SISTEMA (virtual, AuthService) pro proprio sync.
         var loginAdmin = noCodigo > 0 ? $"admin{noCodigo}" : "admin";
-        if (!await context.Usuarios.AnyAsync(u => u.Login == loginAdmin))
+        if (noCodigo > 0 && !await context.Usuarios.AnyAsync(u => u.Login == loginAdmin))
         {
             context.Usuarios.Add(new Usuario
             {

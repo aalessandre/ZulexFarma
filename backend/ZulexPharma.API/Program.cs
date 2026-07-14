@@ -264,12 +264,14 @@ using (var scope = app.Services.CreateScope())
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         // Codigo do NO (eixo Origem/No) — fonte unica com fail-fast. Fallback pra chave antiga "Filial:Codigo".
-        var noCodigo = int.TryParse(config["No:Codigo"] ?? config["Filial:Codigo"], out var fc) ? fc : 0;
-        if (noCodigo <= 0)
+        // 0 = nuvem/central (hub); inteiro > 0 = no local (loja). Ausente/invalido/negativo = fail-fast
+        // (mata o default silencioso; a nuvem PRECISA declarar 0 explicitamente).
+        var noRaw = config["No:Codigo"] ?? config["Filial:Codigo"];
+        if (!int.TryParse(noRaw, out var noCodigo) || noCodigo < 0)
             throw new InvalidOperationException(
-                "Config 'No:Codigo' ausente ou invalida. Todo deployment (no local OU nuvem) precisa de um " +
-                "codigo de no unico e > 0 — ele define a faixa de Id e a origem do sync. " +
-                "Defina 'No:Codigo' no appsettings/variavel de ambiente antes de subir.");
+                "Config 'No:Codigo' ausente ou invalida. Defina EXPLICITAMENTE: 0 para a nuvem/central (hub) " +
+                "ou um inteiro > 0 unico para cada no local (loja) — define a faixa de Id e a origem do sync. " +
+                "Sem default silencioso.");
         await DatabaseSeeder.SeedAsync(db, noCodigo);
 
         Log.Information("Banco de dados inicializado com sucesso.");
