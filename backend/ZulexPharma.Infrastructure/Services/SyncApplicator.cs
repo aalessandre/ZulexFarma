@@ -3,6 +3,7 @@ using Npgsql;
 using Serilog;
 using System.Text.Json;
 using ZulexPharma.Domain.Entities;
+using ZulexPharma.Domain.Entities.SelfCheckout;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -90,7 +91,16 @@ public static class SyncApplicator
     }
 
     // Agregados cujos filhos POCO (nao-BaseEntity) precisam viajar/aplicar junto do cabecalho.
-    private static readonly HashSet<Type> _tiposAgregado = new() { typeof(Venda) };
+    // Agregados cujos filhos POCO viajam no JSON do pai + upsert em cascata (mesmo mecanismo do 2d).
+    // Cliente/Convenio/Promocao/Hierarquias/Adquirente/CampanhaFidelidade tem filhos POCO que NAO
+    // replicavam (mesmo bug do VendaItem pre-2d). Filhos BaseEntity (ex.: CampanhaFidelidadeItem) sao
+    // ignorados por ExtrairFilhosPoco (replicam sozinhos).
+    private static readonly HashSet<Type> _tiposAgregado = new()
+    {
+        typeof(Venda), typeof(Cliente), typeof(Convenio), typeof(Promocao),
+        typeof(HierarquiaDesconto), typeof(HierarquiaComissao), typeof(Adquirente),
+        typeof(CampanhaFidelidade)
+    };
 
     /// <summary>Aplica so' o CABECALHO (LWW/insert/tombstone/23505). Os filhos POCO sao tratados a' parte.</summary>
     private static async Task<ResultadoSync> AplicarCabecalhoAsync(AppDbContext db, Type tipo, string tabela, string operacao, long registroId, BaseEntity entidade, CancellationToken ct)
@@ -503,6 +513,41 @@ public static class SyncApplicator
         "AtualizacoesPreco"        => 3,
         "AtualizacoesPrecoItens"   => 4,
 
+        // ── Fase 3: furo do dicionario (ordem de FK) ──
+        // GLOBAL
+        "Municipios"                     => 0,
+        "AtributosVariacao"              => 1,
+        "NaturezasOperacao"              => 1,
+        "Adquirentes"                    => 1,
+        "ValoresAtributo"                => 2,
+        "NaturezaOperacaoRegras"         => 2,
+        "ComissaoFaixasDesconto"         => 2,
+        "ProdutosVariacoes"              => 3,
+        "ProdutosAtributos"              => 3,
+        "HierarquiasComissao"            => 3,
+        "ColaboradorComissaoAgrupadores" => 3,
+        "ProdutosVariacoesValores"       => 4,
+        "Vouchers"                       => 5,
+        // POR-FILIAL
+        "SelfCheckoutTerminais"          => 1,
+        "MovimentosEstoque"              => 3,
+        "Caixas"                         => 3,
+        "SelfCheckoutChamadosAtendente"  => 3,
+        "ProdutosLotes"                  => 4,
+        "InventariosSngpc"               => 4,
+        "SngpcMapas"                     => 4,
+        "SelfCheckoutConfiguracoes"      => 4,
+        "CaixaFechamentoDeclarados"      => 4,
+        "ComprasProdutosLotes"           => 5,
+        "InventariosSngpcItens"          => 5,
+        "VendaFarmaciaPopulares"         => 5,
+        "SelfCheckoutConciliacoesEstoque" => 5,
+        "ContasReceber"                  => 6,
+        "MovimentosLote"                 => 6,
+        "VendaFarmaciaPopularItens"      => 6,
+        "CaixaMovimentos"                => 7,
+        "MovimentosContaBancaria"        => 8,
+
         // Nível 0 — configurações (sem dependência)
         "Configuracoes"            => 0,
 
@@ -577,5 +622,40 @@ public static class SyncApplicator
         ["ComprasFiscal"] = typeof(CompraFiscal),
         ["LogsAcao"] = typeof(LogAcao),
         ["LogsErro"] = typeof(LogErro),
+
+        // ── Fase 3: reconciliacao do furo (BaseEntity que enfileiravam mas nao aplicavam) ──
+        // GLOBAL
+        ["Municipios"] = typeof(Municipio),
+        ["AtributosVariacao"] = typeof(AtributoVariacao),
+        ["ValoresAtributo"] = typeof(ValorAtributo),
+        ["ProdutosAtributos"] = typeof(ProdutoAtributo),
+        ["ProdutosVariacoes"] = typeof(ProdutoVariacao),
+        ["ProdutosVariacoesValores"] = typeof(ProdutoVariacaoValor),
+        ["HierarquiasComissao"] = typeof(HierarquiaComissao),
+        ["ComissaoFaixasDesconto"] = typeof(ComissaoFaixaDesconto),
+        ["ColaboradorComissaoAgrupadores"] = typeof(ColaboradorComissaoAgrupador),
+        ["Adquirentes"] = typeof(Adquirente),
+        ["Vouchers"] = typeof(Voucher),
+        ["NaturezasOperacao"] = typeof(NaturezaOperacao),
+        ["NaturezaOperacaoRegras"] = typeof(NaturezaOperacaoRegra),
+        // POR-FILIAL
+        ["ProdutosLotes"] = typeof(ProdutoLote),
+        ["MovimentosLote"] = typeof(MovimentoLote),
+        ["MovimentosEstoque"] = typeof(MovimentoEstoque),
+        ["Caixas"] = typeof(Caixa),
+        ["CaixaMovimentos"] = typeof(CaixaMovimento),
+        ["CaixaFechamentoDeclarados"] = typeof(CaixaFechamentoDeclarado),
+        ["MovimentosContaBancaria"] = typeof(MovimentoContaBancaria),
+        ["ContasReceber"] = typeof(ContaReceber),
+        ["ComprasProdutosLotes"] = typeof(CompraProdutoLote),
+        ["VendaFarmaciaPopulares"] = typeof(VendaFarmaciaPopular),
+        ["VendaFarmaciaPopularItens"] = typeof(VendaFarmaciaPopularItem),
+        ["InventariosSngpc"] = typeof(InventarioSngpc),
+        ["InventariosSngpcItens"] = typeof(InventarioSngpcItem),
+        ["SngpcMapas"] = typeof(SngpcMapa),
+        ["SelfCheckoutTerminais"] = typeof(SelfCheckoutTerminal),
+        ["SelfCheckoutConfiguracoes"] = typeof(SelfCheckoutConfiguracao),
+        ["SelfCheckoutChamadosAtendente"] = typeof(SelfCheckoutChamadoAtendente),
+        ["SelfCheckoutConciliacoesEstoque"] = typeof(SelfCheckoutConciliacaoEstoque),
     };
 }
