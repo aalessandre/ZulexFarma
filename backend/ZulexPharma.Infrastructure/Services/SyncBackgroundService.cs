@@ -21,6 +21,7 @@ public class SyncBackgroundService : BackgroundService
     private readonly int _intervaloSegundos;
     private readonly bool _habilitado;
     private readonly int _noCodigo;
+    private readonly string _filiais;
     private readonly string _urlCentral;
     private readonly HttpClient _httpClient;
 
@@ -46,6 +47,8 @@ public class SyncBackgroundService : BackgroundService
         _intervaloSegundos = int.TryParse(config["Sync:IntervaloSegundos"], out var i) ? i : 30;
         _habilitado = config["Sync:Habilitado"]?.ToLower() == "true";
         _noCodigo = int.TryParse(config["No:Codigo"] ?? config["Filial:Codigo"], out var f) ? f : 0;
+        // Fase 3b: filiais que ESTE no atende (escopo por-filial no PULL). Vazio = so' GLOBAL.
+        _filiais = config["No:Filiais"] ?? "";
         _urlCentral = config["Sync:UrlCentral"]?.TrimEnd('/') ?? "";
 
         var handler = new HttpClientHandler
@@ -152,7 +155,7 @@ public class SyncBackgroundService : BackgroundService
         var ultimoId = long.TryParse(ultimoIdConfig?.Valor, out var u) ? u : 0;
 
         var response = await _httpClient.GetAsync(
-            $"{_urlCentral}/api/sync/receber?filialId={_noCodigo}&ultimoId={ultimoId}", ct);
+            $"{_urlCentral}/api/sync/receber?filialId={_noCodigo}&filiais={Uri.EscapeDataString(_filiais)}&ultimoId={ultimoId}", ct);
 
         if (!response.IsSuccessStatusCode) return;
 

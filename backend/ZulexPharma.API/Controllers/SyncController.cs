@@ -129,12 +129,19 @@ public class SyncController : ControllerBase
     /// Retorna operações pendentes para uma filial (exclui operações da própria filial).
     /// </summary>
     [HttpGet("receber")]
-    public async Task<IActionResult> Receber([FromQuery] int filialId, [FromQuery] long ultimoId = 0, [FromQuery] int limite = 100)
+    public async Task<IActionResult> Receber([FromQuery] int filialId, [FromQuery] string? filiais = null, [FromQuery] long ultimoId = 0, [FromQuery] int limite = 100)
     {
         try
         {
+            // Escopo por-filial (Fase 3b): GLOBAL (FilialDonoId==null) vai pra TODOS; POR-FILIAL so' pras
+            // filiais que ESTE no atende (No:Filiais, em ?filiais=). Lista vazia => so' GLOBAL (sem vazamento).
+            var filiaisDono = (filiais ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(s => long.TryParse(s, out _)).Select(long.Parse).ToArray();
+
             var operacoes = await _db.SyncFila
-                .Where(f => f.Id > ultimoId && f.NoOrigemId != filialId)
+                .Where(f => f.Id > ultimoId && f.NoOrigemId != filialId
+                    && (f.FilialDonoId == null || filiaisDono.Contains(f.FilialDonoId.Value)))
                 .OrderBy(f => f.Id)
                 .Take(limite)
                 .Select(f => new

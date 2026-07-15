@@ -2099,20 +2099,108 @@ public class AppDbContext : DbContext
         typeof(SelfCheckoutTerminal), typeof(SelfCheckoutConfiguracao)
     };
 
-    /// <summary>
-    /// Le o FilialId (filial-dona) de uma entidade por-filial via ChangeTracker, tratando
-    /// FilialId long e long? (hibridos como ContaBancaria). Retorna null pra entidade GLOBAL.
-    /// </summary>
-    private static long? ResolverFilialDono(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    // Fase 3b: FILHAS por-filial SEM FilialId direto -> derivam a filial-dona do PAI (chave FK -> tipo pai),
+    // recursivamente ate' um tipo com FilialId (em _entidadesPorFilial). Inclui o intermediario POCO VendaItem.
+    private static readonly Dictionary<Type, (string fk, Type pai)> _derivacaoFilialDono = new()
     {
-        // ClrType (nao entry.Entity.GetType()) pra ser imune a proxy de lazy-loading do EF.
-        if (!_entidadesPorFilial.Contains(entry.Metadata.ClrType)) return null;
-        var prop = entry.Metadata.FindProperty("FilialId");
-        if (prop == null) return null;
-        // Deleted usa OriginalValues (CurrentValues de entidade deletada pode nao refletir o valor).
+        [typeof(CaixaMovimento)]              = ("CaixaId", typeof(Caixa)),
+        [typeof(CaixaFechamentoDeclarado)]    = ("CaixaId", typeof(Caixa)),
+        [typeof(AtualizacaoPrecoItem)]        = ("AtualizacaoPrecoId", typeof(AtualizacaoPreco)),
+        [typeof(MovimentoLote)]               = ("ProdutoLoteId", typeof(ProdutoLote)),
+        [typeof(MovimentoContaBancaria)]      = ("ContaBancariaId", typeof(ContaBancaria)),
+        [typeof(VendaFiscal)]                 = ("VendaId", typeof(Venda)),
+        [typeof(VendaItemFiscal)]             = ("VendaItemId", typeof(VendaItem)),
+        [typeof(VendaItem)]                   = ("VendaId", typeof(Venda)),
+        [typeof(VendaReceitaItem)]            = ("VendaReceitaId", typeof(VendaReceita)),
+        [typeof(CompraProduto)]               = ("CompraId", typeof(Compra)),
+        [typeof(CompraFiscal)]                = ("CompraProdutoId", typeof(CompraProduto)),
+        [typeof(CompraProdutoLote)]           = ("CompraProdutoId", typeof(CompraProduto)),
+        [typeof(EntregaFaixa)]                = ("PerfilId", typeof(EntregaPerfil)),
+        [typeof(EntregaEvento)]               = ("EntregaId", typeof(Entrega)),
+        [typeof(VendaFarmaciaPopular)]        = ("VendaId", typeof(Venda)),
+        [typeof(VendaFarmaciaPopularItem)]    = ("VendaFarmaciaPopularId", typeof(VendaFarmaciaPopular)),
+        [typeof(InventarioSngpcItem)]         = ("InventarioSngpcId", typeof(InventarioSngpc)),
+        [typeof(SelfCheckoutChamadoAtendente)] = ("TerminalId", typeof(SelfCheckoutTerminal)),
+        [typeof(SelfCheckoutConciliacaoEstoque)] = ("VendaItemId", typeof(VendaItem)),
+    };
+
+    /// <summary>
+    /// Filial-dona pra carimbar SyncFila.FilialDonoId: FilialId direto se a entidade esta' em
+    /// _entidadesPorFilial; senao DERIVA do pai (Fase 3b, tracker-first + query). Null = GLOBAL.
+    /// </summary>
+    // Memoiza a derivacao POR SaveChanges (colapsa N filhas do mesmo pai a 1 resolucao). Limpo a cada override.
+    private readonly Dictionary<(Type, long), long?> _cacheDerivFilial = new();
+
+    private async Task<long?> ResolverFilialDonoAsync(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, CancellationToken ct)
+    {
+        var tipo = entry.Metadata.ClrType; // ClrType = imune a proxy de lazy-loading
         var values = entry.State == EntityState.Deleted ? entry.OriginalValues : entry.CurrentValues;
-        var valor = values[prop];
-        return valor == null ? null : Convert.ToInt64(valor);
+
+        if (_entidadesPorFilial.Contains(tipo))
+        {
+            var prop = entry.Metadata.FindProperty("FilialId");
+            var v = prop == null ? null : values[prop];
+            return v == null ? null : Convert.ToInt64(v);
+        }
+        if (_derivacaoFilialDono.TryGetValue(tipo, out var map))
+        {
+            var fkVal = values[map.fk];
+            if (fkVal == null) return null;
+            var dono = await DerivarFilialDonoAsync(map.pai, Convert.ToInt64(fkVal), 0, ct);
+            // Uma FILHA mapeada SEMPRE deveria ter pai resolvivel -> null aqui e' sintoma de bug (pai nao
+            // materializado/ausente), NAO GLOBAL legitimo. Alerta em vez de vazar em silencio (fail-open).
+            if (dono == null)
+                Serilog.Log.Warning("Sync: FilialDono NAO derivado p/ {Tipo} (op vira GLOBAL) — cadeia de pai nao resolveu", tipo.Name);
+            return dono;
+        }
+        return null; // GLOBAL
+    }
+
+    /// <summary>Deriva a filial-dona subindo a cadeia de FK (tracker primeiro, senao 1 query). Memoizado + guard.</summary>
+    private async Task<long?> DerivarFilialDonoAsync(Type tipo, long id, int prof, CancellationToken ct)
+    {
+        if (prof > 6 || id == 0) return null;
+        if (_cacheDerivFilial.TryGetValue((tipo, id), out var cache)) return cache;
+
+        // pai geralmente esta' sendo salvo no mesmo lote -> ChangeTracker (sem query). Id temp (<0) so' existe la'.
+        var tracked = ChangeTracker.Entries().FirstOrDefault(e =>
+            e.Metadata.ClrType == tipo && e.Property("Id").CurrentValue is long lid && lid == id);
+
+        long? resultado;
+        if (_entidadesPorFilial.Contains(tipo))
+        {
+            if (tracked != null)
+            {
+                var v = tracked.Property("FilialId").CurrentValue;
+                resultado = v == null ? null : Convert.ToInt64(v);
+            }
+            else resultado = id < 0 ? null : await ConsultarLongAsync(tipo, id, "FilialId", ct);
+        }
+        else if (_derivacaoFilialDono.TryGetValue(tipo, out var map))
+        {
+            long? paiId = tracked != null
+                ? (tracked.Property(map.fk).CurrentValue is { } pv ? Convert.ToInt64(pv) : null)
+                : (id < 0 ? null : await ConsultarLongAsync(tipo, id, map.fk, ct));
+            resultado = paiId == null ? null : await DerivarFilialDonoAsync(map.pai, paiId.Value, prof + 1, ct);
+        }
+        else resultado = null;
+
+        _cacheDerivFilial[(tipo, id)] = resultado;
+        return resultado;
+    }
+
+    /// <summary>Le uma coluna long (FilialId ou FK) de uma linha por Id, via SQL cru (participa da tx ambiente).</summary>
+    private async Task<long?> ConsultarLongAsync(Type tipo, long id, string coluna, CancellationToken ct)
+    {
+        var tabela = Model.FindEntityType(tipo)?.GetTableName();
+        if (tabela == null) return null;
+        var conn = Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync(ct);
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = Database.CurrentTransaction?.GetDbTransaction();
+        cmd.CommandText = $@"SELECT ""{coluna}"" FROM ""{tabela}"" WHERE ""Id"" = {id}";
+        var r = await cmd.ExecuteScalarAsync(ct);
+        return r == null || r is DBNull ? null : Convert.ToInt64(r);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -2128,6 +2216,7 @@ public class AppDbContext : DbContext
         // NoOrigemId usa o codigo do NO (config do servidor), nao a filial-dona do usuario (JWT)
         var noOrigem = _noCodigo > 0 ? _noCodigo : GetFilialIdFromContext();
         var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade, long? filialDono)>();
+        _cacheDerivFilial.Clear(); // memoizacao da derivacao de FilialDono e' por SaveChanges
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
@@ -2143,18 +2232,18 @@ public class AppDbContext : DbContext
                     entry.Entity.Codigo = await GerarCodigo(tabela, cancellationToken);
 
                 if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "I", entry.Entity, ResolverFilialDono(entry)));
+                    operacoesPendentes.Add((tabela, "I", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
             }
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
                 if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "U", entry.Entity, ResolverFilialDono(entry)));
+                    operacoesPendentes.Add((tabela, "U", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
             }
             else if (entry.State == EntityState.Deleted)
             {
                 if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "D", entry.Entity, ResolverFilialDono(entry)));
+                    operacoesPendentes.Add((tabela, "D", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
             }
         }
 
