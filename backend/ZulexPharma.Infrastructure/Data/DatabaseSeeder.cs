@@ -138,6 +138,11 @@ public static class DatabaseSeeder
             await context.SaveChangesAsync();
         }
 
+        // Fase 2: criar+semear as sequences de Codigo do NO (nextval) a partir do contador atual
+        // (SequenciasLocais/legado) — single-thread no boot (sem corrida), so' cria se NOVA (nao reseta).
+        // Impede o Codigo reiniciar do 1 e duplicar com o que ja' foi semeado/existente.
+        await CriarSequencesCodigo(context);
+
         // Configurações com IDs fixos — idênticas em todas as filiais e Railway.
         // Garante que o sync não conflita (mesmo Id = skip por idempotência).
         var configsSeed = new (long id, string chave, string valor, string descricao)[]
@@ -362,6 +367,33 @@ public static class DatabaseSeeder
                 context.IcmsUfs.Add(new IcmsUf { Uf = uf, NomeEstado = nome, AliquotaInterna = aliq });
             await context.SaveChangesAsync();
         }
+    }
+
+    /// <summary>
+    /// Cria+semeia as sequences de Codigo do NO (seq_codigo_{tabela}) — uma por entidade BaseEntity
+    /// (coluna "Codigo"). Semeadas a partir do contador legado (SequenciasLocais), single-thread no
+    /// boot (sem corrida) e so' quando NOVAS (nao resetam em boot repetido). Roda em todo no.
+    /// </summary>
+    private static async Task CriarSequencesCodigo(AppDbContext context)
+    {
+        var conn = context.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
+
+        var tabelas = new List<string>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"SELECT table_name FROM information_schema.columns
+                                WHERE table_schema = 'public' AND column_name = 'Codigo'";
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                tabelas.Add(reader.GetString(0));
+        }
+
+        foreach (var tabela in tabelas)
+            await AppDbContext.CriarSequenceCodigoAsync(conn, null, tabela);
+
+        Log.Information("Sequences de Codigo (nextval) criadas/semeadas: {N} tabelas", tabelas.Count);
     }
 
     /// <summary>
