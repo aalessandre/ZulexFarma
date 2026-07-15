@@ -51,10 +51,15 @@ public class SyncBackgroundService : BackgroundService
         _filiais = config["No:Filiais"] ?? "";
         _urlCentral = config["Sync:UrlCentral"]?.TrimEnd('/') ?? "";
 
-        var handler = new HttpClientHandler
+        // TLS: valida o certificado da central por padrao (a Railway tem cert publico valido).
+        // So' aceita cert inseguro/self-signed quando Sync:AceitarCertInseguro=true (dev/central local).
+        var aceitarCertInseguro = config["Sync:AceitarCertInseguro"]?.ToLower() == "true";
+        var handler = new HttpClientHandler();
+        if (aceitarCertInseguro)
         {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        };
+            handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            Log.Warning("Sync: validacao TLS DESABILITADA (Sync:AceitarCertInseguro=true) — use so' em dev/central local.");
+        }
         _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }
@@ -73,6 +78,8 @@ public class SyncBackgroundService : BackgroundService
 
         await Task.Delay(10_000, stoppingToken);
 
+        var falhasTransporte = 0; // consecutivas de TRANSPORTE (token/HTTP) — dirige o backoff (quarentena NAO conta)
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -81,6 +88,7 @@ public class SyncBackgroundService : BackgroundService
                 if (string.IsNullOrEmpty(token))
                 {
                     FalhasConsecutivas++;
+                    falhasTransporte++;
                     Log.Warning("Sync: falha ao obter token da central ({Falhas} consecutivas)", FalhasConsecutivas);
                 }
                 else
@@ -89,6 +97,7 @@ public class SyncBackgroundService : BackgroundService
                     await Enviar(stoppingToken);
                     await Receber(stoppingToken);
                     FalhasConsecutivas = 0;
+                    falhasTransporte = 0; // transporte OK — erros de quarentena (dentro de Receber) NAO contam
                 }
                 UltimaExecucao = DateTime.UtcNow;
                 UltimoStatus = FalhasConsecutivas > 0 ? "ERRO" : "OK";
@@ -98,12 +107,29 @@ public class SyncBackgroundService : BackgroundService
             {
                 Log.Error(ex, "Erro no ciclo sync v2");
                 FalhasConsecutivas++;
+                falhasTransporte++;
                 UltimoStatus = "ERRO";
             }
 
-            await Task.Delay(_intervaloSegundos * 1000, stoppingToken);
+            await Task.Delay(CalcularDelayMs(falhasTransporte), stoppingToken);
         }
         Rodando = false;
+    }
+
+    /// <summary>
+    /// Delay ate' o proximo ciclo: intervalo normal quando saudavel; backoff exponencial com teto + jitter
+    /// enquanto o TRANSPORTE falha (central em queda) — evita martelar. Quarentena NAO entra aqui.
+    /// </summary>
+    private int CalcularDelayMs(int falhasTransporte)
+    {
+        var baseSeg = _intervaloSegundos;
+        if (falhasTransporte <= 0) return baseSeg * 1000;
+
+        var tetoSeg = int.TryParse(_config["Sync:BackoffMaxSegundos"], out var bm) ? bm : 300;
+        var expo = baseSeg * Math.Pow(2, Math.Min(falhasTransporte, 6)); // 2^6 = 64x, capado no teto
+        var delaySeg = (int)Math.Min(expo, tetoSeg);
+        var jitter = Random.Shared.Next(0, Math.Max(1, delaySeg / 4)); // ate' +25% p/ dessincronizar os nos
+        return (delaySeg + jitter) * 1000;
     }
 
     private async Task Enviar(CancellationToken ct)
