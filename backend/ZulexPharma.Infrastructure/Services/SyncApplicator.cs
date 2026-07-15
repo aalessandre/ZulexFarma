@@ -1,10 +1,22 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Serilog;
 using System.Text.Json;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
+
+/// <summary>Resultado da aplicacao de uma operacao de sync (Fase 1 — corretude de conflito).</summary>
+public enum ResultadoSync
+{
+    Aplicado,          // aplicado com sucesso
+    Idempotente,       // ja' estava no estado alvo (reenvio/mesma versao) — nada a fazer
+    Stale,             // LWW: a versao que chegou e' MAIS VELHA que a local — descartada de proposito
+    PrecisaRetry,      // U cujo I ainda nao chegou (ou dependencia faltando) — reprocessar depois
+    Conflito,          // chave unica de OUTRA origem (23505) sem merge automatico — quarentena
+    TipoDesconhecido   // tabela fora do dicionario — quarentena/log (nunca silencioso)
+}
 
 /// <summary>
 /// Lógica compartilhada para aplicar operações de sync no banco de dados.
@@ -23,48 +35,202 @@ public static class SyncApplicator
     /// Retorna true se aplicada com sucesso, false se ignorada (ex: já existe / não existe).
     /// Lança exceção em caso de erro.
     /// </summary>
-    public static async Task<bool> AplicarOperacaoAsync(
+    public static async Task<ResultadoSync> AplicarOperacaoAsync(
         AppDbContext db, string tabela, string operacao, long registroId,
-        string? dadosJson, CancellationToken ct = default)
+        string? dadosJson, DateTime opCriadoEm, CancellationToken ct = default)
     {
         var tipo = ResolverTipo(tabela);
-        if (tipo == null) return false;
+        if (tipo == null) return ResultadoSync.TipoDesconhecido;
 
         if (operacao == "D")
         {
             var existente = await BuscarPorId(db, tipo, registroId);
-            if (existente == null) return false;
+            if (existente == null) return ResultadoSync.Idempotente; // ja' nao existe
+            // LWW: um UPDATE local MAIS NOVO que o DELETE vence (nao apaga).
+            var localTs = existente.AtualizadoEm ?? existente.CriadoEm;
+            if (localTs > opCriadoEm) return ResultadoSync.Stale;
             db.Remove(existente);
             await db.SaveChangesAsync(ct);
-            return true;
+            return ResultadoSync.Aplicado;
         }
 
-        if (operacao == "I" && dadosJson != null)
+        if ((operacao == "I" || operacao == "U") && dadosJson != null)
         {
-            var existente = await BuscarPorId(db, tipo, registroId);
-            if (existente != null) return false; // Já existe por Id, skip (idempotência)
             var entidade = (BaseEntity?)JsonSerializer.Deserialize(dadosJson, tipo, _jsonOpts);
-            if (entidade == null) return false;
+            if (entidade == null) return ResultadoSync.Conflito;
+
+            var existentePorId = await BuscarPorId(db, tipo, registroId);
+            if (existentePorId != null)
+                return await AplicarUpdateComLww(db, existentePorId, entidade, ct); // reenvio/idempotencia via LWW
+
+            if (operacao == "U") return ResultadoSync.PrecisaRetry; // UPDATE sem o INSERT ter chegado
+
+            // INSERT novo
             LimparNavigations(db, entidade);
             db.Add(entidade);
             db.Entry(entidade).Property("Id").IsTemporary = false;
-            await db.SaveChangesAsync(ct);
-            return true;
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                return ResultadoSync.Aplicado;
+            }
+            catch (DbUpdateException ex) when (EhUniqueViolation(ex))
+            {
+                // 23505: chave (CPF/CNPJ/login) ja' existe. Tenta merge por SyncGuid (identidade estavel);
+                // se for de OUTRA origem (SyncGuid diferente) -> quarentena (merge e' decisao de negocio).
+                Desanexar(db);
+                var porGuid = await BuscarPorSyncGuid(db, tipo, entidade.SyncGuid);
+                if (porGuid != null) return await AplicarUpdateComLww(db, porGuid, entidade, ct);
+                return ResultadoSync.Conflito;
+            }
         }
 
-        if (operacao == "U" && dadosJson != null)
+        return ResultadoSync.Conflito;
+    }
+
+    /// <summary>UPDATE com Last-Writer-Wins por AtualizadoEm (desempate por NoOrigemId maior).</summary>
+    private static async Task<ResultadoSync> AplicarUpdateComLww(AppDbContext db, BaseEntity existente, BaseEntity entidade, CancellationToken ct)
+    {
+        var incomingTs = entidade.AtualizadoEm ?? entidade.CriadoEm;
+        var currentTs = existente.AtualizadoEm ?? existente.CriadoEm;
+        if (incomingTs < currentTs) return ResultadoSync.Stale;
+        if (incomingTs == currentTs && (entidade.NoOrigemId ?? 0) <= (existente.NoOrigemId ?? 0))
+            return ResultadoSync.Idempotente; // empate: no maior vence; igual = ja' aplicado
+        LimparNavigations(db, entidade);
+        entidade.Id = existente.Id; // preserva a PK local (evita erro de mudar chave; Ids batem no caso normal)
+        db.Entry(existente).CurrentValues.SetValues(entidade);
+        await db.SaveChangesAsync(ct);
+        return ResultadoSync.Aplicado;
+    }
+
+    private static bool EhUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.UniqueViolation;
+
+    /// <summary>
+    /// Solta do ChangeTracker o que sujou num apply que falhou, pra nao poluir o proximo — MAS
+    /// preserva os registros de PAINEL (SyncFila do "recebido") e a propria SyncQuarentena, senao
+    /// um erro numa op posterior do lote sumia com a evidencia das anteriores (nada pode ser silencioso).
+    /// </summary>
+    public static void Desanexar(AppDbContext db)
+    {
+        foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged).ToList())
         {
-            var existente = await BuscarPorId(db, tipo, registroId);
-            if (existente == null) return false; // Não existe, skip
-            var entidade = (BaseEntity?)JsonSerializer.Deserialize(dadosJson, tipo, _jsonOpts);
-            if (entidade == null) return false;
-            LimparNavigations(db, entidade);
-            db.Entry(existente).CurrentValues.SetValues(entidade);
-            await db.SaveChangesAsync(ct);
-            return true;
+            if (entry.Entity is SyncFila or SyncQuarentena) continue;
+            entry.State = EntityState.Detached;
         }
+    }
 
-        return false;
+    public const int MaxTentativasQuarentena = 5;
+    // PrecisaRetry (U chegou antes do I) e' TRANSITORIO — resolve quando o I chega. Cap ALTO pra
+    // sobreviver a um no de origem atrasado (nao o teto baixo de conflito genuino), senao o U ficaria
+    // preso pra sempre e divergiria em silencio.
+    public const int MaxTentativasReordenacao = 240;
+
+    /// <summary>
+    /// Coloca (upsert por Tabela+RegistroId+Operacao) uma op que NAO pode ser aplicada na quarentena,
+    /// pra retry — em vez de perde-la avancando o ponteiro. Sobe a contagem de tentativas.
+    /// </summary>
+    public static async Task QuarentenarAsync(AppDbContext db, string tabela, string operacao, long registroId,
+        string? dadosJson, DateTime opCriadoEm, long noOrigemId, string motivo, string? erro, CancellationToken ct = default)
+    {
+        var q = await db.SyncQuarentena.FirstOrDefaultAsync(
+            x => x.Tabela == tabela && x.RegistroId == registroId && x.Operacao == operacao, ct);
+        if (q == null)
+        {
+            db.SyncQuarentena.Add(new SyncQuarentena
+            {
+                Tabela = tabela, Operacao = operacao, RegistroId = registroId, DadosJson = dadosJson,
+                OpCriadoEm = opCriadoEm, NoOrigemId = noOrigemId, Motivo = motivo, Tentativas = 1,
+                UltimoErro = Truncar(erro, 1000), Resolvido = false
+            });
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (EhUniqueViolation(ex))
+            {
+                // corrida: outro push inseriu a mesma (Tabela,RegistroId,Operacao) — recarrega e atualiza
+                Desanexar(db);
+                q = await db.SyncQuarentena.FirstOrDefaultAsync(
+                    x => x.Tabela == tabela && x.RegistroId == registroId && x.Operacao == operacao, ct);
+                if (q != null)
+                {
+                    AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro);
+                    await db.SaveChangesAsync(ct);
+                }
+            }
+        }
+        else
+        {
+            AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro);
+            await db.SaveChangesAsync(ct);
+        }
+        Log.Warning("Sync quarentena [{Motivo}] {Tabela}/{Op} Id={Id}: {Erro}", motivo, tabela, operacao, registroId, erro ?? motivo);
+    }
+
+    private static void AtualizarQuarentena(SyncQuarentena q, string? dadosJson, DateTime opCriadoEm, string motivo, string? erro)
+    {
+        q.DadosJson = dadosJson;
+        q.OpCriadoEm = opCriadoEm;
+        q.Motivo = motivo;
+        q.Tentativas += 1;
+        q.UltimoErro = Truncar(erro, 1000);
+        q.Resolvido = false;
+        q.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
+    }
+
+    /// <summary>
+    /// Reprocessa itens da quarentena (retry) ate' sucesso (Resolvido) ou o teto de tentativas.
+    /// Chamada a cada ciclo — resolve o caso "U chegou antes do I" quando o I finalmente chega.
+    /// Retorna quantos foram resolvidos.
+    /// </summary>
+    public static async Task<int> DrenarQuarentenaAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        var pendentes = await db.SyncQuarentena.AsNoTracking()
+            .Where(q => !q.Resolvido && (
+                (q.Motivo == "PrecisaRetry" && q.Tentativas < MaxTentativasReordenacao) ||
+                (q.Motivo != "PrecisaRetry" && q.Tentativas < MaxTentativasQuarentena)))
+            .OrderBy(q => q.Id).Take(200).ToListAsync(ct);
+        if (pendentes.Count == 0) return 0;
+
+        var resolvidos = 0;
+        foreach (var q in pendentes)
+        {
+            ResultadoSync res;
+            string? erro = null;
+            try
+            {
+                res = await AplicarOperacaoAsync(db, q.Tabela, q.Operacao, q.RegistroId, q.DadosJson, q.OpCriadoEm, ct);
+            }
+            catch (Exception ex)
+            {
+                Desanexar(db);
+                res = ResultadoSync.Conflito;
+                erro = ex.Message;
+            }
+
+            var ok = res is ResultadoSync.Aplicado or ResultadoSync.Idempotente or ResultadoSync.Stale;
+            if (ok) resolvidos++;
+            // ExecuteUpdate (sem tracking) pra nao misturar com as entidades aplicadas no tracker.
+            await db.SyncQuarentena.Where(x => x.Id == q.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Resolvido, ok)
+                .SetProperty(x => x.Tentativas, x => x.Tentativas + (ok ? 0 : 1))
+                .SetProperty(x => x.Motivo, res.ToString())
+                .SetProperty(x => x.UltimoErro, Truncar(erro, 1000))
+                .SetProperty(x => x.AtualizadoEm, Domain.Helpers.DataHoraHelper.Agora()), ct);
+        }
+        return resolvidos;
+    }
+
+    private static string? Truncar(string? s, int max) => s == null || s.Length <= max ? s : s.Substring(0, max);
+
+    /// <summary>Busca por SyncGuid (identidade estavel cross-no) via reflexao no DbSet.</summary>
+    public static async Task<BaseEntity?> BuscarPorSyncGuid(AppDbContext db, Type tipo, Guid syncGuid)
+    {
+        if (syncGuid == Guid.Empty) return null;
+        var method = typeof(DbContext).GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!.MakeGenericMethod(tipo);
+        var dbSet = (IQueryable<BaseEntity>)method.Invoke(db, null)!;
+        return await dbSet.FirstOrDefaultAsync(e => e.SyncGuid == syncGuid);
     }
 
     /// <summary>

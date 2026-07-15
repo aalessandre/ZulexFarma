@@ -41,6 +41,11 @@
         <span class="card-valor">{{ status()?.rodando ? 'Ativo' : 'Parado' }}</span>
         <span class="card-label">Servico</span>
       </div>
+      <div class="sync-card card-quarentena" [class.card-alerta]="(status()?.quarentenaPresos ?? 0) > 0"
+           style="cursor:pointer" (click)="filtroStatus.set('quarentena'); pagina.set(1); buscar()">
+        <span class="card-valor">{{ status()?.quarentenaPendente ?? 0 }}</span>
+        <span class="card-label">Quarentena@if ((status()?.quarentenaPresos ?? 0) > 0) { <span class="preso-tag">{{ status()?.quarentenaPresos }} preso(s)!</span> }</span>
+      </div>
     </div>
 
     <!-- FILTROS -->
@@ -61,6 +66,7 @@
           <option value="enviados">Enviados</option>
           <option value="recebidos">Recebidos</option>
           <option value="erros">Com Erro</option>
+          <option value="quarentena">Quarentena</option>
         </select>
       </div>
       <div class="filtro-item">
@@ -71,12 +77,52 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Buscar
       </button>
+      @if (filtroStatus() === 'quarentena') {
+        <button class="filtro-btn" (click)="reprocessarQuarentena()">Reprocessar tudo</button>
+      }
     </div>
 
     <!-- GRID -->
     @if (carregando()) {
       <div class="sync-loading">Carregando...</div>
     } @else {
+      @if (filtroStatus() === 'quarentena') {
+        <div class="sync-grid-wrap">
+          <table class="sync-grid">
+            <thead>
+              <tr>
+                <th class="col-tabela">Tabela</th>
+                <th class="col-op">Op</th>
+                <th class="col-codigo">Registro</th>
+                <th class="col-filial">Origem</th>
+                <th class="col-status">Motivo</th>
+                <th class="col-codigo">Tentativas</th>
+                <th class="col-data">Ult. tentativa</th>
+                <th>Erro</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (q of quarentena(); track q.id) {
+                <tr>
+                  <td class="col-tabela">{{ q.tabela }}</td>
+                  <td class="col-op"><span class="op-badge" [class]="getOpClass(q.operacao)">{{ getOpLabel(q.operacao) }}</span></td>
+                  <td class="col-codigo">{{ q.registroId }}</td>
+                  <td class="col-filial">{{ q.noOrigemId }}</td>
+                  <td class="col-status"><span class="status-badge" [class.status-erro]="presoQuarentena(q)" [class.status-pendente]="!presoQuarentena(q)">{{ q.motivo }}</span></td>
+                  <td class="col-codigo">{{ q.tentativas }}@if (presoQuarentena(q)) { <span class="preso-tag">preso</span> }</td>
+                  <td class="col-data">{{ formatarData(q.atualizadoEm) }}</td>
+                  <td class="col-erro-cell">{{ q.ultimoErro || '-' }}</td>
+                  <td><button class="btn-reproc" (click)="reprocessarQuarentena(q.id)">Reprocessar</button></td>
+                </tr>
+              }
+              @if (quarentena().length === 0) {
+                <tr><td colspan="9" class="grid-vazio">Quarentena vazia — nada preso no recebimento</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
       <div class="sync-grid-wrap">
         <table class="sync-grid">
           <thead>
@@ -127,6 +173,7 @@
           </tbody>
         </table>
       </div>
+      }
 
       <!-- PAGINACAO -->
       <div class="sync-paginacao">

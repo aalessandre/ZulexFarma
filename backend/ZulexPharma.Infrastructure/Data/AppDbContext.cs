@@ -64,6 +64,7 @@ public class AppDbContext : DbContext
     public DbSet<ProdutoVariacao> ProdutosVariacoes => Set<ProdutoVariacao>();
     public DbSet<ProdutoVariacaoValor> ProdutosVariacoesValores => Set<ProdutoVariacaoValor>();
     public DbSet<SyncFila> SyncFila => Set<SyncFila>();
+    public DbSet<SyncQuarentena> SyncQuarentena => Set<SyncQuarentena>();
     public DbSet<SequenciaLocal> SequenciasLocais => Set<SequenciaLocal>();
     public DbSet<Ncm> Ncms => Set<Ncm>();
     public DbSet<NcmFederal> NcmFederais => Set<NcmFederal>();
@@ -2008,6 +2009,20 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.FilialDonoId);
         });
 
+        // ── SyncQuarentena (dead-letter do sync, Fase 1) ────────────
+        modelBuilder.Entity<SyncQuarentena>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Operacao).HasMaxLength(1).IsRequired();
+            e.Property(x => x.Motivo).HasMaxLength(30);
+            e.Property(x => x.UltimoErro).HasMaxLength(1000);
+            // chave logica pra upsert (uma linha por op)
+            e.HasIndex(x => new { x.Tabela, x.RegistroId, x.Operacao }).IsUnique();
+            e.HasIndex(x => x.Resolvido);
+        });
+
         // ── SequenciaLocal ──────────────────────────────────────────
         modelBuilder.Entity<SequenciaLocal>(e =>
         {
@@ -2087,12 +2102,9 @@ public class AppDbContext : DbContext
     {
         if (AplicandoSync)
         {
-            // Still update timestamps but don't generate Codigo or register in SyncFila
-            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
-            {
-                if (entry.State == EntityState.Modified)
-                    entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
-            }
+            // Fase 1: ao APLICAR sync, NAO recarimbar AtualizadoEm — preserva o horario da EDICAO
+            // na origem (o SetValues do applicator ja' traz o AtualizadoEm certo). Recarimbar aqui
+            // trocaria pelo horario de aplicacao local e quebraria o LWW. Tambem nao gera Codigo/SyncFila.
             return await base.SaveChangesAsync(cancellationToken);
         }
 

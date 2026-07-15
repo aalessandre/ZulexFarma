@@ -129,3 +129,22 @@
     &:disabled { opacity: 0.3; cursor: not-allowed; }
   }
 }
+
+// Quarentena (Fase 1 — dead-letter do recebimento, visivel no painel)
+.sync-card.card-quarentena .card-valor { color: #8e44ad; }
+.sync-card.card-quarentena.card-alerta .card-valor { color: #e74c3c; }
+.sync-card.card-quarentena.card-alerta { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.35); }
+.preso-tag {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+  background: #fce4ec; color: #c62828; font-size: 10px; font-weight: 700; text-transform: uppercase;
+}
+.btn-reproc {
+  padding: 4px 10px; border: 1px solid var(--erp-blue, #2c5fad); border-radius: 6px;
+  background: #fff; color: var(--erp-blue, #2c5fad); font-size: 11px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  &:hover { background: var(--erp-blue, #2c5fad); color: #fff; }
+}
+.col-erro-cell {
+  max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px; color: #c62828;
+}
