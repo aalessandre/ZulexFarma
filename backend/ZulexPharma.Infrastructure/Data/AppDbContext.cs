@@ -65,6 +65,7 @@ public class AppDbContext : DbContext
     public DbSet<ProdutoVariacaoValor> ProdutosVariacoesValores => Set<ProdutoVariacaoValor>();
     public DbSet<SyncFila> SyncFila => Set<SyncFila>();
     public DbSet<SyncQuarentena> SyncQuarentena => Set<SyncQuarentena>();
+    public DbSet<SyncTombstone> SyncTombstones => Set<SyncTombstone>();
     public DbSet<SequenciaLocal> SequenciasLocais => Set<SequenciaLocal>();
     public DbSet<Ncm> Ncms => Set<Ncm>();
     public DbSet<NcmFederal> NcmFederais => Set<NcmFederal>();
@@ -2021,6 +2022,17 @@ public class AppDbContext : DbContext
             // chave logica pra upsert (uma linha por op)
             e.HasIndex(x => new { x.Tabela, x.RegistroId, x.Operacao }).IsUnique();
             e.HasIndex(x => x.Resolvido);
+        });
+
+        // ── SyncTombstone (lapide anti-ressurreicao, tombstone enxuto) ──
+        modelBuilder.Entity<SyncTombstone>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).UseIdentityByDefaultColumn();
+            e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
+            // uma lapide por registro deletado
+            e.HasIndex(x => new { x.Tabela, x.RegistroId }).IsUnique();
+            e.HasIndex(x => x.DeletadoEm); // pro faxineiro (purga por retencao)
         });
 
         // ── SequenciaLocal ──────────────────────────────────────────

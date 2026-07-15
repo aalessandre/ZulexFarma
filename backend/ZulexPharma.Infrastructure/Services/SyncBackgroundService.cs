@@ -177,7 +177,7 @@ public class SyncBackgroundService : BackgroundService
             try
             {
                 var res = await SyncApplicator.AplicarOperacaoAsync(
-                    db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm, ct);
+                    db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm, op.NoOrigemId, ct);
 
                 switch (res)
                 {
@@ -225,6 +225,9 @@ public class SyncBackgroundService : BackgroundService
         // Drenar a quarentena (retry) — resolve, p.ex., "U chegou antes do I" depois que o I entra.
         var resolvidosQ = await SyncApplicator.DrenarQuarentenaAsync(db, ct);
         if (resolvidosQ > 0) Log.Information("Sync PULL: {N} itens da quarentena resolvidos", resolvidosQ);
+
+        // Faxina das lapides fora da retencao (delete indexado, barato).
+        await SyncApplicator.PurgarTombstonesAsync(db, ct);
 
         db.AplicandoSync = false;
 

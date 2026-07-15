@@ -37,7 +37,7 @@ public static class SyncApplicator
     /// </summary>
     public static async Task<ResultadoSync> AplicarOperacaoAsync(
         AppDbContext db, string tabela, string operacao, long registroId,
-        string? dadosJson, DateTime opCriadoEm, CancellationToken ct = default)
+        string? dadosJson, DateTime opCriadoEm, long noOrigemId, CancellationToken ct = default)
     {
         var tipo = ResolverTipo(tabela);
         if (tipo == null) return ResultadoSync.TipoDesconhecido;
@@ -45,13 +45,17 @@ public static class SyncApplicator
         if (operacao == "D")
         {
             var existente = await BuscarPorId(db, tipo, registroId);
-            if (existente == null) return ResultadoSync.Idempotente; // ja' nao existe
-            // LWW: um UPDATE local MAIS NOVO que o DELETE vence (nao apaga).
-            var localTs = existente.AtualizadoEm ?? existente.CriadoEm;
-            if (localTs > opCriadoEm) return ResultadoSync.Stale;
-            db.Remove(existente);
-            await db.SaveChangesAsync(ct);
-            return ResultadoSync.Aplicado;
+            if (existente != null)
+            {
+                // LWW: um UPDATE local MAIS NOVO que o DELETE vence (nao apaga).
+                var localTs = existente.AtualizadoEm ?? existente.CriadoEm;
+                if (localTs > opCriadoEm) return ResultadoSync.Stale;
+                db.Remove(existente);
+                await db.SaveChangesAsync(ct);
+            }
+            // Crava a lapide (mesmo se ja' nao existia) — impede ressurreicao por INSERT/UPDATE velho.
+            await RegistrarTombstoneAsync(db, tabela, registroId, opCriadoEm, noOrigemId, ct);
+            return existente != null ? ResultadoSync.Aplicado : ResultadoSync.Idempotente;
         }
 
         if ((operacao == "I" || operacao == "U") && dadosJson != null)
@@ -63,15 +67,22 @@ public static class SyncApplicator
             if (existentePorId != null)
                 return await AplicarUpdateComLww(db, existentePorId, entidade, ct); // reenvio/idempotencia via LWW
 
+            // Registro nao existe -> checar LAPIDE (anti-ressurreicao).
+            var tomba = await BuscarTombstoneAsync(db, tabela, registroId, ct);
+            var incomingTs = entidade.AtualizadoEm ?? entidade.CriadoEm;
+            if (tomba != null && tomba.DeletadoEm >= incomingTs)
+                return ResultadoSync.Stale; // edicao MAIS VELHA que a morte -> nao ressuscita
+
             if (operacao == "U") return ResultadoSync.PrecisaRetry; // UPDATE sem o INSERT ter chegado
 
-            // INSERT novo
+            // INSERT novo (ou revivencia legitima: incoming MAIS NOVO que a lapide).
             LimparNavigations(db, entidade);
             db.Add(entidade);
             db.Entry(entidade).Property("Id").IsTemporary = false;
             try
             {
                 await db.SaveChangesAsync(ct);
+                if (tomba != null) await RemoverTombstoneAsync(db, tomba.Id, ct); // reviveu -> limpa a lapide
                 return ResultadoSync.Aplicado;
             }
             catch (DbUpdateException ex) when (EhUniqueViolation(ex))
@@ -86,6 +97,48 @@ public static class SyncApplicator
         }
 
         return ResultadoSync.Conflito;
+    }
+
+    // ── Lapides (tombstone anti-ressurreicao) ──────────────────────────────
+    public const int SyncTombstoneRetencaoDias = 90;
+
+    private static async Task<SyncTombstone?> BuscarTombstoneAsync(AppDbContext db, string tabela, long registroId, CancellationToken ct)
+        => await db.SyncTombstones.AsNoTracking().FirstOrDefaultAsync(x => x.Tabela == tabela && x.RegistroId == registroId, ct);
+
+    private static async Task RemoverTombstoneAsync(AppDbContext db, long id, CancellationToken ct)
+        => await db.SyncTombstones.Where(x => x.Id == id).ExecuteDeleteAsync(ct);
+
+    /// <summary>Upsert da lapide por (Tabela,RegistroId), guardando a morte MAIS NOVA (LWW).</summary>
+    private static async Task RegistrarTombstoneAsync(AppDbContext db, string tabela, long registroId, DateTime deletadoEm, long noOrigemId, CancellationToken ct)
+    {
+        var t = await db.SyncTombstones.FirstOrDefaultAsync(x => x.Tabela == tabela && x.RegistroId == registroId, ct);
+        if (t == null)
+        {
+            db.SyncTombstones.Add(new SyncTombstone { Tabela = tabela, RegistroId = registroId, DeletadoEm = deletadoEm, NoOrigemId = noOrigemId });
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (EhUniqueViolation(ex))
+            {
+                // corrida: outra aplicacao cravou a mesma lapide — recarrega e mantem a mais nova
+                Desanexar(db);
+                t = await db.SyncTombstones.FirstOrDefaultAsync(x => x.Tabela == tabela && x.RegistroId == registroId, ct);
+                if (t != null && deletadoEm > t.DeletadoEm) { t.DeletadoEm = deletadoEm; t.NoOrigemId = noOrigemId; await db.SaveChangesAsync(ct); }
+            }
+        }
+        else if (deletadoEm > t.DeletadoEm)
+        {
+            t.DeletadoEm = deletadoEm; t.NoOrigemId = noOrigemId;
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>Faxineiro: apaga lapides mais velhas que a retencao (nenhum no atrasado deveria mais existir).</summary>
+    public static async Task<int> PurgarTombstonesAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        var corte = Domain.Helpers.DataHoraHelper.Agora().AddDays(-SyncTombstoneRetencaoDias);
+        return await db.SyncTombstones.Where(x => x.DeletadoEm < corte).ExecuteDeleteAsync(ct);
     }
 
     /// <summary>UPDATE com Last-Writer-Wins por AtualizadoEm (desempate por NoOrigemId maior).</summary>
@@ -200,7 +253,7 @@ public static class SyncApplicator
             string? erro = null;
             try
             {
-                res = await AplicarOperacaoAsync(db, q.Tabela, q.Operacao, q.RegistroId, q.DadosJson, q.OpCriadoEm, ct);
+                res = await AplicarOperacaoAsync(db, q.Tabela, q.Operacao, q.RegistroId, q.DadosJson, q.OpCriadoEm, q.NoOrigemId, ct);
             }
             catch (Exception ex)
             {
