@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using ZulexPharma.Domain.Entities;
@@ -2069,7 +2070,10 @@ public class AppDbContext : DbContext
     // então não passam pelo interceptor — não precisam estar aqui.
     private static readonly HashSet<string> _tabelasSemSync = new()
     {
-        "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais", "SefazNotas"
+        // SequenciasCentrais = contador fiscal (NFC-e), pinado ao NO dono (cada no numera o seu).
+        // NAO pode replicar sob LWW (senao dois nos sobrescrevem o ProximoNumero -> numero fiscal duplicado).
+        "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais", "SefazNotas",
+        "SequenciasCentrais"
     };
 
     // Entidades POR-FILIAL (eixo escopo): o dado pertence a UMA filial (FilialId do usuario logado).
@@ -2153,29 +2157,48 @@ public class AppDbContext : DbContext
             }
         }
 
-        var result = await base.SaveChangesAsync(cancellationToken);
-
-        // Registrar operações na SyncFila APÓS o save (para ter o Id gerado)
-        if (operacoesPendentes.Count > 0)
+        // Fase 2: outbox ATOMICO — os dados e a SyncFila num so' commit. Cair entre os dois saves
+        // deixaria dado persistido que NUNCA replica (estado fantasma). So' abre transacao propria se
+        // nao houver ambiente (ex.: finalizacao ja' abriu a sua -> participa dela). Seguro agora que o
+        // GerarCodigo usa nextval (nao segura lock ate' o commit).
+        var abrirTx = operacoesPendentes.Count > 0 && Database.CurrentTransaction == null;
+        IDbContextTransaction? txOutbox = abrirTx ? await Database.BeginTransactionAsync(cancellationToken) : null;
+        try
         {
-            foreach (var (tabela, op, entidade, filialDono) in operacoesPendentes)
-            {
-                SyncFila.Add(new SyncFila
-                {
-                    Tabela = tabela,
-                    Operacao = op,
-                    RegistroId = entidade.Id,
-                    RegistroCodigo = entidade.Codigo,
-                    DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }) : null,
-                    NoOrigemId = _noCodigo > 0 ? _noCodigo : (entidade.NoOrigemId ?? 0),
-                    FilialDonoId = filialDono,
-                    Enviado = false
-                });
-            }
-            await base.SaveChangesAsync(cancellationToken);
-        }
+            var result = await base.SaveChangesAsync(cancellationToken);
 
-        return result;
+            // Registrar operações na SyncFila APÓS o save (para ter o Id gerado)
+            if (operacoesPendentes.Count > 0)
+            {
+                foreach (var (tabela, op, entidade, filialDono) in operacoesPendentes)
+                {
+                    SyncFila.Add(new SyncFila
+                    {
+                        Tabela = tabela,
+                        Operacao = op,
+                        RegistroId = entidade.Id,
+                        RegistroCodigo = entidade.Codigo,
+                        DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }) : null,
+                        NoOrigemId = _noCodigo > 0 ? _noCodigo : (entidade.NoOrigemId ?? 0),
+                        FilialDonoId = filialDono,
+                        Enviado = false
+                    });
+                }
+                await base.SaveChangesAsync(cancellationToken);
+            }
+
+            if (txOutbox != null) await txOutbox.CommitAsync(cancellationToken);
+            return result;
+        }
+        catch
+        {
+            if (txOutbox != null) await txOutbox.RollbackAsync(cancellationToken);
+            throw;
+        }
+        finally
+        {
+            if (txOutbox != null) await txOutbox.DisposeAsync();
+        }
     }
 
     private async Task<string> GerarCodigo(string tabela, CancellationToken ct)
@@ -2184,18 +2207,54 @@ public class AppDbContext : DbContext
         if (conn.State != System.Data.ConnectionState.Open)
             await conn.OpenAsync(ct);
 
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $@"
-            INSERT INTO ""SequenciasLocais"" (""Tabela"", ""Ultimo"")
-            VALUES ('{tabela}', 1)
-            ON CONFLICT (""Tabela"")
-            DO UPDATE SET ""Ultimo"" = ""SequenciasLocais"".""Ultimo"" + 1
-            RETURNING ""Ultimo""";
-
-        var result = await cmd.ExecuteScalarAsync(ct);
-        var ultimo = Convert.ToInt64(result);
-        // Fase 0 mantem o formato atual ({no}{seq}); a troca por nextval + coluna separada e' Fase 2.
+        // Fase 2: nextval NATIVO no lugar do row-bump em SequenciasLocais. nextval NAO segura lock
+        // ate' o commit (o row-bump segurava -> gargalo global em LogsAcao + travava a transacao da
+        // finalizacao). Participa da transacao ambiente se houver (outbox atomico / finalizacao).
+        // As sequences seq_codigo_* sao criadas+semeadas no BOOT (DatabaseSeeder.CriarSequencesCodigo),
+        // ja' posicionadas no contador atual -> NAO reiniciam do 1 nem duplicam Codigo. Aqui no caminho
+        // quente e' so' nextval; o fallback (42P01) se auto-cura se a sequence faltar (tabela nova).
+        var tx = Database.CurrentTransaction?.GetDbTransaction();
+        long ultimo;
+        try
+        {
+            ultimo = await NextvalCodigoAsync(conn, tx, tabela, ct);
+        }
+        catch (Npgsql.PostgresException pe) when (pe.SqlState == "42P01") // sequence nao existe
+        {
+            await CriarSequenceCodigoAsync(conn, tx, tabela, ct);
+            ultimo = await NextvalCodigoAsync(conn, tx, tabela, ct);
+        }
         return $"{_noCodigo}{ultimo}";
+    }
+
+    private static async Task<long> NextvalCodigoAsync(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction? tx, string tabela, CancellationToken ct)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $@"SELECT nextval('""seq_codigo_{tabela}""')";
+        return Convert.ToInt64(await cmd.ExecuteScalarAsync(ct));
+    }
+
+    /// <summary>
+    /// Cria a sequence seq_codigo_{tabela} do NO — SO' se nao existir — ja' posicionada no contador
+    /// atual (SequenciasLocais/legado): u=0 -> nextval da' 1; u=N -> nextval da' N+1. Idempotente
+    /// (nao reseta em boot repetido, pois so' age quando a sequence e' NOVA).
+    /// </summary>
+    public static async Task CriarSequenceCodigoAsync(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction? tx, string tabela, CancellationToken ct = default)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $@"
+            DO $$
+            DECLARE u bigint;
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relkind='S' AND relname='seq_codigo_{tabela}') THEN
+                    EXECUTE 'CREATE SEQUENCE ""seq_codigo_{tabela}"" START 1';
+                    SELECT COALESCE((SELECT ""Ultimo"" FROM ""SequenciasLocais"" WHERE ""Tabela"" = '{tabela}'), 0) INTO u;
+                    PERFORM setval('""seq_codigo_{tabela}""', GREATEST(u, 1), u > 0);
+                END IF;
+            END $$;";
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     private long GetFilialIdFromContext()
