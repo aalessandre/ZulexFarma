@@ -63,41 +63,138 @@ public static class SyncApplicator
             var entidade = (BaseEntity?)JsonSerializer.Deserialize(dadosJson, tipo, _jsonOpts);
             if (entidade == null) return ResultadoSync.Conflito;
 
-            var existentePorId = await BuscarPorId(db, tipo, registroId);
-            if (existentePorId != null)
-                return await AplicarUpdateComLww(db, existentePorId, entidade, ct); // reenvio/idempotencia via LWW
+            // Fase 2d: AGREGADO (Venda) — VendaItem/VendaPagamento/VendaItemDesconto sao POCO (nao herdam
+            // BaseEntity) e NAO replicam sozinhos; viajam no JSON do cabecalho. Captura os filhos POCO ANTES
+            // do strip do cabecalho e faz upsert em cascata DEPOIS. Cobre INSERT-agregado E UPDATE (self-checkout
+            // salva o cabecalho antes dos itens, entao os itens chegam no "U").
+            var filhosPoco = _tiposAgregado.Contains(tipo) ? ExtrairFilhosPoco(db, entidade) : null;
 
-            // Registro nao existe -> checar LAPIDE (anti-ressurreicao).
-            var tomba = await BuscarTombstoneAsync(db, tabela, registroId, ct);
-            var incomingTs = entidade.AtualizadoEm ?? entidade.CriadoEm;
-            if (tomba != null && tomba.DeletadoEm >= incomingTs)
-                return ResultadoSync.Stale; // edicao MAIS VELHA que a morte -> nao ressuscita
+            var res = await AplicarCabecalhoAsync(db, tipo, tabela, operacao, registroId, entidade, ct);
 
-            if (operacao == "U") return ResultadoSync.PrecisaRetry; // UPDATE sem o INSERT ter chegado
-
-            // INSERT novo (ou revivencia legitima: incoming MAIS NOVO que a lapide).
-            LimparNavigations(db, entidade);
-            db.Add(entidade);
-            db.Entry(entidade).Property("Id").IsTemporary = false;
-            try
+            if (filhosPoco is { Count: > 0 } && res is ResultadoSync.Aplicado or ResultadoSync.Idempotente)
             {
-                await db.SaveChangesAsync(ct);
-                if (tomba != null) await RemoverTombstoneAsync(db, tomba.Id, ct); // reviveu -> limpa a lapide
-                return ResultadoSync.Aplicado;
+                var resFilhos = await UpsertFilhosPocoAsync(db, filhosPoco, ct);
+                // Filho com FK ainda nao replicada (ex.: ProdutoVariacao) = dependencia transitoria ->
+                // PrecisaRetry (teto 240), nao "Erro" (teto 5). O cabecalho ja' aplicou; reprocessa ate' chegar.
+                // LIMITACAO CONHECIDA: header+filhos sao 2 saves (nao atomico, mas AplicandoSync short-circuita
+                // o outbox-tx) -> janela transitoria de venda-sem-itens ate' a drenagem reconciliar (nao e'
+                // regressao: pre-2d TODA venda replicava sem itens). E o upsert e' append/update-only -> item
+                // removido de PRE-VENDA ja' sincronizada fica orfao no destino (reconciliar = follow-up).
+                if (resFilhos == ResultadoSync.PrecisaRetry) return ResultadoSync.PrecisaRetry;
             }
-            catch (DbUpdateException ex) when (EhUniqueViolation(ex))
-            {
-                // 23505: chave (CPF/CNPJ/login) ja' existe. Tenta merge por SyncGuid (identidade estavel);
-                // se for de OUTRA origem (SyncGuid diferente) -> quarentena (merge e' decisao de negocio).
-                Desanexar(db);
-                var porGuid = await BuscarPorSyncGuid(db, tipo, entidade.SyncGuid);
-                if (porGuid != null) return await AplicarUpdateComLww(db, porGuid, entidade, ct);
-                return ResultadoSync.Conflito;
-            }
+
+            return res;
         }
 
         return ResultadoSync.Conflito;
     }
+
+    // Agregados cujos filhos POCO (nao-BaseEntity) precisam viajar/aplicar junto do cabecalho.
+    private static readonly HashSet<Type> _tiposAgregado = new() { typeof(Venda) };
+
+    /// <summary>Aplica so' o CABECALHO (LWW/insert/tombstone/23505). Os filhos POCO sao tratados a' parte.</summary>
+    private static async Task<ResultadoSync> AplicarCabecalhoAsync(AppDbContext db, Type tipo, string tabela, string operacao, long registroId, BaseEntity entidade, CancellationToken ct)
+    {
+        var existentePorId = await BuscarPorId(db, tipo, registroId);
+        if (existentePorId != null)
+            return await AplicarUpdateComLww(db, existentePorId, entidade, ct); // reenvio/idempotencia via LWW
+
+        // Registro nao existe -> checar LAPIDE (anti-ressurreicao).
+        var tomba = await BuscarTombstoneAsync(db, tabela, registroId, ct);
+        var incomingTs = entidade.AtualizadoEm ?? entidade.CriadoEm;
+        if (tomba != null && tomba.DeletadoEm >= incomingTs)
+            return ResultadoSync.Stale; // edicao MAIS VELHA que a morte -> nao ressuscita
+
+        if (operacao == "U") return ResultadoSync.PrecisaRetry; // UPDATE sem o INSERT ter chegado
+
+        // INSERT novo (ou revivencia legitima: incoming MAIS NOVO que a lapide).
+        LimparNavigations(db, entidade);
+        db.Add(entidade);
+        db.Entry(entidade).Property("Id").IsTemporary = false;
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            if (tomba != null) await RemoverTombstoneAsync(db, tomba.Id, ct); // reviveu -> limpa a lapide
+            return ResultadoSync.Aplicado;
+        }
+        catch (DbUpdateException ex) when (EhUniqueViolation(ex))
+        {
+            // 23505: chave (CPF/CNPJ/login) ja' existe. Tenta merge por SyncGuid (identidade estavel);
+            // se for de OUTRA origem (SyncGuid diferente) -> quarentena (merge e' decisao de negocio).
+            Desanexar(db);
+            var porGuid = await BuscarPorSyncGuid(db, tipo, entidade.SyncGuid);
+            if (porGuid != null) return await AplicarUpdateComLww(db, porGuid, entidade, ct);
+            return ResultadoSync.Conflito;
+        }
+    }
+
+    /// <summary>
+    /// Achata os filhos POCO (alvo NAO herda BaseEntity) de um agregado, na ordem de FK (pai antes do filho),
+    /// recorrendo nas colecoes POCO (Venda->Itens->Descontos). As navegacoes BaseEntity (VendaFiscal/Receita/
+    /// ItemFiscal) sao ignoradas — replicam sozinhas.
+    /// </summary>
+    private static List<object> ExtrairFilhosPoco(AppDbContext db, object raiz)
+    {
+        var lista = new List<object>();
+        var visitados = new HashSet<object>(ReferenceEqualityComparer.Instance); // anti-recursao (back-ref POCO)
+        void Coletar(object entidade)
+        {
+            if (!visitados.Add(entidade)) return; // ja' visitado (ex.: VendaItemDesconto.VendaItem) -> corta o ciclo
+            var et = db.Model.FindEntityType(entidade.GetType());
+            if (et == null) return;
+            foreach (var nav in et.GetNavigations())
+            {
+                if (typeof(BaseEntity).IsAssignableFrom(nav.TargetEntityType.ClrType)) continue; // so' POCO
+                var val = nav.PropertyInfo?.GetValue(entidade);
+                if (val == null) continue;
+                if (nav.IsCollection)
+                    foreach (var filho in (System.Collections.IEnumerable)val)
+                    { if (!visitados.Contains(filho)) { lista.Add(filho); Coletar(filho); } }
+                else if (!visitados.Contains(val)) { lista.Add(val); Coletar(val); }
+            }
+        }
+        Coletar(raiz);
+        return lista;
+    }
+
+    /// <summary>
+    /// Upsert (por Id) dos filhos POCO do agregado, preservando o Id (faixa-por-no, GENERATED BY DEFAULT).
+    /// Um SaveChanges no fim — o EF ordena os inserts por FK (item antes do desconto).
+    /// </summary>
+    private static async Task<ResultadoSync> UpsertFilhosPocoAsync(AppDbContext db, List<object> filhos, CancellationToken ct)
+    {
+        foreach (var filho in filhos)
+        {
+            var tipoFilho = filho.GetType();
+            var id = Convert.ToInt64(tipoFilho.GetProperty("Id")!.GetValue(filho));
+            var existente = id > 0 ? await db.FindAsync(tipoFilho, new object[] { id }, ct) : null;
+            LimparNavigations(db, filho); // solta back-ref/refs e sub-colecoes (ja' estao na lista achatada)
+            if (existente == null)
+            {
+                db.Add(filho);
+                db.Entry(filho).Property("Id").IsTemporary = false;
+            }
+            else
+            {
+                db.Entry(existente).CurrentValues.SetValues(filho);
+            }
+        }
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return ResultadoSync.Aplicado;
+        }
+        catch (DbUpdateException ex) when (EhFkViolation(ex))
+        {
+            // filho aponta pra FK que ainda nao replicou (ex.: ProdutoVariacao fora do dicionario) =
+            // dependencia transitoria -> PrecisaRetry (teto alto), nao "Erro" (teto 5).
+            Desanexar(db);
+            return ResultadoSync.PrecisaRetry;
+        }
+    }
+
+    private static bool EhFkViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.ForeignKeyViolation;
 
     // ── Lapides (tombstone anti-ressurreicao) ──────────────────────────────
     public const int SyncTombstoneRetencaoDias = 90;
