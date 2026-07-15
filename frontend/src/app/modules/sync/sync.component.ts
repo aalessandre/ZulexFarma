@@ -20,6 +20,20 @@ interface SyncItem {
   erro: string | null;
 }
 
+interface QuarentenaItem {
+  id: number;
+  tabela: string;
+  operacao: string;
+  registroId: number;
+  motivo: string;        // PrecisaRetry | Conflito | TipoDesconhecido | Erro
+  tentativas: number;
+  ultimoErro: string | null;
+  opCriadoEm: string;
+  noOrigemId: number;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
 @Component({
   selector: 'app-sync',
   standalone: true,
@@ -38,10 +52,13 @@ export class SyncComponent implements OnInit {
   fila = signal<SyncItem[]>([]);
   totalRegistros = signal(0);
 
+  // Quarentena (dead-letter do recebimento)
+  quarentena = signal<QuarentenaItem[]>([]);
+
   // Filtros
   dataInicio = signal(this.hoje());
   dataFim = signal(this.hoje());
-  filtroStatus = signal<'todos' | 'pendentes' | 'enviados' | 'recebidos' | 'erros'>('todos');
+  filtroStatus = signal<'todos' | 'pendentes' | 'enviados' | 'recebidos' | 'erros' | 'quarentena'>('todos');
   filtroTabela = signal('');
 
   // Paginação
@@ -72,6 +89,7 @@ export class SyncComponent implements OnInit {
   }
 
   buscar() {
+    if (this.filtroStatus() === 'quarentena') { this.buscarQuarentena(); return; }
     this.carregando.set(true);
     const params = new URLSearchParams();
     params.set('dataInicio', this.dataInicio());
@@ -92,6 +110,41 @@ export class SyncComponent implements OnInit {
         this.fila.set([]);
       }
     });
+  }
+
+  buscarQuarentena() {
+    this.carregando.set(true);
+    const params = new URLSearchParams();
+    params.set('tabela', this.filtroTabela());
+    params.set('pagina', this.pagina().toString());
+    params.set('porPagina', this.porPagina().toString());
+
+    this.http.get<any>(`${this.apiUrl}/quarentena?${params.toString()}`).subscribe({
+      next: r => {
+        this.carregando.set(false);
+        this.quarentena.set(r?.data?.registros ?? []);
+        this.totalRegistros.set(r?.data?.total ?? 0);
+      },
+      error: () => {
+        this.carregando.set(false);
+        this.quarentena.set([]);
+      }
+    });
+  }
+
+  reprocessarQuarentena(id?: number) {
+    const url = id
+      ? `${this.apiUrl}/quarentena/reprocessar?id=${id}`
+      : `${this.apiUrl}/quarentena/reprocessar`;
+    this.http.post<any>(url, {}).subscribe({
+      next: () => { this.carregarStatus(); this.buscar(); },
+      error: () => {}
+    });
+  }
+
+  presoQuarentena(item: QuarentenaItem): boolean {
+    // espelha o teto do backend (PrecisaRetry tem cap alto; o resto, baixo)
+    return item.motivo === 'PrecisaRetry' ? item.tentativas >= 240 : item.tentativas >= 5;
   }
 
   irPagina(p: number) {

@@ -48,22 +48,38 @@ public class SyncController : ControllerBase
             _db.AplicandoSync = true;
             try
             {
+                // Retry de itens que faltavam dependencia num push anterior (o central nao roda o
+                // background loop, entao a drenagem acontece a cada push recebido).
+                await SyncApplicator.DrenarQuarentenaAsync(_db);
+
                 foreach (var op in ordenadas)
                 {
                     try
                     {
-                        var aplicou = await SyncApplicator.AplicarOperacaoAsync(
-                            _db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson);
-                        if (aplicou) aplicadosDb++;
+                        var res = await SyncApplicator.AplicarOperacaoAsync(
+                            _db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm);
+
+                        switch (res)
+                        {
+                            case ResultadoSync.Aplicado:
+                                aplicadosDb++;
+                                break;
+                            case ResultadoSync.Idempotente:
+                            case ResultadoSync.Stale:
+                                break; // ja' no estado alvo / descartado por LWW
+                            default: // PrecisaRetry | Conflito | TipoDesconhecido -> quarentena
+                                await SyncApplicator.QuarentenarAsync(_db, op.Tabela, op.Operacao, op.RegistroId,
+                                    op.DadosJson, op.CriadoEm, op.NoOrigemId, res.ToString(), null);
+                                errosDb++;
+                                break;
+                        }
                     }
                     catch (Exception ex)
                     {
-                        // Detach entries com erro para não poluir o ChangeTracker
-                        foreach (var entry in _db.ChangeTracker.Entries()
-                            .Where(e => e.State != Microsoft.EntityFrameworkCore.EntityState.Unchanged))
-                            entry.State = Microsoft.EntityFrameworkCore.EntityState.Detached;
-
-                        Log.Warning(ex, "Sync enviar: erro ao aplicar no banco central {Tabela}/{Op} Id={Id}",
+                        SyncApplicator.Desanexar(_db);
+                        await SyncApplicator.QuarentenarAsync(_db, op.Tabela, op.Operacao, op.RegistroId,
+                            op.DadosJson, op.CriadoEm, op.NoOrigemId, "Erro", ex.Message);
+                        Log.Warning(ex, "Sync enviar: erro ao aplicar no central {Tabela}/{Op} Id={Id}",
                             op.Tabela, op.Operacao, op.RegistroId);
                         errosDb++;
                     }
@@ -149,6 +165,12 @@ public class SyncController : ControllerBase
                 .Select(f => f.EnviadoEm)
                 .FirstOrDefaultAsync();
 
+            // Quarentena (dead-letter do recebimento) — nada pode ficar silencioso no painel.
+            var quarentenaPendente = await _db.SyncQuarentena.CountAsync(q => !q.Resolvido);
+            var quarentenaPresos = await _db.SyncQuarentena.CountAsync(q => !q.Resolvido &&
+                ((q.Motivo == "PrecisaRetry" && q.Tentativas >= SyncApplicator.MaxTentativasReordenacao) ||
+                 (q.Motivo != "PrecisaRetry" && q.Tentativas >= SyncApplicator.MaxTentativasQuarentena)));
+
             return Ok(new
             {
                 success = true,
@@ -161,6 +183,8 @@ public class SyncController : ControllerBase
                     falhasConsecutivas = SyncBackgroundService.FalhasConsecutivas,
                     pendentesLocal = pendentes,
                     ultimoEnvio,
+                    quarentenaPendente,
+                    quarentenaPresos,
                     filialCodigo = _noCodigo // key mantida p/ compat do painel; valor e' o codigo do NO
                 }
             });
@@ -217,6 +241,75 @@ public class SyncController : ControllerBase
         {
             Log.Error(ex, "Erro em SyncController.Fila");
             return StatusCode(500, new { success = false, message = "Erro ao listar fila." });
+        }
+    }
+
+    /// <summary>
+    /// Lista a QUARENTENA (dead-letter do recebimento): ops que nao aplicaram e estao em retry.
+    /// filtro=presos mostra so' as que estouraram o teto de tentativas (precisam de acao).
+    /// </summary>
+    [HttpGet("quarentena")]
+    public async Task<IActionResult> Quarentena(
+        [FromQuery] string? filtro, [FromQuery] string? tabela,
+        [FromQuery] int pagina = 1, [FromQuery] int porPagina = 20)
+    {
+        try
+        {
+            IQueryable<SyncQuarentena> query = _db.SyncQuarentena.AsNoTracking().Where(q => !q.Resolvido);
+
+            if (filtro == "presos")
+                query = query.Where(q =>
+                    (q.Motivo == "PrecisaRetry" && q.Tentativas >= SyncApplicator.MaxTentativasReordenacao) ||
+                    (q.Motivo != "PrecisaRetry" && q.Tentativas >= SyncApplicator.MaxTentativasQuarentena));
+
+            if (!string.IsNullOrWhiteSpace(tabela))
+                query = query.Where(q => q.Tabela.Contains(tabela));
+
+            var total = await query.CountAsync();
+            var registros = await query
+                .OrderByDescending(q => q.AtualizadoEm)
+                .Skip((pagina - 1) * porPagina)
+                .Take(porPagina)
+                .Select(q => new
+                {
+                    q.Id, q.Tabela, q.Operacao, q.RegistroId, q.Motivo, q.Tentativas,
+                    q.UltimoErro, q.OpCriadoEm, q.NoOrigemId, q.CriadoEm, q.AtualizadoEm
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = new { total, registros } });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em SyncController.Quarentena");
+            return StatusCode(500, new { success = false, message = "Erro ao listar quarentena." });
+        }
+    }
+
+    /// <summary>Reprocessa a quarentena AGORA (reseta tentativas p/ destravar presos e drena).</summary>
+    [HttpPost("quarentena/reprocessar")]
+    public async Task<IActionResult> ReprocessarQuarentena([FromQuery] long? id)
+    {
+        try
+        {
+            if (id.HasValue)
+                await _db.SyncQuarentena.Where(q => q.Id == id.Value && !q.Resolvido)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.Tentativas, 0));
+            else
+                await _db.SyncQuarentena.Where(q => !q.Resolvido)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.Tentativas, 0));
+
+            _db.AplicandoSync = true;
+            int resolvidos;
+            try { resolvidos = await SyncApplicator.DrenarQuarentenaAsync(_db); }
+            finally { _db.AplicandoSync = false; }
+
+            return Ok(new { success = true, data = new { resolvidos } });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em SyncController.ReprocessarQuarentena");
+            return StatusCode(500, new { success = false, message = "Erro ao reprocessar quarentena." });
         }
     }
 

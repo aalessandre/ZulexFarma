@@ -176,55 +176,39 @@ public class SyncBackgroundService : BackgroundService
         {
             try
             {
-                var aplicou = await SyncApplicator.AplicarOperacaoAsync(
-                    db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, ct);
+                var res = await SyncApplicator.AplicarOperacaoAsync(
+                    db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm, ct);
 
-                if (aplicou)
+                switch (res)
                 {
-                    RegistrarRecebido(db, op);
-                    aplicados++;
+                    case ResultadoSync.Aplicado:
+                        RegistrarRecebido(db, op);
+                        aplicados++;
+                        break;
+                    case ResultadoSync.Idempotente:
+                    case ResultadoSync.Stale:
+                        break; // ja' no estado alvo / versao velha descartada por LWW — nada a fazer
+                    default: // PrecisaRetry | Conflito | TipoDesconhecido -> quarentena p/ retry
+                        await SyncApplicator.QuarentenarAsync(db, op.Tabela, op.Operacao, op.RegistroId,
+                            op.DadosJson, op.CriadoEm, op.NoOrigemId, res.ToString(), null, ct);
+                        erros++;
+                        break;
                 }
-
-                if (op.Id > lastSuccessId) lastSuccessId = op.Id;
             }
             catch (Exception ex)
             {
-                // Avançar lastSuccessId mesmo em falha para não ficar em loop infinito
-                if (op.Id > lastSuccessId) lastSuccessId = op.Id;
-
-                // Detach entries com erro
-                foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged))
-                    entry.State = EntityState.Detached;
-
-                // Extrair mensagem legível do erro
-                var erroMsg = ExtrairMensagemErro(ex, op);
-                Log.Warning("Sync PULL: {Erro}", erroMsg);
-
-                // Registrar erro na SyncFila local para aparecer no painel
-                try
-                {
-                    db.SyncFila.Add(new Domain.Entities.SyncFila
-                    {
-                        Tabela = op.Tabela,
-                        Operacao = op.Operacao,
-                        RegistroId = op.RegistroId,
-                        RegistroCodigo = op.RegistroCodigo,
-                        NoOrigemId = op.NoOrigemId,
-                        FilialDonoId = op.FilialDonoId,
-                        Enviado = true, // Não tentar reenviar
-                        EnviadoEm = DateTime.UtcNow,
-                        Erro = erroMsg
-                    });
-                    await db.SaveChangesAsync(ct);
-                }
-                catch { /* silenciar erro ao gravar o próprio erro */ }
-
+                SyncApplicator.Desanexar(db);
+                await SyncApplicator.QuarentenarAsync(db, op.Tabela, op.Operacao, op.RegistroId,
+                    op.DadosJson, op.CriadoEm, op.NoOrigemId, "Erro", ExtrairMensagemErro(ex, op), ct);
                 erros++;
             }
+
+            // Ponteiro avanca SEMPRE: a op nao se perde (aplicada, descartada por LWW, ou na quarentena p/ retry).
+            if (op.Id > lastSuccessId) lastSuccessId = op.Id;
         }
 
-        // Sempre avançar o ponteiro para não reprocessar operações (inclusive falhas)
-        // Manter AplicandoSync = true para não gerar SyncFila (config local, não replica)
+        // Avançar o ponteiro (nao reprocessa): falhas nao se perdem — vao pra SyncQuarentena e sao
+        // reprocessadas na drenagem abaixo. Manter AplicandoSync = true (nao gera SyncFila).
         if (lastSuccessId > ultimoId)
         {
             if (ultimoIdConfig == null)
@@ -237,6 +221,10 @@ public class SyncBackgroundService : BackgroundService
             }
             await db.SaveChangesAsync(ct);
         }
+
+        // Drenar a quarentena (retry) — resolve, p.ex., "U chegou antes do I" depois que o I entra.
+        var resolvidosQ = await SyncApplicator.DrenarQuarentenaAsync(db, ct);
+        if (resolvidosQ > 0) Log.Information("Sync PULL: {N} itens da quarentena resolvidos", resolvidosQ);
 
         db.AplicandoSync = false;
 
