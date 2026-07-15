@@ -2072,8 +2072,9 @@ public class AppDbContext : DbContext
     {
         // SequenciasCentrais = contador fiscal (NFC-e), pinado ao NO dono (cada no numera o seu).
         // NAO pode replicar sob LWW (senao dois nos sobrescrevem o ProximoNumero -> numero fiscal duplicado).
+        // GestorTributario* = INFRA local (controle de job/uso do motor tributario) — nao replica.
         "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais", "SefazNotas",
-        "SequenciasCentrais"
+        "SequenciasCentrais", "GestorTributarioJobs", "GestorTributarioUsoMensais"
     };
 
     // Entidades POR-FILIAL (eixo escopo): o dado pertence a UMA filial (FilialId do usuario logado).
