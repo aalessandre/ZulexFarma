@@ -57,7 +57,7 @@ public class SyncController : ControllerBase
                     try
                     {
                         var res = await SyncApplicator.AplicarOperacaoAsync(
-                            _db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm);
+                            _db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm, op.NoOrigemId);
 
                         switch (res)
                         {
@@ -84,6 +84,9 @@ public class SyncController : ControllerBase
                         errosDb++;
                     }
                 }
+
+                // Faxina das lapides fora da retencao (delete indexado, barato).
+                await SyncApplicator.PurgarTombstonesAsync(_db);
             }
             finally
             {
