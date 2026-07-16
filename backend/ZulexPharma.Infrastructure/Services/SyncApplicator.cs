@@ -136,6 +136,15 @@ public static class SyncApplicator
             if (porGuid != null) return await AplicarUpdateComLww(db, porGuid, entidade, ct);
             return ResultadoSync.Conflito;
         }
+        catch (DbUpdateException ex) when (EhFkViolation(ex))
+        {
+            // 23503: o PAI ainda nao replicou (ordem) ou foi apagado no outro no (cascata). Dependencia
+            // transitoria -> PrecisaRetry (teto 240 = a drenagem resolve quando o pai chegar), NAO "Erro"
+            // (teto 5, que aposentava a op em 5 tentativas por um problema de ORDEM). Mesmo tratamento que
+            // o UpsertFilhosPocoAsync ja' dava aos filhos POCO — o cabecalho estava de fora.
+            Desanexar(db);
+            return ResultadoSync.PrecisaRetry;
+        }
     }
 
     /// <summary>

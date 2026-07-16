@@ -110,16 +110,39 @@ Controla o proximo sequencial do Codigo visivel por tabela.
   Cura certa: garantir o grafo completo na serializacao (forcar Load das colecoes POCO no outbox) OU o
   outbox NULLAR colecao nao-IsLoaded e o applicator reconciliar SO' as colecoes com chave PRESENTE no JSON.
 
-### Filho BaseEntity apagado por CASCATA do banco (pendente)
-- Se o service faz `Remove(pai)` sem carregar um filho BaseEntity com FK `Cascade`, o Postgres cascateia mas
-  o filho nunca vira entry no ChangeTracker -> **nao gera "D" nem lapide**. Caso real:
-  `ColaboradorService.ExcluirAsync` nao inclui `ColaboradorComissaoAgrupadores` (FK Cascade, e ESTA' no
-  dicionario de sync). Um "I" atrasado desse filho chega no par, nao acha lapide, tenta inserir e leva 23503
-  (FK do pai morto) -> `AplicarCabecalhoAsync` so' trata unique violation, entao sobe como "Erro" (teto 5) em
-  vez de PrecisaRetry (teto 240). Nao ressuscita (a FK barra) e nao e' silencioso, mas morre no balde errado.
-- Cura: (1) Include dos filhos cascateaveis antes do Remove (os outros services ja' fazem RemoveRange
-  explicito e por isso ganham lapide); (2) classificar 23503 como PrecisaRetry no AplicarCabecalhoAsync
-  (`EhFkViolation` ja' existe e o `UpsertFilhosPocoAsync` ja' faz isso).
+### Filho BaseEntity apagado por CASCATA do banco — CORRIGIDO em 07/2026 (no OUTBOX, num lugar so')
+- ERA: se o service fazia `Remove(pai)` sem carregar um filho BaseEntity com FK `Cascade`, o Postgres
+  cascateava mas o filho nunca virava entry no ChangeTracker -> **nao gerava "D" nem lapide** -> ficava VIVO
+  nos outros nos (divergencia) e um "I" atrasado dele levava 23503 la'.
+- ESCALA REAL (mapeamento do repo): **24 call-sites** com o bug contra 6 corretos. Piores: `PerdaService`
+  (6 filhos), `FilialService` (3 + cadeia), e `CampanhaFidelidadeItem` (SETE pais diferentes cascateiam pra
+  ele; so' o dono real carrega). `ProdutoService` nao tem exclusao hoje — no dia que tiver, ~8 de uma vez.
+  ATENCAO: NAO existe politica global de Restrict neste projeto (isso e' o ZulexSac) — todo
+  `OnDelete(Cascade)` das Configurations vale de verdade.
+- CURA (`AppDbContext.CarregarFilhosCascataAsync`, chamado no inicio do outbox): antes de coletar as ops,
+  CARREGA os filhos que o banco apagaria por cascata (so' os que REPLICAM: BaseEntity + fora de
+  `_tabelasSemSync`), e chama `ChangeTracker.CascadeChanges()` — a cascata do EF alcanca o que esta'
+  RASTREADO, entao cada filho carregado vira Deleted e o laco do outbox gera "D" + lapide pra ele de graca.
+  Ate' 5 niveis (neto: Venda->Entrega->EntregaEvento). Sem delete no save, sai de graca.
+  POR QUE no outbox e nao nos 24 services: o 25o nasceria bugado.
+- VERIFICADO EM RUNTIME (harness com rollback, nao so' build): Ncm + 3 NcmFederal, ChangeTracker limpo
+  (0 filhos rastreados), `Remove(pai)` sem Include -> 4 ops (`NcmFederais D` x3 + `Ncms D` x1) e 4 lapides.
+  Antes do fix: 1 op e 1 lapide.
+- Junto: `AplicarCabecalhoAsync` passou a classificar 23503 como **PrecisaRetry** (teto 240 = a drenagem
+  resolve quando o pai chegar) em vez de deixar subir como "Erro" (teto 5, que aposentava a op por um
+  problema de ORDEM). O `UpsertFilhosPocoAsync` ja' fazia isso; o cabecalho estava de fora.
+
+### GerarCodigo: fallback da sequence era ILUSAO — CORRIGIDO em 07/2026
+- O comentario dizia que o fallback "se auto-cura se a sequence faltar". NAO se curava: no Postgres um
+  statement que falha ABORTA a transacao inteira, entao o 42P01 do `nextval` envenenava a tx e o proprio
+  `CriarSequenceCodigoAsync` do `catch` morria com 25P02 — derrubando a operacao (incluindo uma VENDA, se a
+  finalizacao tivesse aberto a tx). Provado na pratica: um harness num banco sem as sequences falhou com
+  25P02 exatamente assim.
+- Cura: `SAVEPOINT` antes do nextval, **so' quando ha' transacao ambiente** (sem tx cada statement e' sua
+  propria transacao e nada e' envenenado -> zero round-trip a mais no caminho quente comum).
+- Lembrete: as sequences nascem no BOOT (`DatabaseSeeder.CriarSequencesCodigo` varre information_schema por
+  TODA tabela com coluna `Codigo`), entao pos-boot o fallback e' caminho morto — mas agora, se disparar,
+  funciona de verdade.
 - A lapide (SyncTombstone) so' e' gravada ao APLICAR um delete REMOTO: `RegistrarTombstoneAsync` tem UM
   unico chamador, `SyncApplicator.AplicarOperacaoAsync` no ramo `operacao == "D"`. O OUTBOX (AppDbContext)
   NAO grava lapide quando o usuario apaga um registro LOCALMENTE — ele so' gera a op "D" pra fila.
