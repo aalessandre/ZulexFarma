@@ -85,7 +85,41 @@ Controla o proximo sequencial do Codigo visivel por tabela.
   + marca-d'agua de compactacao exposta no /status + o /receber detectar "no pediu abaixo da marca" e
   responder GAP em vez de um lote parcial silencioso.
 
-### RESSURREICAO por delete LOCAL (BUG PRE-EXISTENTE, ativo — nao corrigido)
+### RESSURREICAO por delete LOCAL — CORRIGIDO em 07/2026 (escopo: so' BaseEntity)
+- O outbox agora crava a lapide TAMBEM no delete LOCAL (upsert ATOMICO `ON CONFLICT` no
+  `AppDbContext.SaveChangesAsync`, na mesma transacao do dado, com o MESMO instante que vai no `CriadoEm` da
+  op "D"). Foi ON CONFLICT e nao query-then-add porque uma corrida (23505) dentro da tx do outbox reverteria
+  **o delete do usuario**. O `WHERE ... < EXCLUDED` preserva a morte mais nova (mesmo LWW do original).
+- A faxina (`PurgarTombstonesAsync`) SAIU do `Receber()` e virou `PurgarLapidesSePreciso` (1x/hora) no laco
+  do SyncBackgroundService: antes ela dependia do pull por ACIDENTE (a lapide so' nascia aplicando "D"
+  remoto). Com a lapide nascendo no delete local, num no de loja unica o pull volta sempre vazio e a faxina
+  nunca rodaria. LIMITACAO: no com `Sync:Habilitado=false` nao roda o laco (mas ali a SyncFila tambem enche
+  sem ninguem esvaziar — pre-existente).
+- **NAO cobre filho POCO** (VendaItem, ClienteConvenio, AdquirenteTarifa...): eles nao geram op nem lapide,
+  viajam no JSON do pai. Ver RECONCILIACAO DE FILHOS abaixo.
+
+### RECONCILIACAO DE FILHOS (pendente — orfao/duplicacao em agregado)
+- `UpsertFilhosPocoAsync` e' append/update-only: filho POCO REMOVIDO no pai continua VIVO no destino.
+- Pior que "orfao": os services fazem `RemoveRange` de TODOS os filhos e re-adicionam do DTO, e os novos
+  ganham Ids NOVOS da faixa daquele no. Entao uma edicao ROTINEIRA de cliente ja' DUPLICA o conjunto no par
+  (o destino fica com os Ids velhos + os novos), e se o par depois editar o mesmo registro, o JSON dele leva
+  os orfaos de volta = ressurreicao efetiva do filho que o outro tinha apagado.
+- Tentativa de 07/2026 (delete-missing) foi REVERTIDA: apagar da replica o filho que "nao veio no JSON"
+  assume JSON COMPLETO, mas varios caminhos salvam o pai SEM Include dos filhos (FinalizarAsync nao carrega
+  Itens.Descontos; CancelarAsync sem Include; fallback excluir->desativar) -> apagaria dado LEGITIMO.
+  Cura certa: garantir o grafo completo na serializacao (forcar Load das colecoes POCO no outbox) OU o
+  outbox NULLAR colecao nao-IsLoaded e o applicator reconciliar SO' as colecoes com chave PRESENTE no JSON.
+
+### Filho BaseEntity apagado por CASCATA do banco (pendente)
+- Se o service faz `Remove(pai)` sem carregar um filho BaseEntity com FK `Cascade`, o Postgres cascateia mas
+  o filho nunca vira entry no ChangeTracker -> **nao gera "D" nem lapide**. Caso real:
+  `ColaboradorService.ExcluirAsync` nao inclui `ColaboradorComissaoAgrupadores` (FK Cascade, e ESTA' no
+  dicionario de sync). Um "I" atrasado desse filho chega no par, nao acha lapide, tenta inserir e leva 23503
+  (FK do pai morto) -> `AplicarCabecalhoAsync` so' trata unique violation, entao sobe como "Erro" (teto 5) em
+  vez de PrecisaRetry (teto 240). Nao ressuscita (a FK barra) e nao e' silencioso, mas morre no balde errado.
+- Cura: (1) Include dos filhos cascateaveis antes do Remove (os outros services ja' fazem RemoveRange
+  explicito e por isso ganham lapide); (2) classificar 23503 como PrecisaRetry no AplicarCabecalhoAsync
+  (`EhFkViolation` ja' existe e o `UpsertFilhosPocoAsync` ja' faz isso).
 - A lapide (SyncTombstone) so' e' gravada ao APLICAR um delete REMOTO: `RegistrarTombstoneAsync` tem UM
   unico chamador, `SyncApplicator.AplicarOperacaoAsync` no ramo `operacao == "D"`. O OUTBOX (AppDbContext)
   NAO grava lapide quando o usuario apaga um registro LOCALMENTE — ele so' gera a op "D" pra fila.

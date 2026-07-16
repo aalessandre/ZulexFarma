@@ -2268,14 +2268,44 @@ public class AppDbContext : DbContext
             {
                 foreach (var (tabela, op, entidade, filialDono) in operacoesPendentes)
                 {
+                    var agoraOp = Domain.Helpers.DataHoraHelper.Agora();
+                    var noOrigemOp = _noCodigo > 0 ? _noCodigo : (entidade.NoOrigemId ?? 0);
+
+                    // DELETE LOCAL TAMBEM CRAVA A LAPIDE (anti-ressurreicao).
+                    // Ate' 07/2026 a lapide so' nascia ao APLICAR delete REMOTO (SyncApplicator), entao o no
+                    // que apagava ficava SEM lapide do proprio delete e um "I" remoto ATRASADO do mesmo
+                    // registro passava pelo teste de lapide e RE-INSERIA:
+                    //   B apaga X 10:00 (sem lapide) | A gerou "I" de X 09:59, em transito | B puxa 10:01 ->
+                    //   X nao existe -> sem lapide -> INSERT -> X ressuscita em B. O "D" do B mata X em A.
+                    //   Fim: X morto em A, VIVO em B = divergencia PERMANENTE.
+                    // Com a lapide local (DeletadoEm = agoraOp), o "I" de 09:59 vira Stale e nao ressuscita.
+                    // Upsert ATOMICO (ON CONFLICT) de proposito: query-then-add teria corrida -> 23505 ->
+                    // a tx do outbox reverteria O DELETE DO USUARIO. Aqui nao ha' corrida nem excecao.
+                    // O WHERE mantem a morte MAIS NOVA (mesmo LWW do RegistrarTombstoneAsync).
+                    // ESCOPO (nao promete o que nao entrega): este laco itera Entries<BaseEntity>(), entao a
+                    // lapide cobre so' entidade BaseEntity. Filho POCO (VendaItem, ClienteConvenio, Adquirente
+                    // Tarifa...) nao gera op nem lapide — viaja no JSON do pai e e' aplicado por
+                    // UpsertFilhosPocoAsync, que e' append/update-only: filho REMOVIDO no pai continua vivo no
+                    // destino (orfao). Isso e' a RECONCILIACAO DE FILHOS, follow-up separado — ver sync.md.
+                    if (op == "D")
+                    {
+                        await Database.ExecuteSqlInterpolatedAsync($@"
+                            INSERT INTO ""SyncTombstones"" (""Tabela"", ""RegistroId"", ""DeletadoEm"", ""NoOrigemId"", ""CriadoEm"")
+                            VALUES ({tabela}, {entidade.Id}, {agoraOp}, {(long)noOrigemOp}, {agoraOp})
+                            ON CONFLICT (""Tabela"", ""RegistroId"") DO UPDATE
+                            SET ""DeletadoEm"" = EXCLUDED.""DeletadoEm"", ""NoOrigemId"" = EXCLUDED.""NoOrigemId""
+                            WHERE ""SyncTombstones"".""DeletadoEm"" < EXCLUDED.""DeletadoEm""", cancellationToken);
+                    }
+
                     SyncFila.Add(new SyncFila
                     {
                         Tabela = tabela,
                         Operacao = op,
+                        CriadoEm = agoraOp, // mesmo instante da lapide (os outros nos usam isto no LWW)
                         RegistroId = entidade.Id,
                         RegistroCodigo = entidade.Codigo,
                         DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }) : null,
-                        NoOrigemId = _noCodigo > 0 ? _noCodigo : (entidade.NoOrigemId ?? 0),
+                        NoOrigemId = noOrigemOp,
                         FilialDonoId = filialDono,
                         // Fase 4b: identidade GLOBAL e imutavel da op (idempotencia fim-a-fim). Nasce aqui,
                         // viaja no PUSH e a central grava a MESMA -> re-envio nao duplica a redistribuicao.
