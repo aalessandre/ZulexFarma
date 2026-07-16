@@ -85,6 +85,21 @@ Controla o proximo sequencial do Codigo visivel por tabela.
   + marca-d'agua de compactacao exposta no /status + o /receber detectar "no pediu abaixo da marca" e
   responder GAP em vez de um lote parcial silencioso.
 
+### RESSURREICAO por delete LOCAL (BUG PRE-EXISTENTE, ativo — nao corrigido)
+- A lapide (SyncTombstone) so' e' gravada ao APLICAR um delete REMOTO: `RegistrarTombstoneAsync` tem UM
+  unico chamador, `SyncApplicator.AplicarOperacaoAsync` no ramo `operacao == "D"`. O OUTBOX (AppDbContext)
+  NAO grava lapide quando o usuario apaga um registro LOCALMENTE — ele so' gera a op "D" pra fila.
+- Consequencia: o no que apagou fica SEM lapide do proprio delete, entao um "I" remoto ATRASADO do mesmo
+  registro passa pelo teste `BuscarTombstoneAsync` (nao acha nada) e RE-INSERE o registro.
+  Trace: B apaga X as 10:00 (sem lapide local). A tinha gerado "I" de X as 09:59, ainda em transito.
+  B puxa as 10:01 -> X nao existe -> sem lapide -> INSERT -> **X ressuscita em B**. O "D" do B chega em A,
+  que apaga X e grava lapide (caminho remoto). Resultado: X morto em A, VIVO em B -> divergencia PERMANENTE.
+- Cura: o outbox deve gravar a lapide TAMBEM no delete local (Tabela, RegistroId, DeletadoEm=Agora(),
+  NoOrigemId=self), com upsert (a chave (Tabela,RegistroId) e' unica — cuidado pra nao quebrar o delete do
+  usuario com 23505). Ai' o LWW da lapide (DeletadoEm >= incomingTs => Stale) passa a proteger os dois lados.
+- Achado em 07/2026 pela revisao adversarial da varredura (a varredura AMPLIAVA esta janela ao re-servir ops
+  velhas, mas o bug independe dela).
+
 ### GAP do cursor (BUG PRE-EXISTENTE, ativo — nao corrigido)
 - O PULL usa `Id > ultimoId`. Mas o `SyncFila.Id` e' atribuido no **INSERT** e so' fica **visivel no
   COMMIT**. Com duas transacoes concorrentes (Id 101 e 102) em que a 102 commita primeiro, um pull nesse
@@ -93,6 +108,26 @@ Controla o proximo sequencial do Codigo visivel por tabela.
 - O ponteiro-avanca-sempre + quarentena cobrem falha de APLICACAO, nao esse gap de VISIBILIDADE.
 - Cura: servir so' abaixo de um horizonte de estabilidade (`pg_snapshot_xmin(pg_current_snapshot())`)
   ou provar entrega por no (ack). Enquanto nao houver, a retencao NAO pode voltar.
+- TENTATIVA REJEITADA (07/2026) — "VARREDURA por tempo": re-puxar periodicamente a janela recente por
+  CriadoEm (ignorando o cursor) e reaplicar (idempotente). Foi implementada e REVERTIDA; a revisao
+  adversarial derrubou com 5 criticos. Ficam registrados pra ninguem tentar de novo sem resolver:
+  1. **CriadoEm e' o relogio da ORIGEM** (o /enviar copia op.CriadoEm), nao a hora de chegada na central.
+     Op de no que ficou offline JA' NASCE fora da janela. Pior: a cobertura e' INVERSAMENTE correlacionada
+     com o risco — lote grande de PUSH (backlog pos-queda) demora mais pra commitar => maior chance de ser
+     pulado => e sao justo as ops mais VELHAS => as menos cobertas. Protege o caso benigno, falha no maligno.
+     (Cura seria coluna nova `RecebidoEmCentral` carimbada no /enviar + janelar por ela.)
+  2. **CriadoEm nao tem indice** -> full scan da SyncFila central (que cresce sem teto) a cada varredura,
+     por no. Painel verde enquanto o banco afoga.
+  3. **Nao-Aplicado descartado em silencio**: a op do gap e' a UNICA que o PULL nunca entregara' (o ponteiro
+     passou por cima); se ela volta Conflito/PrecisaRetry e nao vai pra quarentena, morre quando a janela
+     expira = perda permanente com o painel dizendo "0 recuperadas = saudavel".
+  4. **RESSURREICAO**: re-servir op velha reintroduz "I" de registro apagado LOCALMENTE (que nao tem lapide
+     — ver bug acima) => modo de falha NOVO. Isso MATA a justificativa da varredura ("estritamente aditiva").
+  5. Mesmo consertando tudo, continua probabilistica: PC de farmacia que desliga no fim do expediente dentro
+     da janela perde a op de qualquer jeito; saturacao + Take(limite) truncam a cobertura em silencio.
+  CONCLUSAO: band-aid com muitos furos. O caminho certo e' a cura de RAIZ (horizonte de estabilidade), que
+  IMPEDE o gap em vez de tentar recuperar depois. Custo aceito: transacao longa aberta trava o sync (falha
+  RUIDOSA e visivel, e transacao longa e' bug por si so') — muito melhor que perda silenciosa.
 
 ## API Endpoints
 - POST /api/sync/enviar — PC envia lote de operacoes
