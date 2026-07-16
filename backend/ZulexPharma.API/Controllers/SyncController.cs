@@ -181,10 +181,25 @@ public class SyncController : ControllerBase
             // (Id > ultimoId) NAO prova consumo. O SyncFila.Id sai no INSERT e so' fica VISIVEL no COMMIT,
             // entao com duas transacoes concorrentes (Id 101 e 102) em que a 102 commita primeiro, um pull
             // neste instante serve a 102, o no crava o ponteiro em 102 e a 101 — ao commitar depois — NUNCA
-            // e' entregue (perda silenciosa sob escrita concorrente). Cura: servir so' abaixo de um horizonte
-            // de estabilidade (xmin via pg_snapshot_xmin(pg_current_snapshot())) ou ack por no. E' por causa
-            // deste gap que a RETENCAO/compactacao da fila central esta' revertida (apagar com base num cursor
-            // que nao prova consumo transforma gap recuperavel em perda definitiva).
+            // e' entregue (perda silenciosa sob escrita concorrente). O PUSH e' imune (usa flag !Enviado, nao
+            // cursor); o buraco e' so' aqui. E' por causa dele que a RETENCAO esta' revertida (apagar com base
+            // num cursor que nao prova consumo transforma gap recuperavel em perda definitiva).
+            //
+            // CUIDADO — NAO basta "usar pg_snapshot_xmin": o horizonte de estabilidade so' fecha o gap SE O
+            // CURSOR VIRAR O XID. Mantendo o cursor em Id, o gap CONTINUA, porque as duas ordens sao
+            // INDEPENDENTES: o xid nasce na 1a escrita da tx e o Id sai no insert do outbox, depois.
+            // Contraexemplo: tx S (xid 500) faz outbox DEPOIS da tx R (xid 501) -> Id_R=101 < Id_S=102; com R
+            // ainda rodando, h=501, a S passa (500<501) e o cursor vai pra 102; quando R commitar, a 101 fica
+            // pra tras. As duas curas que FUNCIONAM:
+            //  (A) cursor = xid: coluna TxId xid8 DEFAULT pg_current_xact_id() (xid8=64bits, imune a
+            //      wraparound; o xmin de sistema e' 32 bits e NAO serve) + servir TxId >= cursor AND TxId < h.
+            //      Custo: transacao longa (ate' alheia ao sync) PARALISA a fila inteira.
+            //  (B) PREFERIDA — publicador + SeqEntrega: numerar por nextval SO' as linhas ja' COMMITADAS (o
+            //      publicador nao enxerga as em voo) sob advisory lock, e o cursor passa a ser SeqEntrega.
+            //      Linha que commita tarde so' pega um numero MAIOR na rodada seguinte -> tx longa nao trava
+            //      nada. Buraco na numeracao e' inofensivo (cursor e' ">"). Como a central nao roda loop, da'
+            //      pra numerar de forma oportunista aqui/no /enviar sob pg_try_advisory_xact_lock.
+            // Detalhe completo em ContextDocuments/INFRAESTRUTURA/synAteAqui.md secao 6.1.
             return Ok(new { success = true, data = operacoes });
         }
         catch (Exception ex)
