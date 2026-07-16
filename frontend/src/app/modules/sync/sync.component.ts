@@ -173,7 +173,8 @@ export class SyncComponent implements OnInit {
   }
 
   limparAntigos() {
-    this.http.post<any>(`${this.apiUrl}/limpar?dias=7`, {}).subscribe({
+    // Sem ?dias= fixo: o backend usa a config sync.limpeza.dias (o slider da tela de Configuracoes).
+    this.http.post<any>(`${this.apiUrl}/limpar`, {}).subscribe({
       next: r => {
         this.carregarStatus();
         this.buscar();

@@ -151,7 +151,10 @@ public class SyncBackgroundService : BackgroundService
         var json = JsonSerializer.Serialize(pendentes.Select(p => new
         {
             p.Tabela, p.Operacao, p.RegistroId, p.RegistroCodigo,
-            p.DadosJson, p.NoOrigemId, p.FilialDonoId, p.CriadoEm
+            p.DadosJson, p.NoOrigemId, p.FilialDonoId, p.CriadoEm,
+            // Fase 4b: identidade global da op (nasceu no outbox deste no) — a central usa como chave de
+            // idempotencia, entao um reenvio (PUSH ok + resposta perdida) nao duplica a redistribuicao.
+            p.OpUid
         }), _jsonOpts);
 
         var content = new StringContent(json, Encoding.UTF8, "application/json");

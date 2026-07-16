@@ -248,6 +248,20 @@ public static class SyncApplicator
         return await db.SyncTombstones.Where(x => x.DeletadoEm < corte).ExecuteDeleteAsync(ct);
     }
 
+    // RETENCAO/COMPACTACAO da fila central: TENTADA e REVERTIDA (2026-07-16) — ver revisao adversarial.
+    // O desenho "apaga Id <= MIN(cursor dos nos)" parece seguro mas a PREMISSA E' FALSA:
+    //  (1) o conjunto de nos era descoberto por OBSERVACAO (cursor criado no 1o pull) -> no que nunca pulou
+    //      e' INVISIVEL pro MIN -> a 1a pull pos-deploy compactava contra UM no so' e apagava o backlog do
+    //      no que estava desligado (perda silenciosa e PERMANENTE);
+    //  (2) mais grave: o cursor NAO PROVA consumo. SyncFila.Id sai no INSERT mas so' fica visivel no COMMIT,
+    //      entao um pull entre dois commits concorrentes pula um Id menor e o ponteiro passa por cima dele
+    //      (GAP PRE-EXISTENTE — ver nota no /receber). Apagar com base nesse cursor transforma um gap
+    //      recuperavel em perda definitiva.
+    // Pre-requisito pra voltar: fechar o gap do cursor (horizonte de estabilidade via xmin/pg_snapshot ou
+    // ack por no) + registro EXPLICITO de nos esperados (fail-closed) + marca-d'agua de compactacao exposta
+    // no /status + deteccao de "no pediu abaixo da marca" (responder gap, nao lote parcial em silencio).
+    // Fila crescendo e' custo; apagar op que ninguem recebeu e' perda de dado.
+
     /// <summary>UPDATE com Last-Writer-Wins por AtualizadoEm (desempate por NoOrigemId maior).</summary>
     private static async Task<ResultadoSync> AplicarUpdateComLww(AppDbContext db, BaseEntity existente, BaseEntity entidade, CancellationToken ct)
     {
