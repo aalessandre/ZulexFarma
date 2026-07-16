@@ -93,9 +93,34 @@ public class SyncController : ControllerBase
                 _db.AplicandoSync = false;
             }
 
-            // 3. Enfileirar na SyncFila para outras filiais puxarem (na ordem original)
+            // 3. Enfileirar na SyncFila para outras filiais puxarem (na ordem original).
+            // IDEMPOTENCIA (Fase 4b): se o PUSH chegou mas a RESPOSTA se perdeu, o no reenvia as MESMAS ops
+            // (continuam !Enviado la'). Sem dedup, cada reenvio DUPLICA a linha de redistribuicao (aplicar e'
+            // idempotente, mas a fila/painel poluem e todo no puxa de novo). Chave: OpUid (Guid da op, nasce
+            // no no que a gerou). Guid — e NAO o Id/sequence do no — porque identity e' RECICLAVEL (restore do
+            // banco do no reinicia a sequence) e reusar a chave faria DESCARTAR op NOVA como "duplicata".
+            // OpUid null = no ANTIGO (pre-4b) -> sem dedup, comportamento de antes (nada e' descartado).
+            var jaRedistribuidas = new HashSet<Guid>();
+            var uids = operacoes.Where(o => o.OpUid.HasValue).Select(o => o.OpUid!.Value).Distinct().ToList();
+            if (uids.Count > 0)
+            {
+                var existentes = await _db.SyncFila
+                    .Where(f => f.OpUid != null && uids.Contains(f.OpUid.Value))
+                    .Select(f => f.OpUid!.Value)
+                    .ToListAsync();
+                foreach (var u in existentes) jaRedistribuidas.Add(u);
+            }
+
+            var duplicadas = 0;
             foreach (var op in operacoes)
             {
+                // Add() == false -> ja' existia no banco OU repetida no proprio lote (cobre os dois casos)
+                if (op.OpUid.HasValue && !jaRedistribuidas.Add(op.OpUid.Value))
+                {
+                    duplicadas++; // reenvio da MESMA op (mesmo Guid) -> ja' redistribuida, pula
+                    continue;
+                }
+
                 _db.SyncFila.Add(new SyncFila
                 {
                     Tabela = op.Tabela,
@@ -105,6 +130,7 @@ public class SyncController : ControllerBase
                     DadosJson = op.DadosJson,
                     NoOrigemId = op.NoOrigemId,
                     FilialDonoId = op.FilialDonoId,
+                    OpUid = op.OpUid,
                     CriadoEm = op.CriadoEm,
                     Enviado = false
                 });
@@ -113,10 +139,10 @@ public class SyncController : ControllerBase
 
             await _db.SaveChangesAsync();
 
-            Log.Information("Sync enviar: {Enfileirados} enfileirados, {AplicadosDb} aplicados no DB, {ErrosDb} erros",
-                enfileirados, aplicadosDb, errosDb);
+            Log.Information("Sync enviar: {Enfileirados} enfileirados, {Duplicadas} duplicadas (reenvio), {AplicadosDb} aplicados no DB, {ErrosDb} erros",
+                enfileirados, duplicadas, aplicadosDb, errosDb);
 
-            return Ok(new { success = true, data = new { enfileirados, aplicadosDb, errosDb } });
+            return Ok(new { success = true, data = new { enfileirados, duplicadas, aplicadosDb, errosDb } });
         }
         catch (Exception ex)
         {
@@ -151,6 +177,14 @@ public class SyncController : ControllerBase
                 })
                 .ToListAsync();
 
+            // GAP CONHECIDO (pre-existente, NAO corrigido aqui — precisa de tarefa propria): este cursor
+            // (Id > ultimoId) NAO prova consumo. O SyncFila.Id sai no INSERT e so' fica VISIVEL no COMMIT,
+            // entao com duas transacoes concorrentes (Id 101 e 102) em que a 102 commita primeiro, um pull
+            // neste instante serve a 102, o no crava o ponteiro em 102 e a 101 — ao commitar depois — NUNCA
+            // e' entregue (perda silenciosa sob escrita concorrente). Cura: servir so' abaixo de um horizonte
+            // de estabilidade (xmin via pg_snapshot_xmin(pg_current_snapshot())) ou ack por no. E' por causa
+            // deste gap que a RETENCAO/compactacao da fila central esta' revertida (apagar com base num cursor
+            // que nao prova consumo transforma gap recuperavel em perda definitiva).
             return Ok(new { success = true, data = operacoes });
         }
         catch (Exception ex)
@@ -363,16 +397,27 @@ public class SyncController : ControllerBase
     /// Limpa registros já enviados com mais de X dias.
     /// </summary>
     [HttpPost("limpar")]
-    public async Task<IActionResult> Limpar([FromQuery] int dias = 7)
+    public async Task<IActionResult> Limpar([FromQuery] int? dias = null)
     {
         try
         {
-            var corte = DataHoraHelper.Agora().AddDays(-dias);
+            // O slider "Limpeza de registros (dias)" grava sync.limpeza.dias — e ate' agora NINGUEM lia
+            // (controle morto: o operador arrastava pra 15, salvava, e o botao continuava usando 7 fixo).
+            // Fonte da verdade: parametro explicito > config do slider > 7. Piso de 1 dia porque valor
+            // negativo inverteria o corte (AddDays(+n)) e apagaria a fila TODA.
+            var cfg = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "sync.limpeza.dias");
+            var efetivo = dias ?? (int.TryParse(cfg?.Valor, out var cd) ? cd : 7);
+            efetivo = Math.Max(efetivo, 1);
+
+            var corte = DataHoraHelper.Agora().AddDays(-efetivo);
             var removidos = await _db.SyncFila
                 .Where(f => f.Enviado && f.EnviadoEm < corte)
                 .ExecuteDeleteAsync();
 
-            return Ok(new { success = true, data = new { removidos } });
+            // NOTA: na CENTRAL isso apaga ZERO — as linhas de redistribuicao ficam Enviado=false pra sempre
+            // (a central nao faz PUSH). A fila central cresce sem teto por decisao consciente (a retencao
+            // foi revertida: ver o comentario em SyncApplicator). Monitorar o tamanho da SyncFila na Railway.
+            return Ok(new { success = true, data = new { removidos, dias = efetivo } });
         }
         catch (Exception ex)
         {
@@ -384,5 +429,8 @@ public class SyncController : ControllerBase
 
 public record SyncOperacaoDto(
     string Tabela, string Operacao, long RegistroId, string? RegistroCodigo,
-    string? DadosJson, long NoOrigemId, long? FilialDonoId, DateTime CriadoEm
+    string? DadosJson, long NoOrigemId, long? FilialDonoId, DateTime CriadoEm,
+    // Fase 4b: identidade GLOBAL e imutavel da op (Guid nascido no no de origem) = chave de idempotencia
+    // do re-enfileiramento. Ausente/null = no ANTIGO (pre-4b) -> sem dedup (nada e' descartado).
+    Guid? OpUid = null
 );

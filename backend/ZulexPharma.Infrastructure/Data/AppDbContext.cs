@@ -2009,6 +2009,12 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.NoOrigemId);
             // Indice pro roteamento por-filial do PULL (Fase 3); null = GLOBAL.
             e.HasIndex(x => x.FilialDonoId);
+            // Fase 4b: idempotencia fim-a-fim. OpUid (Guid da op, nasce no no que a gerou) e' UNICO ->
+            // re-envio da mesma op nao duplica a redistribuicao na central. Parcial: op de no ANTIGO
+            // (OpUid null) NAO entra no indice (sem colisao — rollout seguro).
+            e.HasIndex(x => x.OpUid)
+                .IsUnique()
+                .HasFilter("\"OpUid\" IS NOT NULL");
         });
 
         // ── SyncQuarentena (dead-letter do sync, Fase 1) ────────────
@@ -2271,6 +2277,10 @@ public class AppDbContext : DbContext
                         DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }) : null,
                         NoOrigemId = _noCodigo > 0 ? _noCodigo : (entidade.NoOrigemId ?? 0),
                         FilialDonoId = filialDono,
+                        // Fase 4b: identidade GLOBAL e imutavel da op (idempotencia fim-a-fim). Nasce aqui,
+                        // viaja no PUSH e a central grava a MESMA -> re-envio nao duplica a redistribuicao.
+                        // Guid (nao o Id local) porque identity e' reciclavel num restore do banco do no.
+                        OpUid = Guid.NewGuid(),
                         Enviado = false
                     });
                 }

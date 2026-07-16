@@ -23,6 +23,17 @@ public class SyncFila
     /// </summary>
     public long? FilialDonoId { get; set; }
 
+    /// <summary>
+    /// Identidade GLOBAL e IMUTAVEL da operacao — chave de idempotencia fim-a-fim (Fase 4b).
+    /// Nasce com a linha no no que GEROU a op (Guid novo no outbox) e viaja junto no PUSH; a central grava
+    /// o MESMO OpUid na linha de redistribuicao, entao re-envio (PUSH ok + resposta perdida) e' reconhecido
+    /// e nao duplica. Indice parcial UNICO (OpUid) WHERE OpUid IS NOT NULL.
+    /// PROPOSITALMENTE um Guid, e NAO o Id/sequence local: identity e' RECICLAVEL (restore/recriacao do banco
+    /// do no reinicia a sequence) e reusar a chave faria a central DESCARTAR op NOVA achando que e' duplicata.
+    /// Null = op de no ANTIGO (pre-4b, nao manda a chave) -> sem dedup, comportamento de antes (nada descartado).
+    /// </summary>
+    public Guid? OpUid { get; set; }
+
     public DateTime CriadoEm { get; set; } = Helpers.DataHoraHelper.Agora();
     public bool Enviado { get; set; }
     public DateTime? EnviadoEm { get; set; }
