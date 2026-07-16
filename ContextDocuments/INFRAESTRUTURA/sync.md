@@ -85,6 +85,55 @@ Controla o proximo sequencial do Codigo visivel por tabela.
   + marca-d'agua de compactacao exposta no /status + o /receber detectar "no pediu abaixo da marca" e
   responder GAP em vez de um lote parcial silencioso.
 
+### RESSURREICAO por delete LOCAL — CORRIGIDO em 07/2026 (escopo: so' BaseEntity)
+- O outbox agora crava a lapide TAMBEM no delete LOCAL (upsert ATOMICO `ON CONFLICT` no
+  `AppDbContext.SaveChangesAsync`, na mesma transacao do dado, com o MESMO instante que vai no `CriadoEm` da
+  op "D"). Foi ON CONFLICT e nao query-then-add porque uma corrida (23505) dentro da tx do outbox reverteria
+  **o delete do usuario**. O `WHERE ... < EXCLUDED` preserva a morte mais nova (mesmo LWW do original).
+- A faxina (`PurgarTombstonesAsync`) SAIU do `Receber()` e virou `PurgarLapidesSePreciso` (1x/hora) no laco
+  do SyncBackgroundService: antes ela dependia do pull por ACIDENTE (a lapide so' nascia aplicando "D"
+  remoto). Com a lapide nascendo no delete local, num no de loja unica o pull volta sempre vazio e a faxina
+  nunca rodaria. LIMITACAO: no com `Sync:Habilitado=false` nao roda o laco (mas ali a SyncFila tambem enche
+  sem ninguem esvaziar — pre-existente).
+- **NAO cobre filho POCO** (VendaItem, ClienteConvenio, AdquirenteTarifa...): eles nao geram op nem lapide,
+  viajam no JSON do pai. Ver RECONCILIACAO DE FILHOS abaixo.
+
+### RECONCILIACAO DE FILHOS (pendente — orfao/duplicacao em agregado)
+- `UpsertFilhosPocoAsync` e' append/update-only: filho POCO REMOVIDO no pai continua VIVO no destino.
+- Pior que "orfao": os services fazem `RemoveRange` de TODOS os filhos e re-adicionam do DTO, e os novos
+  ganham Ids NOVOS da faixa daquele no. Entao uma edicao ROTINEIRA de cliente ja' DUPLICA o conjunto no par
+  (o destino fica com os Ids velhos + os novos), e se o par depois editar o mesmo registro, o JSON dele leva
+  os orfaos de volta = ressurreicao efetiva do filho que o outro tinha apagado.
+- Tentativa de 07/2026 (delete-missing) foi REVERTIDA: apagar da replica o filho que "nao veio no JSON"
+  assume JSON COMPLETO, mas varios caminhos salvam o pai SEM Include dos filhos (FinalizarAsync nao carrega
+  Itens.Descontos; CancelarAsync sem Include; fallback excluir->desativar) -> apagaria dado LEGITIMO.
+  Cura certa: garantir o grafo completo na serializacao (forcar Load das colecoes POCO no outbox) OU o
+  outbox NULLAR colecao nao-IsLoaded e o applicator reconciliar SO' as colecoes com chave PRESENTE no JSON.
+
+### Filho BaseEntity apagado por CASCATA do banco (pendente)
+- Se o service faz `Remove(pai)` sem carregar um filho BaseEntity com FK `Cascade`, o Postgres cascateia mas
+  o filho nunca vira entry no ChangeTracker -> **nao gera "D" nem lapide**. Caso real:
+  `ColaboradorService.ExcluirAsync` nao inclui `ColaboradorComissaoAgrupadores` (FK Cascade, e ESTA' no
+  dicionario de sync). Um "I" atrasado desse filho chega no par, nao acha lapide, tenta inserir e leva 23503
+  (FK do pai morto) -> `AplicarCabecalhoAsync` so' trata unique violation, entao sobe como "Erro" (teto 5) em
+  vez de PrecisaRetry (teto 240). Nao ressuscita (a FK barra) e nao e' silencioso, mas morre no balde errado.
+- Cura: (1) Include dos filhos cascateaveis antes do Remove (os outros services ja' fazem RemoveRange
+  explicito e por isso ganham lapide); (2) classificar 23503 como PrecisaRetry no AplicarCabecalhoAsync
+  (`EhFkViolation` ja' existe e o `UpsertFilhosPocoAsync` ja' faz isso).
+- A lapide (SyncTombstone) so' e' gravada ao APLICAR um delete REMOTO: `RegistrarTombstoneAsync` tem UM
+  unico chamador, `SyncApplicator.AplicarOperacaoAsync` no ramo `operacao == "D"`. O OUTBOX (AppDbContext)
+  NAO grava lapide quando o usuario apaga um registro LOCALMENTE — ele so' gera a op "D" pra fila.
+- Consequencia: o no que apagou fica SEM lapide do proprio delete, entao um "I" remoto ATRASADO do mesmo
+  registro passa pelo teste `BuscarTombstoneAsync` (nao acha nada) e RE-INSERE o registro.
+  Trace: B apaga X as 10:00 (sem lapide local). A tinha gerado "I" de X as 09:59, ainda em transito.
+  B puxa as 10:01 -> X nao existe -> sem lapide -> INSERT -> **X ressuscita em B**. O "D" do B chega em A,
+  que apaga X e grava lapide (caminho remoto). Resultado: X morto em A, VIVO em B -> divergencia PERMANENTE.
+- Cura: o outbox deve gravar a lapide TAMBEM no delete local (Tabela, RegistroId, DeletadoEm=Agora(),
+  NoOrigemId=self), com upsert (a chave (Tabela,RegistroId) e' unica — cuidado pra nao quebrar o delete do
+  usuario com 23505). Ai' o LWW da lapide (DeletadoEm >= incomingTs => Stale) passa a proteger os dois lados.
+- Achado em 07/2026 pela revisao adversarial da varredura (a varredura AMPLIAVA esta janela ao re-servir ops
+  velhas, mas o bug independe dela).
+
 ### GAP do cursor (BUG PRE-EXISTENTE, ativo — nao corrigido)
 - O PULL usa `Id > ultimoId`. Mas o `SyncFila.Id` e' atribuido no **INSERT** e so' fica **visivel no
   COMMIT**. Com duas transacoes concorrentes (Id 101 e 102) em que a 102 commita primeiro, um pull nesse
@@ -93,6 +142,26 @@ Controla o proximo sequencial do Codigo visivel por tabela.
 - O ponteiro-avanca-sempre + quarentena cobrem falha de APLICACAO, nao esse gap de VISIBILIDADE.
 - Cura: servir so' abaixo de um horizonte de estabilidade (`pg_snapshot_xmin(pg_current_snapshot())`)
   ou provar entrega por no (ack). Enquanto nao houver, a retencao NAO pode voltar.
+- TENTATIVA REJEITADA (07/2026) — "VARREDURA por tempo": re-puxar periodicamente a janela recente por
+  CriadoEm (ignorando o cursor) e reaplicar (idempotente). Foi implementada e REVERTIDA; a revisao
+  adversarial derrubou com 5 criticos. Ficam registrados pra ninguem tentar de novo sem resolver:
+  1. **CriadoEm e' o relogio da ORIGEM** (o /enviar copia op.CriadoEm), nao a hora de chegada na central.
+     Op de no que ficou offline JA' NASCE fora da janela. Pior: a cobertura e' INVERSAMENTE correlacionada
+     com o risco — lote grande de PUSH (backlog pos-queda) demora mais pra commitar => maior chance de ser
+     pulado => e sao justo as ops mais VELHAS => as menos cobertas. Protege o caso benigno, falha no maligno.
+     (Cura seria coluna nova `RecebidoEmCentral` carimbada no /enviar + janelar por ela.)
+  2. **CriadoEm nao tem indice** -> full scan da SyncFila central (que cresce sem teto) a cada varredura,
+     por no. Painel verde enquanto o banco afoga.
+  3. **Nao-Aplicado descartado em silencio**: a op do gap e' a UNICA que o PULL nunca entregara' (o ponteiro
+     passou por cima); se ela volta Conflito/PrecisaRetry e nao vai pra quarentena, morre quando a janela
+     expira = perda permanente com o painel dizendo "0 recuperadas = saudavel".
+  4. **RESSURREICAO**: re-servir op velha reintroduz "I" de registro apagado LOCALMENTE (que nao tem lapide
+     — ver bug acima) => modo de falha NOVO. Isso MATA a justificativa da varredura ("estritamente aditiva").
+  5. Mesmo consertando tudo, continua probabilistica: PC de farmacia que desliga no fim do expediente dentro
+     da janela perde a op de qualquer jeito; saturacao + Take(limite) truncam a cobertura em silencio.
+  CONCLUSAO: band-aid com muitos furos. O caminho certo e' a cura de RAIZ (horizonte de estabilidade), que
+  IMPEDE o gap em vez de tentar recuperar depois. Custo aceito: transacao longa aberta trava o sync (falha
+  RUIDOSA e visivel, e transacao longa e' bug por si so') — muito melhor que perda silenciosa.
 
 ## API Endpoints
 - POST /api/sync/enviar — PC envia lote de operacoes

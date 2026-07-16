@@ -27,6 +27,7 @@ public class SyncBackgroundService : BackgroundService
 
     private string? _tokenCache;
     private DateTime _tokenExpiracao = DateTime.MinValue;
+    private DateTime _ultimaPurgaLapides = DateTime.MinValue;
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
@@ -111,9 +112,40 @@ public class SyncBackgroundService : BackgroundService
                 UltimoStatus = "ERRO";
             }
 
+            // Faxina LOCAL: nao depende de rede nem de token, entao roda fora do if do transporte
+            // (a lapide cresce mesmo com a central fora do ar). Tem try/catch proprio.
+            await PurgarLapidesSePreciso(stoppingToken);
+
             await Task.Delay(CalcularDelayMs(falhasTransporte), stoppingToken);
         }
         Rodando = false;
+    }
+
+    /// <summary>
+    /// Faxina das lapides fora da retencao, com CADENCIA PROPRIA (1x/hora).
+    /// Ficava dentro do Receber() e funcionava por ACIDENTE: naquela epoca a lapide so' nascia ao APLICAR um
+    /// "D" REMOTO, logo se nasceu lapide o pull tinha trazido algo e o fluxo chegava na faxina. Desde que o
+    /// delete LOCAL passou a cravar lapide (outbox), o nascimento se DESACOPLOU do pull: num no de loja unica
+    /// o /receber volta SEMPRE vazio (anti-eco filtra as ops do proprio no), o Receber sai no early return e
+    /// a faxina NUNCA rodaria — as lapides dos deletes locais cresceriam pra sempre, justo no no que as cria.
+    /// LIMITACAO CONHECIDA: no com Sync:Habilitado=false nao roda este laco, entao nada purga — mas ali o
+    /// outbox tambem enche a SyncFila sem ninguem esvaziar (propriedade pre-existente, nao regressao daqui).
+    /// </summary>
+    private async Task PurgarLapidesSePreciso(CancellationToken ct)
+    {
+        if (DateTime.UtcNow - _ultimaPurgaLapides < TimeSpan.FromHours(1)) return;
+        _ultimaPurgaLapides = DateTime.UtcNow;
+        try
+        {
+            using var scope = _services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // ExecuteDelete: nao passa por SaveChanges, entao nao gera op de sync da propria faxina.
+            var n = await SyncApplicator.PurgarTombstonesAsync(db, ct);
+            if (n > 0)
+                Log.Information("Sync: {N} lapide(s) fora da retencao de {Dias}d purgada(s)",
+                    n, SyncApplicator.SyncTombstoneRetencaoDias);
+        }
+        catch (Exception ex) { Log.Warning(ex, "Sync: falha ao purgar lapides (nao fatal)"); }
     }
 
     /// <summary>
@@ -258,8 +290,9 @@ public class SyncBackgroundService : BackgroundService
         var resolvidosQ = await SyncApplicator.DrenarQuarentenaAsync(db, ct);
         if (resolvidosQ > 0) Log.Information("Sync PULL: {N} itens da quarentena resolvidos", resolvidosQ);
 
-        // Faxina das lapides fora da retencao (delete indexado, barato).
-        await SyncApplicator.PurgarTombstonesAsync(db, ct);
+        // (A faxina das lapides saiu daqui — virou PurgarLapidesSePreciso, com cadencia propria no laco.
+        //  Motivo no XML doc de la': o delete LOCAL agora crava lapide, entao o nascimento delas nao tem
+        //  mais relacao nenhuma com o pull, e este metodo sai cedo quando o pull volta vazio.)
 
         db.AplicandoSync = false;
 
