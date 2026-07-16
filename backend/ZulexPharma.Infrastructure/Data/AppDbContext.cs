@@ -2209,6 +2209,64 @@ public class AppDbContext : DbContext
         return r == null || r is DBNull ? null : Convert.ToInt64(r);
     }
 
+    /// <summary>
+    /// Carrega os filhos que o BANCO apagaria por CASCATA (FK OnDelete=Cascade) mas que o EF NAO veria.
+    /// PROBLEMA: se o service faz Remove(pai) sem Include, o Postgres cascateia e o filho some — mas ele
+    /// nunca vira entry Deleted no ChangeTracker, entao NAO gera op "D" nem lapide. Consequencia: o filho
+    /// continua VIVO nos outros nos (divergencia permanente) e um "I" atrasado dele la' leva 23503.
+    /// SOLUCAO: carregar aqui. O EF cascateia para o que esta' RASTREADO (ChangeTracker.CascadeChanges),
+    /// entao cada filho carregado vira Deleted e o laco do outbox gera "D" + lapide pra ele de graca.
+    /// POR QUE AQUI e nao nos services: um mapeamento do repo achou 24 call-sites com esse bug (PerdaService
+    /// perde 6 filhos, FilialService 3 + cadeia, e CampanhaFidelidadeItem tem 7 pais diferentes cascateando
+    /// pra ele). Corrigir service por service deixaria o 25o nascer bugado — ProdutoService hoje nem tem
+    /// exclusao e, no dia que tiver, cascateia pra ~8 filhos de uma vez.
+    /// So' carrega filho que REPLICA (BaseEntity + fora de _tabelasSemSync); POCO viaja no JSON do pai e
+    /// infra nao replica. Sem delete no save => sai de graca (a lista inicial nasce vazia).
+    /// </summary>
+    private async Task CarregarFilhosCascataAsync(CancellationToken ct)
+    {
+        if (!ChangeTracker.Entries<BaseEntity>().Any(e => e.State == EntityState.Deleted)) return;
+
+        var visitados = new HashSet<(Type, long)>();
+        // Ate' 5 niveis: filho recem-marcado pode ter filho proprio (Venda->Entrega->EntregaEvento).
+        for (var nivel = 0; nivel < 5; nivel++)
+        {
+            var deletados = ChangeTracker.Entries<BaseEntity>()
+                .Where(e => e.State == EntityState.Deleted && visitados.Add((e.Entity.GetType(), e.Entity.Id)))
+                .ToList();
+            if (deletados.Count == 0) return; // nada novo -> estabilizou
+
+            foreach (var entry in deletados)
+            {
+                foreach (var fk in entry.Metadata.GetReferencingForeignKeys())
+                {
+                    if (fk.DeleteBehavior != DeleteBehavior.Cascade) continue;
+
+                    var nav = fk.PrincipalToDependent; // navegacao do PAI pro filho
+                    if (nav == null) continue;         // sem navegacao inversa: nao da' pra carregar por aqui
+                    if (!typeof(BaseEntity).IsAssignableFrom(fk.DeclaringEntityType.ClrType)) continue; // POCO
+                    var filhoTabela = fk.DeclaringEntityType.GetTableName();
+                    if (filhoTabela == null || _tabelasSemSync.Contains(filhoTabela)) continue;
+
+                    if (nav.IsCollection)
+                    {
+                        var col = entry.Collection(nav.Name);
+                        if (!col.IsLoaded) await col.LoadAsync(ct);
+                    }
+                    else
+                    {
+                        var re = entry.Reference(nav.Name);
+                        if (!re.IsLoaded) await re.LoadAsync(ct);
+                    }
+                }
+            }
+
+            // A cascata do EF so' alcanca o que esta' RASTREADO — os filhos que acabamos de carregar viram
+            // Deleted aqui (e a proxima volta do laco pega os netos deles).
+            ChangeTracker.CascadeChanges();
+        }
+    }
+
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         if (AplicandoSync)
@@ -2223,6 +2281,8 @@ public class AppDbContext : DbContext
         var noOrigem = _noCodigo > 0 ? _noCodigo : GetFilialIdFromContext();
         var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade, long? filialDono)>();
         _cacheDerivFilial.Clear(); // memoizacao da derivacao de FilialDono e' por SaveChanges
+
+        await CarregarFilhosCascataAsync(cancellationToken);
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
@@ -2340,17 +2400,26 @@ public class AppDbContext : DbContext
         // Fase 2: nextval NATIVO no lugar do row-bump em SequenciasLocais. nextval NAO segura lock
         // ate' o commit (o row-bump segurava -> gargalo global em LogsAcao + travava a transacao da
         // finalizacao). Participa da transacao ambiente se houver (outbox atomico / finalizacao).
-        // As sequences seq_codigo_* sao criadas+semeadas no BOOT (DatabaseSeeder.CriarSequencesCodigo),
-        // ja' posicionadas no contador atual -> NAO reiniciam do 1 nem duplicam Codigo. Aqui no caminho
-        // quente e' so' nextval; o fallback (42P01) se auto-cura se a sequence faltar (tabela nova).
+        // As sequences seq_codigo_* sao criadas+semeadas no BOOT (DatabaseSeeder.CriarSequencesCodigo, que
+        // varre information_schema por TODA tabela com coluna Codigo), ja' posicionadas no contador atual ->
+        // NAO reiniciam do 1 nem duplicam Codigo. Aqui no caminho quente e' so' nextval.
         var tx = Database.CurrentTransaction?.GetDbTransaction();
+        var npgTx = tx as Npgsql.NpgsqlTransaction;
         long ultimo;
         try
         {
+            // SAVEPOINT antes do nextval SO' quando ha' transacao ambiente (ex.: finalizacao de venda).
+            // Sem ele o fallback abaixo era ILUSAO: no Postgres um statement que falha ABORTA a transacao
+            // inteira, entao o 42P01 envenenaria a tx e o proprio CriarSequenceCodigoAsync do catch morreria
+            // com 25P02 — derrubando a VENDA por causa de uma sequence faltando. Sem tx ambiente nao precisa
+            // (cada statement e' sua propria tx e nada e' envenenado), e ai' nao paga round-trip nenhum.
+            if (npgTx != null) await npgTx.SaveAsync("sp_codigo", ct);
             ultimo = await NextvalCodigoAsync(conn, tx, tabela, ct);
+            if (npgTx != null) await npgTx.ReleaseAsync("sp_codigo", ct);
         }
-        catch (Npgsql.PostgresException pe) when (pe.SqlState == "42P01") // sequence nao existe
+        catch (Npgsql.PostgresException pe) when (pe.SqlState == "42P01") // sequence nao existe (tabela nova)
         {
+            if (npgTx != null) await npgTx.RollbackAsync("sp_codigo", ct); // desenvenena a tx antes de curar
             await CriarSequenceCodigoAsync(conn, tx, tabela, ct);
             ultimo = await NextvalCodigoAsync(conn, tx, tabela, ct);
         }
