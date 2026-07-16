@@ -163,8 +163,27 @@ Controla o proximo sequencial do Codigo visivel por tabela.
   instante serve a 102, o no crava o ponteiro em 102, e a 101 — ao commitar depois — **nunca e' entregue**.
   Perda SILENCIOSA de operacao sob escrita concorrente (varios terminais gravando junto).
 - O ponteiro-avanca-sempre + quarentena cobrem falha de APLICACAO, nao esse gap de VISIBILIDADE.
-- Cura: servir so' abaixo de um horizonte de estabilidade (`pg_snapshot_xmin(pg_current_snapshot())`)
-  ou provar entrega por no (ack). Enquanto nao houver, a retencao NAO pode voltar.
+- O PUSH e' IMUNE (usa flag `!Enviado`, nao cursor): linha que commita tarde e' pega no ciclo seguinte.
+  O buraco e' so' no PULL (`/receber`) — o conserto e' localizado.
+- **CUIDADO — a prescricao "use pg_snapshot_xmin" que estava aqui era INCOMPLETA e faria o proximo repetir
+  o bug.** O horizonte de estabilidade so' fecha o gap **SE O CURSOR VIRAR O XID**. Mantendo o cursor em
+  `Id`, o gap CONTINUA: as duas ordens sao INDEPENDENTES (o xid nasce na 1a escrita da tx; o `Id` sai no
+  insert do outbox, DEPOIS — e aqui a distancia e' estrutural: o save do negocio e o insert do outbox tem
+  serializacao JSON e upsert de lapide no meio). Contraexemplo: tx S (xid 500) faz outbox DEPOIS da tx R
+  (xid 501) => Id_R=101 < Id_S=102; com R ainda rodando, h=501, a S passa (500<501), cursor vai pra 102, e
+  a 101 fica pra tras quando R commitar.
+- As duas curas que FUNCIONAM:
+  * (A) **cursor = xid**: coluna `TxId xid8 DEFAULT pg_current_xact_id()` (xid8 = 64 bits, imune a
+    wraparound; o `xmin` de sistema e' 32 bits e NAO serve) + servir `TxId >= cursor AND TxId < h`.
+    CUSTO: transacao longa — ate' alheia ao sync (relatorio, autovacuum) — PARALISA a fila inteira.
+  * (B) **PREFERIDA — publicador + `SeqEntrega`**: numerar por `nextval` SO' as linhas ja' COMMITADAS (o
+    publicador nao enxerga as em voo) sob advisory lock; cursor passa a ser `SeqEntrega`. Linha que commita
+    tarde so' pega numero MAIOR na rodada seguinte -> **tx longa nao trava nada** (superior ao xid8). Buraco
+    na numeracao e' inofensivo (nextval nao e' transacional; cursor e' `>`). Obstaculo: a central nao roda
+    background loop -> numerar de forma OPORTUNISTA no `/receber` (e/ou fim do `/enviar`) sob
+    `pg_try_advisory_xact_lock`: quem pega o lock numera, quem nao pega serve o que ja' esta' numerado.
+- Enquanto nao houver uma das duas, a retencao NAO pode voltar.
+- **Retrato completo do subsistema (objetivos, infra, erros cometidos, pendencias): `synAteAqui.md`.**
 - TENTATIVA REJEITADA (07/2026) — "VARREDURA por tempo": re-puxar periodicamente a janela recente por
   CriadoEm (ignorando o cursor) e reaplicar (idempotente). Foi implementada e REVERTIDA; a revisao
   adversarial derrubou com 5 criticos. Ficam registrados pra ninguem tentar de novo sem resolver:
