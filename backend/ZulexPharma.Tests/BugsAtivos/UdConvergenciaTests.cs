@@ -61,7 +61,9 @@ public class UdConvergenciaTests
     private Fabricante Payload(long id, string nome, DateTime? atualizadoEm) => new()
     {
         Id = id, Nome = nome, CriadoEm = new DateTime(2026, 7, 1, 10, 0, 0),
-        AtualizadoEm = atualizadoEm, NoOrigemId = 3, Ativo = true
+        AtualizadoEm = atualizadoEm, NoOrigemId = 3, Ativo = true,
+        // guid ESTAVEL por registro (como no fluxo real: toda op da linha carrega o guid dela)
+        SyncGuid = new Guid($"00000000-0000-0000-0000-{id:D12}")
     };
 
     private async Task<ResultadoSync> Aplicar(string op, Fabricante? payload, DateTime opCriadoEm, long? id = null)

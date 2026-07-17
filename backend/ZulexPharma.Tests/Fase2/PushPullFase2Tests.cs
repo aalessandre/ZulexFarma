@@ -101,7 +101,10 @@ public class PushPullFase2Tests
         const long id = 3_000_000_402;
 
         Fabricante Payload(string nome, DateTime? atualizadoEm) => new()
-        { Id = id, Nome = nome, CriadoEm = t0, AtualizadoEm = atualizadoEm, NoOrigemId = No, Ativo = true };
+        {
+            Id = id, Nome = nome, CriadoEm = t0, AtualizadoEm = atualizadoEm, NoOrigemId = No, Ativo = true,
+            SyncGuid = new Guid($"00000000-0000-0000-0000-{id:D12}") // guid estavel da linha
+        };
 
         var ctrl = CriarController(No);
         await ctrl.Enviar(new List<SyncOperacaoDto>
@@ -127,33 +130,35 @@ public class PushPullFase2Tests
     [Fact]
     public async Task Drenagem_ReenfileiraQuandoRetryAplica()
     {
+        // Fase 3 mudou o cenario: U-orfao agora aplica como UPSERT (nao e' mais PrecisaRetry).
+        // O caso legitimo de quarentena e' DEPENDENCIA DE FK: Cliente chega antes da Pessoa.
         await RegistrarNoAsync(No);
         var t0 = new DateTime(2026, 7, 2, 10, 0, 0);
-        var t1 = new DateTime(2026, 7, 2, 11, 0, 0);
-        const long id = 3_000_000_403;
-        var uidU = Guid.NewGuid();
+        const long pessoaId = 3_000_000_404;
+        const long clienteId = 3_000_000_405;
+        var uidCliente = Guid.NewGuid();
 
-        Fabricante Payload(string nome, DateTime? atualizadoEm) => new()
-        { Id = id, Nome = nome, CriadoEm = t0, AtualizadoEm = atualizadoEm, NoOrigemId = No, Ativo = true };
+        var cliente = new Cliente { Id = clienteId, PessoaId = pessoaId, CriadoEm = t0, NoOrigemId = No, Ativo = true };
+        var pessoa = new Pessoa { Id = pessoaId, Tipo = "F", Nome = "PESSOA DRENAGEM", CpfCnpj = "88877766655", CriadoEm = t0, NoOrigemId = No, Ativo = true };
 
-        // U chega ANTES do I -> PrecisaRetry -> quarentena; NAO entra na fila
+        // Cliente chega ANTES da Pessoa -> 23503 -> PrecisaRetry -> quarentena; NAO entra na fila
         await CriarController(No).Enviar(new List<SyncOperacaoDto>
         {
-            new("Fabricantes", "U", id, null, JsonSerializer.Serialize(Payload("EDITADO", t1), JsonWeb()), No, null, t1, uidU),
+            new("Clientes", "I", clienteId, null, JsonSerializer.Serialize(cliente, JsonWeb()), No, null, t0, uidCliente),
         });
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
-            Assert.False(await db.SyncFila.AnyAsync(f => f.OpUid == uidU), "PrecisaRetry nao redistribui na chegada");
+            Assert.False(await db.SyncFila.AnyAsync(f => f.OpUid == uidCliente), "PrecisaRetry nao redistribui na chegada");
 
-        // O I chega -> aplica. O push SEGUINTE drena a quarentena: o U aplica e ENTRA na fila.
+        // A Pessoa chega -> aplica. O push SEGUINTE drena a quarentena: o Cliente aplica e ENTRA na fila.
         await CriarController(No).Enviar(new List<SyncOperacaoDto>
         {
-            new("Fabricantes", "I", id, null, JsonSerializer.Serialize(Payload("ORIGINAL", null), JsonWeb()), No, null, t0, Guid.NewGuid()),
+            new("Pessoas", "I", pessoaId, null, JsonSerializer.Serialize(pessoa, JsonWeb()), No, null, t0, Guid.NewGuid()),
         });
         await CriarController(No).Enviar(new List<SyncOperacaoDto>()); // lote vazio: so' drena
 
-        await using (var db = _pg.CriarContexto(aplicandoSync: true))
+        await using (var dbFinal = _pg.CriarContexto(aplicandoSync: true))
         {
-            var fila = await db.SyncFila.FirstOrDefaultAsync(f => f.OpUid == uidU);
+            var fila = await dbFinal.SyncFila.FirstOrDefaultAsync(f => f.OpUid == uidCliente);
             Assert.True(fila != null && fila.SeqEntrega != null,
                 "retry que APLICOU precisa ser re-enfileirado (com o OpUid preservado) e numerado — " +
                 "senao a op resolvida nunca chega aos outros nos");
@@ -196,8 +201,15 @@ public class PushPullFase2Tests
     public async Task LoteCheio_CursorParaNaUltimaServida_EProximoPullContinua()
     {
         const int no = 9402;
+        await RegistrarNoAsync(No); // emissor (9401) — sem depender da ordem dos outros testes
         await RegistrarNoAsync(no);
         var t0 = new DateTime(2026, 7, 2, 10, 0, 0);
+
+        // Ancora o cursor na MARCA atual: a fila compartilhada acumula ops de outros testes e o
+        // teste pagina de 1 em 1 — sem a ancora, os pulls nunca alcancariam as 3 ops novas.
+        long cursor;
+        using (var corpoAncora = Corpo(await CriarController(no).Receber(cursor: 0, ack: 0, limite: 1)))
+            cursor = corpoAncora.RootElement.GetProperty("seqMaxNumerado").GetInt64();
 
         var uids = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
         var ops = uids.Select((uid, i) =>
@@ -208,8 +220,7 @@ public class PushPullFase2Tests
         await CriarController(No).Enviar(ops); // origem = no 9401 -> visiveis pro 9402
 
         var recebidos = new List<Guid>();
-        long cursor = 0;
-        for (var pull = 0; pull < 5 && recebidos.Count < 3; pull++)
+        for (var pull = 0; pull < 8 && recebidos.Count < 3; pull++)
         {
             using var corpo = Corpo(await CriarController(no).Receber(cursor: cursor, ack: cursor, limite: 1));
             foreach (var e in corpo.RootElement.GetProperty("data").EnumerateArray())

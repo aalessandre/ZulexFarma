@@ -68,6 +68,41 @@ public class FilhosPocoTests
             "Cura (fase 3): colecao PRESENTE no JSON = autoritativa -> diff por Id com delete-missing.");
     }
 
+    /// <summary>
+    /// O outro lado do contrato (o que derrubou a v1): op "U" com a chave da colecao OMITIDA
+    /// (pai salvo sem Include na origem) NAO pode apagar os filhos do destino.
+    /// </summary>
+    [Fact]
+    public async Task ColecaoOmitidaNoJson_PreservaFilhosNoDestino()
+    {
+        var t0 = new DateTime(2026, 7, 1, 10, 0, 0);
+        var t1 = new DateTime(2026, 7, 1, 12, 0, 0);
+        const long pessoaId = 3_000_000_116;
+        const long clienteId = 3_000_000_117;
+
+        var pessoa = new Pessoa { Id = pessoaId, Tipo = "F", Nome = "CLIENTE OMITIDA", CpfCnpj = "77766655544", CriadoEm = t0, NoOrigemId = 3, Ativo = true };
+        Assert.Equal(ResultadoSync.Aplicado, await Aplicar("Pessoas", "I", pessoaId, JsonSerializer.Serialize(pessoa, _json), t0));
+
+        var guid = Guid.NewGuid();
+        var v1 = NovoCliente(clienteId, pessoaId, guid, t0, atualizadoEm: null);
+        v1.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_118, ClienteId = clienteId, Nome = "MARIA" });
+        v1.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_119, ClienteId = clienteId, Nome = "JOSE" });
+        Assert.Equal(ResultadoSync.Aplicado, await Aplicar("Clientes", "I", clienteId, JsonSerializer.Serialize(v1, _json), t0));
+
+        // Edicao SEM Include na origem: o JSON da op vem SEM a chave 'autorizacoes'
+        var v2 = NovoCliente(clienteId, pessoaId, guid, t0, atualizadoEm: t1);
+        var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(v2, _json))!.AsObject();
+        node.Remove("autorizacoes");
+        var resU = await Aplicar("Clientes", "U", clienteId, node.ToJsonString(_json), t1);
+        Assert.Equal(ResultadoSync.Aplicado, resU);
+
+        await using var db = _pg.CriarContexto(aplicandoSync: true);
+        var filhos = await db.Set<ClienteAutorizacao>().Where(a => a.ClienteId == clienteId).CountAsync();
+        Assert.True(filhos == 2,
+            $"CHAVE OMITIDA = 'nao carregada, preserve' — mas o destino ficou com {filhos} filhos. " +
+            "Apagar aqui e' o bug da v1 revertida (apagaria os descontos de TODA venda finalizada).");
+    }
+
     private static Cliente NovoCliente(long id, long pessoaId, Guid guid, DateTime criadoEm, DateTime? atualizadoEm) => new()
     {
         Id = id, PessoaId = pessoaId, CriadoEm = criadoEm, AtualizadoEm = atualizadoEm,
