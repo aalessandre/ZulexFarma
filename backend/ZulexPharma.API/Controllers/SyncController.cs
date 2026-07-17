@@ -130,7 +130,9 @@ public class SyncController : ControllerBase
     [HttpGet("nos")]
     public async Task<IActionResult> ListarNos()
     {
-        var marca = await _db.SyncFila.MaxAsync(f => (long?)f.SeqEntrega) ?? 0;
+        // marca MONOTONICA (fase 5c): apos compactacao total, MAX(SeqEntrega) volta a 0 e o atraso
+        // apareceria negativo/zerado errado — a retencao.marca preserva o high-water real.
+        var marca = await SyncPublicador.ObterMarcaMonotonicaAsync(_db, await _db.SyncFila.MaxAsync(f => (long?)f.SeqEntrega) ?? 0);
         var slaDias = int.TryParse(_config["Sync:SlaOfflineDias"], out var s) ? s : 30;
         var corteSla = DataHoraHelper.Agora().AddDays(-slaDias);
 
@@ -165,7 +167,11 @@ public class SyncController : ControllerBase
     [HttpGet("bootstrap-info")]
     public async Task<IActionResult> BootstrapInfo()
     {
-        var marca = await SyncPublicador.NumerarEObterMarcaAsync(_db);
+        // marca MONOTONICA (fase 5c, achado CRITICO): o no novo crava o cursor com esta marca. Se a
+        // retencao ja' compactou tudo, MAX(SeqEntrega)=0 daria cursor 0 e o primeiro pull bateria no
+        // 409 (cursor < retencao.marca) — bootstrap impossivel em janela drenada. A marca de
+        // retencao persistida devolve o high-water certo.
+        var marca = await SyncPublicador.ObterMarcaMonotonicaAsync(_db, await SyncPublicador.NumerarEObterMarcaAsync(_db));
         var geracao = await ObterGeracaoHubAsync();
         return Ok(new { success = true, data = new { marca, geracao, geradoEm = DataHoraHelper.Agora() } });
     }
@@ -603,7 +609,14 @@ public class SyncController : ControllerBase
             // GAP DO CURSOR: FECHADO na fase 2 (opcao B do synAteAqui §6.1). O cursor e' SeqEntrega,
             // numerada pelo publicador SO' em linha COMMITADA — commit tardio pega numero maior na
             // rodada seguinte e e' entregue. Teste: CursorGapTests. Historico completo: synAteAqui.md.
-            return Ok(new { success = true, data = operacoes, cursorProximo, seqMaxNumerado = marca, geracao });
+            //
+            // FASE 5c (achado CRITICO da auditoria): seqMaxNumerado (sinal de regressao pro edge) usa
+            // a marca MONOTONICA — GREATEST(marca de servico, retencao.marca). Sem isso, quando a
+            // retencao esvaziava a fila, marca de servico voltava a 0 e o guard do edge disparava
+            // REBOOTSTRAP falso na frota. O bound de servico (cursorProximo, <= marca) continua na
+            // marca de servico (committed) pra nao reabrir o gap.
+            var seqMaxNumerado = await SyncPublicador.ObterMarcaMonotonicaAsync(_db, marca);
+            return Ok(new { success = true, data = operacoes, cursorProximo, seqMaxNumerado, geracao });
         }
         catch (Exception ex)
         {

@@ -389,7 +389,14 @@ public class SyncBackgroundService : BackgroundService
                 switch (res)
                 {
                     case ResultadoSync.Aplicado:
+                        // FASE 5c (achado BAIXO da auditoria): persistir a linha de painel JA (proprio
+                        // SaveChanges) — a op ja' esta' duravel (tx propria dela commitou). Se ficasse
+                        // pendente no tracker, a tx per-op da PROXIMA op (agregado) a flushava e um
+                        // rollback dela (erro nao-FK) a deixava orfa Unchanged, que o Desanexar preserva
+                        // e nunca re-insere -> o rastro do 'recebido' sumia do painel. AplicandoSync=true
+                        // -> nao gera outbox.
                         RegistrarRecebido(db, op);
+                        await db.SaveChangesAsync(ct);
                         aplicados++;
                         break;
                     case ResultadoSync.Idempotente:

@@ -113,6 +113,65 @@ public class RetencaoTests
         }
     }
 
+    /// <summary>
+    /// FASE 5c (achado CRITICO da auditoria cross-cutting): retencao que ESVAZIA a SyncFila em
+    /// steady-state quieto NAO pode fazer a marca regredir a 0 (o guard do edge dispararia
+    /// REBOOTSTRAP falso na frota); e o bootstrap-info nao pode devolver 0 (travaria no novo em 409).
+    /// A marca de retencao persistida preserva o high-water.
+    /// </summary>
+    [Fact]
+    public async Task MarcaMonotonica_SobreviveAaRetencaoTotal()
+    {
+        var antigo = new DateTime(2026, 7, 1, 8, 0, 0);
+        await using (var db = _pg.CriarContexto(aplicandoSync: true))
+        {
+            await db.SyncNos.ExecuteDeleteAsync();
+            await db.SyncEstadoLocal.Where(e => e.Chave == "sync.retencao.marca").ExecuteDeleteAsync();
+            await db.SyncFila.Where(f => f.Tabela == "MarcaMonoTeste").ExecuteDeleteAsync();
+
+            // 3 ops antigas, todas ackadas -> a retencao apaga TODAS (steady-state quieto)
+            db.SyncFila.AddRange(
+                new SyncFila { Tabela = "MarcaMonoTeste", Operacao = "I", RegistroId = 1, NoOrigemId = 9602, DadosJson = "{}", CriadoEm = antigo },
+                new SyncFila { Tabela = "MarcaMonoTeste", Operacao = "I", RegistroId = 2, NoOrigemId = 9602, DadosJson = "{}", CriadoEm = antigo });
+            await db.SaveChangesAsync();
+            var marcaAntes = await SyncPublicador.NumerarEObterMarcaAsync(db);
+            Assert.True(marcaAntes > 0);
+
+            db.SyncNos.Add(new SyncNo { NoCodigo = 9601, Nome = "Caught up", Status = "Ativo", ChaveHash = "x", UltimoAckSeq = marcaAntes });
+            await db.SaveChangesAsync();
+        }
+
+        try
+        {
+            // Compacta tudo -> SyncFila (deste teste) vazia; marca de retencao persistida = high-water
+            using (var c = Corpo(await Controller().Limpar(dias: 1)))
+                Assert.True(c.RootElement.GetProperty("data").GetProperty("removidosRetencao").GetInt64() >= 2);
+
+            await using var db = _pg.CriarContexto(aplicandoSync: true);
+            var marcaServico = await db.SyncFila.Where(f => f.Tabela == "MarcaMonoTeste").MaxAsync(f => (long?)f.SeqEntrega) ?? -1;
+            var marcaRetida = long.Parse((await db.SyncEstadoLocal.FirstAsync(e => e.Chave == "sync.retencao.marca")).Valor);
+            Assert.Equal(-1, marcaServico); // servico regrediu (fila vazia) — esperado
+            var monotonica = await SyncPublicador.ObterMarcaMonotonicaAsync(db, 0);
+            Assert.Equal(marcaRetida, monotonica); // mas a monotonica preserva o high-water
+
+            // bootstrap-info NAO devolve 0 (senao no novo travava em 409)
+            using var info = Corpo(await Controller().BootstrapInfo());
+            Assert.Equal(marcaRetida, info.RootElement.GetProperty("data").GetProperty("marca").GetInt64());
+
+            // no caught-up (cursor = high-water) pulla e NAO leva 409 nem sinal de regressao
+            var resp = await Controller(comoNo: true, noCodigo: 9601).Receber(cursor: marcaRetida, ack: marcaRetida, limite: 10);
+            using var pull = Corpo(resp);
+            Assert.Equal(marcaRetida, pull.RootElement.GetProperty("seqMaxNumerado").GetInt64()); // >= cursor -> guard do edge nao dispara
+        }
+        finally
+        {
+            await using var db = _pg.CriarContexto(aplicandoSync: true);
+            await db.SyncEstadoLocal.Where(e => e.Chave == "sync.retencao.marca").ExecuteDeleteAsync();
+            await db.SyncNos.Where(n => n.NoCodigo == 9601).ExecuteDeleteAsync();
+            await db.SyncFila.Where(f => f.Tabela == "MarcaMonoTeste").ExecuteDeleteAsync();
+        }
+    }
+
     [Fact]
     public async Task BootstrapInfo_ECursor_FechamOCiclo()
     {

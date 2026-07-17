@@ -67,6 +67,29 @@ public static class SyncPublicador
             if (txPropria != null) await txPropria.DisposeAsync();
         }
 
+        // MARCA DE SERVICO: MAX(SeqEntrega) COMMITADO. Tem que ser esse (nao o last_value da
+        // sequence) senao a numeracao concorrente nao-commitada de outro publicador reintroduziria
+        // o gap do cursor (serviria ate' um numero cuja linha ainda nao commitou). E' o bound do
+        // /receber (SeqEntrega <= marca) e o teto do cursorProximo.
         return await db.SyncFila.MaxAsync(f => (long?)f.SeqEntrega, ct) ?? 0;
+    }
+
+    /// <summary>
+    /// FASE 5c (achado CRITICO da auditoria cross-cutting) — MARCA MONOTONICA (high-water) que
+    /// SOBREVIVE a' retencao: GREATEST(marca de servico, sync.retencao.marca persistida). E' o sinal
+    /// que o hub manda pro edge (seqMaxNumerado) e o valor do /bootstrap-info.
+    ///
+    /// POR QUE separada da marca de servico: quando a retencao ESVAZIA a SyncFila (steady-state
+    /// quieto), MAX(SeqEntrega) volta a 0 -> o guard de regressao do edge (marcaHub < cursor)
+    /// disparava REBOOTSTRAP falso na frota inteira; e o /bootstrap-info devolvia 0, travando no
+    /// novo em 409. A marca de retencao persistida (so' cresce) preserva o high-water real. NAO use
+    /// esta como bound de servico (o Math.Max poderia passar do MAX committed e reabrir o gap).
+    /// </summary>
+    public static async Task<long> ObterMarcaMonotonicaAsync(AppDbContext db, long marcaServico, CancellationToken ct = default)
+    {
+        var estado = await db.SyncEstadoLocal.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Chave == "sync.retencao.marca", ct);
+        var marcaRetencao = estado != null && long.TryParse(estado.Valor, out var m) ? m : 0;
+        return Math.Max(marcaServico, marcaRetencao);
     }
 }
