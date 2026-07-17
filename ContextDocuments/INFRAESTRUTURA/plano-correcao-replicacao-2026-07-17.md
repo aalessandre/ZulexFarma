@@ -151,6 +151,21 @@ Ordem obrigatória: 0 → 1 → 2 → 3 → 4 → 5. Não paralelizar fases; den
 
 ### FASE 2 — Entrega sem gap + push honesto + estado visível
 
+> ✅ **EXECUTADA em 17/07/2026** (Fable, `dev-pc1`): commits `b58b395` (código), `be50be0` (testes),
+> `238fd58` (fase 2b — revisão adversarial). **Gate 2 BATIDO**: suíte 41 verdes + 4 vermelhos
+> (LWW/U-D/filhos/ledger — fases 3-4). **O GAP DO CURSOR ESTÁ FECHADO** — o teste que reproduzia a
+> perda do commit tardio agora prova a entrega. A revisão adversarial pegou de novo 1 CRÍTICO: a
+> geração do hub NÃO detectava restore (o restore restaura o mesmo uuid) — cura robusta: o edge
+> trata REGRESSÃO DA MARCA (`seqMaxNumerado < cursor`) como fatal REBOOTSTRAP. Mais: 426 pra edge
+> de protocolo antigo (senão congelava em silêncio), LWW no upsert da quarentena (op velha
+> sobrescrevia a nova — divergência), ampliar filial de nó ativo → RebootstrapNecessario,
+> resetar-recebimento limpa a geração vista, índice parcial pro publicador, `NaoProcessada` não
+> marca Enviado, `POST /quarentena/descartar`. **Deferido pra fase 3** (anotar): teto de tentativas
+> do hub é por EXECUÇÃO de drenagem, não por tempo — PrecisaRetry pode "prender" em ~40min de
+> pushes com nó de origem offline (cura: backoff temporal na quarentena, junto do rework por OpUid).
+> **Rollout:** hub+lojas JUNTOS (o hub rejeita pull antigo com 426); cursor novo começa em 0 →
+> primeiro pull re-aplica tudo idempotente (volume atual pequeno).
+
 *Invariante-alvo: toda op commitada e elegível é eventualmente numerada com `SeqEntrega` única e imutável; o cursor só anda sobre números já atribuídos; nenhum descarte é silencioso; falha de transporte nunca marca enviado.*
 
 1. **`SeqEntrega bigint NULL` na `SyncFila`** + sequence `seq_sync_entrega` + índice `(SeqEntrega) WHERE SeqEntrega IS NOT NULL`. **Publicador oportunista no hub** (a central não roda background loop — não criar um só pra isso): no início do `/receber` e no fim do `/enviar`, sob `pg_try_advisory_xact_lock(chave_fixa)` — quem pega o lock numera (`UPDATE SyncFila SET SeqEntrega = nextval(...) WHERE SeqEntrega IS NULL AND <elegível>`); quem não pega serve só o que já está numerado. Linha que commita tarde pega número MAIOR na rodada seguinte — transação longa não trava nada. Buracos de `nextval` são inofensivos com cursor `>`.
