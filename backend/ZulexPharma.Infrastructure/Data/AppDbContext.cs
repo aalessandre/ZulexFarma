@@ -1864,9 +1864,12 @@ public class AppDbContext : DbContext
         {
             if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType) && entityType.ClrType != typeof(BaseEntity))
             {
-                // Index on Codigo for sync lookups
+                // FASE 4: indice UNICO composto (Codigo, NoOrigemId) — guard contra reciclagem de
+                // codigo por restore/seed; leading Codigo continua servindo as buscas das telas.
+                // NULLs (Codigo null / NoOrigemId null de linha pre-sync) ficam fora de conflito.
                 modelBuilder.Entity(entityType.ClrType)
-                    .HasIndex("Codigo")
+                    .HasIndex("Codigo", "NoOrigemId")
+                    .IsUnique()
                     .HasFilter("\"Codigo\" IS NOT NULL");
 
                 // SyncGuid: default para registros existentes + indice UNICO (fase 3, P0.10):
@@ -2118,17 +2121,9 @@ public class AppDbContext : DbContext
     // plano-correcao-replicacao-2026-07-17.md (fase 4 unifica esta denylist num registry unico).
     // Nota: DicionarioTabelas/Revisoes/Relacionamentos não herdam BaseEntity,
     // então não passam pelo interceptor — não precisam estar aqui.
-    private static readonly HashSet<string> _tabelasSemSync = new()
-    {
-        // SequenciasCentrais = contador fiscal (NFC-e), pinado ao NO dono (cada no numera o seu).
-        // NAO pode replicar sob LWW (senao dois nos sobrescrevem o ProximoNumero -> numero fiscal duplicado).
-        // GestorTributario* = INFRA local (controle de job/uso do motor tributario) — nao replica.
-        // Configuracoes = FASE 2 (decisao A4 do plano): parou de replicar — o CURSOR do pull morava
-        // nela e replicava como GLOBAL (estado de sync de um no podia sobrescrever o de outro).
-        // Estado do sync agora vive em SyncEstadoLocal; config por-filial e' backlog (B10).
-        "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais", "SefazNotas",
-        "SequenciasCentrais", "GestorTributarioJobs", "GestorTributarioUsoMensais", "Configuracoes"
-    };
+    // FASE 4: a fonte UNICA e' o SyncRegistry (classificacao explicita + validacao fail-closed no
+    // boot). Os nomes locais viraram aliases pra nao reescrever os ~20 usos.
+    private static HashSet<string> _tabelasSemSync => Services.SyncRegistry.TabelasInfra;
 
     // Entidades POR-FILIAL (eixo escopo): o dado pertence a UMA filial (FilialId do usuario logado).
     // Fonte unica pra carimbar SyncFila.FilialDonoId. O que NAO esta aqui e' GLOBAL (replica pra todos).
@@ -2141,20 +2136,12 @@ public class AppDbContext : DbContext
     // InventarioSngpcItem, AtualizacaoPrecoItem, SelfCheckout*) ficam com FilialDonoId=null (=GLOBAL)
     // hoje. Antes de LIGAR o roteamento (Fase 3), essas precisam herdar a filial do pai (ver
     // ContextDocuments/classificacao-replicacao.md, Lista de Trabalho 1) senao vazam/quebram FK.
-    private static readonly HashSet<Type> _entidadesPorFilial = new()
-    {
-        typeof(ProdutoDados), typeof(ProdutoFiscal), typeof(ProdutoFornecedor), typeof(ProdutoLote),
-        typeof(MovimentoEstoque), typeof(AtualizacaoPreco),
-        typeof(Venda), typeof(VendaReceita), typeof(Caixa),
-        typeof(Compra), typeof(ContaPagar), typeof(ContaReceber), typeof(ContaBancaria),
-        typeof(Entrega), typeof(EntregaPerfil), typeof(EntregaAgenda),
-        typeof(InventarioSngpc), typeof(SngpcMapa),
-        typeof(SelfCheckoutTerminal), typeof(SelfCheckoutConfiguracao)
-    };
+    private static HashSet<Type> _entidadesPorFilial => Services.SyncRegistry.PorFilialDireta;
 
     // Fase 3b: FILHAS por-filial SEM FilialId direto -> derivam a filial-dona do PAI (chave FK -> tipo pai),
     // recursivamente ate' um tipo com FilialId (em _entidadesPorFilial). Inclui o intermediario POCO VendaItem.
-    private static readonly Dictionary<Type, (string fk, Type pai)> _derivacaoFilialDono = new()
+    // PUBLICO (fase 4): o SyncRegistry valida no boot que toda PorFilialDerivada tem entrada aqui.
+    public static readonly Dictionary<Type, (string fk, Type pai)> DerivacaoFilialDono = new()
     {
         [typeof(CaixaMovimento)]              = ("CaixaId", typeof(Caixa)),
         [typeof(CaixaFechamentoDeclarado)]    = ("CaixaId", typeof(Caixa)),
@@ -2184,7 +2171,7 @@ public class AppDbContext : DbContext
     // Memoiza a derivacao POR SaveChanges (colapsa N filhas do mesmo pai a 1 resolucao). Limpo a cada override.
     private readonly Dictionary<(Type, long), long?> _cacheDerivFilial = new();
 
-    private async Task<long?> ResolverFilialDonoAsync(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, CancellationToken ct)
+    private async Task<(long? Dono, bool NaoResolvido)> ResolverFilialDonoAsync(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, CancellationToken ct)
     {
         var tipo = entry.Metadata.ClrType; // ClrType = imune a proxy de lazy-loading
         var values = entry.State == EntityState.Deleted ? entry.OriginalValues : entry.CurrentValues;
@@ -2193,20 +2180,36 @@ public class AppDbContext : DbContext
         {
             var prop = entry.Metadata.FindProperty("FilialId");
             var v = prop == null ? null : values[prop];
-            return v == null ? null : Convert.ToInt64(v);
+            // FilialId nullable com valor NULL e' legitimo nos HIBRIDOS (ContaBancaria/Feriado:
+            // null = corporativo/global por design) — nao e' falha de resolucao.
+            return (v == null ? null : Convert.ToInt64(v), false);
         }
-        if (_derivacaoFilialDono.TryGetValue(tipo, out var map))
+        if (DerivacaoFilialDono.TryGetValue(tipo, out var map))
         {
             var fkVal = values[map.fk];
-            if (fkVal == null) return null;
-            var dono = await DerivarFilialDonoAsync(map.pai, Convert.ToInt64(fkVal), 0, ct);
-            // Uma FILHA mapeada SEMPRE deveria ter pai resolvivel -> null aqui e' sintoma de bug (pai nao
-            // materializado/ausente), NAO GLOBAL legitimo. Alerta em vez de vazar em silencio (fail-open).
+            if (fkVal == null) return (null, false); // FK nullable vazia = sem dono por design
+            var paiId = Convert.ToInt64(fkVal);
+            var dono = await DerivarFilialDonoAsync(map.pai, paiId, 0, ct);
             if (dono == null)
-                Serilog.Log.Warning("Sync: FilialDono NAO derivado p/ {Tipo} (op vira GLOBAL) — cadeia de pai nao resolveu", tipo.Name);
-            return dono;
+            {
+                // Unico null LEGITIMO da derivacao: ContaBancaria CORPORATIVA (FilialId null por
+                // design — hibrido). Se o pai existe (tracker ou banco), o movimento e' global.
+                if (map.pai == typeof(ContaBancaria))
+                {
+                    var paiExiste = ChangeTracker.Entries<ContaBancaria>().Any(e => e.Entity.Id == paiId)
+                        || await ConsultarLongAsync(map.pai, paiId, "Id", ct) != null;
+                    if (paiExiste) return (null, false);
+                }
+                // FASE 4 (P0.8, fail-closed): filha mapeada SEM pai resolvivel e' sintoma de BUG, nao
+                // GLOBAL legitimo. Antes virava GLOBAL com um Warning (vazaria pra todos os nos);
+                // agora a op vai pra QUARENTENA local (DonoNaoResolvido) — visivel, nunca vaza.
+                Serilog.Log.Error("Sync: FilialDono NAO derivado p/ {Tipo} Id={Id} — op vai pra QUARENTENA (DonoNaoResolvido)",
+                    tipo.Name, values["Id"]);
+                return (null, true);
+            }
+            return (dono, false);
         }
-        return null; // GLOBAL
+        return (null, false); // GLOBAL classificado (o SyncRegistry garante que nao e' omissao)
     }
 
     /// <summary>Deriva a filial-dona subindo a cadeia de FK (tracker primeiro, senao 1 query). Memoizado + guard.</summary>
@@ -2229,7 +2232,7 @@ public class AppDbContext : DbContext
             }
             else resultado = id < 0 ? null : await ConsultarLongAsync(tipo, id, "FilialId", ct);
         }
-        else if (_derivacaoFilialDono.TryGetValue(tipo, out var map))
+        else if (DerivacaoFilialDono.TryGetValue(tipo, out var map))
         {
             long? paiId = tracked != null
                 ? (tracked.Property(map.fk).CurrentValue is { } pv ? Convert.ToInt64(pv) : null)
@@ -2369,19 +2372,19 @@ public class AppDbContext : DbContext
                     entry.Entity.Codigo = await GerarCodigo(tabela, cancellationToken);
 
                 if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "I", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
+                    await ColetarOpAsync(operacoesPendentes, tabela, "I", entry, cancellationToken);
             }
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
                 entry.Entity.AtualizadoPorNoId = noOrigem; // fase 3: escritor real da versao atual
                 if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "U", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
+                    await ColetarOpAsync(operacoesPendentes, tabela, "U", entry, cancellationToken);
             }
             else if (entry.State == EntityState.Deleted)
             {
                 if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "D", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
+                    await ColetarOpAsync(operacoesPendentes, tabela, "D", entry, cancellationToken);
             }
         }
 
@@ -2465,6 +2468,39 @@ public class AppDbContext : DbContext
         finally
         {
             if (txOutbox != null) await txOutbox.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// FASE 4 (P0.8): coleta a op pro outbox — mas dono NAO RESOLVIDO vai pra QUARENTENA local
+    /// (visivel no painel, drenagem NAO tenta reaplicar), NUNCA como GLOBAL (vazaria pra todos).
+    /// A quarentena participa do MESMO commit do dado (atomico).
+    /// </summary>
+    private async Task ColetarOpAsync(
+        List<(string tabela, string op, BaseEntity entidade, long? filialDono)> pendentes,
+        string tabela, string op,
+        Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<BaseEntity> entry, CancellationToken ct)
+    {
+        var (dono, naoResolvido) = await ResolverFilialDonoAsync(entry, ct);
+        if (!naoResolvido)
+        {
+            pendentes.Add((tabela, op, entry.Entity, dono));
+            return;
+        }
+
+        var jaExiste = await SyncQuarentena.AnyAsync(q =>
+            q.Tabela == tabela && q.RegistroId == entry.Entity.Id && q.Operacao == op, ct);
+        if (!jaExiste)
+        {
+            SyncQuarentena.Add(new SyncQuarentena
+            {
+                Tabela = tabela, Operacao = op, RegistroId = entry.Entity.Id,
+                DadosJson = op == "D" ? null : SerializarComContratoDeColecao(entry.Entity, op),
+                OpCriadoEm = Domain.Helpers.DataHoraHelper.Agora(), NoOrigemId = _noCodigo,
+                Motivo = "DonoNaoResolvido", Tentativas = 0, Resolvido = false,
+                UltimoErro = "Filial-dona nao derivada (cadeia de pai nao resolveu) — op NAO replicada. " +
+                             "Corrigir a derivacao/classificacao e reprocessar manualmente."
+            });
         }
     }
 
@@ -2610,7 +2646,11 @@ public class AppDbContext : DbContext
             await CriarSequenceCodigoAsync(conn, tx, tabela, ct);
             ultimo = await NextvalCodigoAsync(conn, tx, tabela, ct);
         }
-        return $"{_noCodigo}{ultimo}";
+        // FASE 4: separador mata a AMBIGUIDADE (no 1 + seq 11 e no 11 + seq 1 davam ambos "111").
+        // Formato {no}-{seq} em vez de sequencial puro DE PROPOSITO: o sequencial puro colidiria com
+        // codigo LEGADO do no 1 ("16" legado = no1+seq6 vs "16" novo = seq16) e o indice unico
+        // composto (Codigo, NoOrigemId) derrubaria o save. Codigos legados nao migram (ja' unicos).
+        return $"{_noCodigo}-{ultimo}";
     }
 
     private static async Task<long> NextvalCodigoAsync(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction? tx, string tabela, CancellationToken ct)

@@ -15,6 +15,10 @@ public static class DatabaseSeeder
 
     public static async Task SeedAsync(AppDbContext context, int noCodigo = 0, NoModo modo = NoModo.Edge)
     {
+        // FASE 4 — fail-closed do registry: entidade nova sem classificacao explicita (Global/
+        // PorFilial/Infra) ou fora do dicionario do applicator DERRUBA o boot com a lista nominal.
+        Services.SyncRegistry.ValidarModelo(context.Model);
+
         await context.Database.MigrateAsync();
 
         // Normalizar CPF/CNPJ: remover máscara (só dígitos), pulando registros que gerariam duplicata
@@ -34,12 +38,15 @@ public static class DatabaseSeeder
 
         // CFOP 5102 = venda mercadoria, CSOSN 102 = Simples Nacional tributada, Origem 0 = Nacional
         // PIS/COFINS CST 49 = Outras operações de saída, IPI CST 99 = Outras saídas
-        await context.Database.ExecuteSqlRawAsync(@"
+        // FASE 4 (P0.12): FilialId era HARDCODED = 1 — todo deployment criava dado fiscal da filial 1
+        // (a filial de OUTRO no). Agora usa a filial DESTE no.
+        var filialFiscal = noCodigo > 0 ? (long)noCodigo : 1L;
+        await context.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO ""ProdutosFiscal"" (""ProdutoId"", ""FilialId"", ""Cfop"", ""OrigemMercadoria"", ""CstIcms"", ""Csosn"", ""AliquotaIcms"", ""CstPis"", ""AliquotaPis"", ""CstCofins"", ""AliquotaCofins"", ""CstIpi"", ""AliquotaIpi"", ""Ativo"", ""CriadoEm"", ""SyncGuid"")
-            SELECT p.""Id"", 1, '5102', '0', NULL, '102', 0, '49', 0, '49', 0, '99', 0, true, NOW(), gen_random_uuid()
+            SELECT p.""Id"", {filialFiscal}, '5102', '0', NULL, '102', 0, '49', 0, '49', 0, '99', 0, true, NOW(), gen_random_uuid()
             FROM ""Produtos"" p
             WHERE NOT EXISTS (
-                SELECT 1 FROM ""ProdutosFiscal"" pf WHERE pf.""ProdutoId"" = p.""Id"" AND pf.""FilialId"" = 1
+                SELECT 1 FROM ""ProdutosFiscal"" pf WHERE pf.""ProdutoId"" = p.""Id"" AND pf.""FilialId"" = {filialFiscal}
             )
         ");
 
@@ -279,19 +286,47 @@ public static class DatabaseSeeder
         await context.SaveChangesAsync();
 
         // Seed: Tipos de Pagamento padrão do sistema
+        // FASE 4 (P0.12): IDs FIXOS DETERMINISTICOS (1..4), iguais em todos os nos — antes cada no
+        // criava na propria faixa (noCodigo*1e9+i) SEM enfileirar, entao vendas replicadas
+        // referenciavam TipoPagamentoId inexistente no hub (quarentena eterna). Com Id fixo e
+        // AplicandoSync=true (nao enfileira), todos os nos nascem com as MESMAS linhas nas MESMAS
+        // PKs; NoOrigemId=null = pre-sync (edicao remota adota o guid via LWW).
         if (!await context.TiposPagamento.AnyAsync(t => t.PadraoSistema))
         {
-            var tpBase = noCodigo > 0 ? noCodigo * ID_RANGE_PER_FILIAL : 0;
             var tiposPadrao = new[]
             {
-                new TipoPagamento { Id = tpBase + 1, Nome = "DINHEIRO", Modalidade = Domain.Enums.ModalidadePagamento.VendaVista, Ordem = 1, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 2, Nome = "A PRAZO", Modalidade = Domain.Enums.ModalidadePagamento.VendaPrazo, Ordem = 2, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 3, Nome = "CARTÃO", Modalidade = Domain.Enums.ModalidadePagamento.VendaCartao, Ordem = 3, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 4, Nome = "PIX", Modalidade = Domain.Enums.ModalidadePagamento.VendaPix, Ordem = 4, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
+                new TipoPagamento { Id = 1, Nome = "DINHEIRO", Modalidade = Domain.Enums.ModalidadePagamento.VendaVista, Ordem = 1, PadraoSistema = true, AceitaPromocao = true },
+                new TipoPagamento { Id = 2, Nome = "A PRAZO", Modalidade = Domain.Enums.ModalidadePagamento.VendaPrazo, Ordem = 2, PadraoSistema = true, AceitaPromocao = true },
+                new TipoPagamento { Id = 3, Nome = "CARTÃO", Modalidade = Domain.Enums.ModalidadePagamento.VendaCartao, Ordem = 3, PadraoSistema = true, AceitaPromocao = true },
+                new TipoPagamento { Id = 4, Nome = "PIX", Modalidade = Domain.Enums.ModalidadePagamento.VendaPix, Ordem = 4, PadraoSistema = true, AceitaPromocao = true },
             };
             context.TiposPagamento.AddRange(tiposPadrao);
             await context.SaveChangesAsync();
-            Log.Information("Seed: 4 tipos de pagamento padrão criados.");
+            Log.Information("Seed: 4 tipos de pagamento padrão criados (Ids fixos 1-4).");
+        }
+
+        // Seed: ICMS por UF (27 estados) — FASE 4 (P0.12): movido pra DENTRO do AplicandoSync=true
+        // (nao enfileira) + IDs FIXOS (1..27). Antes rodava com sync LIGADO e Ids da faixa do no:
+        // cada edge publicava os proprios 27 e colidiam por chave natural no hub.
+        if (!await context.IcmsUfs.AnyAsync())
+        {
+            var ufsSeed = new (string uf, string nome, decimal aliq)[]
+            {
+                ("AC", "ACRE", 19), ("AL", "ALAGOAS", 19), ("AP", "AMAPA", 18),
+                ("AM", "AMAZONAS", 20), ("BA", "BAHIA", 20.5m), ("CE", "CEARA", 20),
+                ("DF", "DISTRITO FEDERAL", 20), ("ES", "ESPIRITO SANTO", 17),
+                ("GO", "GOIAS", 19), ("MA", "MARANHAO", 22), ("MT", "MATO GROSSO", 17),
+                ("MS", "MATO GROSSO DO SUL", 17), ("MG", "MINAS GERAIS", 18),
+                ("PA", "PARA", 19), ("PB", "PARAIBA", 20), ("PR", "PARANA", 19.5m),
+                ("PE", "PERNAMBUCO", 20.5m), ("PI", "PIAUI", 21), ("RJ", "RIO DE JANEIRO", 22),
+                ("RN", "RIO GRANDE DO NORTE", 20), ("RS", "RIO GRANDE DO SUL", 17),
+                ("RO", "RONDONIA", 19.5m), ("RR", "RORAIMA", 20), ("SC", "SANTA CATARINA", 17),
+                ("SP", "SAO PAULO", 18), ("SE", "SERGIPE", 19), ("TO", "TOCANTINS", 20),
+            };
+            for (var i = 0; i < ufsSeed.Length; i++)
+                context.IcmsUfs.Add(new IcmsUf { Id = i + 1, Uf = ufsSeed[i].uf, NomeEstado = ufsSeed[i].nome, AliquotaInterna = ufsSeed[i].aliq });
+            await context.SaveChangesAsync();
+            Log.Information("Seed: 27 IcmsUf criados (Ids fixos 1-27, sem enfileirar).");
         }
 
         context.AplicandoSync = false;
@@ -348,26 +383,9 @@ public static class DatabaseSeeder
 
         await context.SaveChangesAsync();
 
-        // ── Seed ICMS por UF (27 estados) ─────────────────────────────
-        if (!await context.IcmsUfs.AnyAsync())
-        {
-            var ufs = new (string uf, string nome, decimal aliq)[]
-            {
-                ("AC", "ACRE", 19), ("AL", "ALAGOAS", 19), ("AP", "AMAPA", 18),
-                ("AM", "AMAZONAS", 20), ("BA", "BAHIA", 20.5m), ("CE", "CEARA", 20),
-                ("DF", "DISTRITO FEDERAL", 20), ("ES", "ESPIRITO SANTO", 17),
-                ("GO", "GOIAS", 19), ("MA", "MARANHAO", 22), ("MT", "MATO GROSSO", 17),
-                ("MS", "MATO GROSSO DO SUL", 17), ("MG", "MINAS GERAIS", 18),
-                ("PA", "PARA", 19), ("PB", "PARAIBA", 20), ("PR", "PARANA", 19.5m),
-                ("PE", "PERNAMBUCO", 20.5m), ("PI", "PIAUI", 21), ("RJ", "RIO DE JANEIRO", 22),
-                ("RN", "RIO GRANDE DO NORTE", 20), ("RS", "RIO GRANDE DO SUL", 17),
-                ("RO", "RONDONIA", 19.5m), ("RR", "RORAIMA", 20), ("SC", "SANTA CATARINA", 17),
-                ("SP", "SAO PAULO", 18), ("SE", "SERGIPE", 19), ("TO", "TOCANTINS", 20),
-            };
-            foreach (var (uf, nome, aliq) in ufs)
-                context.IcmsUfs.Add(new IcmsUf { Uf = uf, NomeEstado = nome, AliquotaInterna = aliq });
-            await context.SaveChangesAsync();
-        }
+        // (FASE 4: o seed de IcmsUf saiu daqui — rodava com sync LIGADO e Ids da faixa do no, cada
+        //  edge publicava os proprios 27 e colidiam por chave natural no hub. Agora vive no fluxo
+        //  principal com AplicandoSync=true e Ids fixos 1-27.)
     }
 
     /// <summary>

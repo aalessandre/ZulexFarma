@@ -70,11 +70,16 @@ public class EscopoTests
         movimento.AtualizadoEm = t1;
         var resUpdate = await Aplicar("U", id, JsonSerializer.Serialize(movimento, _json), t1);
 
-        Assert.True(resUpdate is ResultadoSync.Stale or ResultadoSync.Conflito or ResultadoSync.TipoDesconhecido,
+        Assert.True(resUpdate is ResultadoSync.LedgerImutavel,
             $"LEDGER MUTAVEL: o applicator aceitou UPDATE remoto em MovimentoEstoque (resultado: {resUpdate}) " +
             "— historico de estoque reescrito via LWW; dois incrementos concorrentes perdem um. " +
-            "Cura (fase 4): movimento e' append-only — applicator aceita so' 'I' (dedup por Id); " +
-            "correcao e' movimento de AJUSTE novo, nunca editar o fato.");
+            "Fase 4: movimento e' append-only — applicator aceita so' 'I'; U/D = LedgerImutavel " +
+            "(quarentena); correcao e' movimento de AJUSTE novo, nunca editar o fato.");
+
+        // e o conteudo NAO pode ter sido reescrito
+        await using var dbCheck = _pg.CriarContexto(aplicandoSync: true);
+        var linha = await dbCheck.Set<MovimentoEstoque>().FindAsync(id);
+        Assert.Equal(10, linha!.Quantidade);
     }
 
     private async Task<ResultadoSync> Aplicar(string op, long id, string json, DateTime opCriadoEm)

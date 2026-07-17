@@ -20,7 +20,9 @@ public enum ResultadoSync
     // Fase 3:
     ColisaoIdentidade, // PK igual mas SyncGuid diferente em linha JA' SINCronizada = no gemeo/faixa errada — quarentena, NUNCA SetValues
     RelogioSuspeito,   // timestamp da op > agora+5min: aplicar venceria o LWW por horas — segura na quarentena (teto alto: resolve quando o tempo alcanca)
-    RecriacaoSemGrafo  // U recriaria agregado sobre lapide mas o JSON OMITE colecoes: recriar sem filhos = dado fiscal capenga — quarentena
+    RecriacaoSemGrafo, // U recriaria agregado sobre lapide mas o JSON OMITE colecoes: recriar sem filhos = dado fiscal capenga — quarentena
+    // Fase 4:
+    LedgerImutavel     // U/D remoto em tabela de LEDGER (MovimentoEstoque/Lote): historia nao se reescreve — quarentena
 }
 
 /// <summary>
@@ -46,6 +48,13 @@ public static class SyncApplicator
     {
         var tipo = ResolverTipo(tabela);
         if (tipo == null) return ResultadoSync.TipoDesconhecido;
+
+        // FASE 4 — LEDGER (fatos imutaveis): estoque e' historia, nao snapshot. Aceita SO' 'I'
+        // (reentrega e' dedup por Id no fluxo normal); 'U'/'D' remoto = reescrita de historico via
+        // LWW (dois incrementos concorrentes perderiam um) -> quarentena LedgerImutavel. Correcao
+        // legitima e' movimento de AJUSTE novo.
+        if (SyncRegistry.TabelasLedger.Contains(tabela) && operacao != "I")
+            return ResultadoSync.LedgerImutavel;
 
         BaseEntity? entidade = null;
         if (operacao is "I" or "U")
@@ -577,7 +586,10 @@ public static class SyncApplicator
         bool enfileirarAoResolver = false)
     {
         var pendentes = await db.SyncQuarentena.AsNoTracking()
-            .Where(q => !q.Resolvido && (
+            // DonoNaoResolvido e' op LOCAL de saida (fase 4): reaplicar localmente = Idempotente ->
+            // marcaria Resolvido e a op sumiria SEM replicar (perda silenciosa). Fica presa como
+            // alarme ate' acao humana (corrigir derivacao + reprocessar).
+            .Where(q => !q.Resolvido && q.Motivo != "DonoNaoResolvido" && (
                 ((q.Motivo == "PrecisaRetry" || q.Motivo == "RelogioSuspeito") && q.Tentativas < MaxTentativasReordenacao) ||
                 (q.Motivo != "PrecisaRetry" && q.Motivo != "RelogioSuspeito" && q.Tentativas < MaxTentativasQuarentena)))
             .OrderBy(q => q.Id).Take(200).ToListAsync(ct);
