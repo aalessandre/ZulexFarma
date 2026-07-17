@@ -41,6 +41,29 @@ public class SyncController : ControllerBase
     /// <summary>Codigo do no autenticado (claim do token de maquina emitido no handshake).</summary>
     private int NoCodigoDoToken() => int.TryParse(User.FindFirst("noCodigo")?.Value, out var n) ? n : -1;
 
+    /// <summary>
+    /// FASE 2 — geracao do log do hub (uuid criado UMA vez, em SyncEstadoLocal). O edge guarda a
+    /// geracao vista junto do cursor; se o hub for RESTAURADO de backup (sequence/fila voltam no
+    /// tempo), a geracao muda e o edge PARA com RebootstrapNecessario — em vez de confiar num cursor
+    /// que aponta pra um log que nao existe mais.
+    /// </summary>
+    private async Task<string> ObterGeracaoHubAsync()
+    {
+        const string chave = "sync.hub.geracao";
+        var estado = await _db.SyncEstadoLocal.FirstOrDefaultAsync(e => e.Chave == chave);
+        if (estado != null) return estado.Valor;
+        estado = new SyncEstadoLocal { Chave = chave, Valor = Guid.NewGuid().ToString() };
+        _db.SyncEstadoLocal.Add(estado);
+        try { await _db.SaveChangesAsync(); }
+        catch (DbUpdateException)
+        {
+            // corrida entre dois pulls simultaneos no primeiro boot — o primeiro venceu, usa o dele
+            _db.Entry(estado).State = EntityState.Detached;
+            estado = await _db.SyncEstadoLocal.FirstAsync(e => e.Chave == chave);
+        }
+        return estado.Valor;
+    }
+
     // ─── HANDSHAKE (autenticacao de maquina) ───────────────────────────────
 
     /// <summary>
@@ -221,6 +244,9 @@ public class SyncController : ControllerBase
             var enfileirados = 0;
             var aplicadosDb = 0;
             var errosDb = 0;
+            // FASE 2 (push honesto, P0.14): resultado POR OP — o edge marca Enviado so' pelo que o hub
+            // declarou ter tratado de forma DURAVEL (aplicado, descartado por LWW ou quarentenado).
+            var resultadoPorOp = new Dictionary<SyncOperacaoDto, ResultadoSync>(ReferenceEqualityComparer.Instance);
 
             // 1. Ordenar por dependência antes de aplicar (pais primeiro em INSERT, filhos primeiro em DELETE)
             var ordenadas = operacoes
@@ -234,8 +260,10 @@ public class SyncController : ControllerBase
             try
             {
                 // Retry de itens que faltavam dependencia num push anterior (o central nao roda o
-                // background loop, entao a drenagem acontece a cada push recebido).
-                await SyncApplicator.DrenarQuarentenaAsync(_db);
+                // background loop, entao a drenagem acontece a cada push recebido). Fase 2: retry que
+                // APLICA re-enfileira a op (conflito nao se espalhou na chegada — espalha ao resolver).
+                // So' no hub (no 0): edge nao redistribui.
+                await SyncApplicator.DrenarQuarentenaAsync(_db, enfileirarAoResolver: _noCodigo == 0);
 
                 foreach (var op in ordenadas)
                 {
@@ -244,6 +272,7 @@ public class SyncController : ControllerBase
                         // Origem = no do TOKEN (P0.3/Codex: origem vem da credencial, nunca do body).
                         var res = await SyncApplicator.AplicarOperacaoAsync(
                             _db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm, noAutenticado);
+                        resultadoPorOp[op] = res;
 
                         switch (res)
                         {
@@ -251,11 +280,16 @@ public class SyncController : ControllerBase
                                 aplicadosDb++;
                                 break;
                             case ResultadoSync.Idempotente:
+                                break; // ja' no estado alvo
                             case ResultadoSync.Stale:
-                                break; // ja' no estado alvo / descartado por LWW
+                                // Objetivo 7 (NADA silencioso): descarte por LWW vira trilha auditavel.
+                                await SyncApplicator.RegistrarDescarteLwwAsync(_db, op.Tabela, op.Operacao,
+                                    op.RegistroId, op.DadosJson, op.CriadoEm, noAutenticado, op.OpUid, op.FilialDonoId);
+                                break;
                             default: // PrecisaRetry | Conflito | TipoDesconhecido -> quarentena
                                 await SyncApplicator.QuarentenarAsync(_db, op.Tabela, op.Operacao, op.RegistroId,
-                                    op.DadosJson, op.CriadoEm, noAutenticado, res.ToString(), null);
+                                    op.DadosJson, op.CriadoEm, noAutenticado, res.ToString(), null,
+                                    op.OpUid, op.FilialDonoId);
                                 errosDb++;
                                 break;
                         }
@@ -263,8 +297,10 @@ public class SyncController : ControllerBase
                     catch (Exception ex)
                     {
                         SyncApplicator.Desanexar(_db);
+                        resultadoPorOp[op] = ResultadoSync.Conflito;
                         await SyncApplicator.QuarentenarAsync(_db, op.Tabela, op.Operacao, op.RegistroId,
-                            op.DadosJson, op.CriadoEm, noAutenticado, "Erro", ex.Message);
+                            op.DadosJson, op.CriadoEm, noAutenticado, "Erro", ex.Message,
+                            op.OpUid, op.FilialDonoId);
                         Log.Warning(ex, "Sync enviar: erro ao aplicar no central {Tabela}/{Op} Id={Id}",
                             op.Tabela, op.Operacao, op.RegistroId);
                         errosDb++;
@@ -300,6 +336,16 @@ public class SyncController : ControllerBase
             var duplicadas = 0;
             foreach (var op in operacoes)
             {
+                // FASE 2 (P1.4): so' redistribui o que APLICOU (ou ja' estava aplicado). Quarentenada/
+                // Stale NAO entra na fila — conflito nao se espalha antes de resolvido (a drenagem
+                // enfileira quando o retry aplicar). Idempotente entra pra cobrir o crash entre o
+                // apply e o enfileiramento do request anterior (o dedup por OpUid impede duplicar).
+                // TryGetValue de proposito: GetValueOrDefault devolveria Aplicado (enum 0) pra chave
+                // ausente — fail-open. Ausente = nao redistribui.
+                if (!resultadoPorOp.TryGetValue(op, out var resOp)
+                    || resOp is not (ResultadoSync.Aplicado or ResultadoSync.Idempotente))
+                    continue;
+
                 // Add() == false -> ja' existia no banco OU repetida no proprio lote (cobre os dois casos)
                 if (op.OpUid.HasValue && !jaRedistribuidas.Add(op.OpUid.Value))
                 {
@@ -325,14 +371,31 @@ public class SyncController : ControllerBase
 
             await _db.SaveChangesAsync();
 
-            // Telemetria por no (painel de nos; a fase 2 adiciona o ACK aqui)
+            // FASE 2: publicador oportunista — numera as linhas recem-commitadas (e quaisquer outras
+            // pendentes) pra ficarem visiveis ao pull. Try-lock: se outro request estiver numerando, ok.
+            await SyncPublicador.NumerarEObterMarcaAsync(_db);
+
+            // Telemetria por no (painel de nos)
             await _db.SyncNos.Where(n => n.NoCodigo == noAutenticado)
                 .ExecuteUpdateAsync(s => s.SetProperty(n => n.UltimoPushEm, DataHoraHelper.Agora()));
 
             Log.Information("Sync enviar: {Enfileirados} enfileirados, {Duplicadas} duplicadas (reenvio), {AplicadosDb} aplicados no DB, {ErrosDb} erros",
                 enfileirados, duplicadas, aplicadosDb, errosDb);
 
-            return Ok(new { success = true, data = new { enfileirados, duplicadas, aplicadosDb, errosDb } });
+            // FASE 2: resposta POR OP (indice = posicao no lote enviado) — o edge marca Enviado so'
+            // pelo que aparece aqui. Tudo listado esta' DURAVEL no hub (aplicado, stale auditado ou
+            // quarentenado); falha de transporte = nada listado = nada marcado.
+            var resultados = operacoes
+                .Select((op, indice) => new
+                {
+                    indice,
+                    opUid = op.OpUid,
+                    // ausente do mapa (nao deveria acontecer) = "Erro", nunca o default do enum (Aplicado)
+                    resultado = resultadoPorOp.TryGetValue(op, out var r) ? r.ToString() : "Erro"
+                })
+                .ToList();
+
+            return Ok(new { success = true, data = new { enfileirados, duplicadas, aplicadosDb, errosDb, resultados } });
         }
         catch (Exception ex)
         {
@@ -345,10 +408,13 @@ public class SyncController : ControllerBase
     /// Retorna operações pendentes para o NO autenticado (exclui as do próprio no).
     /// FASE 1: identidade e ESCOPO vem do servidor (token + cadastro SyncNoFiliais) — os parametros
     /// filialId/filiais da query sao IGNORADOS (mantidos so' por compat de assinatura com nos antigos).
+    /// FASE 2: cursor = SeqEntrega (numerada pelo publicador SO' em linha commitada — gap do Id morto);
+    /// resposta inclui cursorProximo (calculado no servidor), a GERACAO do hub (restore = rebootstrap)
+    /// e cada op leva SeqEntrega+OpUid. O request traz ack = cursor duravel do no (retencao fase 5).
     /// </summary>
     [Authorize(Policy = "SyncNode")]
     [HttpGet("receber")]
-    public async Task<IActionResult> Receber([FromQuery] int filialId = 0, [FromQuery] string? filiais = null, [FromQuery] long ultimoId = 0, [FromQuery] int limite = 100)
+    public async Task<IActionResult> Receber([FromQuery] int filialId = 0, [FromQuery] string? filiais = null, [FromQuery] long ultimoId = 0, [FromQuery] int limite = 100, [FromQuery] long cursor = 0, [FromQuery] long ack = -1)
     {
         try
         {
@@ -381,45 +447,43 @@ public class SyncController : ControllerBase
                     "Configure as filiais do no no painel (PUT /api/sync/nos/{codigo}) antes de puxar — servir so' " +
                     "GLOBAL avancaria o cursor por cima das ops por-filial e o gap seria permanente." });
 
+            // FASE 2: publicador oportunista (try-lock; quem nao pega serve o que ja' esta' numerado)
+            // + marca d'agua. O select e' LIMITADO pela marca — numeracao concorrente alem dela fica
+            // pro proximo pull (senao o cursorProximo podia pular ops nao servidas).
+            var marca = await SyncPublicador.NumerarEObterMarcaAsync(_db);
+            var geracao = await ObterGeracaoHubAsync();
+
+            // ACK: maior SeqEntrega processada DURAVELMENTE pelo no (base da retencao na fase 5).
+            if (ack >= 0)
+                await _db.SyncNos.Where(n => n.NoCodigo == noAutenticado && n.UltimoAckSeq < ack)
+                    .ExecuteUpdateAsync(s => s.SetProperty(n => n.UltimoAckSeq, ack));
+
             var operacoes = await _db.SyncFila
-                .Where(f => f.Id > ultimoId && f.NoOrigemId != noAutenticado
+                .Where(f => f.SeqEntrega != null && f.SeqEntrega > cursor && f.SeqEntrega <= marca
+                    && f.NoOrigemId != noAutenticado
                     && (f.FilialDonoId == null || filiaisDono.Contains(f.FilialDonoId.Value)))
-                .OrderBy(f => f.Id)
+                .OrderBy(f => f.SeqEntrega)
                 .Take(limite)
                 .Select(f => new
                 {
-                    f.Id, f.Tabela, f.Operacao, f.RegistroId, f.RegistroCodigo,
+                    f.Id, f.SeqEntrega, f.OpUid, f.Tabela, f.Operacao, f.RegistroId, f.RegistroCodigo,
                     f.DadosJson, f.NoOrigemId, f.FilialDonoId, f.CriadoEm
                 })
                 .ToListAsync();
 
+            // Lote nao encheu = o scan chegou na marca (as demais foram filtradas: eco/escopo) -> o
+            // cursor pode ir direto pra marca. Lote cheio = ainda pode haver op entre a ultima servida
+            // e a marca -> cursor para na ultima servida. Nunca regride.
+            var cursorProximo = operacoes.Count < limite ? marca : operacoes[^1].SeqEntrega!.Value;
+            if (cursorProximo < cursor) cursorProximo = cursor;
+
             await _db.SyncNos.Where(n => n.NoCodigo == noAutenticado)
                 .ExecuteUpdateAsync(s => s.SetProperty(n => n.UltimoPullEm, DataHoraHelper.Agora()));
 
-            // GAP CONHECIDO (pre-existente, NAO corrigido aqui — precisa de tarefa propria): este cursor
-            // (Id > ultimoId) NAO prova consumo. O SyncFila.Id sai no INSERT e so' fica VISIVEL no COMMIT,
-            // entao com duas transacoes concorrentes (Id 101 e 102) em que a 102 commita primeiro, um pull
-            // neste instante serve a 102, o no crava o ponteiro em 102 e a 101 — ao commitar depois — NUNCA
-            // e' entregue (perda silenciosa sob escrita concorrente). O PUSH e' imune (usa flag !Enviado, nao
-            // cursor); o buraco e' so' aqui. E' por causa dele que a RETENCAO esta' revertida (apagar com base
-            // num cursor que nao prova consumo transforma gap recuperavel em perda definitiva).
-            //
-            // CUIDADO — NAO basta "usar pg_snapshot_xmin": o horizonte de estabilidade so' fecha o gap SE O
-            // CURSOR VIRAR O XID. Mantendo o cursor em Id, o gap CONTINUA, porque as duas ordens sao
-            // INDEPENDENTES: o xid nasce na 1a escrita da tx e o Id sai no insert do outbox, depois.
-            // Contraexemplo: tx S (xid 500) faz outbox DEPOIS da tx R (xid 501) -> Id_R=101 < Id_S=102; com R
-            // ainda rodando, h=501, a S passa (500<501) e o cursor vai pra 102; quando R commitar, a 101 fica
-            // pra tras. As duas curas que FUNCIONAM:
-            //  (A) cursor = xid: coluna TxId xid8 DEFAULT pg_current_xact_id() (xid8=64bits, imune a
-            //      wraparound; o xmin de sistema e' 32 bits e NAO serve) + servir TxId >= cursor AND TxId < h.
-            //      Custo: transacao longa (ate' alheia ao sync) PARALISA a fila inteira.
-            //  (B) PREFERIDA — publicador + SeqEntrega: numerar por nextval SO' as linhas ja' COMMITADAS (o
-            //      publicador nao enxerga as em voo) sob advisory lock, e o cursor passa a ser SeqEntrega.
-            //      Linha que commita tarde so' pega um numero MAIOR na rodada seguinte -> tx longa nao trava
-            //      nada. Buraco na numeracao e' inofensivo (cursor e' ">"). Como a central nao roda loop, da'
-            //      pra numerar de forma oportunista aqui/no /enviar sob pg_try_advisory_xact_lock.
-            // Detalhe completo em ContextDocuments/INFRAESTRUTURA/synAteAqui.md secao 6.1.
-            return Ok(new { success = true, data = operacoes });
+            // GAP DO CURSOR: FECHADO na fase 2 (opcao B do synAteAqui §6.1). O cursor e' SeqEntrega,
+            // numerada pelo publicador SO' em linha COMMITADA — commit tardio pega numero maior na
+            // rodada seguinte e e' entregue. Teste: CursorGapTests. Historico completo: synAteAqui.md.
+            return Ok(new { success = true, data = operacoes, cursorProximo, seqMaxNumerado = marca, geracao });
         }
         catch (Exception ex)
         {
@@ -581,10 +645,13 @@ public class SyncController : ControllerBase
                 await _db.SyncQuarentena.Where(q => !q.Resolvido)
                     .ExecuteUpdateAsync(s => s.SetProperty(x => x.Tentativas, 0));
 
+            // No hub (no 0), retry que aplicar precisa entrar na fila de redistribuicao + ser numerado.
             _db.AplicandoSync = true;
             int resolvidos;
-            try { resolvidos = await SyncApplicator.DrenarQuarentenaAsync(_db); }
+            try { resolvidos = await SyncApplicator.DrenarQuarentenaAsync(_db, enfileirarAoResolver: _noCodigo == 0); }
             finally { _db.AplicandoSync = false; }
+            if (_noCodigo == 0 && resolvidos > 0)
+                await SyncPublicador.NumerarEObterMarcaAsync(_db);
 
             return Ok(new { success = true, data = new { resolvidos } });
         }
@@ -608,6 +675,7 @@ public class SyncController : ControllerBase
 
     /// <summary>
     /// Reseta o ponteiro de recebimento para rebuscar tudo do Railway.
+    /// FASE 2: o cursor vive em SyncEstadoLocal ('sync.cursor.entrega'), nao mais em Configuracoes.
     /// </summary>
     [Authorize(Policy = "SyncAdmin")]
     [HttpPost("resetar-recebimento")]
@@ -615,12 +683,19 @@ public class SyncController : ControllerBase
     {
         try
         {
-            var config = await _db.Configuracoes
-                .FirstOrDefaultAsync(c => c.Chave == "sync.ultimo.id.recebido");
-
-            if (config != null)
+            var estado = await _db.SyncEstadoLocal.FirstOrDefaultAsync(e => e.Chave == "sync.cursor.entrega");
+            if (estado != null)
             {
-                config.Valor = "0";
+                estado.Valor = "0";
+                estado.AtualizadoEm = DataHoraHelper.Agora();
+                await _db.SaveChangesAsync();
+            }
+
+            // Cursor legado (pre-fase-2, vivia em Configuracoes) — zera tambem por consistencia.
+            var legado = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == "sync.ultimo.id.recebido");
+            if (legado != null)
+            {
+                legado.Valor = "0";
                 await _db.SaveChangesAsync();
             }
 

@@ -312,9 +312,11 @@ public static class SyncApplicator
     /// <summary>
     /// Coloca (upsert por Tabela+RegistroId+Operacao) uma op que NAO pode ser aplicada na quarentena,
     /// pra retry — em vez de perde-la avancando o ponteiro. Sobe a contagem de tentativas.
+    /// Fase 2: preserva OpUid/FilialDonoId pra re-enfileirar no hub quando o retry aplicar.
     /// </summary>
     public static async Task QuarentenarAsync(AppDbContext db, string tabela, string operacao, long registroId,
-        string? dadosJson, DateTime opCriadoEm, long noOrigemId, string motivo, string? erro, CancellationToken ct = default)
+        string? dadosJson, DateTime opCriadoEm, long noOrigemId, string motivo, string? erro,
+        Guid? opUid = null, long? filialDonoId = null, CancellationToken ct = default)
     {
         var q = await db.SyncQuarentena.FirstOrDefaultAsync(
             x => x.Tabela == tabela && x.RegistroId == registroId && x.Operacao == operacao, ct);
@@ -324,7 +326,7 @@ public static class SyncApplicator
             {
                 Tabela = tabela, Operacao = operacao, RegistroId = registroId, DadosJson = dadosJson,
                 OpCriadoEm = opCriadoEm, NoOrigemId = noOrigemId, Motivo = motivo, Tentativas = 1,
-                UltimoErro = Truncar(erro, 1000), Resolvido = false
+                UltimoErro = Truncar(erro, 1000), Resolvido = false, OpUid = opUid, FilialDonoId = filialDonoId
             });
             try
             {
@@ -338,20 +340,21 @@ public static class SyncApplicator
                     x => x.Tabela == tabela && x.RegistroId == registroId && x.Operacao == operacao, ct);
                 if (q != null)
                 {
-                    AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro);
+                    AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro, opUid, filialDonoId);
                     await db.SaveChangesAsync(ct);
                 }
             }
         }
         else
         {
-            AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro);
+            AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro, opUid, filialDonoId);
             await db.SaveChangesAsync(ct);
         }
         Log.Warning("Sync quarentena [{Motivo}] {Tabela}/{Op} Id={Id}: {Erro}", motivo, tabela, operacao, registroId, erro ?? motivo);
     }
 
-    private static void AtualizarQuarentena(SyncQuarentena q, string? dadosJson, DateTime opCriadoEm, string motivo, string? erro)
+    private static void AtualizarQuarentena(SyncQuarentena q, string? dadosJson, DateTime opCriadoEm,
+        string motivo, string? erro, Guid? opUid = null, long? filialDonoId = null)
     {
         q.DadosJson = dadosJson;
         q.OpCriadoEm = opCriadoEm;
@@ -359,15 +362,64 @@ public static class SyncApplicator
         q.Tentativas += 1;
         q.UltimoErro = Truncar(erro, 1000);
         q.Resolvido = false;
+        q.OpUid = opUid ?? q.OpUid;
+        q.FilialDonoId = filialDonoId ?? q.FilialDonoId;
         q.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
+    }
+
+    /// <summary>
+    /// FASE 2 (objetivo 7 do plano: NADA silencioso): registra o DESCARTE por LWW (Stale) como
+    /// trilha auditavel — linha de quarentena ja' Resolvida (sem retry), com o payload perdedor.
+    /// Nao sobrescreve uma linha PENDENTE da mesma op (o retry pendente importa mais que a auditoria).
+    /// </summary>
+    public static async Task RegistrarDescarteLwwAsync(AppDbContext db, string tabela, string operacao, long registroId,
+        string? dadosJson, DateTime opCriadoEm, long noOrigemId, Guid? opUid = null, long? filialDonoId = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var q = await db.SyncQuarentena.FirstOrDefaultAsync(
+                x => x.Tabela == tabela && x.RegistroId == registroId && x.Operacao == operacao, ct);
+            if (q == null)
+            {
+                db.SyncQuarentena.Add(new SyncQuarentena
+                {
+                    Tabela = tabela, Operacao = operacao, RegistroId = registroId, DadosJson = dadosJson,
+                    OpCriadoEm = opCriadoEm, NoOrigemId = noOrigemId, Motivo = "Stale", Tentativas = 0,
+                    UltimoErro = "Descartada por LWW: a versao local e' mais nova que a recebida.",
+                    Resolvido = true, OpUid = opUid, FilialDonoId = filialDonoId
+                });
+                await db.SaveChangesAsync(ct);
+            }
+            else if (q.Resolvido)
+            {
+                q.Motivo = "Stale";
+                q.DadosJson = dadosJson;
+                q.OpCriadoEm = opCriadoEm;
+                q.UltimoErro = "Descartada por LWW: a versao local e' mais nova que a recebida.";
+                q.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
+                await db.SaveChangesAsync(ct);
+            }
+            // pendente: nao toca — o descarte fica no log; a linha de retry preserva o caso em aberto
+        }
+        catch (DbUpdateException ex) when (EhUniqueViolation(ex))
+        {
+            Desanexar(db); // corrida com outra trilha da mesma op — auditoria e' melhor-esforco
+        }
+        Log.Information("Sync: op DESCARTADA por LWW (Stale) {Tabela}/{Op} Id={Id} (origem {No})",
+            tabela, operacao, registroId, noOrigemId);
     }
 
     /// <summary>
     /// Reprocessa itens da quarentena (retry) ate' sucesso (Resolvido) ou o teto de tentativas.
     /// Chamada a cada ciclo — resolve o caso "U chegou antes do I" quando o I finalmente chega.
     /// Retorna quantos foram resolvidos.
+    /// FASE 2 — enfileirarAoResolver (SO' no hub): op quarentenada NAO foi enfileirada na chegada
+    /// (conflito nao se espalha antes de resolvido — P1.4); quando o retry APLICA, a op entra na
+    /// SyncFila aqui (com o OpUid/FilialDonoId preservados) e o publicador a numera em seguida.
     /// </summary>
-    public static async Task<int> DrenarQuarentenaAsync(AppDbContext db, CancellationToken ct = default)
+    public static async Task<int> DrenarQuarentenaAsync(AppDbContext db, CancellationToken ct = default,
+        bool enfileirarAoResolver = false)
     {
         var pendentes = await db.SyncQuarentena.AsNoTracking()
             .Where(q => !q.Resolvido && (
@@ -394,6 +446,25 @@ public static class SyncApplicator
 
             var ok = res is ResultadoSync.Aplicado or ResultadoSync.Idempotente or ResultadoSync.Stale;
             if (ok) resolvidos++;
+
+            // Hub: o retry APLICOU -> a op agora e' estado canonico e PRECISA ser distribuida.
+            // (So' Aplicado: Idempotente/Stale = uma versao mais nova ja' passou e ja' foi distribuida.)
+            if (ok && res == ResultadoSync.Aplicado && enfileirarAoResolver)
+            {
+                var jaEnfileirada = q.OpUid != null &&
+                    await db.SyncFila.AnyAsync(f => f.OpUid == q.OpUid, ct);
+                if (!jaEnfileirada)
+                {
+                    db.SyncFila.Add(new SyncFila
+                    {
+                        Tabela = q.Tabela, Operacao = q.Operacao, RegistroId = q.RegistroId,
+                        DadosJson = q.DadosJson, NoOrigemId = q.NoOrigemId, FilialDonoId = q.FilialDonoId,
+                        OpUid = q.OpUid, CriadoEm = q.OpCriadoEm, Enviado = false
+                    });
+                    await db.SaveChangesAsync(ct);
+                }
+            }
+
             // ExecuteUpdate (sem tracking) pra nao misturar com as entidades aplicadas no tracker.
             await db.SyncQuarentena.Where(x => x.Id == q.Id).ExecuteUpdateAsync(s => s
                 .SetProperty(x => x.Resolvido, ok)
@@ -636,7 +707,8 @@ public static class SyncApplicator
         ["NcmFederais"] = typeof(NcmFederal),
         ["NcmIcmsUfs"] = typeof(NcmIcmsUf),
         ["NcmStUfs"] = typeof(NcmStUf),
-        ["Configuracoes"] = typeof(Configuracao),
+        // "Configuracoes" REMOVIDA na fase 2 (INFRA, nao replica mais — o cursor do pull morava nela).
+        // Op antiga em transito cai como TipoDesconhecido na quarentena (visivel, descartavel pelo admin).
         ["IcmsUfs"] = typeof(IcmsUf),
         ["AtualizacoesPreco"] = typeof(AtualizacaoPreco),
         ["AtualizacoesPrecoItens"] = typeof(AtualizacaoPrecoItem),

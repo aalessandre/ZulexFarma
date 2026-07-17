@@ -6,6 +6,7 @@ using Serilog;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using ZulexPharma.Domain.Entities;
 using ZulexPharma.Infrastructure.Data;
 
 namespace ZulexPharma.Infrastructure.Services;
@@ -246,9 +247,28 @@ public class SyncBackgroundService : BackgroundService
 
         if (response.IsSuccessStatusCode)
         {
-            foreach (var p in pendentes) { p.Enviado = true; p.EnviadoEm = DateTime.UtcNow; }
+            // FASE 2 (push honesto): marca Enviado SO' pelas ops LISTADAS na resposta por op — tudo
+            // que o hub declarou ter tratado de forma duravel (aplicado/stale-auditado/quarentenado).
+            // Resposta sem 'resultados' (hub antigo) = fallback pro comportamento anterior (marca tudo).
+            var corpo = await response.Content.ReadAsStringAsync(ct);
+            var indicesTratados = ExtrairIndicesTratados(corpo, pendentes.Count);
+            var marcadas = 0;
+            if (indicesTratados == null)
+            {
+                foreach (var p in pendentes) { p.Enviado = true; p.EnviadoEm = DateTime.UtcNow; }
+                marcadas = pendentes.Count;
+            }
+            else
+            {
+                foreach (var i in indicesTratados)
+                {
+                    pendentes[i].Enviado = true;
+                    pendentes[i].EnviadoEm = DateTime.UtcNow;
+                    marcadas++;
+                }
+            }
             await db.SaveChangesAsync(ct);
-            Log.Information("Sync PUSH: {Count} operações enviadas", pendentes.Count);
+            Log.Information("Sync PUSH: {Marcadas}/{Total} operações confirmadas pelo hub", marcadas, pendentes.Count);
             return true;
         }
 
@@ -257,19 +277,46 @@ public class SyncBackgroundService : BackgroundService
         return false;
     }
 
+    /// <summary>
+    /// Le data.resultados[].indice da resposta do /enviar. Null = campo ausente (hub antigo).
+    /// Indices fora do range sao ignorados (defesa contra resposta malformada).
+    /// </summary>
+    private static List<int>? ExtrairIndicesTratados(string corpo, int total)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(corpo);
+            if (!doc.RootElement.TryGetProperty("data", out var data) ||
+                !data.TryGetProperty("resultados", out var resultados) ||
+                resultados.ValueKind != JsonValueKind.Array)
+                return null;
+            var indices = new List<int>();
+            foreach (var r in resultados.EnumerateArray())
+                if (r.TryGetProperty("indice", out var ind) && ind.TryGetInt32(out var i) && i >= 0 && i < total)
+                    indices.Add(i);
+            return indices;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Retorna false em falha de TRANSPORTE (nao-2xx) — o chamador conta pro backoff/status.</summary>
     private async Task<bool> Receber(CancellationToken ct)
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // Buscar último Id recebido (armazena em config local simples)
-        var ultimoIdConfig = await db.Configuracoes
-            .FirstOrDefaultAsync(c => c.Chave == "sync.ultimo.id.recebido", ct);
-        var ultimoId = long.TryParse(ultimoIdConfig?.Valor, out var u) ? u : 0;
+        // FASE 2: cursor = SeqEntrega, guardado em SyncEstadoLocal (Configuracoes REPLICAVA — o
+        // cursor de um no podia sobrescrever o de outro). Chave nova comeca em 0 no primeiro run
+        // pos-deploy: re-pull completo, aplicacao idempotente por Id/LWW absorve.
+        var estadoCursor = await db.SyncEstadoLocal
+            .FirstOrDefaultAsync(e => e.Chave == "sync.cursor.entrega", ct);
+        var cursor = long.TryParse(estadoCursor?.Valor, out var u) ? u : 0;
 
+        // ack = cursor duravel (persistido apos o lote anterior) — base da retencao do hub (fase 5).
+        var lote = Math.Clamp(int.TryParse(_config["Sync:LoteTamanho"], out var l) ? l : 100, 1, 500);
         var response = await _httpClient.GetAsync(
-            $"{_urlCentral}/api/sync/receber?filialId={_noCodigo}&filiais={Uri.EscapeDataString(_filiais)}&ultimoId={ultimoId}", ct);
+            $"{_urlCentral}/api/sync/receber?cursor={cursor}&ack={cursor}&limite={lote}" +
+            $"&filialId={_noCodigo}&filiais={Uri.EscapeDataString(_filiais)}", ct);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -282,12 +329,43 @@ public class SyncBackgroundService : BackgroundService
 
         var json = await response.Content.ReadAsStringAsync(ct);
         var resultado = JsonSerializer.Deserialize<SyncReceberResponse>(json, _jsonOpts);
-        if (resultado?.Data == null || resultado.Data.Count == 0) return true;
+
+        // FASE 2 — guard de GERACAO: se o hub foi restaurado de backup, a geracao muda e o cursor
+        // local aponta pra um log que nao existe mais. Confiar nele pularia/reaplicaria ops em
+        // silencio. Falha RUIDOSA: para o transporte ate' rebootstrap (plano fase 5).
+        if (!string.IsNullOrEmpty(resultado?.Geracao))
+        {
+            var estadoGeracao = await db.SyncEstadoLocal
+                .FirstOrDefaultAsync(e => e.Chave == "sync.hub.geracao.vista", ct);
+            if (estadoGeracao == null)
+            {
+                db.SyncEstadoLocal.Add(new SyncEstadoLocal { Chave = "sync.hub.geracao.vista", Valor = resultado!.Geracao! });
+                await db.SaveChangesAsync(ct);
+            }
+            else if (estadoGeracao.Valor != resultado!.Geracao)
+            {
+                Log.Fatal("Sync: GERACAO do hub mudou ({Antiga} -> {Nova}) — hub restaurado/recriado. " +
+                    "Transporte INTERROMPIDO: rebootstrap necessario (nao confiar no cursor antigo).",
+                    estadoGeracao.Valor, resultado.Geracao);
+                UltimoStatus = "REBOOTSTRAP";
+                _fatal = true;
+                return false;
+            }
+        }
+
+        // Cursor avanca pelo valor CALCULADO NO SERVIDOR (cursorProximo): lote vazio/filtrado tambem
+        // avanca (as ops puladas nao eram deste no). Persistido DEPOIS de aplicar o lote (abaixo).
+        var cursorProximo = resultado?.CursorProximo ?? 0;
+
+        if (resultado?.Data == null || resultado.Data.Count == 0)
+        {
+            await SalvarCursorAsync(db, estadoCursor, cursor, cursorProximo, ct);
+            return true;
+        }
 
         db.AplicandoSync = true;
         var aplicados = 0;
         var erros = 0;
-        var lastSuccessId = ultimoId;
 
         // Com IDs globais por filial (faixa exclusiva), FKs são sempre válidas.
         // Ordenar por dependência para INSERTs (tabelas pai primeiro).
@@ -310,11 +388,16 @@ public class SyncBackgroundService : BackgroundService
                         aplicados++;
                         break;
                     case ResultadoSync.Idempotente:
+                        break; // ja' no estado alvo — nada a fazer
                     case ResultadoSync.Stale:
-                        break; // ja' no estado alvo / versao velha descartada por LWW — nada a fazer
+                        // Objetivo 7: descarte por LWW e' auditavel tambem no edge.
+                        await SyncApplicator.RegistrarDescarteLwwAsync(db, op.Tabela, op.Operacao, op.RegistroId,
+                            op.DadosJson, op.CriadoEm, op.NoOrigemId, op.OpUid, op.FilialDonoId, ct);
+                        break;
                     default: // PrecisaRetry | Conflito | TipoDesconhecido -> quarentena p/ retry
                         await SyncApplicator.QuarentenarAsync(db, op.Tabela, op.Operacao, op.RegistroId,
-                            op.DadosJson, op.CriadoEm, op.NoOrigemId, res.ToString(), null, ct);
+                            op.DadosJson, op.CriadoEm, op.NoOrigemId, res.ToString(), null,
+                            op.OpUid, op.FilialDonoId, ct);
                         erros++;
                         break;
                 }
@@ -323,28 +406,15 @@ public class SyncBackgroundService : BackgroundService
             {
                 SyncApplicator.Desanexar(db);
                 await SyncApplicator.QuarentenarAsync(db, op.Tabela, op.Operacao, op.RegistroId,
-                    op.DadosJson, op.CriadoEm, op.NoOrigemId, "Erro", ExtrairMensagemErro(ex, op), ct);
+                    op.DadosJson, op.CriadoEm, op.NoOrigemId, "Erro", ExtrairMensagemErro(ex, op),
+                    op.OpUid, op.FilialDonoId, ct);
                 erros++;
             }
-
-            // Ponteiro avanca SEMPRE: a op nao se perde (aplicada, descartada por LWW, ou na quarentena p/ retry).
-            if (op.Id > lastSuccessId) lastSuccessId = op.Id;
         }
 
-        // Avançar o ponteiro (nao reprocessa): falhas nao se perdem — vao pra SyncQuarentena e sao
+        // Avancar o ponteiro (nao reprocessa): falhas nao se perdem — vao pra SyncQuarentena e sao
         // reprocessadas na drenagem abaixo. Manter AplicandoSync = true (nao gera SyncFila).
-        if (lastSuccessId > ultimoId)
-        {
-            if (ultimoIdConfig == null)
-            {
-                db.Configuracoes.Add(new Domain.Entities.Configuracao { Chave = "sync.ultimo.id.recebido", Valor = lastSuccessId.ToString() });
-            }
-            else
-            {
-                ultimoIdConfig.Valor = lastSuccessId.ToString();
-            }
-            await db.SaveChangesAsync(ct);
-        }
+        await SalvarCursorAsync(db, estadoCursor, cursor, cursorProximo, ct);
 
         // Drenar a quarentena (retry) — resolve, p.ex., "U chegou antes do I" depois que o I entra.
         var resolvidosQ = await SyncApplicator.DrenarQuarentenaAsync(db, ct);
@@ -365,6 +435,21 @@ public class SyncBackgroundService : BackgroundService
     /// Ordem de dependência: tabelas pai têm número menor (processadas primeiro em INSERT).
     /// </summary>
     // GetOrdemTabela movido para SyncApplicator (classe pública compartilhada).
+
+    /// <summary>Persiste o cursor de entrega (SyncEstadoLocal) — nunca regride.</summary>
+    private static async Task SalvarCursorAsync(AppDbContext db, SyncEstadoLocal? estadoCursor,
+        long cursorAtual, long cursorProximo, CancellationToken ct)
+    {
+        if (cursorProximo <= cursorAtual) return;
+        if (estadoCursor == null)
+            db.SyncEstadoLocal.Add(new SyncEstadoLocal { Chave = "sync.cursor.entrega", Valor = cursorProximo.ToString() });
+        else
+        {
+            estadoCursor.Valor = cursorProximo.ToString();
+            estadoCursor.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
+        }
+        await db.SaveChangesAsync(ct);
+    }
 
     /// <summary>
     /// Registra operação recebida na SyncFila local para aparecer no painel.
@@ -488,6 +573,11 @@ public class SyncBackgroundService : BackgroundService
 internal class SyncReceberResponse
 {
     public List<SyncOperacao>? Data { get; set; }
+    // Fase 2: cursor calculado no servidor (lote vazio/filtrado tambem avanca), marca d'agua da
+    // numeracao e GERACAO do log do hub (mudou = hub restaurado -> rebootstrap).
+    public long? CursorProximo { get; set; }
+    public long? SeqMaxNumerado { get; set; }
+    public string? Geracao { get; set; }
 }
 
 internal class SyncOperacao
@@ -501,4 +591,7 @@ internal class SyncOperacao
     public long NoOrigemId { get; set; }
     public long? FilialDonoId { get; set; }
     public DateTime CriadoEm { get; set; }
+    // Fase 2: numero de entrega + identidade da op (viajam no pull agora)
+    public long? SeqEntrega { get; set; }
+    public Guid? OpUid { get; set; }
 }

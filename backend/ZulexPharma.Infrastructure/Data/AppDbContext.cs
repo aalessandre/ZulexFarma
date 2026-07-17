@@ -2023,6 +2023,9 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.OpUid)
                 .IsUnique()
                 .HasFilter("\"OpUid\" IS NOT NULL");
+            // Fase 2: cursor do pull e' SeqEntrega (so' linhas numeradas sao servidas).
+            e.HasIndex(x => x.SeqEntrega)
+                .HasFilter("\"SeqEntrega\" IS NOT NULL");
         });
 
         // ── SyncQuarentena (dead-letter do sync, Fase 1) ────────────
@@ -2112,8 +2115,11 @@ public class AppDbContext : DbContext
         // SequenciasCentrais = contador fiscal (NFC-e), pinado ao NO dono (cada no numera o seu).
         // NAO pode replicar sob LWW (senao dois nos sobrescrevem o ProximoNumero -> numero fiscal duplicado).
         // GestorTributario* = INFRA local (controle de job/uso do motor tributario) — nao replica.
+        // Configuracoes = FASE 2 (decisao A4 do plano): parou de replicar — o CURSOR do pull morava
+        // nela e replicava como GLOBAL (estado de sync de um no podia sobrescrever o de outro).
+        // Estado do sync agora vive em SyncEstadoLocal; config por-filial e' backlog (B10).
         "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais", "SefazNotas",
-        "SequenciasCentrais", "GestorTributarioJobs", "GestorTributarioUsoMensais"
+        "SequenciasCentrais", "GestorTributarioJobs", "GestorTributarioUsoMensais", "Configuracoes"
     };
 
     // Entidades POR-FILIAL (eixo escopo): o dado pertence a UMA filial (FilialId do usuario logado).
