@@ -534,8 +534,8 @@ public class SyncController : ControllerBase
             // Quarentena (dead-letter do recebimento) — nada pode ficar silencioso no painel.
             var quarentenaPendente = await _db.SyncQuarentena.CountAsync(q => !q.Resolvido);
             var quarentenaPresos = await _db.SyncQuarentena.CountAsync(q => !q.Resolvido &&
-                ((q.Motivo == "PrecisaRetry" && q.Tentativas >= SyncApplicator.MaxTentativasReordenacao) ||
-                 (q.Motivo != "PrecisaRetry" && q.Tentativas >= SyncApplicator.MaxTentativasQuarentena)));
+                (((q.Motivo == "PrecisaRetry" || q.Motivo == "RelogioSuspeito") && q.Tentativas >= SyncApplicator.MaxTentativasReordenacao) ||
+                 (q.Motivo != "PrecisaRetry" && q.Motivo != "RelogioSuspeito" && q.Tentativas >= SyncApplicator.MaxTentativasQuarentena)));
 
             return Ok(new
             {
@@ -627,8 +627,8 @@ public class SyncController : ControllerBase
 
             if (filtro == "presos")
                 query = query.Where(q =>
-                    (q.Motivo == "PrecisaRetry" && q.Tentativas >= SyncApplicator.MaxTentativasReordenacao) ||
-                    (q.Motivo != "PrecisaRetry" && q.Tentativas >= SyncApplicator.MaxTentativasQuarentena));
+                    ((q.Motivo == "PrecisaRetry" || q.Motivo == "RelogioSuspeito") && q.Tentativas >= SyncApplicator.MaxTentativasReordenacao) ||
+                    (q.Motivo != "PrecisaRetry" && q.Motivo != "RelogioSuspeito" && q.Tentativas >= SyncApplicator.MaxTentativasQuarentena));
 
             if (!string.IsNullOrWhiteSpace(tabela))
                 query = query.Where(q => q.Tabela.Contains(tabela));

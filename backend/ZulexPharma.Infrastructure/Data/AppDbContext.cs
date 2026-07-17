@@ -2338,18 +2338,17 @@ public class AppDbContext : DbContext
         {
             await CarregarFilhosCascataAsync(cancellationToken);
 
-            // FASE 3 — TOUCH DO PAI: edicao SO'-de-filho POCO (RemoveRange+re-add sem tocar o
-            // cabecalho) deixava o pai Unchanged -> NENHUMA op era gerada e a mudanca nunca
-            // replicava. Qualquer mudanca em POCO promove o pai AGREGADO tracked pra Modified
-            // (o AtualizadoEm novo tambem faz a versao do agregado andar no LWW).
+            // FASE 3 — TOUCH DO PAI + FORCE-LOAD DA COLECAO: edicao SO'-de-filho POCO (RemoveRange+
+            // re-add, ou Add direto no DbSet como no kiosk) deixava o pai Unchanged -> NENHUMA op e a
+            // mudanca nunca replicava. Alem do touch, CARREGA a colecao do pai quando nao carregada
+            // (fase 3b, achado M2): sem isso a op "U" sairia com a chave OMITIDA e o filho novo
+            // nunca viajaria; carregada, a colecao fica completa (banco + adds locais) e autoritativa.
             foreach (var pocoEntry in ChangeTracker.Entries()
                          .Where(e => e.Entity is not BaseEntity &&
                                      e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
                          .ToList())
             {
-                var pai = AcharPaiAgregadoTracked(pocoEntry, 0);
-                if (pai != null && pai.State == EntityState.Unchanged)
-                    pai.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora(); // vira Modified
+                await TocarPaisECarregarColecoesAsync(pocoEntry, 0, cancellationToken);
             }
         }
 
@@ -2359,8 +2358,10 @@ public class AppDbContext : DbContext
 
             if (entry.State == EntityState.Added)
             {
-                if (entry.Entity.NoOrigemId == null && noOrigem > 0)
-                    entry.Entity.NoOrigemId = noOrigem;
+                // FASE 3b (achado ALTO A3): carimba INCLUSIVE no hub (0) — NoOrigemId null significa
+                // "linha pre-sync/seed" e desliga o guard de identidade (adota guid); deixar as linhas
+                // do hub como null desligava o guard exatamente no no que recebe de todo mundo.
+                entry.Entity.NoOrigemId ??= noOrigem;
                 entry.Entity.AtualizadoPorNoId = noOrigem; // fase 3: escritor real da versao atual
 
                 // Gerar Codigo visível (sequencial local; o no fica na coluna NoOrigemId)
@@ -2468,15 +2469,19 @@ public class AppDbContext : DbContext
     }
 
     /// <summary>
-    /// FASE 3 — acha o AGREGADO tracked dono de um filho POCO subindo pelas FKs (Desconto ->
-    /// VendaItem -> Venda). Usado pelo touch-do-pai: mudanca so' em POCO precisa gerar op "U" do pai.
+    /// FASE 3/3b — sobe pelas FKs do filho POCO (Desconto -> VendaItem -> Venda) e, pra CADA pai com
+    /// navegacao de colecao (M3: um POCO de juncao pode ter DOIS pais agregados — toca ambos):
+    /// (a) se o pai e' AGREGADO tracked Unchanged -> touch (AtualizadoEm) pra gerar a op "U";
+    /// (b) se a colecao do pai nao esta' carregada -> LoadAsync (M2: senao a op sai com a chave
+    ///     omitida e o filho novo NUNCA viaja; carregar mescla banco + mudancas locais = completa).
     /// </summary>
-    private Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<BaseEntity>? AcharPaiAgregadoTracked(
-        Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry filho, int profundidade)
+    private async Task TocarPaisECarregarColecoesAsync(
+        Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry filho, int profundidade, CancellationToken ct)
     {
-        if (profundidade > 3) return null;
+        if (profundidade > 3) return;
         foreach (var fk in filho.Metadata.GetForeignKeys())
         {
+            if (fk.PrincipalToDependent?.IsCollection != true) continue; // so' relacao pai->colecao
             var principalClr = fk.PrincipalEntityType.ClrType;
             var valorFk = filho.Property(fk.Properties[0].Name).CurrentValue;
             if (valorFk == null) continue;
@@ -2487,22 +2492,28 @@ public class AppDbContext : DbContext
                 if (!Services.SyncApplicator.TiposAgregado.Contains(principalClr)) continue;
                 var pai = ChangeTracker.Entries<BaseEntity>()
                     .FirstOrDefault(e => e.Entity.GetType() == principalClr && e.Entity.Id == idPai);
-                if (pai != null) return pai;
+                if (pai == null || pai.State == EntityState.Deleted) continue;
+
+                if (pai.State == EntityState.Unchanged)
+                    pai.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora(); // vira Modified
+
+                var colecao = pai.Collection(fk.PrincipalToDependent.Name);
+                if (!colecao.IsLoaded && pai.State != EntityState.Added)
+                    await colecao.LoadAsync(ct);
             }
             else
             {
-                // pai intermediario e' POCO (VendaItem) -> sobe mais um nivel
+                // pai intermediario e' POCO (VendaItem) -> carrega a colecao DELE tambem e sobe
                 var paiPoco = ChangeTracker.Entries()
                     .FirstOrDefault(e => e.Entity.GetType() == principalClr
                         && Convert.ToInt64(e.Property("Id").CurrentValue ?? 0L) == idPai);
-                if (paiPoco != null)
-                {
-                    var raiz = AcharPaiAgregadoTracked(paiPoco, profundidade + 1);
-                    if (raiz != null) return raiz;
-                }
+                if (paiPoco == null || paiPoco.State == EntityState.Deleted) continue;
+                var colecaoPoco = paiPoco.Collection(fk.PrincipalToDependent.Name);
+                if (!colecaoPoco.IsLoaded && paiPoco.State != EntityState.Added)
+                    await colecaoPoco.LoadAsync(ct);
+                await TocarPaisECarregarColecoesAsync(paiPoco, profundidade + 1, ct);
             }
         }
-        return null;
     }
 
     private static readonly JsonSerializerOptions _jsonOutbox = new()

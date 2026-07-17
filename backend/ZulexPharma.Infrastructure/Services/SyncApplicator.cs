@@ -19,7 +19,8 @@ public enum ResultadoSync
     TipoDesconhecido,  // tabela fora do dicionario — quarentena/log (nunca silencioso)
     // Fase 3:
     ColisaoIdentidade, // PK igual mas SyncGuid diferente em linha JA' SINCronizada = no gemeo/faixa errada — quarentena, NUNCA SetValues
-    RelogioSuspeito    // timestamp da op > agora+5min: aplicar venceria o LWW por horas — segura na quarentena
+    RelogioSuspeito,   // timestamp da op > agora+5min: aplicar venceria o LWW por horas — segura na quarentena (teto alto: resolve quando o tempo alcanca)
+    RecriacaoSemGrafo  // U recriaria agregado sobre lapide mas o JSON OMITE colecoes: recriar sem filhos = dado fiscal capenga — quarentena
 }
 
 /// <summary>
@@ -74,6 +75,13 @@ public static class SyncApplicator
             await db.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT pg_advisory_xact_lock(hashtextextended({tabela + ":" + registroId}, 0))", ct);
 
+            // FASE 3b (achado CRITICO C2 da revisao): o contexto e' COMPARTILHADO pelo lote e o
+            // identity map do EF devolve a instancia JA' RASTREADA descartando os valores frescos do
+            // banco — o LWW compararia contra versao STALE (escrita concorrente de outro request
+            // ficava invisivel, e tx revertida deixava entidade suja envenenando o resto do lote).
+            // Limpa o tracker POR OP (preserva SyncFila/SyncQuarentena — linhas de painel pendentes).
+            LimparTrackerDaOp(db);
+
             var res = await AplicarNucleoAsync(db, tipo, tabela, operacao, registroId, entidade, dadosJson, opCriadoEm, noOrigemId, ct);
 
             if (txPropria != null) await txPropria.CommitAsync(ct);
@@ -112,7 +120,9 @@ public static class SyncApplicator
 
         // I/U — o cabecalho decide (LWW/lapide/insert); os filhos POCO sao reconciliados em seguida,
         // na MESMA transacao (fase 3: header+filhos atomicos — a janela de venda-sem-itens morreu).
-        var res = await AplicarCabecalhoAsync(db, tipo, tabela, operacao, registroId, entidade!, noOrigemId, ct);
+        var ehAgregado = _tiposAgregado.Contains(tipo);
+        var grafoCompleto = !ehAgregado || PayloadTemTodasAsColecoes(db, tipo, dadosJson!);
+        var res = await AplicarCabecalhoAsync(db, tipo, tabela, operacao, registroId, entidade!, noOrigemId, grafoCompleto, ct);
 
         if (_tiposAgregado.Contains(tipo) && res is ResultadoSync.Aplicado or ResultadoSync.Idempotente)
         {
@@ -138,6 +148,37 @@ public static class SyncApplicator
     /// <summary>Escritor da versao ATUAL da linha. Null (legado) cai pro criador; sem nada = 0 (hub).</summary>
     private static long EscritorDe(BaseEntity e) => e.AtualizadoPorNoId ?? e.NoOrigemId ?? 0;
 
+    /// <summary>
+    /// FASE 3b (C2): detacha TUDO exceto SyncFila/SyncQuarentena (linhas de painel/quarentena
+    /// pendentes). Cada op comeca com tracker limpo -> BuscarPorId le o BANCO, nao a instancia
+    /// stale da op anterior do lote.
+    /// </summary>
+    private static void LimparTrackerDaOp(AppDbContext db)
+    {
+        foreach (var entry in db.ChangeTracker.Entries().ToList())
+        {
+            if (entry.Entity is SyncFila or SyncQuarentena) continue;
+            entry.State = EntityState.Detached;
+        }
+    }
+
+    /// <summary>Fase 3b (A1): o JSON traz TODAS as colecoes POCO do agregado? (chave presente, mesmo vazia)</summary>
+    private static bool PayloadTemTodasAsColecoes(AppDbContext db, Type tipo, string dadosJson)
+    {
+        var et = db.Model.FindEntityType(tipo);
+        if (et == null) return true;
+        using var doc = JsonDocument.Parse(dadosJson);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object) return false;
+        foreach (var nav in et.GetNavigations().Where(n =>
+                     n.IsCollection && !typeof(BaseEntity).IsAssignableFrom(n.TargetEntityType.ClrType)))
+        {
+            var chave = JsonNamingPolicy.CamelCase.ConvertName(nav.Name);
+            if (!doc.RootElement.TryGetProperty(chave, out var v) || v.ValueKind != JsonValueKind.Array)
+                return false;
+        }
+        return true;
+    }
+
     // Agregados cujos filhos POCO (nao-BaseEntity) precisam viajar/aplicar junto do cabecalho.
     // Agregados cujos filhos POCO viajam no JSON do pai + upsert em cascata (mesmo mecanismo do 2d).
     // Cliente/Convenio/Promocao/Hierarquias/Adquirente/CampanhaFidelidade tem filhos POCO que NAO
@@ -154,7 +195,7 @@ public static class SyncApplicator
     public static IReadOnlySet<Type> TiposAgregado => _tiposAgregado;
 
     /// <summary>Aplica so' o CABECALHO (LWW/insert/tombstone/23505). Os filhos POCO sao tratados a' parte.</summary>
-    private static async Task<ResultadoSync> AplicarCabecalhoAsync(AppDbContext db, Type tipo, string tabela, string operacao, long registroId, BaseEntity entidade, long noOrigemId, CancellationToken ct)
+    private static async Task<ResultadoSync> AplicarCabecalhoAsync(AppDbContext db, Type tipo, string tabela, string operacao, long registroId, BaseEntity entidade, long noOrigemId, bool grafoCompleto, CancellationToken ct)
     {
         // FASE 3: o escritor da versao que chega e' o NO DA OP (credencial no hub) — forca aqui
         // porque payload de no antigo pode nao trazer o campo.
@@ -183,6 +224,13 @@ public static class SyncApplicator
         var incomingTs = entidade.AtualizadoEm ?? entidade.CriadoEm;
         if (tomba != null && CompararVersao(incomingTs, noOrigemId, tomba.DeletadoEm, tomba.NoOrigemId) <= 0)
             return ResultadoSync.Stale; // edicao MAIS VELHA (ou empate) que a morte -> nao ressuscita
+
+        // FASE 3b (achado ALTO A1): recriar AGREGADO sobre a lapide a partir de um "U" cujo JSON
+        // OMITE colecoes (origem editou sem Include) criaria o pai SEM filhos — e o cascade do D ja'
+        // levou os antigos: venda viva com zero itens, pra sempre. Quarentena (decisao humana /
+        // estado completo), nunca upsert cego.
+        if (tomba != null && operacao == "U" && !grafoCompleto)
+            return ResultadoSync.RecriacaoSemGrafo;
 
         // FASE 3 (P0.6): INSERT novo, revivencia legitima (incoming MAIS NOVO que a lapide) OU um
         // "U" orfao. O U carrega o ESTADO COMPLETO (snapshot JSON), entao upsert e' correto — o
@@ -228,17 +276,26 @@ public static class SyncApplicator
     /// </summary>
     private static async Task<ResultadoSync> ReconciliarFilhosPocoAsync(AppDbContext db, BaseEntity grafo, string dadosJson, CancellationToken ct)
     {
+        // FASE 3b (achado CRITICO C1): os DELETE-MISSING (SQL cru) executam ANTES do SaveChanges dos
+        // upserts. Se o insert falhar (FK ainda nao replicada), o savepoint automatico do EF desfaz
+        // SO' os upserts — os DELETEs ficariam e a op commitaria com PrecisaRetry: venda sem NENHUM
+        // item no destino ate' a drenagem (ou pra sempre, no teto). SAVEPOINT MANUAL cobre o bloco
+        // inteiro: falhou -> volta tudo -> os filhos antigos continuam la' ate' o retry aplicar.
+        var tx = db.Database.CurrentTransaction;
+        if (tx != null) await tx.CreateSavepointAsync("reconcilia_filhos", ct);
         try
         {
             using var doc = JsonDocument.Parse(dadosJson);
             await ReconciliarColecoesAsync(db, grafo, doc.RootElement, ct);
             await db.SaveChangesAsync(ct); // um commit logico: EF ordena inserts por FK (item antes do desconto)
+            if (tx != null) await tx.ReleaseSavepointAsync("reconcilia_filhos", ct);
             return ResultadoSync.Aplicado;
         }
         catch (DbUpdateException ex) when (EhFkViolation(ex))
         {
             // filho aponta pra FK que ainda nao replicou (ex.: ProdutoVariacao) = dependencia
             // transitoria -> PrecisaRetry (teto alto), nao "Erro" (teto 5).
+            if (tx != null) await tx.RollbackToSavepointAsync("reconcilia_filhos", ct);
             Desanexar(db);
             return ResultadoSync.PrecisaRetry;
         }
@@ -426,21 +483,21 @@ public static class SyncApplicator
                     x => x.Tabela == tabela && x.RegistroId == registroId && x.Operacao == operacao, ct);
                 if (q != null)
                 {
-                    AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro, opUid, filialDonoId);
+                    AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro, opUid, filialDonoId, noOrigemId);
                     await db.SaveChangesAsync(ct);
                 }
             }
         }
         else
         {
-            AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro, opUid, filialDonoId);
+            AtualizarQuarentena(q, dadosJson, opCriadoEm, motivo, erro, opUid, filialDonoId, noOrigemId);
             await db.SaveChangesAsync(ct);
         }
         Log.Warning("Sync quarentena [{Motivo}] {Tabela}/{Op} Id={Id}: {Erro}", motivo, tabela, operacao, registroId, erro ?? motivo);
     }
 
     private static void AtualizarQuarentena(SyncQuarentena q, string? dadosJson, DateTime opCriadoEm,
-        string motivo, string? erro, Guid? opUid = null, long? filialDonoId = null)
+        string motivo, string? erro, Guid? opUid = null, long? filialDonoId = null, long? noOrigemId = null)
     {
         // FASE 2b (achado ALTO da revisao): a chave logica e' (Tabela,RegistroId,Operacao), entao ops
         // DIFERENTES do mesmo registro dividem a linha — e a quarentena e' a UNICA copia da op (o
@@ -448,12 +505,15 @@ public static class SyncApplicator
         // deixava uma op MAIS VELHA substituir a mais nova: quando o retry aplicasse, o hub
         // distribuia a versao velha e a nova morria so' no no autor — divergencia permanente.
         // Regra: o payload guardado e' sempre o da op MAIS NOVA (LWW da propria quarentena).
+        // FASE 3b (A2): o ESCRITOR acompanha o payload — senao o retry aplicava o payload do no 3
+        // carimbando escritor 2, e o anti-eco escondia a op justamente do no errado.
         if (opCriadoEm >= q.OpCriadoEm)
         {
             q.DadosJson = dadosJson;
             q.OpCriadoEm = opCriadoEm;
             q.OpUid = opUid ?? q.OpUid;
             q.FilialDonoId = filialDonoId ?? q.FilialDonoId;
+            if (noOrigemId != null) q.NoOrigemId = noOrigemId.Value;
         }
         q.Motivo = motivo;
         q.Tentativas += 1;
@@ -518,8 +578,8 @@ public static class SyncApplicator
     {
         var pendentes = await db.SyncQuarentena.AsNoTracking()
             .Where(q => !q.Resolvido && (
-                (q.Motivo == "PrecisaRetry" && q.Tentativas < MaxTentativasReordenacao) ||
-                (q.Motivo != "PrecisaRetry" && q.Tentativas < MaxTentativasQuarentena)))
+                ((q.Motivo == "PrecisaRetry" || q.Motivo == "RelogioSuspeito") && q.Tentativas < MaxTentativasReordenacao) ||
+                (q.Motivo != "PrecisaRetry" && q.Motivo != "RelogioSuspeito" && q.Tentativas < MaxTentativasQuarentena)))
             .OrderBy(q => q.Id).Take(200).ToListAsync(ct);
         if (pendentes.Count == 0) return 0;
 
