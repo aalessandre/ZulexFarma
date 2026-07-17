@@ -182,6 +182,21 @@ Ordem obrigatória: 0 → 1 → 2 → 3 → 4 → 5. Não paralelizar fases; den
 
 ### FASE 3 — Convergência: LWW atômico, U/D, filhos POCO
 
+> ✅ **EXECUTADA em 17/07/2026** (Fable, `dev-pc1`): commits `7fbad80` (código), `3cfce13` (testes),
+> `19a45ae` (fase 3b — revisão adversarial). **Gate 3 BATIDO**: suíte 57 verdes + 1 vermelho
+> (MovimentoEstoque ledger — fase 4). Entregue: `AtualizadoPorNoId` (escritor real) + comparador
+> único (ts, escritor) valendo pra linha×linha×lápide; atomicidade por op (tx + advisory lock por
+> registro — applies concorrentes serializam, cabeçalho+filhos num commit); U/D convergente (U mais
+> novo que a lápide recria; U órfão = upsert); contrato de coleção nos DOIS lados (outbox omite
+> não-carregada, "I" inclui tudo, force-load no touch-do-pai; applicator: chave presente =
+> delete-missing recursivo com savepoint); `SyncGuid` UNIQUE + `ColisaoIdentidade` (linha pré-sync
+> adota o guid); `RelogioSuspeito` (+5min, teto alto); lápides SEM purga (A7); touch-do-pai pra
+> edição só-de-filho (todos os pais com nav de coleção; kiosk coberto). A revisão adversarial pegou
+> DE NOVO 2 críticos declarados prontos (delete-missing commitando sem os inserts; tracker stale do
+> lote furando o LWW) — 3ª fase seguida em que o método salva. **Pendências anotadas** (fase 4/5):
+> teto da quarentena por TEMPO (não execuções) no hub; guard de identidade pros filhos POCO;
+> migration da fase 3 recria ~96 índices únicos — em produção futura, pré-criar fora de pico.
+
 *Invariante-alvo: dadas as mesmas ops em qualquer ordem, todos os nós terminam no mesmo estado (linhas E lápides); editar um agregado N vezes não duplica filho.*
 
 1. **Escritor real na linha:** coluna `AtualizadoPorNoId int NULL` na `BaseEntity` (uma migration, ~130 tabelas, nullable, sem backfill). Outbox carimba `_noCodigo` em toda escrita local; applicator carimba `op.NoOrigemId` ao aplicar remoto. `NoOrigemId` da entidade volta a ser só "criador" (histórico).
