@@ -10,6 +10,32 @@ namespace ZulexPharma.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // FASE 4b (achado CRITICO da revisao adversarial, CONFIRMADO no banco de dev): a
+            // reciclagem de sequences do passado ja' criou (Codigo, NoOrigemId) DUPLICADOS em
+            // Pessoas/PessoasEndereco/Fornecedores/Fabricantes — o CREATE UNIQUE INDEX abaixo
+            // mataria o boot (fail-fast do MigrateAsync). Re-codifica as duplicatas MAIS NOVAS
+            // (mantem a de menor Id) como '{Codigo}-r{Id}' ANTES de criar os indices.
+            // Nota: correcao LOCAL (nao replica) — as duplicatas eram fruto de bug local.
+            migrationBuilder.Sql("""
+                DO $$
+                DECLARE t record;
+                BEGIN
+                  FOR t IN
+                    SELECT c.table_name FROM information_schema.columns c
+                    WHERE c.column_name = 'Codigo' AND c.table_schema = 'public'
+                      AND EXISTS (SELECT 1 FROM information_schema.columns c2
+                                  WHERE c2.table_name = c.table_name
+                                    AND c2.column_name = 'NoOrigemId' AND c2.table_schema = 'public')
+                  LOOP
+                    EXECUTE format(
+                      'UPDATE %I x SET "Codigo" = x."Codigo" || ''-r'' || x."Id"
+                       FROM (SELECT "Id", ROW_NUMBER() OVER (PARTITION BY "Codigo", "NoOrigemId" ORDER BY "Id") rn
+                             FROM %I WHERE "Codigo" IS NOT NULL AND "NoOrigemId" IS NOT NULL) d
+                       WHERE x."Id" = d."Id" AND d.rn > 1', t.table_name, t.table_name);
+                  END LOOP;
+                END $$;
+                """);
+
             migrationBuilder.DropIndex(
                 name: "IX_Vouchers_Codigo",
                 table: "Vouchers");

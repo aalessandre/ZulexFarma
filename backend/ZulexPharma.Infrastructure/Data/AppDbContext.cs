@@ -2355,7 +2355,10 @@ public class AppDbContext : DbContext
             }
         }
 
-        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        // .ToList() OBRIGATORIO (fase 4b): o ColetarOpAsync pode ADICIONAR SyncQuarentena ao tracker
+        // (DonoNaoResolvido) — mutacao durante enumeracao lazy = 'Collection was modified' e o save
+        // do usuario inteiro morre.
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>().ToList())
         {
             var tabela = entry.Metadata.GetTableName() ?? entry.Entity.GetType().Name;
 
@@ -2481,6 +2484,12 @@ public class AppDbContext : DbContext
         string tabela, string op,
         Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<BaseEntity> entry, CancellationToken ct)
     {
+        // FASE 4b (achado A4): LEDGER so' emite 'I'. O SetNull/cascata de uma exclusao (ex.: excluir
+        // Perda nula VendaId dos MovimentosLote -> entry Modified -> op 'U') geraria LedgerImutavel
+        // eterno em TODOS os receptores — o efeito local do cascade se repete em cada no via o D do
+        // pai, nao precisa (nem pode) replicar como U/D de ledger.
+        if (op != "I" && Services.SyncRegistry.TabelasLedger.Contains(tabela)) return;
+
         var (dono, naoResolvido) = await ResolverFilialDonoAsync(entry, ct);
         if (!naoResolvido)
         {
@@ -2488,9 +2497,12 @@ public class AppDbContext : DbContext
             return;
         }
 
-        var jaExiste = await SyncQuarentena.AnyAsync(q =>
-            q.Tabela == tabela && q.RegistroId == entry.Entity.Id && q.Operacao == op, ct);
-        if (!jaExiste)
+        // Upsert REABRINDO linha resolvida (fase 4b, achado M5): apos um descarte manual sem corrigir
+        // a derivacao, a proxima edicao da mesma op precisa REACENDER o alarme — o AnyAsync antigo
+        // pulava a linha Resolvida e a op sumia em silencio (alem do risco de 23505 no indice unico).
+        var q = await SyncQuarentena.FirstOrDefaultAsync(x =>
+            x.Tabela == tabela && x.RegistroId == entry.Entity.Id && x.Operacao == op, ct);
+        if (q == null)
         {
             SyncQuarentena.Add(new SyncQuarentena
             {
@@ -2501,6 +2513,14 @@ public class AppDbContext : DbContext
                 UltimoErro = "Filial-dona nao derivada (cadeia de pai nao resolveu) — op NAO replicada. " +
                              "Corrigir a derivacao/classificacao e reprocessar manualmente."
             });
+        }
+        else
+        {
+            q.Motivo = "DonoNaoResolvido";
+            q.DadosJson = op == "D" ? null : SerializarComContratoDeColecao(entry.Entity, op);
+            q.OpCriadoEm = Domain.Helpers.DataHoraHelper.Agora();
+            q.Resolvido = false;
+            q.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
         }
     }
 

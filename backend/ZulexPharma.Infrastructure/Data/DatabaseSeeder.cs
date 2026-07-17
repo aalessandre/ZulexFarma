@@ -39,16 +39,21 @@ public static class DatabaseSeeder
         // CFOP 5102 = venda mercadoria, CSOSN 102 = Simples Nacional tributada, Origem 0 = Nacional
         // PIS/COFINS CST 49 = Outras operações de saída, IPI CST 99 = Outras saídas
         // FASE 4 (P0.12): FilialId era HARDCODED = 1 — todo deployment criava dado fiscal da filial 1
-        // (a filial de OUTRO no). Agora usa a filial DESTE no.
-        var filialFiscal = noCodigo > 0 ? (long)noCodigo : 1L;
-        await context.Database.ExecuteSqlInterpolatedAsync($@"
-            INSERT INTO ""ProdutosFiscal"" (""ProdutoId"", ""FilialId"", ""Cfop"", ""OrigemMercadoria"", ""CstIcms"", ""Csosn"", ""AliquotaIcms"", ""CstPis"", ""AliquotaPis"", ""CstCofins"", ""AliquotaCofins"", ""CstIpi"", ""AliquotaIpi"", ""Ativo"", ""CriadoEm"", ""SyncGuid"")
-            SELECT p.""Id"", {filialFiscal}, '5102', '0', NULL, '102', 0, '49', 0, '49', 0, '99', 0, true, NOW(), gen_random_uuid()
-            FROM ""Produtos"" p
-            WHERE NOT EXISTS (
-                SELECT 1 FROM ""ProdutosFiscal"" pf WHERE pf.""ProdutoId"" = p.""Id"" AND pf.""FilialId"" = {filialFiscal}
-            )
-        ");
+        // (a filial de OUTRO no). Agora usa a filial DESTE no; e o HUB NAO semeia (fase 4b): ele
+        // recebe os ProdutosFiscal das lojas via sync — fabricar aqui colidiria no unique
+        // (ProdutoId, FilialId) com o 'I' real da loja (quarentena eterna).
+        if (noCodigo > 0)
+        {
+            var filialFiscal = (long)noCodigo;
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""ProdutosFiscal"" (""ProdutoId"", ""FilialId"", ""Cfop"", ""OrigemMercadoria"", ""CstIcms"", ""Csosn"", ""AliquotaIcms"", ""CstPis"", ""AliquotaPis"", ""CstCofins"", ""AliquotaCofins"", ""CstIpi"", ""AliquotaIpi"", ""Ativo"", ""CriadoEm"", ""SyncGuid"")
+                SELECT p.""Id"", {filialFiscal}, '5102', '0', NULL, '102', 0, '49', 0, '49', 0, '99', 0, true, NOW(), gen_random_uuid()
+                FROM ""Produtos"" p
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM ""ProdutosFiscal"" pf WHERE pf.""ProdutoId"" = p.""Id"" AND pf.""FilialId"" = {filialFiscal}
+                )
+            ");
+        }
 
         // Configurar sequences para a faixa de IDs da filial
         if (noCodigo > 0)
@@ -327,6 +332,19 @@ public static class DatabaseSeeder
                 context.IcmsUfs.Add(new IcmsUf { Id = i + 1, Uf = ufsSeed[i].uf, NomeEstado = ufsSeed[i].nome, AliquotaInterna = ufsSeed[i].aliq });
             await context.SaveChangesAsync();
             Log.Information("Seed: 27 IcmsUf criados (Ids fixos 1-27, sem enfileirar).");
+        }
+
+        // FASE 4b (achado da revisao): no HUB (no 0, sem ConfigurarSequences) os seeds com Id FIXO
+        // nao avancam a identity — a primeira criacao de usuario tomaria 23505 ate' a sequence
+        // passar do range fixo. Avanca as identities pra depois dos Ids seedados.
+        if (noCodigo == 0)
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                SELECT setval(pg_get_serial_sequence('""TiposPagamento""','Id'),
+                              GREATEST((SELECT COALESCE(MAX(""Id""),0) FROM ""TiposPagamento"" WHERE ""Id"" < 1000000000), 100), true);");
+            await context.Database.ExecuteSqlRawAsync(@"
+                SELECT setval(pg_get_serial_sequence('""IcmsUfs""','Id'),
+                              GREATEST((SELECT COALESCE(MAX(""Id""),0) FROM ""IcmsUfs"" WHERE ""Id"" < 1000000000), 100), true);");
         }
 
         context.AplicandoSync = false;
