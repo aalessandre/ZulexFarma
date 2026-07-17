@@ -2074,9 +2074,10 @@ public class AppDbContext : DbContext
         });
     }
 
-    // Tabelas que NÃO geram Codigo nem entram na SyncFila
-    // Tabelas que NÃO geram SyncFila (infraestrutura de sync apenas).
-    // REGRA: todas as filiais veem dados de todas as filiais. TUDO replica.
+    // Tabelas que NÃO geram Codigo nem entram na SyncFila (infraestrutura, nao replica).
+    // ATENCAO: a regra vigente NAO e' "tudo replica" — o escopo e' GLOBAL (todos os nos) vs
+    // POR-FILIAL (dono + hub) vs INFRA (nunca). Fonte: classificacao-replicacao.md + plano
+    // plano-correcao-replicacao-2026-07-17.md (fase 4 unifica esta denylist num registry unico).
     // Nota: DicionarioTabelas/Revisoes/Relacionamentos não herdam BaseEntity,
     // então não passam pelo interceptor — não precisam estar aqui.
     private static readonly HashSet<string> _tabelasSemSync = new()

@@ -21,8 +21,11 @@
 
 ## Usuario SISTEMA
 - Login: SISTEMA (case-insensitive)
-- Senha: `SHA256(YYYYMMDD + SistemaKey)[0..8]` em hex
-- Endpoint: `GET /api/auth/senha-sistema?key={SistemaApiKey}`
+- Senha: `SHA256(YYYYMMDD + SistemaKey)[0..8]` em hex (data em UTC)
+- ~~Endpoint `GET /api/auth/senha-sistema?key=`~~ — **REMOVIDO em 17/07/2026** (fase 0 do plano de
+  replicacao): era anonimo e revelava a senha que emite token admin. O suporte obtem a senha do dia
+  pelo **ZulexAdmin** (`GET /api/produtos/senha-dia` — root-only + auditado; mesmo algoritmo).
+  Requisito: a `SistemaKey` (env var) precisa ser a MESMA no ErpPharma e no ZulexAdmin.
 - Acesso total, sem restricoes
 - Nao precisa existir no banco
 

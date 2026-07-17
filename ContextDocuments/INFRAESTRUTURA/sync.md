@@ -1,5 +1,9 @@
 # Infraestrutura: Sincronizacao v2 (Fila de Operacoes)
 
+> **Plano de execucao vigente:** `plano-correcao-replicacao-2026-07-17.md` (mesma pasta) — 6 fases
+> com gates de teste, decisoes travadas e o que NAO fazer. Este arquivo descreve o MECANISMO atual;
+> em conflito, o plano vence. Retrato completo (erros/historico): `synAteAqui.md`.
+
 ## Arquitetura
 - **Railway (nuvem)** = servidor central (hub de operacoes)
 - **PC local** = cada farmacia roda backend + PostgreSQL local
@@ -143,19 +147,10 @@ Controla o proximo sequencial do Codigo visivel por tabela.
 - Lembrete: as sequences nascem no BOOT (`DatabaseSeeder.CriarSequencesCodigo` varre information_schema por
   TODA tabela com coluna `Codigo`), entao pos-boot o fallback e' caminho morto — mas agora, se disparar,
   funciona de verdade.
-- A lapide (SyncTombstone) so' e' gravada ao APLICAR um delete REMOTO: `RegistrarTombstoneAsync` tem UM
-  unico chamador, `SyncApplicator.AplicarOperacaoAsync` no ramo `operacao == "D"`. O OUTBOX (AppDbContext)
-  NAO grava lapide quando o usuario apaga um registro LOCALMENTE — ele so' gera a op "D" pra fila.
-- Consequencia: o no que apagou fica SEM lapide do proprio delete, entao um "I" remoto ATRASADO do mesmo
-  registro passa pelo teste `BuscarTombstoneAsync` (nao acha nada) e RE-INSERE o registro.
-  Trace: B apaga X as 10:00 (sem lapide local). A tinha gerado "I" de X as 09:59, ainda em transito.
-  B puxa as 10:01 -> X nao existe -> sem lapide -> INSERT -> **X ressuscita em B**. O "D" do B chega em A,
-  que apaga X e grava lapide (caminho remoto). Resultado: X morto em A, VIVO em B -> divergencia PERMANENTE.
-- Cura: o outbox deve gravar a lapide TAMBEM no delete local (Tabela, RegistroId, DeletadoEm=Agora(),
-  NoOrigemId=self), com upsert (a chave (Tabela,RegistroId) e' unica — cuidado pra nao quebrar o delete do
-  usuario com 23505). Ai' o LWW da lapide (DeletadoEm >= incomingTs => Stale) passa a proteger os dois lados.
-- Achado em 07/2026 pela revisao adversarial da varredura (a varredura AMPLIAVA esta janela ao re-servir ops
-  velhas, mas o bug independe dela).
+- ~~Lapide so' no delete remoto~~ — **CORRIGIDO em 07/2026** (ver secao "RESSURREICAO por delete LOCAL"
+  acima; o outbox crava a lapide TAMBEM no delete local, upsert atomico ON CONFLICT). Esta secao descrevia
+  o bug quando ainda estava aberto e foi mantida por engano depois do fix — o texto duplicado/contraditorio
+  foi removido em 17/07/2026 (limpeza documental da fase 0 do plano).
 
 ### GAP do cursor (BUG PRE-EXISTENTE, ativo — nao corrigido)
 - O PULL usa `Id > ultimoId`. Mas o `SyncFila.Id` e' atribuido no **INSERT** e so' fica **visivel no
@@ -210,13 +205,16 @@ Controla o proximo sequencial do Codigo visivel por tabela.
 - GET /api/sync/receber — PC puxa operacoes pendentes
 - GET /api/sync/status — pendentes, erros, ultimo sync
 - GET /api/sync/fila — listagem paginada com filtros (para tela)
+- GET /api/sync/quarentena — lista a dead-letter (motivo/tentativas/erro)
+- POST /api/sync/quarentena/reprocessar — zera tentativas e drena
+- POST /api/sync/resetar-recebimento — zera o ponteiro do pull ("rebuscar tudo")
 - POST /api/sync/forcar-envio — forca envio no proximo ciclo
-- POST /api/sync/limpar — limpa registros antigos
+- POST /api/sync/limpar — limpa registros antigos (le sync.limpeza.dias)
 
 ## Configuracoes
 ```json
 {
-  "Filial": { "Codigo": 1 },
+  "No": { "Modo": "Edge", "Codigo": 1 },
   "Sync": {
     "Habilitado": false,
     "IntervaloSegundos": 30,
@@ -226,6 +224,11 @@ Controla o proximo sequencial do Codigo visivel por tabela.
   }
 }
 ```
+- **Fase 0 (17/07/2026): `No:Modo` e' OBRIGATORIO** — `Hub` (central, codigo 0, sem loop), `Edge`
+  (loja, codigo >= 1) ou `StandaloneCloud` (sem replicacao, nao captura outbox). Vem de env var
+  (`No__Modo`) ou appsettings.Development.json; o appsettings.json versionado NAO traz identidade
+  nem segredo. Ausente/contraditorio = boot falha alto (`NoDeployment.Resolver`).
+- Chave legada `Filial:Codigo` ainda e' aceita como fallback SO' do numero.
 
 Editaveis na tela Configuracoes do sistema:
 - sync.intervalo.segundos (min 7, max 300)
@@ -233,10 +236,13 @@ Editaveis na tela Configuracoes do sistema:
 - sync.limpeza.dias (min 5, max 15)
 
 ## Tabelas que NÃO entram na fila
-- Configuracoes (local por filial)
-- DicionarioTabelas, DicionarioRevisoes (ferramenta dev)
-- SyncFila (controle interno)
-- SequenciaLocal (controle interno)
+- DicionarioTabelas, DicionarioRevisoes (ferramenta dev, nao herdam BaseEntity)
+- SyncFila, SequenciaLocal, SequenciaCentral (controle interno)
+- AbcFarmaBase, CertificadosDigitais, SefazNotas, GestorTributario*
+- **ATENCAO (bug ativo, cura fase 2 do plano): `Configuracoes` HOJE ENTRA na fila** (replica como
+  GLOBAL) — este doc dizia o contrario. E' grave porque o CURSOR do pull (`sync.ultimo.id.recebido`)
+  mora nela: o estado de sync de um no pode vazar pra outro. Teste vermelho:
+  `EscopoTests.Configuracao_NaoDeveEntrarNaSyncFila`.
 
 ## IDs globais por faixa de filial
 - Cada filial tem uma faixa exclusiva de IDs (1 bilhao por filial)

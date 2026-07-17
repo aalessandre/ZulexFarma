@@ -1,5 +1,13 @@
 # Infraestrutura: Multi-filial
 
+> ⚠️ **HISTORICO — NAO IMPLEMENTAR.** Arquivado em 17/07/2026 (limpeza documental da fase 0 do plano
+> de replicacao). Este doc descreve o modelo ANTIGO e contradiz o vigente em pontos centrais:
+> aqui o `Id` e' "auto-increment LOCAL, pode variar entre PCs" e o `Codigo` e' a identidade global —
+> no modelo VIGENTE o `Id` e' globalmente unico por faixa de no (preservado cross-no, FKs valem sem
+> remapeamento) e o Codigo e' so' visual. E o "todas as tabelas replicam / todos veem tudo" foi
+> substituido pelo escopo GLOBAL × POR-FILIAL × INFRA (`classificacao-replicacao.md`).
+> Fontes vigentes: `INFRAESTRUTURA/plano-correcao-replicacao-2026-07-17.md` > `INFRAESTRUTURA/synAteAqui.md` > `INFRAESTRUTURA/sync.md`.
+
 ## Conceito geral
 - Cada farmacia roda seu proprio backend + PostgreSQL local
 - Railway (nuvem) eh o servidor central passivo
