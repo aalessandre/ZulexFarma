@@ -222,6 +222,25 @@ Ordem obrigatória: 0 → 1 → 2 → 3 → 4 → 5. Não paralelizar fases; den
 
 ### FASE 4 — Registry fail-closed + domínio mínimo
 
+> ✅ **EXECUTADA (núcleo de replicação) em 17/07/2026** (Fable, `dev-pc1`): commits `4c0c786` +
+> `2f8904b` (fase 4b — revisão adversarial). **Suíte 61/61 VERDE — zero bugs conhecidos abertos no
+> subsistema.** Entregue: `SyncRegistry` (classificação explícita de TODAS as entidades + validação
+> fail-closed no boot: entidade nova sem classificar/fora do dicionário = boot não sobe com lista
+> nominal); dono não resolvido = quarentena `DonoNaoResolvido` reabrível (nunca GLOBAL; exceção
+> legítima: ContaBancaria corporativa); ledger append-only (`MovimentosEstoque/Lote` só aceitam I;
+> outbox não emite U/D de ledger — cascata de exclusão de Perda coberta); `Codigo` = `{no}-{seq}`
+> (separador mata a ambiguidade; sequencial puro colidiria com legado do nó 1) + índice único
+> composto (Codigo, NoOrigemId) com re-codificação das duplicatas legadas NA migration (boot-morto
+> confirmado no banco de dev e curado); seeds determinísticos (fiscal usa a filial do nó e hub não
+> semeia; TiposPagamento 1-4 e IcmsUf 1-27 fixos, sem enfileirar; setval no hub).
+> **PENDÊNCIAS da fase 4 (fazer em sessão própria, com o app rodando):**
+> 1. **4b-transação (P0.15)**: `VendaService.FinalizarAsync` e suprimento/sangria do caixa em
+>    transação única — mudança de fluxo de negócio; o bloqueio que causou a reversão antiga
+>    (row-bump) já morreu com o nextval. Exige verificação em runtime (finalizar venda real).
+> 2. **Frota mista TiposPagamento/IcmsUf** (pré-existente): hub tem 1-4, edge existente tem
+>    1e9+1..4 — alinhar no bootstrap da fase 5 (ou remap manual das FKs).
+> 3. Teto da quarentena por TEMPO no hub (herdado da fase 3).
+
 *Invariante-alvo: nenhuma entidade replica (ou deixa de replicar) por acidente; ledger não sofre LWW; a finalização da venda é atômica; seeds não colidem entre nós.*
 
 1. **Registry único de replicação** (novo arquivo em Infrastructure, ex.: `SyncRegistry.cs`): TODA entidade do modelo declara `Escopo (Global | PorFilial | Infra)` + resolver de dono (para PorFilial). **Validação no startup** (fail-fast): DbSet sem classificação → boot falha com mensagem nominal. Captura (outbox), applicator (`ResolverTipo`) e escopo (`FilialDonoId`) passam a consumir ESTE registry — eliminando o trio atual denylist (`_tabelasSemSync`) + allowlist (~61 no applicator) + dicionário por-filial, que hoje divergem. Fonte da classificação: `classificacao-replicacao.md` (GLOBAL ~55, POR-FILIAL ~45, INFRA ~12, híbridos `ContaBancaria`/`Feriado` por `FilialId` nullable). Isso fecha de uma vez o furo "**ContaPagar replica, ContaReceber não**", Caixa, MovimentoEstoque/Lote, ProdutoLote, Sngpc*, SelfCheckout* etc.
