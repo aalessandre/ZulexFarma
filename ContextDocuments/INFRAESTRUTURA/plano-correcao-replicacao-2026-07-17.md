@@ -121,6 +121,23 @@ Ordem obrigatória: 0 → 1 → 2 → 3 → 4 → 5. Não paralelizar fases; den
 
 ### FASE 1 — Identidade e autorização de nó
 
+> ✅ **EXECUTADA em 17/07/2026** (Fable, `dev-pc1`): commits `b431d53` (código), `c461acd` (testes),
+> `34fa917` (fase 1b — correções da revisão adversarial). **Gate 1 BATIDO**: suíte com 33 verdes +
+> 6 vermelhos (os bugs das fases 2-4). A revisão adversarial (obrigatória pelo protocolo) encontrou
+> **1 CRÍTICO real**: a origem da op tinha um SEGUNDO site com fallback pro criador (`noOrigemOp`) —
+> o commit inicial declarava P0.3 curado e só tinha curado metade; hub editando registro de loja
+> nunca chegaria à loja dona. Mais 3 altos (token de nó vazava pra API inteira → `SyncNodeGate`;
+> corrida no anti-gêmeo → CAS; cadastro sem filiais → 422 ruidoso) e 2 médios (Status não cortava o
+> data plane; não-2xx não contava como falha). Tudo curado e testado em `34fa917`. **Lição repetida:
+> a revisão adversarial pegou de novo o que o autor declarou pronto.**
+>
+> **ROLLOUT da fase 1 (deployar hub+lojas JUNTOS):** (1) subir hub; (2) cadastrar cada nó:
+> `POST /api/sync/nos {noCodigo, nome, filiais:[...]}` (admin; a resposta traz a CHAVE — aparece 1x);
+> **preencher as filiais é obrigatório** (cadastro vazio + edge declarando filiais = 422 proposital);
+> (3) configurar `Sync:NoChave` no edge (env/appsettings.Development.json); (4) subir edge. Até lá o
+> transporte fica parado com status CONFIG/AUTH visível — backlog acumula na fila, nada se perde.
+> O painel `/erp/sync` agora exige usuário ADMIN (não-admin toma 403).
+
 *Invariante-alvo: só nó cadastrado e autenticado alcança o data plane; a origem de cada op é derivada pelo servidor; nó gêmeo não sobe.*
 
 1. **Tabela `SyncNos`** (INFRA, não replica; hub-only na prática): `NoCodigo int UNIQUE`, `InstanciaUid uuid`, `Modo`, `Status (Provisionando|Bootstrapping|Ativo|Suspenso|RebootstrapNecessario|Desativado)`, `ChaveHash`, `UltimoAckSeq bigint`, `UltimoPushEm`, `UltimoPullEm`, `VersaoApp`, `CriadoEm`. + **`SyncNoFiliais`** (`NoCodigo`, `FilialId`) = escopo autorizado do pull. CRUD no painel (admin).
