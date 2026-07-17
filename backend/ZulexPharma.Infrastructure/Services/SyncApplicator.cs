@@ -356,14 +356,23 @@ public static class SyncApplicator
     private static void AtualizarQuarentena(SyncQuarentena q, string? dadosJson, DateTime opCriadoEm,
         string motivo, string? erro, Guid? opUid = null, long? filialDonoId = null)
     {
-        q.DadosJson = dadosJson;
-        q.OpCriadoEm = opCriadoEm;
+        // FASE 2b (achado ALTO da revisao): a chave logica e' (Tabela,RegistroId,Operacao), entao ops
+        // DIFERENTES do mesmo registro dividem a linha — e a quarentena e' a UNICA copia da op (o
+        // "push honesto" ja' confirmou durabilidade ao edge). Sobrescrever pelo ULTIMO a chegar
+        // deixava uma op MAIS VELHA substituir a mais nova: quando o retry aplicasse, o hub
+        // distribuia a versao velha e a nova morria so' no no autor — divergencia permanente.
+        // Regra: o payload guardado e' sempre o da op MAIS NOVA (LWW da propria quarentena).
+        if (opCriadoEm >= q.OpCriadoEm)
+        {
+            q.DadosJson = dadosJson;
+            q.OpCriadoEm = opCriadoEm;
+            q.OpUid = opUid ?? q.OpUid;
+            q.FilialDonoId = filialDonoId ?? q.FilialDonoId;
+        }
         q.Motivo = motivo;
         q.Tentativas += 1;
         q.UltimoErro = Truncar(erro, 1000);
         q.Resolvido = false;
-        q.OpUid = opUid ?? q.OpUid;
-        q.FilialDonoId = filialDonoId ?? q.FilialDonoId;
         q.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
     }
 

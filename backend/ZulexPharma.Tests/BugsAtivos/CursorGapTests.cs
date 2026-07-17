@@ -103,7 +103,7 @@ public class CursorGapTests
             }
         };
 
-        var resposta = await controller.Receber(cursor: cursor, limite: 500);
+        var resposta = await controller.Receber(cursor: cursor, limite: 500, ack: 0);
         var ok = Assert.IsType<OkObjectResult>(resposta);
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(ok.Value));
         var ids = json.RootElement.GetProperty("data").EnumerateArray()

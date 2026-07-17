@@ -2026,6 +2026,10 @@ public class AppDbContext : DbContext
             // Fase 2: cursor do pull e' SeqEntrega (so' linhas numeradas sao servidas).
             e.HasIndex(x => x.SeqEntrega)
                 .HasFilter("\"SeqEntrega\" IS NOT NULL");
+            // Fase 2b: o PUBLICADOR filtra o oposto (IS NULL) a cada request — sem este indice
+            // parcial (quase vazio em regime) seria seq scan da fila inteira do hub.
+            e.HasIndex(x => x.SeqEntrega, "IX_SyncFila_SeqEntrega_Pendente")
+                .HasFilter("\"SeqEntrega\" IS NULL");
         });
 
         // ── SyncQuarentena (dead-letter do sync, Fase 1) ────────────

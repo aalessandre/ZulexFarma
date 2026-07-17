@@ -68,18 +68,20 @@ public class PushPullFase2Tests
         var uidDesconhecida = Guid.NewGuid();
         var t0 = new DateTime(2026, 7, 2, 10, 0, 0);
 
+        // Desconhecida PRIMEIRO no lote de proposito: a aplicacao reordena ('ordenadas'), mas a
+        // resposta por INDICE tem que seguir a ordem ORIGINAL — e' assim que o edge marca Enviado.
         var fab = new Fabricante { Id = 3_000_000_401, Nome = "PUSH HONESTO", CriadoEm = t0, NoOrigemId = No, Ativo = true };
         var ops = new List<SyncOperacaoDto>
         {
-            new("Fabricantes", "I", fab.Id, null, JsonSerializer.Serialize(fab, JsonWeb()), No, null, t0, uidValida),
             new("TabelaQueNaoExiste", "I", 1, null, "{}", No, null, t0, uidDesconhecida),
+            new("Fabricantes", "I", fab.Id, null, JsonSerializer.Serialize(fab, JsonWeb()), No, null, t0, uidValida),
         };
 
         using var corpo = Corpo(await CriarController(No).Enviar(ops));
         var resultados = corpo.RootElement.GetProperty("data").GetProperty("resultados").EnumerateArray().ToList();
         Assert.Equal(2, resultados.Count);
-        Assert.Equal("Aplicado", resultados[0].GetProperty("resultado").GetString());
-        Assert.Equal("TipoDesconhecido", resultados[1].GetProperty("resultado").GetString());
+        Assert.Equal("TipoDesconhecido", resultados[0].GetProperty("resultado").GetString());
+        Assert.Equal("Aplicado", resultados[1].GetProperty("resultado").GetString());
 
         await using var db = _pg.CriarContexto(aplicandoSync: true);
         Assert.True(await db.SyncFila.AnyAsync(f => f.OpUid == uidValida),
@@ -169,11 +171,61 @@ public class PushPullFase2Tests
 
         using var corpo2 = Corpo(await CriarController(No).Receber(cursor: 0, ack: 40, limite: 10)); // ack menor NAO regride
         var geracao2 = corpo2.RootElement.GetProperty("geracao").GetString();
-        Assert.Equal(geracao1, geracao2); // geracao e' estavel (so' muda em restore do hub)
+        // Geracao e' ESTAVEL entre pulls. NOTA (revisao adversarial): restore de backup restaura o
+        // MESMO uuid — quem detecta restore e' a REGRESSAO DA MARCA no edge (seqMaxNumerado < cursor
+        // -> REBOOTSTRAP); a geracao cobre so' recriacao do banco do zero.
+        Assert.Equal(geracao1, geracao2);
 
         await using var db = _pg.CriarContexto(aplicandoSync: true);
         var no = await db.SyncNos.AsNoTracking().FirstAsync(n => n.NoCodigo == No);
         Assert.Equal(42, no.UltimoAckSeq);
+    }
+
+    /// <summary>Fase 2b: edge FASE-1 (sem ack) tomaria pull congelado em silencio — 426 ruidoso.</summary>
+    [Fact]
+    public async Task ProtocoloAntigo_SemAck_Recebe426()
+    {
+        await RegistrarNoAsync(No);
+        var resposta = await CriarController(No).Receber(cursor: 0, limite: 10); // ack default -1
+        var obj = Assert.IsType<ObjectResult>(resposta);
+        Assert.Equal(426, obj.StatusCode);
+    }
+
+    /// <summary>Exercita o ramo LOTE CHEIO do cursorProximo (para na ultima servida, nao na marca).</summary>
+    [Fact]
+    public async Task LoteCheio_CursorParaNaUltimaServida_EProximoPullContinua()
+    {
+        const int no = 9402;
+        await RegistrarNoAsync(no);
+        var t0 = new DateTime(2026, 7, 2, 10, 0, 0);
+
+        var uids = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+        var ops = uids.Select((uid, i) =>
+        {
+            var fab = new Fabricante { Id = 3_000_000_410 + i, Nome = $"LOTE {i}", CriadoEm = t0, NoOrigemId = No, Ativo = true };
+            return new SyncOperacaoDto("Fabricantes", "I", fab.Id, null, JsonSerializer.Serialize(fab, JsonWeb()), No, null, t0, uid);
+        }).ToList();
+        await CriarController(No).Enviar(ops); // origem = no 9401 -> visiveis pro 9402
+
+        var recebidos = new List<Guid>();
+        long cursor = 0;
+        for (var pull = 0; pull < 5 && recebidos.Count < 3; pull++)
+        {
+            using var corpo = Corpo(await CriarController(no).Receber(cursor: cursor, ack: cursor, limite: 1));
+            foreach (var e in corpo.RootElement.GetProperty("data").EnumerateArray())
+            {
+                var uid = e.GetProperty("OpUid").GetString();
+                if (uid != null && uids.Contains(Guid.Parse(uid))) recebidos.Add(Guid.Parse(uid));
+            }
+            var proximo = corpo.RootElement.GetProperty("cursorProximo").GetInt64();
+            Assert.True(proximo >= cursor, "cursor nunca regride");
+            if (proximo == cursor) break; // nada mais a servir
+            cursor = proximo;
+        }
+
+        Assert.True(uids.All(recebidos.Contains),
+            $"paginacao com lote cheio perdeu op: recebidos {recebidos.Count}/3 — o ramo 'cursor = ultima " +
+            "servida' (lote cheio) nao pode pular ops entre a ultima e a marca");
     }
 
     private static JsonSerializerOptions JsonWeb() => new()

@@ -205,14 +205,28 @@ public class SyncController : ControllerBase
 
         if (dto.Nome != null) no.Nome = dto.Nome;
         if (dto.Status != null) no.Status = dto.Status;
+        var avisoEscopo = (string?)null;
         if (dto.Filiais != null)
         {
+            // Fase 2b (achado ALTO): AMPLIAR o escopo de um no que ja' puxou cria gap permanente —
+            // as ops da filial nova com SeqEntrega < cursor ficam ATRAS do ponteiro pra sempre.
+            // Falha ruidosa: o no vai pra RebootstrapNecessario e so' volta por acao explicita
+            // (bootstrap/resetar-recebimento). REMOVER filial e' seguro.
+            var atuais = no.Filiais.Select(f => f.FilialId).ToHashSet();
+            var adicionadas = dto.Filiais.Where(f => !atuais.Contains(f)).ToList();
+            if (adicionadas.Count > 0 && no.UltimoPullEm != null && dto.Status == null)
+            {
+                no.Status = "RebootstrapNecessario";
+                avisoEscopo = $"Filiais adicionadas ({string.Join(",", adicionadas)}) a um no que ja' puxou: " +
+                    "status mudou pra RebootstrapNecessario — o historico da filial nova esta' ATRAS do cursor. " +
+                    "Faca bootstrap (ou resetar-recebimento no no) e reative.";
+            }
             _db.SyncNoFiliais.RemoveRange(no.Filiais);
             no.Filiais = dto.Filiais.Distinct().Select(f => new SyncNoFilial { NoCodigo = noCodigo, FilialId = f }).ToList();
         }
         await _db.SaveChangesAsync();
-        Log.Information("Sync: no {No} atualizado por {User} (status={Status}).", noCodigo, User.Identity?.Name, no.Status);
-        return Ok(new { success = true });
+        Log.Information("Sync: no {No} atualizado por {User} (status={Status}). {Aviso}", noCodigo, User.Identity?.Name, no.Status, avisoEscopo);
+        return Ok(new { success = true, aviso = avisoEscopo });
     }
 
     // ─── DATA PLANE (token de maquina) ─────────────────────────────────────
@@ -390,8 +404,9 @@ public class SyncController : ControllerBase
                 {
                     indice,
                     opUid = op.OpUid,
-                    // ausente do mapa (nao deveria acontecer) = "Erro", nunca o default do enum (Aplicado)
-                    resultado = resultadoPorOp.TryGetValue(op, out var r) ? r.ToString() : "Erro"
+                    // Ausente do mapa (nao deveria acontecer) = "NaoProcessada": NADA duravel no hub —
+                    // o edge NAO marca Enviado (o "Erro" do catch e' diferente: aquele esta' quarentenado).
+                    resultado = resultadoPorOp.TryGetValue(op, out var r) ? r.ToString() : "NaoProcessada"
                 })
                 .ToList();
 
@@ -436,6 +451,14 @@ public class SyncController : ControllerBase
                 .Where(nf => nf.NoCodigo == noAutenticado)
                 .Select(nf => nf.FilialId)
                 .ToArrayAsync();
+
+            // Fase 2b (achado ALTO): edge FASE-1 nao manda ack (default -1) e usa cursor por Id — no
+            // protocolo novo ele ficaria CONGELADO nas primeiras N ops pra sempre, com painel OK dos
+            // dois lados. Falha RUIDOSA: 426 ate' o no ser atualizado (rollout e' hub+lojas juntos).
+            if (ack < 0)
+                return StatusCode(426, new { success = false, codigo = "ProtocoloAntigo", message =
+                    $"O no {noAutenticado} usa o protocolo de pull antigo (sem ack/cursor de entrega). " +
+                    "Atualize o backend do no pra fase 2 — servir o protocolo antigo congelaria o pull em silencio." });
 
             // Fase 1b (achado ALTO): edge configurado com No:Filiais mas cadastro SEM filiais = provavel
             // esquecimento no provisionamento. Servir so' GLOBAL aqui avancaria o cursor POR CIMA das ops
@@ -663,6 +686,25 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
+    /// Descarta um item da quarentena por decisao humana (marca Resolvido, motivo DescartadoManual).
+    /// Fase 2b: sem isso, op de tabela aposentada (ex.: Configuracoes) presa no teto poluia o alarme
+    /// 'presos' pra sempre — so' saia por SQL manual.
+    /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpPost("quarentena/descartar")]
+    public async Task<IActionResult> DescartarQuarentena([FromQuery] long id)
+    {
+        var atualizados = await _db.SyncQuarentena.Where(q => q.Id == id && !q.Resolvido)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Resolvido, true)
+                .SetProperty(x => x.Motivo, "DescartadoManual")
+                .SetProperty(x => x.AtualizadoEm, DataHoraHelper.Agora()));
+        if (atualizados > 0)
+            Log.Warning("Sync: quarentena {Id} DESCARTADA manualmente por {User}.", id, User.Identity?.Name);
+        return Ok(new { success = true, descartados = atualizados });
+    }
+
+    /// <summary>
     /// Força o envio no próximo ciclo do background service.
     /// </summary>
     [Authorize(Policy = "SyncAdmin")]
@@ -688,6 +730,16 @@ public class SyncController : ControllerBase
             {
                 estado.Valor = "0";
                 estado.AtualizadoEm = DataHoraHelper.Agora();
+                await _db.SaveChangesAsync();
+            }
+
+            // Fase 2b (achado da revisao): limpar tambem a geracao VISTA — senao, apos um hub
+            // legitimamente recriado, o reset zera o cursor mas o guard de geracao trava de novo
+            // no primeiro pull ("rebuscar tudo" viraria mentira).
+            var geracaoVista = await _db.SyncEstadoLocal.FirstOrDefaultAsync(e => e.Chave == "sync.hub.geracao.vista");
+            if (geracaoVista != null)
+            {
+                _db.SyncEstadoLocal.Remove(geracaoVista);
                 await _db.SaveChangesAsync();
             }
 

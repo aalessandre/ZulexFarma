@@ -70,7 +70,7 @@ public class ReceberEscopoTests
         };
 
         // Tentativa de SPOOF: pede escopo da filial alheia e identidade falsa na query
-        var resposta = await controller.Receber(filialId: 12345, filiais: $"{filialAutorizada},{filialAlheia}", ultimoId: 0, limite: 100);
+        var resposta = await controller.Receber(filialId: 12345, filiais: $"{filialAutorizada},{filialAlheia}", ultimoId: 0, limite: 100, ack: 0);
 
         var ok = Assert.IsType<OkObjectResult>(resposta);
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(ok.Value));
@@ -104,7 +104,7 @@ public class ReceberEscopoTests
             await db.SaveChangesAsync();
         }
 
-        var resposta = await CriarController(noCodigo).Receber(filiais: "9210", ultimoId: 0, limite: 100);
+        var resposta = await CriarController(noCodigo).Receber(filiais: "9210", ultimoId: 0, limite: 100, ack: 0);
         var obj = Assert.IsType<ObjectResult>(resposta);
         Assert.Equal(422, obj.StatusCode);
     }

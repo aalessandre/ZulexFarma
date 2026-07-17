@@ -30,10 +30,14 @@ public static class SyncPublicador
     /// </summary>
     public static async Task<long> NumerarEObterMarcaAsync(AppDbContext db, CancellationToken ct = default)
     {
-        // pg_try_advisory_xact_lock exige transacao (o lock vive ate' o commit). Abre propria se
-        // nao houver ambiente. Quem NAO pega o lock segue direto pra marca d'agua.
-        var txPropria = db.Database.CurrentTransaction == null
-            ? await db.Database.BeginTransactionAsync(ct) : null;
+        // CONTRATO: nunca chamar dentro de transacao ambiente — o advisory xact lock viveria ate' o
+        // commit DELA (retendo a numeracao alheia) e a marca enxergaria numeracao nao commitada.
+        if (db.Database.CurrentTransaction != null)
+            throw new InvalidOperationException(
+                "SyncPublicador.NumerarEObterMarcaAsync nao pode rodar dentro de transacao ambiente.");
+
+        // pg_try_advisory_xact_lock exige transacao (o lock vive ate' o commit). Abre propria.
+        var txPropria = await db.Database.BeginTransactionAsync(ct);
         try
         {
             var pegouLock = await db.Database

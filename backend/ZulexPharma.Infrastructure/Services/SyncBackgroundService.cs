@@ -292,8 +292,15 @@ public class SyncBackgroundService : BackgroundService
                 return null;
             var indices = new List<int>();
             foreach (var r in resultados.EnumerateArray())
+            {
+                // "NaoProcessada" = o hub NAO tem nada duravel dessa op (fallback defensivo do mapa) —
+                // marcar Enviado seria perda. Todo o resto (Aplicado/Idempotente/Stale/quarentena/Erro
+                // do catch) esta' duravel no hub.
+                if (r.TryGetProperty("resultado", out var res) && res.GetString() == "NaoProcessada")
+                    continue;
                 if (r.TryGetProperty("indice", out var ind) && ind.TryGetInt32(out var i) && i >= 0 && i < total)
                     indices.Add(i);
+            }
             return indices;
         }
         catch { return null; }
@@ -351,6 +358,20 @@ public class SyncBackgroundService : BackgroundService
                 _fatal = true;
                 return false;
             }
+        }
+
+        // FASE 2b (achado CRITICO da revisao): a GERACAO sozinha NAO detecta restore de backup — o
+        // restore restaura o MESMO uuid junto. A deteccao robusta e' a REGRESSAO DA MARCA: a marca
+        // (MAX SeqEntrega) e' monotonica e o cursor so' avanca ate' ela; marca < cursor = o log do
+        // hub voltou no tempo (restore) -> ops novas nasceriam ATRAS do cursor e seriam puladas em
+        // silencio pra sempre. Falha RUIDOSA: rebootstrap.
+        if (resultado?.SeqMaxNumerado is long marcaHub && marcaHub < cursor)
+        {
+            Log.Fatal("Sync: marca do hub ({Marca}) REGREDIU abaixo do cursor local ({Cursor}) — hub " +
+                "restaurado de backup. Transporte INTERROMPIDO: rebootstrap necessario.", marcaHub, cursor);
+            UltimoStatus = "REBOOTSTRAP";
+            _fatal = true;
+            return false;
         }
 
         // Cursor avanca pelo valor CALCULADO NO SERVIDOR (cursorProximo): lote vazio/filtrado tambem
