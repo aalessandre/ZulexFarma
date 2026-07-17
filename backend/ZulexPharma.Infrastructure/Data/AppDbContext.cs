@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 {
     private readonly IHttpContextAccessor? _http;
     private readonly int _noCodigo;
+    private readonly bool _capturaOutbox;
 
     /// <summary>Se true, não gera Codigo nem registra na SyncFila (usado ao aplicar sync remoto).</summary>
     public bool AplicandoSync { get; set; }
@@ -22,6 +23,10 @@ public class AppDbContext : DbContext
         // Codigo do NO (servidor/deployment), eixo Origem/No. Fallback pra chave antiga "Filial:Codigo".
         // Default 0 (unificado com Program/Seeder); o boot faz fail-fast se ausente/invalido.
         _noCodigo = int.TryParse(config?["No:Codigo"] ?? config?["Filial:Codigo"], out var c) ? c : 0;
+        // StandaloneCloud NAO captura outbox/lapide (cura P1.1: Sync:Habilitado=false so' desligava o
+        // transporte e a SyncFila crescia pra sempre). Leitura LENIENTE (harness/design-time passam
+        // config nula = captura ligada); o fail-fast de verdade e' o NoDeployment.Resolver no boot.
+        _capturaOutbox = NoDeployment.LerModoLeniente(config) != NoModo.StandaloneCloud;
     }
 
     public DbSet<Filial> Filiais => Set<Filial>();
@@ -2282,7 +2287,10 @@ public class AppDbContext : DbContext
         var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade, long? filialDono)>();
         _cacheDerivFilial.Clear(); // memoizacao da derivacao de FilialDono e' por SaveChanges
 
-        await CarregarFilhosCascataAsync(cancellationToken);
+        // StandaloneCloud (_capturaOutbox=false): mantem carimbos (NoOrigemId/Codigo/AtualizadoEm),
+        // mas NAO enfileira op, nao crava lapide e nao precisa carregar filhos de cascata.
+        if (_capturaOutbox)
+            await CarregarFilhosCascataAsync(cancellationToken);
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
@@ -2297,18 +2305,18 @@ public class AppDbContext : DbContext
                 if (entry.Entity.Codigo == null && !_tabelasSemSync.Contains(tabela))
                     entry.Entity.Codigo = await GerarCodigo(tabela, cancellationToken);
 
-                if (!_tabelasSemSync.Contains(tabela))
+                if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
                     operacoesPendentes.Add((tabela, "I", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
             }
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
-                if (!_tabelasSemSync.Contains(tabela))
+                if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
                     operacoesPendentes.Add((tabela, "U", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
             }
             else if (entry.State == EntityState.Deleted)
             {
-                if (!_tabelasSemSync.Contains(tabela))
+                if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
                     operacoesPendentes.Add((tabela, "D", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
             }
         }

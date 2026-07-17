@@ -67,9 +67,31 @@ public class SyncBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_habilitado || _noCodigo == 0 || string.IsNullOrEmpty(_urlCentral))
+        // Fase 0: early-return HONESTO por modo. Antes, No:Codigo=0 (hub) caia no mesmo if de
+        // "desabilitado" e o log mandava "configure No:Codigo" justamente quando 0 era o valor certo.
+        var modo = Data.NoDeployment.LerModoLeniente(_config);
+        if (modo == Data.NoModo.Hub || _noCodigo == 0)
         {
-            Log.Information("Sync v2 desabilitado. Configure Sync:Habilitado, No:Codigo e Sync:UrlCentral.");
+            Log.Information("Sync v2: modo Hub (no 0) — loop de transporte nao roda POR DESIGN. " +
+                "O hub recebe via /api/sync/enviar e serve /api/sync/receber.");
+            return;
+        }
+        if (modo == Data.NoModo.StandaloneCloud)
+        {
+            Log.Information("Sync v2: modo StandaloneCloud — sem replicacao (captura de outbox desligada, transporte nao roda).");
+            return;
+        }
+        if (!_habilitado)
+        {
+            Log.Warning("Sync v2: modo Edge com Sync:Habilitado=false — captura de outbox LIGADA, transporte " +
+                "DESLIGADO. O backlog acumula na SyncFila ate' o transporte ser ligado.");
+            return;
+        }
+        if (string.IsNullOrEmpty(_urlCentral))
+        {
+            // O boot (NoDeployment.Resolver) ja' barra essa combinacao; aqui e' so' defesa em profundidade.
+            Log.Error("Sync v2: modo Edge habilitado SEM Sync:UrlCentral — transporte morto por config invalida.");
+            UltimoStatus = "CONFIG";
             return;
         }
 

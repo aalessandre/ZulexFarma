@@ -283,18 +283,12 @@ using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-        // Codigo do NO (eixo Origem/No) — fonte unica com fail-fast. Fallback pra chave antiga "Filial:Codigo".
-        // 0 = nuvem/central (hub); inteiro > 0 = no local (loja). Ausente/invalido/negativo = fail-fast
-        // (mata o default silencioso; a nuvem PRECISA declarar 0 explicitamente).
-        var noRaw = config["No:Codigo"] ?? config["Filial:Codigo"];
-        if (!int.TryParse(noRaw, out var noCodigo) || noCodigo < 0)
-            throw new InvalidOperationException(
-                "Config 'No:Codigo' ausente ou invalida. Defina EXPLICITAMENTE: 0 para a nuvem/central (hub) " +
-                "ou um inteiro > 0 unico para cada no local (loja) — define a faixa de Id e a origem do sync. " +
-                "Sem default silencioso.");
-        await DatabaseSeeder.SeedAsync(db, noCodigo);
+        // Identidade do no (fase 0 do plano de replicacao): No:Modo OBRIGATORIO + No:Codigo validado
+        // por modo. Fonte unica de parse/validacao = NoDeployment.Resolver (fail-fast, sem default).
+        var (noModo, noCodigo) = NoDeployment.Resolver(config);
+        await DatabaseSeeder.SeedAsync(db, noCodigo, noModo);
 
-        Log.Information("Banco de dados inicializado com sucesso.");
+        Log.Information("Banco de dados inicializado. No:Modo={Modo} | No:Codigo={Codigo}", noModo, noCodigo);
     }
     catch (Exception ex)
     {

@@ -13,7 +13,7 @@ public static class DatabaseSeeder
     /// </summary>
     private const long ID_RANGE_PER_FILIAL = 1_000_000_000L;
 
-    public static async Task SeedAsync(AppDbContext context, int noCodigo = 0)
+    public static async Task SeedAsync(AppDbContext context, int noCodigo = 0, NoModo modo = NoModo.Edge)
     {
         await context.Database.MigrateAsync();
 
@@ -297,8 +297,9 @@ public static class DatabaseSeeder
         context.AplicandoSync = false;
 
         // Enfileirar na SyncFila registros do seed que precisam replicar
-        // (Filial e Usuario — GruposUsuario têm IDs fixos idênticos em todos os PCs)
-        if (noCodigo > 0)
+        // (Filial e Usuario — GruposUsuario têm IDs fixos idênticos em todos os PCs).
+        // StandaloneCloud nao replica: enfileirar seria lixo eterno na fila (cura P1.1).
+        if (noCodigo > 0 && modo != NoModo.StandaloneCloud)
             await EnfileirarSeedParaSync(context, noCodigo);
     }
 
