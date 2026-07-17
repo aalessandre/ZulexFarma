@@ -1,0 +1,262 @@
+# Plano de Correção da Replicação — execução (2026-07-17)
+
+**Destinatário:** Claude Opus (executor)
+**Autor:** Claude Fable 5, após análise cruzada de: `synAteAqui.md` (retrato honesto de 16/07), `orientacao-replicacao-codex-2026-07-17.md` (auditoria independente do Codex/ChatGPT) e **verificação direta do código** na branch `dev-pc1` (código de sync idêntico ao `origin/main`, HEAD `a96336f`).
+**Regra herdada do synAteAqui:** fato verificado > memória. Toda referência `arquivo:linha` deste plano foi conferida no código em 17/07/2026 — mas **re-verifique antes de editar**, porque linhas driftam.
+
+---
+
+## 0. Veredicto e estratégia
+
+O Codex acertou no diagnóstico: **verifiquei no código e praticamente todos os P0 dele são reais** (tabela na §2). O synAteAqui também está correto no que aponta (§6.1 gap do cursor, §6.2 filhos POCO) — os dois documentos convergem, o Codex apenas cobre mais superfície (segurança, domínio, bootstrap).
+
+Onde eu **divirjo do Codex**: o remédio dele é um protocolo enterprise completo (HLC, WriterEpoch, SubscriptionGeneration, NodeDelivery materializado por nó, mTLS, sagas). Para um ERP com **um banco por cliente, meia dúzia de nós por tenant, zero produção multi-nó hoje e um dev + IA como time**, implementar tudo isso antes de ligar o segundo nó é o jeito mais provável de nunca ligar o segundo nó. A base existente (outbox atômico, OpUid, quarentena, lápides, faixas de Id) está **verificada e boa** — o próprio Codex manda preservá-la.
+
+**Estratégia travada: evoluir o mecanismo existente em 6 fases com gates de teste, não reescrever.** Cada peça do Codex foi classificada em: *fazer agora* (fases 0-5), *adiada com gatilho explícito* (§8) ou *rejeitada*. O critério de corte foi: **o que é indispensável para 2-3 nós convergirem sem perda silenciosa e sem furo de segurança** — nada além.
+
+Regras inegociáveis (do dono):
+
+1. **Falha ruidosa > perda silenciosa.** O painel precisa refletir o real. Qualquer descarte/decisão importante aparece.
+2. **Nenhum segundo nó real liga antes do Gate 5.**
+3. **"Compilou" não prova nada neste subsistema** (placar: 4 desenhos derrubados por revisão). Todo fix estrutural nasce com teste que falhava antes.
+
+---
+
+## 1. Decisões TRAVADAS (não re-decidir, não re-litigar)
+
+| Tema | Decisão | Fonte |
+|---|---|---|
+| Mecanismo | Caseiro (outbox+fila+apply), gerenciável pelo painel. PG nativo descartado | dono |
+| Topologia | Estrela: edges → hub (nó 0, Railway). Sem peer-to-peer | dono |
+| Tenancy | 1 banco por cliente. TenantId fora de escopo | dono |
+| Escrita | Multi-master: nuvem é gravável (venda móvel) | dono |
+| Conflito | **LWW por linha** por `AtualizadoEm`, desempate pelo **escritor real** (não pelo criador) | dono 07/14 + P0.5 |
+| PK | `long` global por faixa (`noCodigo × 1e9`), preservada cross-nó. FKs valem sem remapeamento. **Não migrar pra GUID** | dono + Codex P0.10 |
+| `SyncGuid` | Vira guard `NOT NULL UNIQUE`; par `Id ↔ SyncGuid` divergente = colisão, rejeitar (nunca `SetValues`) | Codex P0.10 |
+| Fiscal | Numeração pinada ao nó dono; `SequenciasCentrais` NÃO replica (já está em `_tabelasSemSync`, `AppDbContext.cs:2082-2083` ✅) | dono |
+| Escopo | GLOBAL → todos; POR-FILIAL → dono + hub; INFRA → nunca. Fonte: `classificacao-replicacao.md` (decisões 2026-07-14) | dono |
+| `Codigo` | Sequencial puro por nó (`nextval`); unicidade por índice composto `(NoOrigemId, Codigo)`; exibição com prefixo `N-` no front. Códigos legados não migram | dono 07/14 |
+| Cursor | **Publicador + `SeqEntrega`** (opção B do synAteAqui §6.1). NÃO usar `pg_snapshot_xmin` com cursor em `Id`, NÃO varredura por tempo, NÃO `MIN(cursor)` sem registro de nós | synAteAqui + Codex |
+| Produto | Propagação "tudo exceto estoque" via cópia no service (`CopiarDadosParaOutrasFiliais`) permanece; redesenho template/override é backlog | spec cadastro-produto |
+
+## 1b. Decisões ASSUMIDAS neste plano (defaults meus — dono pode vetar antes da fase correspondente)
+
+| # | Default assumido | Fase |
+|---|---|---|
+| A1 | **CONFIRMADO pelo dono (17/07):** endpoint `GET /api/auth/senha-sistema` é **removido**. O suporte obtém a senha do dia pelo **ZulexAdmin** (`GET /api/produtos/senha-dia` — root-only + auditado, já existe). Algoritmo idêntico nos dois projetos (verificado: ambos `SHA256(UtcNow yyyyMMdd + SistemaKey)[..8].ToLower()`); requisito: a `SistemaKey` NOVA (rotacionada) precisa ser configurada igual no ErpPharma E no env do ZulexAdmin (não confiar no fallback do ZulexAdmin pro JWT secret dele — não bate) | 0 |
+| A2 | Relógio continua **hora de parede de Brasília** (sem DST desde 2019). UTC-em-tudo é migração invasiva que não cura skew. Contrapartida: NTP obrigatório nos nós + guard de timestamp absurdo (op > 5min no futuro → quarentena) | 3 |
+| A3 | Escopo do PULL passa a vir do **cadastro do nó no hub** (`?filiais=` da query é ignorado) | 1 |
+| A4 | `Configuracoes` **para de replicar já** (entra em `_tabelasSemSync`); modelagem por-filial `(FilialId, Chave)` fica pro backlog. Estado do sync sai dela pra tabela própria | 2 |
+| A5 | SLA de nó offline: **30 dias** (configurável). Acima disso, rebootstrap — por ação explícita no painel, nunca automático | 5 |
+| A6 | Bootstrap de nó novo = **janela de manutenção** (dump/restore + watermark). Bootstrap online é backlog | 5 |
+| A7 | Lápides deixam de ser purgadas (são 4 campos — custo ~nada; purga por idade é o que permite ressurreição pós-restore) | 3 |
+| A8 | Auth de nó = **chave por nó + JWT com policy própria**. mTLS é backlog | 1 |
+
+---
+
+## 2. Estado verificado do código (17/07, branch `dev-pc1`)
+
+Confirmado por inspeção direta — este é o baseline sobre o qual o plano opera:
+
+| Achado | Evidência | Fase que cura |
+|---|---|---|
+| `SyncController` inteiro só com `[Authorize]`, sem policy — qualquer JWT humano usa `/enviar`, `/receber`, `/fila` (que expõe `DadosJson` integral), `/limpar`, `/resetar-recebimento` | `SyncController.cs:13`, `:261,291-297` | 1 |
+| `GET /api/auth/senha-sistema?key=` **anônimo** devolve a senha diária do SISTEMA (que dá token admin); `key` comparada com `SistemaApiKey` versionada no git | `AuthController.cs:79-94` | 0 |
+| Segredos reais versionados: senha do banco, JWT secret, `SistemaKey`, `SistemaApiKey` | `appsettings.json:3,6,32-33` | 0 |
+| `"No": {"Codigo": 0}` versionado → fail-fast do `Program.cs:269-283` nunca dispara; loja sem env sobe silenciosamente como hub | `appsettings.json:38-40` | 0 |
+| Gap do cursor: PULL serve `Id > ultimoId`; Id nasce no INSERT, visibilidade no COMMIT → op que commita tarde é perdida pra sempre | `SyncController.cs:169`; `SyncBackgroundService.cs:271` | 2 |
+| Push desonesto: hub retorna 200 com `errosDb>0`; edge marca lote INTEIRO `Enviado=true` em qualquer 2xx; hub re-enfileira até ops quarentenadas | `SyncController.cs:73,84,115-138,145`; `SyncBackgroundService.cs:195-198` | 2 |
+| PULL não carrega `OpUid` (idempotência só no push) | `SyncController.cs:173-177` | 2 |
+| Cursor do pull vive em `Configuracoes` (`sync.ultimo.id.recebido`) e **`Configuracoes` replica como GLOBAL** (não está em `_tabelasSemSync` `AppDbContext.cs:2077-2084` e está no dicionário do applicator `SyncApplicator.cs:639`) — cursor de um nó pode vazar pra outro | verificado 17/07 | 2 |
+| LWW não-atômico: SELECT + compara em memória + `SetValues`, sem lock/CAS; desempate usa `entidade.NoOrigemId` (criador da linha), não o escritor da op | `SyncApplicator.cs:275-287` | 3 |
+| U/D não converge: D grava lápide, U mais novo sobre linha ausente vira `PrecisaRetry` eterno; noutro nó o D vira `Stale` — um nó vivo, outro morto | `SyncApplicator.cs:46-59,105-120` | 3 |
+| Descarte por LWW (`Stale`) é 100% silencioso | `SyncApplicator.cs:67-69,252-254,395` | 2 |
+| Filhos POCO: applicator é append/update-only (sem delete); services fazem `RemoveRange`+re-add com Ids novos → duplicação em edição rotineira. 8 services afetados | `SyncApplicator.cs:183-213`; `ClienteService.cs:181-197` e afins | 3 |
+| Classificação de escopo fail-open: não classificado → `null` → GLOBAL; cadeia de pai não resolvida → Warning + GLOBAL | `AppDbContext.cs:2140-2163` | 4 |
+| No hub, `NoOrigemId` da op vem do claim `filialId` do JWT (mistura os eixos; quebra anti-eco pra edições feitas na nuvem) | `AppDbContext.cs:2281` | 1 |
+| `SyncGuid` tem índice NÃO-unique; merge por `SyncGuid` usa `FirstOrDefault` | `AppDbContext.cs:1864-1869` | 3 |
+| Sem registro de nós, sem detecção de gêmeo, sem entrega por nó | — | 1 |
+| Quarentena agrupa por `(Tabela,RegistroId,Operacao)` — versões distintas se sobrescrevem | `SyncApplicator.cs:319-320` | 3 |
+| Lápides purgadas por idade fixa 90d, sem ACK | `SyncApplicator.cs:219,254-258` | 3 |
+| Seeds inseguros multi-nó: `ProdutosFiscal` com `FilialId=1` hardcoded em SQL cru; 27 `IcmsUf` criados com sync LIGADO (cada edge publica os seus → colisão por chave natural) | `DatabaseSeeder.cs:37-44,297,351-369` | 4 |
+| `GerarCodigo` concatena sem separador (`{no}{seq}` → nó 1+seq 11 == nó 11+seq 1 == "111") | `AppDbContext.cs:2426` | 4 |
+| `MovimentoEstoque` sem idempotência, sem unique, aceita UPDATE via LWW (é ledger conceitual) | `MovimentoEstoque.cs:14-38`; `AppDbContext.cs:1030` | 4 |
+| `VendaService.FinalizarAsync` = múltiplos `SaveChangesAsync` **sem transação** (contas a receber `:484`, estoque `:563`, entrega `:578`, caixa `:611/616`, SNGPC `:627`) — crash no meio deixa venda parcial, e o sync replica a parcialidade fielmente | `VendaService.cs:289-630` | 4 |
+| **Zero** projeto de testes backend | — | 0 |
+| Comentário morto "TUDO replica" contradizendo o design | `AppDbContext.cs:2074` | doc |
+
+O que está **bom e não se mexe** (verificado): outbox no mesmo commit (`AppDbContext.cs:2316-2392`), `AplicandoSync` short-circuit, `OpUid` com índice parcial único no push, cascata do banco → D+lápide (`CarregarFilhosCascataAsync`, testado em runtime), lápide no delete local, SAVEPOINT no fallback do `GerarCodigo`, TLS validado + backoff no transporte, faixas de Id com RESTART não-regressivo, `SequenciasCentrais` fora do sync.
+
+---
+
+## 3. As fases
+
+Ordem obrigatória: 0 → 1 → 2 → 3 → 4 → 5. Não paralelizar fases; dentro da fase, um commit por preocupação. Cada fase termina com o gate verde + revisão adversarial (subagente com o prompt "tente provar que isso perde/duplica/vaza dado").
+
+### FASE 0 — Segredos, identidade de deployment e fundação de testes
+
+*Invariante-alvo: nenhum segredo no git; nenhum nó sobe com identidade errada em silêncio; os bugs conhecidos têm teste vermelho que os prova.*
+
+1. **Rotacionar e externalizar segredos.** Tirar do `appsettings.json`: connection string (senha), `Jwt:SecretKey`, `SistemaKey`, `SistemaApiKey` → env vars (`ConnectionStrings__DefaultConnection`, etc.). Gerar valores NOVOS (os atuais estão comprometidos pelo histórico do git — trocar também na Railway e no PG local). O `appsettings.json` fica com placeholders vazios + `appsettings.Development.json` **no .gitignore** para o dev local.
+2. **Remover `GET /api/auth/senha-sistema`** (`AuthController.cs:79-94`) e a config `SistemaApiKey` (só existe para ele) — decisão A1 confirmada pelo dono. NÃO criar ferramenta nova: o suporte usa o gerador de senha do dia do **ZulexAdmin** (`ProdutosController.SenhaDia`, root-only + auditado; algoritmo já idêntico ao `SenhaDiaService` do ErpPharma). Ao rotacionar a `SistemaKey` (item 1), configurar o MESMO valor novo no env do ZulexAdmin (`SistemaKey`), senão as senhas divergem (o fallback do ZulexAdmin usa o JWT secret dele).
+3. **Modo de deployment explícito.** Nova config obrigatória `No:Modo` = `Hub | Edge | StandaloneCloud` (sem default versionado; remover `"No"` do `appsettings.json`). Fail-fast REAL no `Program.cs`: `Modo` ausente/inválido → `Log.Fatal` + throw antes de qualquer hosted service. Regras: `Hub` força `No:Codigo=0`; `Edge` exige `No:Codigo>=1` E `Sync:UrlCentral`; `StandaloneCloud` **não gera outbox** (curar P1.1: hoje `Sync:Habilitado=false` só desliga o transporte, `AppDbContext` segue enchendo `SyncFila` pra sempre) e não roda loop. O log do early-return do loop (`SyncBackgroundService.cs:70-74`) passa a dizer a verdade por modo.
+4. **Projeto `backend/ZulexPharma.Tests`** (xunit). Fixture de **Postgres real** (EF InMemory proibido — não reproduz sequences/locks/isolamento): connection string em `ERPPHARMA_TEST_PG`, cria database descartável por run + roda migrations. Escrever os testes **vermelhos** que provam os bugs atuais (eles viram os testes de aceite das fases seguintes):
+   - `Gap_CursorId_PerdeCommitTardio` (duas tx, a de Id menor commita depois; consumidor perde);
+   - `Lww_DoisPushesConcorrentes_UltimoFisicoVence` (corrida do SetValues);
+   - `UpdateDelete_OrdensDiferentes_NaoConvergem` (permutações U/D);
+   - `EditarCliente_DuplicaFilhosNoDestino`;
+   - `EntidadeNaoClassificada_VazaComoGlobal`;
+   - `JwtHumano_AcessaEnviarReceber` (segurança).
+
+**Gate 0:** segredos fora do repo e rotacionados; boot falha sem `No:Modo`; suíte roda e os 6 testes acima estão vermelhos *pelo motivo certo*.
+
+### FASE 1 — Identidade e autorização de nó
+
+*Invariante-alvo: só nó cadastrado e autenticado alcança o data plane; a origem de cada op é derivada pelo servidor; nó gêmeo não sobe.*
+
+1. **Tabela `SyncNos`** (INFRA, não replica; hub-only na prática): `NoCodigo int UNIQUE`, `InstanciaUid uuid`, `Modo`, `Status (Provisionando|Bootstrapping|Ativo|Suspenso|RebootstrapNecessario|Desativado)`, `ChaveHash`, `UltimoAckSeq bigint`, `UltimoPushEm`, `UltimoPullEm`, `VersaoApp`, `CriadoEm`. + **`SyncNoFiliais`** (`NoCodigo`, `FilialId`) = escopo autorizado do pull. CRUD no painel (admin).
+2. **Credencial por nó.** Ao cadastrar o nó no hub, gerar chave aleatória (exibida 1x; hash guardado). Edge configura `Sync:NoChave` via env. Novo endpoint `POST /api/sync/handshake` (anônimo): valida `(NoCodigo, InstanciaUid, chave)` contra `SyncNos` → emite JWT curto com claims `syncNode=true, noCodigo`. **Anti-gêmeo:** primeiro handshake grava `InstanciaUid`; handshake com `InstanciaUid` diferente para o mesmo `NoCodigo` → 409 `NoGemeoDetectado`, o edge loga fatal e NÃO liga o loop (falha ruidosa). Re-instalação legítima = botão "Resetar instância" no painel.
+3. **Policies.** `SyncNode` (claim `syncNode`) em `/enviar` e `/receber`. `Admin` (role real de usuário) em `/fila`, `/quarentena`, `/reprocessar`, `/limpar`, `/resetar-recebimento`, `/status`, CRUD de nós. `/fila` **para de expor `DadosJson`** na listagem (só num `GET /fila/{id}/payload` admin, auditado). O transporte **aposenta o login SISTEMA** (o usuário virtual pode continuar existindo pro suporte humano, mas sem servir de credencial de máquina).
+4. **Origem correta no hub:** `AppDbContext.cs:2281` vira `var noOrigem = _noCodigo;` — SEMPRE o nó do servidor, nunca claim de filial (cura P0.3: edição feita na nuvem passa a chegar ao nó criador do registro, porque o anti-eco compara nó, não filial).
+5. **Escopo server-side:** `/receber` ignora `?filiais=` e deriva o escopo de `SyncNoFiliais` do nó autenticado (decisão A3). Edge continua configurando `No:Filiais` só como documentação local/validação.
+6. Limites de request no data plane: teto servidor de lote (qtde e bytes) no `/enviar` e `/receber`.
+
+**Gate 1 (testes):** JWT humano → 403 em `/enviar`/`/receber`; nó A não recebe escopo de B mesmo pedindo; gêmeo (mesma `NoCodigo`, `InstanciaUid` diferente) → 409 e loop não sobe; hub gera op com `NoOrigemId=0` mesmo com JWT de filial no contexto.
+
+### FASE 2 — Entrega sem gap + push honesto + estado visível
+
+*Invariante-alvo: toda op commitada e elegível é eventualmente numerada com `SeqEntrega` única e imutável; o cursor só anda sobre números já atribuídos; nenhum descarte é silencioso; falha de transporte nunca marca enviado.*
+
+1. **`SeqEntrega bigint NULL` na `SyncFila`** + sequence `seq_sync_entrega` + índice `(SeqEntrega) WHERE SeqEntrega IS NOT NULL`. **Publicador oportunista no hub** (a central não roda background loop — não criar um só pra isso): no início do `/receber` e no fim do `/enviar`, sob `pg_try_advisory_xact_lock(chave_fixa)` — quem pega o lock numera (`UPDATE SyncFila SET SeqEntrega = nextval(...) WHERE SeqEntrega IS NULL AND <elegível>`); quem não pega serve só o que já está numerado. Linha que commita tarde pega número MAIOR na rodada seguinte — transação longa não trava nada. Buracos de `nextval` são inofensivos com cursor `>`.
+   - **Elegível para numerar = op aplicada com sucesso no hub (ou resolvida).** Op que caiu em quarentena NÃO é numerada (não redistribui conflito — cura P1.4); quando o retry da quarentena aplicar, a op fica elegível.
+2. **Cursor = `SeqEntrega`.** `/receber`: `WHERE SeqEntrega > :cursor AND SeqEntrega IS NOT NULL AND <anti-eco por nó> AND <escopo>` ORDER BY `SeqEntrega` LIMIT teto. A resposta inclui **`seqMaxNumerado`** (MAX global numerado) para o cursor avançar mesmo com lote vazio/todo filtrado. A resposta inclui **`OpUid` de cada op** (cura P1.8; painel do receptor passa a deduplicar e auditar).
+3. **Geração do hub:** valor `sync.hub.geracao` (uuid criado uma vez, guardado na tabela nova de estado — item 4). Toda resposta do `/receber` o inclui; o edge persiste junto do cursor; mudou (restore/promoção do hub) → edge PARA com status `RebootstrapNecessario` visível no painel, não puxa lote parcial. Barato agora, impagável depois.
+4. **Estado local do sync sai de `Configuracoes`.** Nova entidade `SyncEstadoLocal` (INFRA, `_tabelasSemSync`): cursor, geração do hub vista, marcas de última execução. **`Configuracoes` entra em `_tabelasSemSync` JÁ** (decisão A4) — remover também do dicionário do applicator (`SyncApplicator.cs:639`). Migração: copiar `sync.ultimo.id.recebido` pro novo lugar. ATENÇÃO: a troca de cursor Id→SeqEntrega exige **corte coordenado** (ver §5, migração).
+5. **Push honesto (cura P0.14/P1.2):** `/enviar` responde **por op**: `{opUid, resultado: Aplicado|Duplicado|Stale|Quarentena|Rejeitado}`. Edge marca `Enviado=true` só nas ops presentes na resposta (todas essas estão duráveis no hub — inclusive `Quarentena`, que é problema do hub resolver e aparece no painel dele); resposta HTTP não-2xx ou corpo inválido → **nada** é marcado, backoff conta falha de verdade (hoje `SyncBackgroundService.cs:97-104` engole).
+6. **`Stale` visível (objetivo 7):** descarte por LWW grava registro auditável — reusar `SyncQuarentena` com `Motivo=Stale`, `Resolvido=true` (sem retry), payload da op perdedora. Painel ganha filtro "Descartados (LWW)". Vale nos dois lados (hub `/enviar` e edge apply).
+7. **ACK:** o request do `/receber` leva `ack=<cursor durável atual>`; hub grava em `SyncNos.UltimoAckSeq` + `UltimoPullEm`. (Retenção só na fase 5.) Push atualiza `UltimoPushEm`. O `/status` do painel passa a ler estado **persistido por nó**, não variável estática (cura P1.14).
+8. **Cursor do edge avança atomicamente:** persistir cursor na mesma transação do processamento do lote (aplicações + quarentenas + cursor num commit). Re-pull após crash re-aplica idempotente (por Id/OpUid).
+
+**Gate 2 (testes):** `Gap_CursorId_PerdeCommitTardio` verde com o desenho novo (tx longa concorrente não perde op — ela é numerada depois e entregue); resposta perdida no push → reenvio → `Duplicado`, efeito único; op quarentenada no hub não aparece em pull de terceiro até resolver; `Stale` aparece na quarentena-auditoria; crash do edge no meio do lote → re-pull sem perda nem efeito duplo; mudança de geração do hub → edge para com estado visível.
+
+### FASE 3 — Convergência: LWW atômico, U/D, filhos POCO
+
+*Invariante-alvo: dadas as mesmas ops em qualquer ordem, todos os nós terminam no mesmo estado (linhas E lápides); editar um agregado N vezes não duplica filho.*
+
+1. **Escritor real na linha:** coluna `AtualizadoPorNoId int NULL` na `BaseEntity` (uma migration, ~130 tabelas, nullable, sem backfill). Outbox carimba `_noCodigo` em toda escrita local; applicator carimba `op.NoOrigemId` ao aplicar remoto. `NoOrigemId` da entidade volta a ser só "criador" (histórico).
+2. **Comparador ÚNICO de versão** (uma função, usada em TODOS os caminhos): versão = `(AtualizadoEm ?? CriadoEm, escritor)` onde escritor do incoming = `op.NoOrigemId` e do estado atual = `AtualizadoPorNoId ?? NoOrigemId ?? 0`; para lápide, versão = `(DeletadoEm, NoOrigemId da lápide)`. Empate de timestamp → maior escritor vence. Guard A2: op com timestamp > agora+5min → quarentena `RelogioSuspeito`.
+3. **Atomicidade do apply:** cada op roda em transação com `SELECT ... FOR UPDATE` na linha alvo (SQL cru por Id; e na lápide correspondente — mesma tx). Dois applies concorrentes serializam; decisão linha×lápide é atômica (cura P0.5 e metade do P0.6).
+4. **U/D convergente (cura P0.6):** com o comparador único —
+   - `D` mais novo que linha → apaga + grava lápide com a versão do D;
+   - `D` mais velho que linha → `Stale` (visível);
+   - `D` sobre linha ausente → grava/atualiza lápide (NUNCA `PrecisaRetry`);
+   - `U`/`I` mais novo que lápide → **recria a linha** (o JSON carrega o estado completo) + remove/rebaixa a lápide;
+   - `U` mais velho que lápide → `Stale` (visível);
+   - `U` sobre linha ausente SEM lápide → tratar como `I` (upsert) — o retry eterno morre.
+5. **Lápides param de ser purgadas** (decisão A7): remover `PurgarTombstonesAsync`/`PurgarLapidesSePreciso` do caminho por idade; lápide só some em decommission explícito. (São 4 campos; anti-ressurreição vale mais que os bytes.)
+6. **Filhos POCO — contrato de coleção (cura P0.7 / synAteAqui §6.2):**
+   - **Contrato:** no JSON do pai, **chave de coleção AUSENTE = "não carregada, preserve"; chave PRESENTE (mesmo `[]`) = autoritativa, reconcilie**.
+   - **Outbox:** ao serializar o pai, incluir só coleções POCO com `IsLoaded=true` (as não carregadas são omitidas do payload — implementar sem sujar o ChangeTracker).
+   - **Applicator (`UpsertFilhosPocoAsync`):** coleção presente → diff por Id: upsert os presentes, **DELETE os ausentes**; coleção omitida → não toca. Isso conserta a replicação mesmo com os services recriando filhos com Ids novos (os Ids velhos são deletados no destino porque não estão no JSON autoritativo).
+   - **Edição só de filho:** nos 8 services que fazem `RemoveRange`+re-add (`Cliente`, `Convenio`, `Promocao`, `HierarquiaComissao`, `HierarquiaDesconto`, `Venda`, `SelfCheckoutVenda`, `Adquirente`), garantir que o pai sofra touch (`AtualizadoEm`) para a op do pai existir e o LWW do agregado andar. (Refatorar os services para diff-preservando-Ids é melhoria posterior, não pré-requisito.)
+7. **`SyncGuid` guard:** migration diagnóstica de duplicados + índice **UNIQUE** por tabela; no apply com PK já existente, validar `payload.SyncGuid == existente.SyncGuid` — divergiu → quarentena `ColisaoIdentidade` (P0 real de nó gêmeo/faixa errada), nunca `SetValues`.
+8. **Quarentena por `OpUid`:** chave passa a `OpUid` (unique); mantém dedup legado por `(Tabela,RegistroId,Operacao)` apenas para op sem `OpUid`. Preserva versões distintas (cura P1.3).
+
+**Gate 3 (testes):** matriz completa U/I/D × (antes/depois/empate) × 2 nós converge — estado E lápides idênticos; `EditarCliente_DuplicaFilhosNoDestino` verde; venda finalizada sem `Include` de descontos NÃO apaga descontos no destino (coleção omitida); colisão de `SyncGuid` → quarentena, zero merge cego; corrida de dois applies na mesma linha → serializa, versão certa vence.
+
+### FASE 4 — Registry fail-closed + domínio mínimo
+
+*Invariante-alvo: nenhuma entidade replica (ou deixa de replicar) por acidente; ledger não sofre LWW; a finalização da venda é atômica; seeds não colidem entre nós.*
+
+1. **Registry único de replicação** (novo arquivo em Infrastructure, ex.: `SyncRegistry.cs`): TODA entidade do modelo declara `Escopo (Global | PorFilial | Infra)` + resolver de dono (para PorFilial). **Validação no startup** (fail-fast): DbSet sem classificação → boot falha com mensagem nominal. Captura (outbox), applicator (`ResolverTipo`) e escopo (`FilialDonoId`) passam a consumir ESTE registry — eliminando o trio atual denylist (`_tabelasSemSync`) + allowlist (~61 no applicator) + dicionário por-filial, que hoje divergem. Fonte da classificação: `classificacao-replicacao.md` (GLOBAL ~55, POR-FILIAL ~45, INFRA ~12, híbridos `ContaBancaria`/`Feriado` por `FilialId` nullable). Isso fecha de uma vez o furo "**ContaPagar replica, ContaReceber não**", Caixa, MovimentoEstoque/Lote, ProdutoLote, Sngpc*, SelfCheckout* etc.
+2. **Fail-closed no dono (cura P0.8):** entidade PorFilial cujo dono não resolve → a op vai para **quarentena local** com motivo `DonoNaoResolvido` (visível), NUNCA vira GLOBAL. Trocar o `return null` de `AppDbContext.cs:2158-2160`.
+3. **`Codigo` sem ambiguidade:** `GerarCodigo` passa a retornar só o sequencial (`nextval`); unicidade garantida por índice `(NoOrigemId, Codigo)` nas tabelas com código visível; exibição `"{no}-{codigo}"` no frontend onde precisar distinguir. Códigos legados ficam como estão (únicos de fato).
+4. **`MovimentoEstoque`/`MovimentoLote` viram append-only no protocolo:** applicator aceita só `I` (dedup por Id — a PK já é global); `U`/`D` remoto → quarentena `LedgerImutavel`. Localmente, correção de estoque = movimento de AJUSTE novo, nunca editar movimento (conferir services; bloquear edição). `SaldoApos` é informativo. (`ProdutoDados.EstoqueAtual` continua snapshot LWW por-filial — limitação conhecida, backlog B6.)
+5. **Transação única na finalização (cura P0.15):** envolver `VendaService.FinalizarAsync` inteiro em `BeginTransaction` (o outbox já participa de tx ambiente — `AppDbContext.cs:2320`). O bloqueio que motivou a reversão anterior (row-bump de `SequenciasLocais` + `LogsAcao`) morreu quando `GerarCodigo` virou `nextval` — **confirmar em teste de carga leve antes de dar por resolvido** (2 finalizações concorrentes não serializam uma na outra). Mesmo tratamento para suprimento/sangria (`CaixaMovimentoService.cs:131-146,311-329`): caixa e banco no mesmo commit.
+6. **Seeds seguros multi-nó (cura P0.12):**
+   - `DatabaseSeeder.cs:37-44`: trocar `FilialId=1` hardcoded pelo `filialSeedId` do nó;
+   - Dados de referência (`IcmsUf`, e revisar `NaturezaOperacao`/afins): IDs **fixos determinísticos** (mesmos em todos os nós) e criados com `AplicandoSync=true` (não enfileira). Todos os nós nascem com as mesmas linhas nas mesmas PKs → update replica por Id sem colisão. `TiposPagamento`: mesmo padrão;
+   - Correções SQL de startup viram migrations idempotentes conscientes de escopo.
+
+**Gate 4 (testes):** DbSet novo sem classificação → boot falha (teste cria entidade fake); `ContaReceber` replica e chega; `SequenciasCentrais`/`SyncEstadoLocal`/`Configuracoes` NÃO saem no pull; `U` remoto de `MovimentoEstoque` → quarentena; kill -9 no meio da finalização → banco íntegro (tudo ou nada); dois nós recém-seedados não geram nenhuma op de seed colidente.
+
+### FASE 5 — Bootstrap, retenção e painel por nó
+
+*Invariante-alvo: nó novo nasce consistente e provado; a fila central não cresce sem teto; o painel responde "qual nó está atrasado e por quê" sem psql.*
+
+1. **Bootstrap por janela de manutenção (decisão A6) — runbook + suporte mínimo no código:**
+   1. cadastrar nó no hub (`Provisionando`) e emitir credencial;
+   2. na janela: drenar pushes, rodar o publicador até `SeqEntrega` completo, anotar **watermark** = MAX(SeqEntrega);
+   3. `pg_dump` do banco do tenant no hub **excluindo INFRA** (`SyncFila`, `SyncEstadoLocal`, `SyncNos`, quarentena, credenciais, certificados);
+   4. restore no edge; seeder detecta banco populado e NÃO re-seeda; configurar `No:Modo=Edge`, código, chave;
+   5. gravar cursor = watermark + geração do hub; status `Ativo`; ligar o loop;
+   6. validar: contagem + hash por tabela do escopo (ferramenta de comparação — item 4).
+2. **Retenção da fila central (religada SÓ agora, cura da §6.3 do synAteAqui):** apagar/compactar `SyncFila` do hub onde `SeqEntrega <= MIN(UltimoAckSeq dos nós Ativos)` e idade > margem (ex.: 7d). Nó `Suspenso`/`RebootstrapNecessario`/`Desativado` sai do MIN **somente por ação explícita** no painel (mudar o status é a ação — auditada). Nó parado há mais do que o SLA (A5: 30d) → alerta no painel sugerindo a ação; nunca automático. No edge, o `/limpar` existente já cobre (`Enviado=true` + idade).
+3. **Mudança de escopo do nó** (`SyncNoFiliais`): ampliar escopo → hub marca `RebootstrapNecessario` (eventos antigos da filial nova não serão re-entregues pelo cursor). Reduzir escopo → ok sem rebootstrap. Regra simples no update do cadastro.
+4. **Ferramenta de reconciliação:** endpoint admin `GET /api/sync/checksum?tabela=` → `{count, hash}` por tabela respeitando escopo (hash de `(Id, AtualizadoEm)` ordenado); painel compara hub × nó e pinta divergência.
+5. **Painel (tela `/erp/sync` existente) — upgrade:** seção "Nós" (por nó: status, último push/pull/ACK, backlog = `seqMaxNumerado - UltimoAckSeq`, versão, alerta de SLA); filtro "Descartados (LWW)"; quarentena por `OpUid`; indicador de geração; progresso de bootstrap. Backend disso já existe quase todo das fases 1-2 — aqui é exposição.
+
+**Gate 5 (piloto):** 2 PCs + Railway, dados sintéticos, 48h de operação com caos (matar processo em cada fronteira de commit/ACK, derrubar rede, relógio adiantado em um nó): checksum zerado ao final em todas as tabelas do escopo; painel refletiu cada anomalia injetada; fila central estável (retenção funcionando). **Só depois disso um segundo nó real.**
+
+---
+
+## 4. Migração V1 → V2 (corte do cursor)
+
+Não haverá dupla escrita de protocolos — é evolução in-place, mas a troca de cursor (Id → SeqEntrega) precisa de corte:
+
+1. Deploy das fases no hub e nos nós de DEV (hoje só existe 1 nó real + hub — a migração é barata AGORA; é mais um motivo pra não adiar);
+2. Com o transporte parado: publicador numera todo o backlog elegível do hub; quarentenas antigas são resolvidas ou marcadas descartadas (auditoria por `OpUid`);
+3. Converter cursor de cada nó: `novo cursor = SeqEntrega` correspondente ao último Id processado (script; na dúvida, cursor = 0 e re-pull completo — o apply é idempotente por Id/OpUid e o volume atual permite);
+4. Validar com checksum (fase 5 item 4) antes de reabrir.
+
+---
+
+## 5. O que NÃO fazer (herdado e reforçado)
+
+- NÃO usar `pg_snapshot_xmin` com cursor em `Id` (as ordens de XID e identity são independentes — contraexemplo formal no synAteAqui §6.1).
+- NÃO varredura por tempo/`CriadoEm`, NÃO safety-window, NÃO `MAX(Id)`.
+- NÃO numerar `SeqEntrega` dentro da transação de negócio.
+- NÃO confiar em `filialId`/`filiais`/origem vindos do cliente.
+- NÃO delete-missing de coleção sem a chave presente no JSON (contrato da fase 3).
+- NÃO LWW em ledger (movimento de estoque/caixa), venda finalizada ou documento fiscal.
+- NÃO purgar lápide/fence por idade.
+- NÃO reciclar `NoCodigo`, PK ou sequence após restore.
+- NÃO redistribuir op em quarentena/conflito antes de resolvida.
+- NÃO merge automático de dois `Id`s pelo `SyncGuid` (quarentena + decisão humana).
+- NÃO ligar segundo nó real antes do Gate 5. NÃO aceitar "compilou, sobe" — teste vermelho→verde ou não aconteceu.
+
+## 6. Backlog ADIADO deliberadamente (com gatilho de retorno)
+
+| # | Item (origem) | Gatilho para voltar |
+|---|---|---|
+| B1 | HLC (Codex P0.5) | conflitos reais atribuíveis a skew de relógio apesar de NTP + guard |
+| B2 | `WriterEpoch`/fencing/takeover formal (Codex §7.2) | failover de escrita operacional pra nuvem virar requisito de produto |
+| B3 | `SubscriptionGeneration` completo + backfill online | mudança de escopo de nó virar operação frequente (hoje: rebootstrap na janela) |
+| B4 | `NodeDelivery` materializado por nó | >20 nós por tenant ou necessidade de auditoria por-entrega |
+| B5 | mTLS / client assertion (Codex P0.2) | exposição pública multi-cliente do data plane |
+| B6 | Saldo de estoque por projeção do ledger (snapshot vira cache) | divergência real de `EstoqueAtual` entre nó e hub no piloto |
+| B7 | State machines venda/compra/financeiro + imutabilidade pós-fiscal (Codex §7.5) | após Gate 5, como programa de domínio |
+| B8 | Transferência como saga 2 pernas (Codex §7.5) | reativação do fluxo de transferência multi-filial |
+| B9 | Produto: template global × override por filial (Codex P0.9) | dono decidir que preço/fiscal PODEM divergir por filial |
+| B10 | `Configuracao` por-filial `(FilialId, Chave)` | depois do Gate 5 (hoje: não replica) |
+| B11 | Merge de cadastro duplicado por chave natural (tela de reconciliação) | primeiro caso real no piloto |
+| B12 | Multi-tenant (`TenantId`) | decisão de consolidar clientes num banco (hoje: 1 banco/cliente) |
+| B13 | Timestamps UTC em todo o app | junto com B1, se vier |
+
+## 7. Limpeza documental (fazer na fase 0, é barato)
+
+1. `sync.md`: resolver a contradição interna da lápide local (linhas ~88-99 dizem CORRIGIDO; ~146-158 descrevem como pendente — a versão corrigida é a verdadeira, apagar a seção obsoleta); atualizar lista de endpoints (faltam `/quarentena`, `/quarentena/reprocessar`, `/resetar-recebimento`).
+2. Mover `multi-filial.md` para `ContextDocuments/archive/` com cabeçalho **HISTÓRICO — NÃO IMPLEMENTAR** (modelo de Id antigo contradiz o vigente).
+3. `AppDbContext.cs:2072-2075`: apagar o comentário morto "TUDO replica".
+4. `PROJECT_CONTEXT.md`: marcar como snapshot histórico.
+5. Este plano passa a ser o documento de execução; `synAteAqui.md` e a orientação do Codex ficam como referência de diagnóstico.
+
+## 8. Protocolo de execução (para o Opus)
+
+- **Trabalhe na branch `dev-pc1`** (ou branch de feature a partir dela, a critério do dono). Commits: `tipo(escopo): resumo` em PT com corpo explicando o PORQUÊ; um commit por preocupação; NUNCA `git add .` (stage por caminho explícito).
+- **Test-first nas correções estruturais:** o teste vermelho da fase 0 vira verde no mesmo commit do fix. Postgres REAL nos testes; EF InMemory proibido neste subsistema.
+- **Re-verifique cada `arquivo:linha` deste plano antes de editar** — o código anda.
+- **Revisão adversarial ao fim de cada fase** (subagente: "prove que isso perde/duplica/vaza dado") — foi o único método que pegou os 4 desenhos ruins anteriores.
+- Comentários de código em PT sem acentos (estilo do repo); docs podem ter acentos.
+- Migrations: `dotnet ef migrations add X -p ZulexPharma.Infrastructure -s ZulexPharma.API`. Migration aplicada não se edita — fix retroativo é migration nova.
+- Em dúvida entre "fazer bonito" e "fazer verificável": verificável. Este subsistema pune intuição.
