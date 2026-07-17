@@ -319,6 +319,21 @@ app.UseMiddleware<ZulexPharma.API.Middleware.ErrorHandlingMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
+
+// FASE 1b: token de MAQUINA (syncNode) so' alcanca o data plane do sync — sem este gate ele passaria
+// em qualquer [Authorize] puro do app (mesma chave de assinatura dos tokens humanos).
+app.Use(async (context, next) =>
+{
+    if (ZulexPharma.API.Middleware.SyncNodeGate.EhTokenDeNo(context.User)
+        && !ZulexPharma.API.Middleware.SyncNodeGate.PermitidoParaNo(context.Request.Path))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new { success = false, message = "Token de no so' acessa o data plane do sync." });
+        return;
+    }
+    await next();
+});
+
 app.UseAuthorization();
 app.MapControllers();
 

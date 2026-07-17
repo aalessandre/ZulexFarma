@@ -49,9 +49,24 @@ public static class SyncNoAuth
 
         if (no.InstanciaUid == null)
         {
-            // Primeiro handshake da instalacao: crava a identidade fisica (anti-gemeo dali em diante).
-            no.InstanciaUid = instanciaUid;
-            if (no.Status == "Provisionando") no.Status = "Ativo";
+            // Primeiro handshake da instalacao: crava a identidade fisica com CAS ATOMICO.
+            // Achado ALTO da revisao adversarial: read-then-write aqui tinha corrida — dois handshakes
+            // SIMULTANEOS (servidor velho + novo apos resetar-instancia) viam ambos null e os DOIS
+            // recebiam token, reabrindo o gemeo por 1h. O UPDATE condicional garante que so' UM crava.
+            var cravou = await db.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE ""SyncNos""
+                SET ""InstanciaUid"" = {instanciaUid},
+                    ""Status"" = CASE WHEN ""Status"" = 'Provisionando' THEN 'Ativo' ELSE ""Status"" END
+                WHERE ""NoCodigo"" = {noCodigo}
+                  AND (""InstanciaUid"" IS NULL OR ""InstanciaUid"" = {instanciaUid})", ct);
+            if (cravou == 0)
+            {
+                await db.Entry(no).ReloadAsync(ct);
+                Log.Error("Sync: NO GEMEO na corrida do primeiro handshake! NoCodigo={No}, cravado={Reg}, perdedor={Tentou}.",
+                    noCodigo, no.InstanciaUid, instanciaUid);
+                return (HandshakeResultado.Gemeo, no);
+            }
+            await db.Entry(no).ReloadAsync(ct);
             Log.Information("Sync: no {No} cravou InstanciaUid {Uid} no primeiro handshake.", noCodigo, instanciaUid);
         }
         else if (no.InstanciaUid != instanciaUid)

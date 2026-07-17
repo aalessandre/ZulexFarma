@@ -2368,7 +2368,12 @@ public class AppDbContext : DbContext
                 foreach (var (tabela, op, entidade, filialDono) in operacoesPendentes)
                 {
                     var agoraOp = Domain.Helpers.DataHoraHelper.Agora();
-                    var noOrigemOp = _noCodigo > 0 ? _noCodigo : (entidade.NoOrigemId ?? 0);
+                    // FASE 1b (achado CRITICO da revisao adversarial): a origem da OP e' SEMPRE o no que a
+                    // ESCREVEU (config do servidor; hub = 0) — nunca o criador do registro (entidade.NoOrigemId).
+                    // Com o fallback antigo, o hub editando/deletando registro criado na loja 5 gerava op com
+                    // origem 5 e o anti-eco do PULL escondia a mudanca exatamente do no dono (divergencia
+                    // permanente em operacao normal). Teste: Hub_EditarRegistroCriadoNoEdge_OpSaiComOrigemZero.
+                    var noOrigemOp = (long)_noCodigo;
 
                     // DELETE LOCAL TAMBEM CRAVA A LAPIDE (anti-ressurreicao).
                     // Ate' 07/2026 a lapide so' nascia ao APLICAR delete REMOTO (SyncApplicator), entao o no

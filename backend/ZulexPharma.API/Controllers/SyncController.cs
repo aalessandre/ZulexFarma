@@ -207,6 +207,14 @@ public class SyncController : ControllerBase
             var noAutenticado = NoCodigoDoToken();
             if (noAutenticado < 1)
                 return StatusCode(403, new { success = false, message = "Token sem identidade de no." });
+            // Fase 1b: Suspenso/Desativado no painel corta o data plane JA (o token vale ate' 1h;
+            // sem esta checagem a suspensao so' teria efeito no proximo handshake).
+            var statusNo = await _db.SyncNos.AsNoTracking()
+                .Where(n => n.NoCodigo == noAutenticado).Select(n => n.Status).FirstOrDefaultAsync();
+            if (statusNo != "Ativo")
+                return StatusCode(403, new { success = false, message = statusNo == null
+                    ? $"No {noAutenticado} nao cadastrado."
+                    : $"No {noAutenticado} esta '{statusNo}' — data plane bloqueado." });
             if (operacoes.Count > MaxOpsPorLote)
                 return BadRequest(new { success = false, message = $"Lote acima do teto ({operacoes.Count} > {MaxOpsPorLote}). Reduza Sync:LoteTamanho." });
 
@@ -347,6 +355,12 @@ public class SyncController : ControllerBase
             var noAutenticado = NoCodigoDoToken();
             if (noAutenticado < 1)
                 return StatusCode(403, new { success = false, message = "Token sem identidade de no." });
+            var statusNo = await _db.SyncNos.AsNoTracking()
+                .Where(n => n.NoCodigo == noAutenticado).Select(n => n.Status).FirstOrDefaultAsync();
+            if (statusNo != "Ativo")
+                return StatusCode(403, new { success = false, message = statusNo == null
+                    ? $"No {noAutenticado} nao cadastrado."
+                    : $"No {noAutenticado} esta '{statusNo}' — data plane bloqueado." });
             limite = Math.Clamp(limite, 1, MaxOpsPorLote);
 
             // Escopo por-filial: GLOBAL (FilialDonoId==null) vai pra todos; POR-FILIAL so' pras filiais
@@ -356,6 +370,16 @@ public class SyncController : ControllerBase
                 .Where(nf => nf.NoCodigo == noAutenticado)
                 .Select(nf => nf.FilialId)
                 .ToArrayAsync();
+
+            // Fase 1b (achado ALTO): edge configurado com No:Filiais mas cadastro SEM filiais = provavel
+            // esquecimento no provisionamento. Servir so' GLOBAL aqui avancaria o cursor POR CIMA das ops
+            // por-filial — quando o admin corrigisse, o gap seria permanente (ate' um resetar-recebimento).
+            // Falha RUIDOSA > gap silencioso.
+            if (filiaisDono.Length == 0 && !string.IsNullOrWhiteSpace(filiais))
+                return StatusCode(422, new { success = false, codigo = "EscopoNaoConfigurado", message =
+                    $"O no {noAutenticado} declara filiais ({filiais}) mas o cadastro na central nao tem NENHUMA. " +
+                    "Configure as filiais do no no painel (PUT /api/sync/nos/{codigo}) antes de puxar — servir so' " +
+                    "GLOBAL avancaria o cursor por cima das ops por-filial e o gap seria permanente." });
 
             var operacoes = await _db.SyncFila
                 .Where(f => f.Id > ultimoId && f.NoOrigemId != noAutenticado

@@ -127,13 +127,30 @@ public class SyncBackgroundService : BackgroundService
                 else
                 {
                     _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                    await Enviar(stoppingToken);
-                    await Receber(stoppingToken);
-                    FalhasConsecutivas = 0;
-                    falhasTransporte = 0; // transporte OK — erros de quarentena (dentro de Receber) NAO contam
+                    // Fase 1b (achado da revisao adversarial): resposta nao-2xx do data plane e' FALHA DE
+                    // TRANSPORTE (edge antigo x hub novo = 403 eterno; lote acima do teto = 400 eterno) —
+                    // antes era so' um Warning e o painel ficava "OK" com o backlog crescendo pra sempre.
+                    var okPush = await Enviar(stoppingToken);
+                    var okPull = await Receber(stoppingToken);
+                    if (okPush && okPull)
+                    {
+                        FalhasConsecutivas = 0;
+                        falhasTransporte = 0; // transporte OK — erros de quarentena (dentro de Receber) NAO contam
+                    }
+                    else
+                    {
+                        FalhasConsecutivas++;
+                        falhasTransporte++;
+                    }
                 }
                 UltimaExecucao = DateTime.UtcNow;
-                UltimoStatus = FalhasConsecutivas > 0 ? "ERRO" : "OK";
+                // Status especifico setado pelo ObterToken (CONFIG = sem chave; AUTH = credencial rejeitada)
+                // vale mais que o generico "ERRO" enquanto o token continuar falhando. Com token em maos,
+                // o resultado do ciclo decide.
+                if (!string.IsNullOrEmpty(token))
+                    UltimoStatus = FalhasConsecutivas > 0 ? "ERRO" : "OK";
+                else if (UltimoStatus is not ("CONFIG" or "AUTH"))
+                    UltimoStatus = "ERRO";
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
@@ -196,12 +213,15 @@ public class SyncBackgroundService : BackgroundService
         return (delaySeg + jitter) * 1000;
     }
 
-    private async Task Enviar(CancellationToken ct)
+    /// <summary>Retorna false em falha de TRANSPORTE (nao-2xx) — o chamador conta pro backoff/status.</summary>
+    private async Task<bool> Enviar(CancellationToken ct)
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        // Clamp no teto do servidor (500): lote configurado acima disso tomaria 400 ETERNO no /enviar.
         var lote = int.TryParse(_config["Sync:LoteTamanho"], out var l) ? l : 100;
+        lote = Math.Clamp(lote, 1, 500);
         var pendentes = await db.SyncFila
             .Where(f => !f.Enviado)
             .OrderBy(f => f.Id)
@@ -210,7 +230,7 @@ public class SyncBackgroundService : BackgroundService
 
         PendentesEnvio = await db.SyncFila.CountAsync(f => !f.Enviado, ct);
 
-        if (pendentes.Count == 0) return;
+        if (pendentes.Count == 0) return true;
 
         var json = JsonSerializer.Serialize(pendentes.Select(p => new
         {
@@ -229,15 +249,16 @@ public class SyncBackgroundService : BackgroundService
             foreach (var p in pendentes) { p.Enviado = true; p.EnviadoEm = DateTime.UtcNow; }
             await db.SaveChangesAsync(ct);
             Log.Information("Sync PUSH: {Count} operações enviadas", pendentes.Count);
+            return true;
         }
-        else
-        {
-            var body = await response.Content.ReadAsStringAsync(ct);
-            Log.Warning("Sync PUSH falhou ({Status}): {Body}", response.StatusCode, body);
-        }
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        Log.Warning("Sync PUSH falhou ({Status}): {Body}", response.StatusCode, body);
+        return false;
     }
 
-    private async Task Receber(CancellationToken ct)
+    /// <summary>Retorna false em falha de TRANSPORTE (nao-2xx) — o chamador conta pro backoff/status.</summary>
+    private async Task<bool> Receber(CancellationToken ct)
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -250,11 +271,18 @@ public class SyncBackgroundService : BackgroundService
         var response = await _httpClient.GetAsync(
             $"{_urlCentral}/api/sync/receber?filialId={_noCodigo}&filiais={Uri.EscapeDataString(_filiais)}&ultimoId={ultimoId}", ct);
 
-        if (!response.IsSuccessStatusCode) return;
+        if (!response.IsSuccessStatusCode)
+        {
+            // Inclui o 422 EscopoNaoConfigurado (fase 1b): melhor parar RUIDOSO que avancar o cursor
+            // por cima das ops por-filial que o cadastro incompleto filtraria.
+            var corpoErro = await response.Content.ReadAsStringAsync(ct);
+            Log.Warning("Sync PULL falhou ({Status}): {Body}", response.StatusCode, corpoErro);
+            return false;
+        }
 
         var json = await response.Content.ReadAsStringAsync(ct);
         var resultado = JsonSerializer.Deserialize<SyncReceberResponse>(json, _jsonOpts);
-        if (resultado?.Data == null || resultado.Data.Count == 0) return;
+        if (resultado?.Data == null || resultado.Data.Count == 0) return true;
 
         db.AplicandoSync = true;
         var aplicados = 0;
@@ -330,6 +358,7 @@ public class SyncBackgroundService : BackgroundService
 
         if (erros > 0) FalhasConsecutivas += erros;
         if (aplicados > 0) Log.Information("Sync PULL: {Count} aplicadas, {Erros} erros", aplicados, erros);
+        return true; // transporte OK (erros de APLICACAO ja' foram pra quarentena, nao contam como transporte)
     }
 
     /// <summary>
@@ -432,6 +461,10 @@ public class SyncBackgroundService : BackgroundService
             {
                 var errBody = await response.Content.ReadAsStringAsync(ct);
                 Log.Warning("Sync: handshake falhou ({Status}): {Body}", response.StatusCode, errBody);
+                // 401/403 = credencial rejeitada ou no inativo — status especifico pro painel
+                // (chave errada NAO e' "CONFIG ausente" nem "ERRO de rede").
+                if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+                    UltimoStatus = "AUTH";
                 return null;
             }
 

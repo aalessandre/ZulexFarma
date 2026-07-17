@@ -55,4 +55,45 @@ public class HubOrigemTests
             "de 0 (o no do SERVIDOR). Com isso o anti-eco do PULL esconde a edicao da nuvem exatamente do " +
             "no que criou o registro. Origem vem da CONFIG do servidor, nunca do usuario.");
     }
+
+    /// <summary>
+    /// O caso que MOTIVOU o P0.3 (achado CRITICO da revisao adversarial da fase 1): o hub EDITA um
+    /// registro CRIADO num edge. A op precisa sair com origem 0 (hub) — se herdar o NoOrigemId do
+    /// CRIADOR (5), o anti-eco do PULL esconde a edicao exatamente do no dono: hub e demais lojas
+    /// com o valor novo, loja 5 com o velho, pra sempre. Pior no D: o delete nunca chega ao criador.
+    /// </summary>
+    [Fact]
+    public async Task Hub_EditarRegistroCriadoNoEdge_OpSaiComOrigemZero()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["No:Modo"] = "Hub",
+            ["No:Codigo"] = "0",
+        }).Build();
+        var opts = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(_pg.ConnTeste).Options;
+        const long id = 5_000_000_301; // faixa do no 5 (criado no edge)
+
+        // Registro "chegou do edge 5" (aplicado via sync: NoOrigemId=5 na entidade)
+        await using (var db = new AppDbContext(opts, null, config) { AplicandoSync = true })
+        {
+            db.Fabricantes.Add(new Fabricante { Id = id, Nome = "CRIADO NA LOJA 5", NoOrigemId = 5 });
+            await db.SaveChangesAsync();
+        }
+
+        // Usuario da NUVEM edita o registro (fluxo normal do painel do hub)
+        await using (var db = new AppDbContext(opts, null, config))
+        {
+            var fab = await db.Fabricantes.FindAsync(id);
+            fab!.Nome = "EDITADO NA NUVEM";
+            await db.SaveChangesAsync();
+        }
+
+        await using var leitura = _pg.CriarContexto(aplicandoSync: true);
+        var op = await leitura.SyncFila.FirstAsync(s => s.Tabela == "Fabricantes" && s.RegistroId == id && s.Operacao == "U");
+
+        Assert.True(op.NoOrigemId == 0,
+            $"ANTI-ECO CEGO: a op 'U' do hub saiu com NoOrigemId={op.NoOrigemId} (o CRIADOR do registro) " +
+            "em vez de 0 (quem ESCREVEU a op). O PULL do no 5 filtra NoOrigemId != 5 e a edicao da nuvem " +
+            "NUNCA chega ao no dono — divergencia permanente em operacao normal, sem atacante.");
+    }
 }
