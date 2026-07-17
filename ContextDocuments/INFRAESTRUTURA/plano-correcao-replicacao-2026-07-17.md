@@ -315,6 +315,46 @@ Não haverá dupla escrita de protocolos — é evolução in-place, mas a troca
 - NÃO merge automático de dois `Id`s pelo `SyncGuid` (quarentena + decisão humana).
 - NÃO ligar segundo nó real antes do Gate 5. NÃO aceitar "compilou, sobe" — teste vermelho→verde ou não aconteceu.
 
+## 5c. PENDÊNCIAS PRÉ-PRODUÇÃO (bloqueiam o 2º nó REAL — não o piloto controlado)
+
+Estado em 17/07/2026: **backend das 6 fases feito, suíte 72/72 verde, 5 revisões adversariais por
+fase + 1 auditoria cross-cutting.** O núcleo está sólido (converge, não vaza, não perde no caminho
+normal). O que falta antes de ligar um 2º nó REAL em produção:
+
+1. **🟠 Conflito em coleção POCO sob concorrência — DECISÃO DE SEMÂNTICA DO DONO** (achado ALTO da
+   auditoria cross-cutting, `SyncApplicator.cs` reconciliação de filhos). Dois nós adicionam filhos
+   DIFERENTES à MESMA coleção do MESMO agregado (ex.: nó A add convênio X, nó B add convênio Y no
+   mesmo Cliente) dentro da janela de sync. O LWW escolhe UM agregado vencedor e o delete-missing
+   apaga o filho do perdedor **em silêncio** (viola invariante 7). Vale pra qualquer filho POCO dos
+   8 agregados (ClienteConvenio, ClienteDesconto, VendaPagamento, PromocaoProduto, AdquirenteTarifa,
+   HierarquiaDesconto*, etc.). **Não é hackável sem uma decisão:** qual a semântica de conflito de
+   coleção-filha? Opções: **(a)** UNIÃO por identidade estável (set-merge — nunca perde, mas é
+   CRDT-like, contra a decisão "LWW por linha"); **(b)** LWW-agregado como hoje, mas com o filho
+   removido indo para a QUARENTENA/painel antes do DELETE (respeita invariante 7 "nada silencioso" —
+   mudança pequena, mas precisa distinguir remoção legítima de perda-por-conflito pra não poluir o
+   painel); **(c)** promover as coleções concorrentes-por-natureza a `BaseEntity` (replicação e LWW
+   próprios por filho). Recomendo levar (b) como mínimo viável + (c) para as coleções onde dois nós
+   realmente inserem concorrente. **Requer o dono travar a semântica antes de codar** (é o padrão
+   "feature grande: planejar antes, travar decisão com o usuário").
+
+2. **🟠 Transação única na finalização da venda (P0.15, fase 4b)** — `VendaService.FinalizarAsync` e
+   suprimento/sangria do caixa ainda em vários `SaveChanges` sem transação. O bloqueio que causou a
+   reversão antiga (row-bump de `SequenciasLocais`) já morreu com o `nextval`. **Exige verificação em
+   runtime** (finalizar venda real, matar o processo no meio) — sessão própria com o app rodando.
+
+3. **🟡 Frota mista de seeds** (pré-existente, não regressão): hub tem TiposPagamento/IcmsUf em faixa
+   antiga, edge novo tem Ids fixos 1-4/1-27. Um edge EXISTENTE que só recebe o deploy novo continua
+   na faixa antiga e suas vendas quebrariam FK no hub. Resolve no **bootstrap** do edge (herda as
+   linhas do hub) OU num remap manual das FKs. Documentar no runbook de upgrade da frota.
+
+4. **🟢 Teto da quarentena por TEMPO no hub** (herdado da fase 3): `PrecisaRetry` mede tentativas por
+   EXECUÇÃO de drenagem, não por tempo; no hub (drena a cada push de qualquer edge) pode "prender"
+   uma op legítima em ~40min. Cura: carimbo de próximo-retry (backoff temporal).
+
+**Gate do piloto → produção:** os itens 1 e 2 são bloqueadores do 2º nó real; 3 e 4 podem ir com o
+rollout se documentados. O piloto controlado (dados sintéticos) pode rodar ANTES, operando em torno
+deles, para exercitar o fluxo e reproduzir os cenários de caos (ver §5 do relatório da auditoria).
+
 ## 6. Backlog ADIADO deliberadamente (com gatilho de retorno)
 
 | # | Item (origem) | Gatilho para voltar |
