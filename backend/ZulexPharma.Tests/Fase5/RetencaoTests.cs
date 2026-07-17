@@ -46,9 +46,13 @@ public class RetencaoTests
 
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
         {
-            // Mundo controlado: os nos dos OUTROS testes saem do MIN (eles se re-registram sozinhos)
-            await db.SyncNos.ExecuteUpdateAsync(s => s.SetProperty(n => n.Status, "Desativado"));
+            // Slate limpo e DETERMINISTICO: a retencao computa MIN(ack) sobre TODOS os nos Ativos,
+            // entao um no leftover de outro teste com ack baixo mascararia o resultado. SyncNos e'
+            // pura infra de teste (o seeder nao cria) e a colecao 'pg' roda SEQUENCIAL -> apagar
+            // todos aqui e' seguro (cada teste que precisa recria os seus). O finally limpa os meus.
+            await db.SyncNos.ExecuteDeleteAsync();
             await db.SyncEstadoLocal.Where(e => e.Chave == "sync.retencao.marca").ExecuteDeleteAsync();
+            await db.SyncFila.Where(f => f.Tabela == "RetencaoTeste").ExecuteDeleteAsync();
 
             db.SyncFila.AddRange(
                 new SyncFila { Tabela = "RetencaoTeste", Operacao = "I", RegistroId = 1, NoOrigemId = 9502, DadosJson = "{}", CriadoEm = antigo },
@@ -100,10 +104,12 @@ public class RetencaoTests
         }
         finally
         {
-            // nao poluir os proximos testes: remove a marca de compactacao e os nos deste teste
+            // Limpeza COMPLETA (a marca de compactacao quebraria pulls de outros testes com 409):
+            // marca, nos deste teste E as ops sobreviventes (seqC) — numeradas e servivies.
             await using var db = _pg.CriarContexto(aplicandoSync: true);
             await db.SyncEstadoLocal.Where(e => e.Chave == "sync.retencao.marca").ExecuteDeleteAsync();
             await db.SyncNos.Where(n => n.NoCodigo >= 9501 && n.NoCodigo <= 9505).ExecuteDeleteAsync();
+            await db.SyncFila.Where(f => f.Tabela == "RetencaoTeste").ExecuteDeleteAsync();
         }
     }
 
@@ -120,6 +126,9 @@ public class RetencaoTests
         await using var db = _pg.CriarContexto(aplicandoSync: true);
         Assert.Equal(marca.ToString(), (await db.SyncEstadoLocal.FirstAsync(e => e.Chave == "sync.cursor.entrega")).Valor);
         Assert.Equal(geracao, (await db.SyncEstadoLocal.FirstAsync(e => e.Chave == "sync.hub.geracao.vista")).Valor);
+
+        // Nao deixar cursor/geracao cravados no banco compartilhado (o Receber de outro teste usaria).
+        await db.SyncEstadoLocal.Where(e => e.Chave == "sync.cursor.entrega" || e.Chave == "sync.hub.geracao.vista").ExecuteDeleteAsync();
     }
 
     [Fact]

@@ -459,23 +459,58 @@ public static class DatabaseSeeder
                 tabelas.Add(reader.GetString(0));
         }
 
+        var fimFaixa = offset + ID_RANGE_PER_FILIAL;
         foreach (var tabela in tabelas)
         {
-            // Pegar o valor máximo atual de Id na tabela
+            // FASE 5b (achado CRITICO da revisao): o guard antigo usava MAX(Id) GLOBAL — apos um
+            // BOOTSTRAP (restore do dump do hub, que traz linhas de TODOS os nos), o MAX global
+            // estoura o offset e o RESTART nunca rodava: a identity ficava na posicao DO HUB e o no
+            // passava a emitir Ids na faixa alheia -> colisao de PK entre nos = fusao silenciosa por
+            // LWW. A referencia certa e' o MAX DENTRO DA FAIXA DESTE NO.
             using var cmdMax = conn.CreateCommand();
-            cmdMax.CommandText = $@"SELECT COALESCE(MAX(""Id""), 0) FROM ""{tabela}""";
-            var maxId = Convert.ToInt64(await cmdMax.ExecuteScalarAsync());
+            cmdMax.CommandText = $@"SELECT COALESCE(MAX(""Id""), 0) FROM ""{tabela}"" WHERE ""Id"" > {offset} AND ""Id"" <= {fimFaixa}";
+            var maxNaFaixa = Convert.ToInt64(await cmdMax.ExecuteScalarAsync());
 
-            // Só ajustar se o Id atual está abaixo da faixa da filial
-            if (maxId < offset)
+            // posicao atual da identity (0 se nao resolvida)
+            long posicaoAtual = 0;
+            using (var cmdNomeSeq = conn.CreateCommand())
+            {
+                cmdNomeSeq.CommandText = $@"SELECT pg_get_serial_sequence('""{tabela}""', 'Id')";
+                var nomeSeq = await cmdNomeSeq.ExecuteScalarAsync() as string;
+                if (!string.IsNullOrEmpty(nomeSeq))
+                {
+                    using var cmdLast = conn.CreateCommand();
+                    cmdLast.CommandText = $"SELECT last_value FROM {nomeSeq}";
+                    posicaoAtual = Convert.ToInt64(await cmdLast.ExecuteScalarAsync());
+                }
+            }
+
+            var alvo = DecidirRestartSequence(offset, fimFaixa, maxNaFaixa, posicaoAtual);
+            if (alvo != null)
             {
                 using var cmdRestart = conn.CreateCommand();
-                cmdRestart.CommandText = $@"ALTER TABLE ""{tabela}"" ALTER COLUMN ""Id"" RESTART WITH {offset + 1}";
+                cmdRestart.CommandText = $@"ALTER TABLE ""{tabela}"" ALTER COLUMN ""Id"" RESTART WITH {alvo.Value}";
                 await cmdRestart.ExecuteNonQueryAsync();
-                Log.Debug("Sequence {Tabela} configurada para {Offset}", tabela, offset + 1);
+                Log.Debug("Sequence {Tabela} configurada para {Alvo} (posicao anterior {Pos})", tabela, alvo.Value, posicaoAtual);
             }
         }
 
         Log.Information("Faixa de IDs configurada para Filial {Filial}: {Offset}+", noCodigo, offset);
+    }
+
+    /// <summary>
+    /// FASE 5b (achado CRITICO da revisao) — decisao PURA de reposicionamento da identity, extraida
+    /// pra ser testavel. Retorna o alvo do RESTART ou null (nao mexer). Reposiciona quando a
+    /// identity esta' FORA da faixa deste no (abaixo do offset OU alem do fim = herdada de restore
+    /// de outro no/hub) ou ATRAS do maior Id ja' emitido DENTRO da faixa. NUNCA reduz dentro da
+    /// faixa (reuso de Id apagado ressuscitaria via lapide). O guard antigo usava MAX(Id) GLOBAL:
+    /// apos bootstrap, as linhas de outros nos no dump estouravam o offset e o RESTART nunca rodava,
+    /// deixando a identity na posicao do HUB -> o no emitia Ids na faixa alheia = colisao de PK.
+    /// </summary>
+    public static long? DecidirRestartSequence(long offset, long fimFaixa, long maxNaFaixa, long posicaoAtual)
+    {
+        var alvo = Math.Max(maxNaFaixa, offset) + 1;
+        var foraDaFaixa = posicaoAtual <= offset || posicaoAtual > fimFaixa;
+        return (foraDaFaixa || posicaoAtual < Math.Max(maxNaFaixa, offset)) ? alvo : null;
     }
 }

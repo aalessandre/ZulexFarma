@@ -213,8 +213,10 @@ public class SyncController : ControllerBase
         var conn = _db.Database.GetDbConnection();
         if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
         using var cmd = conn.CreateCommand();
+        // to_char com mascara fixa: o ::text dependeria do DateStyle do servidor (hub e loja podem
+        // divergir e o hash mentiria "divergencia" com dado identico).
         cmd.CommandText = $@"SELECT COUNT(*)::bigint,
-            COALESCE(md5(string_agg(""Id""::text || ':' || COALESCE(""AtualizadoEm""::text, ''), ',' ORDER BY ""Id"")), '')
+            COALESCE(md5(string_agg(""Id""::text || ':' || COALESCE(to_char(""AtualizadoEm"", 'YYYY-MM-DD HH24:MI:SS.US'), ''), ',' ORDER BY ""Id"")), '')
             FROM ""{nomeTabela}""{where}";
         using var reader = await cmd.ExecuteReaderAsync();
         await reader.ReadAsync();
@@ -302,7 +304,8 @@ public class SyncController : ControllerBase
                 no.Status = "RebootstrapNecessario";
                 avisoEscopo = $"Filiais adicionadas ({string.Join(",", adicionadas)}) a um no que ja' puxou: " +
                     "status mudou pra RebootstrapNecessario — o historico da filial nova esta' ATRAS do cursor. " +
-                    "Faca bootstrap (ou resetar-recebimento no no) e reative.";
+                    "Faca o BOOTSTRAP (runbook fase 5) e reative. Obs.: resetar-recebimento so' funciona se a " +
+                    "central NUNCA compactou (marca de retencao zero) — senao o pull leva 409.";
             }
             _db.SyncNoFiliais.RemoveRange(no.Filiais);
             no.Filiais = dto.Filiais.Distinct().Select(f => new SyncNoFilial { NoCodigo = noCodigo, FilialId = f }).ToList();
@@ -845,7 +848,9 @@ public class SyncController : ControllerBase
                 await _db.SaveChangesAsync();
             }
 
-            return Ok(new { success = true, message = "Ponteiro de recebimento resetado. Próximo ciclo vai rebuscar tudo." });
+            return Ok(new { success = true, message = "Ponteiro de recebimento resetado. Próximo ciclo vai rebuscar tudo. " +
+                "ATENÇÃO: se a central já compactou a fila (retenção), o pull vai responder 409 e este nó " +
+                "precisará de BOOTSTRAP (runbook fase 5) — o reset não recupera ops já apagadas." });
         }
         catch (Exception ex)
         {
@@ -893,11 +898,16 @@ public class SyncController : ControllerBase
                     .ToListAsync();
                 if (acksAtivos.Count > 0 && acksAtivos.Min() > 0) // sem no Ativo (ou algum sem ack) = nao apaga NADA
                 {
-                    marcaRetencao = acksAtivos.Min();
-                    removidosRetencao = await _db.SyncFila
-                        .Where(f => f.SeqEntrega != null && f.SeqEntrega <= marcaRetencao && f.CriadoEm < corte)
-                        .ExecuteDeleteAsync();
-                    if (removidosRetencao > 0)
+                    var minAck = acksAtivos.Min();
+                    // FASE 5b (achados A2+M1 da revisao): a marca persistida e' o MAIOR seq REALMENTE
+                    // apagado (nao o min-ack inteiro — ops jovens <= min-ack sobrevivem ao corte de
+                    // idade e um 409 com marca superestimada 'brickaria' no com dado completo). E ela
+                    // e' gravada ANTES do delete (write-ahead): marca adiantada sem delete = 409 a
+                    // mais (fail-closed); delete sem marca = lote parcial silencioso (o pior caso).
+                    marcaRetencao = await _db.SyncFila
+                        .Where(f => f.SeqEntrega != null && f.SeqEntrega <= minAck && f.CriadoEm < corte)
+                        .MaxAsync(f => (long?)f.SeqEntrega) ?? 0;
+                    if (marcaRetencao > 0)
                     {
                         var estadoMarca = await _db.SyncEstadoLocal.FirstOrDefaultAsync(e => e.Chave == "sync.retencao.marca");
                         if (estadoMarca == null)
@@ -905,8 +915,12 @@ public class SyncController : ControllerBase
                         else if (long.TryParse(estadoMarca.Valor, out var m) && marcaRetencao > m)
                         { estadoMarca.Valor = marcaRetencao.ToString(); estadoMarca.AtualizadoEm = DataHoraHelper.Agora(); }
                         await _db.SaveChangesAsync();
-                        Log.Warning("Sync: retencao do hub removeu {N} ops ate' a marca {Marca} (min ack dos Ativos).",
-                            removidosRetencao, marcaRetencao);
+
+                        removidosRetencao = await _db.SyncFila
+                            .Where(f => f.SeqEntrega != null && f.SeqEntrega <= marcaRetencao && f.CriadoEm < corte)
+                            .ExecuteDeleteAsync();
+                        Log.Warning("Sync: retencao do hub removeu {N} ops ate' a marca {Marca} (min ack dos Ativos: {MinAck}).",
+                            removidosRetencao, marcaRetencao, minAck);
                     }
                 }
             }
