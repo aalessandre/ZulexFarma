@@ -186,9 +186,12 @@ public class AuthService : IAuthService
 
     private string GerarSenhaSistema()
     {
-        // Mesma chave/algoritmo do SenhaDiaService: env var SistemaKey (prod) ou appsettings (dev).
-        var chave = _config["SistemaKey"]
-            ?? throw new InvalidOperationException("SistemaKey não configurada (env var no Railway em prod, appsettings em dev).");
+        // Mesma chave/algoritmo do SenhaDiaService: env var SistemaKey (prod) ou
+        // appsettings.Development.json (dev). Falha alto se ausente OU vazia — o placeholder ""
+        // do appsettings.json versionado nao pode virar chave de derivacao.
+        var chave = _config["SistemaKey"];
+        if (string.IsNullOrWhiteSpace(chave))
+            throw new InvalidOperationException("SistemaKey não configurada (env var em prod, appsettings.Development.json em dev).");
         var data = DateTime.UtcNow.ToString("yyyyMMdd");
         using var sha = System.Security.Cryptography.SHA256.Create();
         var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(data + chave));

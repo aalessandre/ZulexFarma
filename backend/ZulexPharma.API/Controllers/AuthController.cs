@@ -18,14 +18,12 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IConfiguration _config;
     private readonly AppDbContext _db;
-    private readonly ISenhaDiaService _senhaDia;
 
-    public AuthController(IAuthService authService, IConfiguration config, AppDbContext db, ISenhaDiaService senhaDia)
+    public AuthController(IAuthService authService, IConfiguration config, AppDbContext db)
     {
         _authService = authService;
         _config = config;
         _db = db;
-        _senhaDia = senhaDia;
     }
 
     /// <summary>
@@ -71,27 +69,10 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Retorna a senha do dia do usuário SISTEMA.
-    /// Protegido por uma API key configurada em appsettings.json (SistemaApiKey).
-    /// Uso: GET /api/auth/senha-sistema?key=zulex-suporte-2026
-    /// </summary>
-    [HttpGet("senha-sistema")]
-    public IActionResult SenhaSistema([FromQuery] string key)
-    {
-        var apiKey = _config["SistemaApiKey"] ?? "";
-        if (string.IsNullOrEmpty(key) || key != apiKey)
-            return Unauthorized(new { success = false, message = "Chave de acesso inválida." });
-
-        return Ok(new
-        {
-            success = true,
-            login = "SISTEMA",
-            senha = _senhaDia.Gerar(),
-            data = DateTime.UtcNow.ToString("dd/MM/yyyy"),
-            aviso = "Esta senha expira à meia-noite UTC."
-        });
-    }
+    // NOTA: o endpoint anonimo GET /api/auth/senha-sistema foi REMOVIDO (fase 0 do plano de
+    // replicacao). Ele revelava a senha diaria do SISTEMA (que da token admin) mediante uma
+    // API key versionada no git. O suporte agora obtem a senha do dia pelo ZulexAdmin
+    // (GET /api/produtos/senha-dia — root-only + auditado; mesmo algoritmo, mesma SistemaKey).
 
     /// <summary>
     /// Libera uma ação por senha de supervisor.

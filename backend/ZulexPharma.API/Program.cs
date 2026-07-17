@@ -27,13 +27,33 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+// ─── Config obrigatoria (fail-fast) ────────────────────────────────────────
+// Segredos sairam do appsettings.json versionado (historico do git = comprometido).
+// Prod: env vars (ConnectionStrings__DefaultConnection, JwtSettings__SecretKey, SistemaKey).
+// Dev: appsettings.Development.json (gitignored). Placeholder "" NAO pode subir meio-vivo.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    Log.Fatal("ConnectionStrings:DefaultConnection ausente/vazia. Configure env var ou appsettings.Development.json.");
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection ausente/vazia. O appsettings.json versionado nao carrega mais " +
+        "segredos: configure via env var (prod) ou appsettings.Development.json gitignored (dev).");
+}
+
 // ─── Database ──────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 // ─── JWT ───────────────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"]!;
+var secretKey = jwtSettings["SecretKey"];
+if (string.IsNullOrWhiteSpace(secretKey) || secretKey.Length < 32)
+{
+    Log.Fatal("JwtSettings:SecretKey ausente/vazia/curta (minimo 32 chars). Configure env var ou appsettings.Development.json.");
+    throw new InvalidOperationException(
+        "JwtSettings:SecretKey ausente/vazia/curta (minimo 32 chars). O appsettings.json versionado nao carrega " +
+        "mais segredos: configure via env var (prod) ou appsettings.Development.json gitignored (dev).");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
