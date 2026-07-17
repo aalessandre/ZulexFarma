@@ -1869,12 +1869,16 @@ public class AppDbContext : DbContext
                     .HasIndex("Codigo")
                     .HasFilter("\"Codigo\" IS NOT NULL");
 
-                // SyncGuid: default para registros existentes + index para reconciliação
+                // SyncGuid: default para registros existentes + indice UNICO (fase 3, P0.10):
+                // e' o guard de identidade — mesma PK com SyncGuid diferente = colisao de faixa/
+                // no gemeo (ColisaoIdentidade na quarentena, nunca SetValues). Duplicata na
+                // aplicacao da migration = diagnostico de dado clonado (falha alto de proposito).
                 modelBuilder.Entity(entityType.ClrType)
                     .Property("SyncGuid")
                     .HasDefaultValueSql("gen_random_uuid()");
                 modelBuilder.Entity(entityType.ClrType)
-                    .HasIndex("SyncGuid");
+                    .HasIndex("SyncGuid")
+                    .IsUnique();
             }
         }
 
@@ -2331,7 +2335,23 @@ public class AppDbContext : DbContext
         // StandaloneCloud (_capturaOutbox=false): mantem carimbos (NoOrigemId/Codigo/AtualizadoEm),
         // mas NAO enfileira op, nao crava lapide e nao precisa carregar filhos de cascata.
         if (_capturaOutbox)
+        {
             await CarregarFilhosCascataAsync(cancellationToken);
+
+            // FASE 3 — TOUCH DO PAI: edicao SO'-de-filho POCO (RemoveRange+re-add sem tocar o
+            // cabecalho) deixava o pai Unchanged -> NENHUMA op era gerada e a mudanca nunca
+            // replicava. Qualquer mudanca em POCO promove o pai AGREGADO tracked pra Modified
+            // (o AtualizadoEm novo tambem faz a versao do agregado andar no LWW).
+            foreach (var pocoEntry in ChangeTracker.Entries()
+                         .Where(e => e.Entity is not BaseEntity &&
+                                     e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                         .ToList())
+            {
+                var pai = AcharPaiAgregadoTracked(pocoEntry, 0);
+                if (pai != null && pai.State == EntityState.Unchanged)
+                    pai.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora(); // vira Modified
+            }
+        }
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
@@ -2341,6 +2361,7 @@ public class AppDbContext : DbContext
             {
                 if (entry.Entity.NoOrigemId == null && noOrigem > 0)
                     entry.Entity.NoOrigemId = noOrigem;
+                entry.Entity.AtualizadoPorNoId = noOrigem; // fase 3: escritor real da versao atual
 
                 // Gerar Codigo visível (sequencial local; o no fica na coluna NoOrigemId)
                 if (entry.Entity.Codigo == null && !_tabelasSemSync.Contains(tabela))
@@ -2352,6 +2373,7 @@ public class AppDbContext : DbContext
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
+                entry.Entity.AtualizadoPorNoId = noOrigem; // fase 3: escritor real da versao atual
                 if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
                     operacoesPendentes.Add((tabela, "U", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
             }
@@ -2418,7 +2440,7 @@ public class AppDbContext : DbContext
                         CriadoEm = agoraOp, // mesmo instante da lapide (os outros nos usam isto no LWW)
                         RegistroId = entidade.Id,
                         RegistroCodigo = entidade.Codigo,
-                        DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }) : null,
+                        DadosJson = op != "D" ? SerializarComContratoDeColecao(entidade, op) : null,
                         NoOrigemId = noOrigemOp,
                         FilialDonoId = filialDono,
                         // Fase 4b: identidade GLOBAL e imutavel da op (idempotencia fim-a-fim). Nasce aqui,
@@ -2442,6 +2464,106 @@ public class AppDbContext : DbContext
         finally
         {
             if (txOutbox != null) await txOutbox.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// FASE 3 — acha o AGREGADO tracked dono de um filho POCO subindo pelas FKs (Desconto ->
+    /// VendaItem -> Venda). Usado pelo touch-do-pai: mudanca so' em POCO precisa gerar op "U" do pai.
+    /// </summary>
+    private Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<BaseEntity>? AcharPaiAgregadoTracked(
+        Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry filho, int profundidade)
+    {
+        if (profundidade > 3) return null;
+        foreach (var fk in filho.Metadata.GetForeignKeys())
+        {
+            var principalClr = fk.PrincipalEntityType.ClrType;
+            var valorFk = filho.Property(fk.Properties[0].Name).CurrentValue;
+            if (valorFk == null) continue;
+            var idPai = Convert.ToInt64(valorFk);
+
+            if (typeof(BaseEntity).IsAssignableFrom(principalClr))
+            {
+                if (!Services.SyncApplicator.TiposAgregado.Contains(principalClr)) continue;
+                var pai = ChangeTracker.Entries<BaseEntity>()
+                    .FirstOrDefault(e => e.Entity.GetType() == principalClr && e.Entity.Id == idPai);
+                if (pai != null) return pai;
+            }
+            else
+            {
+                // pai intermediario e' POCO (VendaItem) -> sobe mais um nivel
+                var paiPoco = ChangeTracker.Entries()
+                    .FirstOrDefault(e => e.Entity.GetType() == principalClr
+                        && Convert.ToInt64(e.Property("Id").CurrentValue ?? 0L) == idPai);
+                if (paiPoco != null)
+                {
+                    var raiz = AcharPaiAgregadoTracked(paiPoco, profundidade + 1);
+                    if (raiz != null) return raiz;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static readonly JsonSerializerOptions _jsonOutbox = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
+    /// <summary>
+    /// FASE 3 — CONTRATO DE COLECAO (P0.7/synAteAqui §6.2): no JSON do agregado, colecao POCO NAO
+    /// CARREGADA e' OMITIDA (chave ausente = "preserve os filhos no destino"); colecao carregada
+    /// (mesmo vazia) fica presente = AUTORITATIVA (o applicator reconcilia com delete-missing).
+    /// Sem isso, salvar o pai sem Include serializava a colecao default vazia como [] e o destino
+    /// apagaria filhos LEGITIMOS (FinalizarAsync sem Itens.Descontos, CancelarAsync sem Include —
+    /// o motivo da reversao da v1). Entidade Added = grafo em memoria e' a verdade -> inclui tudo.
+    /// </summary>
+    private string SerializarComContratoDeColecao(BaseEntity entidade, string op)
+    {
+        var json = JsonSerializer.Serialize(entidade, entidade.GetType(), _jsonOutbox);
+        if (!Services.SyncApplicator.TiposAgregado.Contains(entidade.GetType())) return json;
+
+        var node = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+        // Op "I": o grafo recem-criado em memoria E' o estado — inclui tudo. (A serializacao roda
+        // DEPOIS do SaveChanges, quando o entry Added ja' virou Unchanged — por isso a letra da op,
+        // nao o State, decide aqui.)
+        RemoverColecoesNaoCarregadas(entidade, node, incluirTudo: op == "I");
+        return node.ToJsonString(_jsonOutbox);
+    }
+
+    private void RemoverColecoesNaoCarregadas(object entidade, System.Text.Json.Nodes.JsonObject node, bool incluirTudo)
+    {
+        var et = Model.FindEntityType(entidade.GetType());
+        if (et == null) return;
+        var entry = Entry(entidade); // NAO anexa: entidade fora do tracker vem como Detached
+
+        foreach (var nav in et.GetNavigations().Where(n =>
+                     n.IsCollection && !typeof(BaseEntity).IsAssignableFrom(n.TargetEntityType.ClrType)))
+        {
+            var chave = JsonNamingPolicy.CamelCase.ConvertName(nav.Name);
+            // Detached = nao ha' como saber se carregou -> OMITE (preservar no destino e' o lado
+            // seguro; incluir vazia APAGA filho legitimo).
+            var incluir = incluirTudo
+                || (entry.State != EntityState.Detached && entry.Collection(nav.Name).IsLoaded);
+            if (!incluir)
+            {
+                node.Remove(chave);
+                continue;
+            }
+            // presente: desce nos itens (nested — ex.: VendaItem.Descontos), pareando por indice
+            if (node[chave] is System.Text.Json.Nodes.JsonArray arr && nav.PropertyInfo?.GetValue(entidade) is System.Collections.IEnumerable col)
+            {
+                var i = 0;
+                foreach (var item in col)
+                {
+                    if (i >= arr.Count) break;
+                    if (arr[i] is System.Text.Json.Nodes.JsonObject filhoNode)
+                        RemoverColecoesNaoCarregadas(item, filhoNode, incluirTudo);
+                    i++;
+                }
+            }
         }
     }
 

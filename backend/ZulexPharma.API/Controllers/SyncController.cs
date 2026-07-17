@@ -321,8 +321,8 @@ public class SyncController : ControllerBase
                     }
                 }
 
-                // Faxina das lapides fora da retencao (delete indexado, barato).
-                await SyncApplicator.PurgarTombstonesAsync(_db);
+                // (Fase 3: a purga de lapides por idade FOI REMOVIDA — decisao A7. Lapide e' marcador
+                //  minimo sem PII; purgar era o que permitia ressurreicao por no/backup atrasado.)
             }
             finally
             {
