@@ -257,6 +257,21 @@ Ordem obrigatória: 0 → 1 → 2 → 3 → 4 → 5. Não paralelizar fases; den
 
 ### FASE 5 — Bootstrap, retenção e painel por nó
 
+> ✅ **EXECUTADA (backend) em 17/07/2026** (Fable, `dev-pc1`): commits `f0b897b` + `a66877c` (fase 5b
+> — revisão adversarial). **Suíte 71/71 VERDE.** Entregue: retenção da fila central por ACK
+> religada com fail-closed (`/limpar` do hub apaga só `SeqEntrega <= MAX realmente apagável do
+> MIN(ack dos Ativos)`, write-ahead da marca; nó sem ack retém tudo; nó não-Ativo sai do MIN só por
+> ação explícita); guard de compactação (pull abaixo da marca = 409 → edge para com `REBOOTSTRAP`);
+> `GET /bootstrap-info` + `POST /cursor` + runbook `runbook-bootstrap-no.md` (drenar outbox antes do
+> restore, `Sync:Habilitado=false` até cravar cursor, re-semear `seq_codigo_*`); reposicionamento da
+> faixa de Id imune a restore (`DecidirRestartSequence`, pura + 7 testes — o guard antigo por
+> MAX-global causava colisão de PK entre nós); `GET /checksum` (contagem + md5 de (Id, AtualizadoEm)
+> com `to_char` fixo); `GET /nos` com `atrasoSeq` + `alertaSla`. A 5ª revisão adversarial pegou 2
+> críticos (colisão de faixa pós-restore; perda do outbox no rebootstrap) — 5ª fase seguida que o
+> método salva. **PENDENTE do Gate 5 (só o dono faz):** upgrade visual do painel `/erp/sync`
+> (seção de nós, filtro "descartados LWW", botões de bootstrap — o backend já expõe tudo) e o
+> **piloto real** (2 PCs + Railway, 48h de caos). **Só depois do piloto o segundo nó real entra.**
+
 *Invariante-alvo: nó novo nasce consistente e provado; a fila central não cresce sem teto; o painel responde "qual nó está atrasado e por quê" sem psql.*
 
 1. **Bootstrap por janela de manutenção (decisão A6) — runbook + suporte mínimo no código:**
