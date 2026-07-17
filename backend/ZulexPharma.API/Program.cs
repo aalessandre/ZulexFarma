@@ -70,7 +70,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // FASE 1 (replicacao): separa MAQUINA de HUMANO no sync.
+    // SyncNode = token emitido pelo /api/sync/handshake (credencial por no) — unico que alcanca o
+    // data plane (/enviar, /receber). SyncAdmin = usuario humano administrador — painel/operacoes.
+    options.AddPolicy("SyncNode", p => p.RequireClaim("syncNode", "true"));
+    options.AddPolicy("SyncAdmin", p => p.RequireClaim("isAdmin", "True"));
+});
 
 // ─── CORS ──────────────────────────────────────────────────────────────────
 var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>() ?? [];

@@ -4,7 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ZulexPharma.Infrastructure.Data;
@@ -28,6 +27,8 @@ public class SyncBackgroundService : BackgroundService
     private string? _tokenCache;
     private DateTime _tokenExpiracao = DateTime.MinValue;
     private DateTime _ultimaPurgaLapides = DateTime.MinValue;
+    private Guid? _instanciaUid;   // identidade da INSTALACAO (SyncEstadoLocal) — anti-gemeo no handshake
+    private bool _fatal;           // condicao que exige acao humana (ex.: 409 gemeo) -> para o loop
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
@@ -108,6 +109,15 @@ public class SyncBackgroundService : BackgroundService
             try
             {
                 var token = await ObterToken(stoppingToken);
+                if (_fatal)
+                {
+                    // Condicao que exige ACAO HUMANA (no gemeo): continuar tentando so' esconderia o
+                    // problema atras de "falha de transporte". Para o loop; o painel mostra o status.
+                    Rodando = false;
+                    Log.Fatal("Sync v2: transporte INTERROMPIDO por condicao fatal (status {Status}). " +
+                        "Resolva no painel de nos da central e reinicie o servico.", UltimoStatus);
+                    return;
+                }
                 if (string.IsNullOrEmpty(token))
                 {
                     FalhasConsecutivas++;
@@ -373,6 +383,11 @@ public class SyncBackgroundService : BackgroundService
     // Métodos BuscarPorId, LimparNavigations, ResolverTipo e _tiposPorTabela
     // foram movidos para SyncApplicator (classe compartilhada).
 
+    /// <summary>
+    /// FASE 1: autentica como MAQUINA via /api/sync/handshake (credencial por no + anti-gemeo).
+    /// Aposenta o login SISTEMA no transporte — a senha diaria de segredo COMPARTILHADO dava token
+    /// ADMIN a qualquer no comprometido. 409 (gemeo) e' FATAL: derruba o loop ate' acao humana.
+    /// </summary>
     private async Task<string?> ObterToken(CancellationToken ct)
     {
         if (!string.IsNullOrEmpty(_tokenCache) && DateTime.UtcNow < _tokenExpiracao.AddMinutes(-5))
@@ -380,32 +395,50 @@ public class SyncBackgroundService : BackgroundService
 
         try
         {
-            var chave = _config["SistemaKey"];
+            var chave = _config["Sync:NoChave"];
             if (string.IsNullOrWhiteSpace(chave))
             {
-                Log.Error("Sync: 'SistemaKey' nao configurada — o no nao autentica no hub. Defina um segredo por deployment (sem fallback compartilhado).");
+                Log.Error("Sync: 'Sync:NoChave' nao configurada — cadastre este no na central (POST /api/sync/nos) " +
+                    "e configure a chave gerada. O transporte fica PARADO ate' isso (painel: status CONFIG).");
+                UltimoStatus = "CONFIG";
                 return null;
             }
-            var data = DateTime.UtcNow.ToString("yyyyMMdd");
-            using var sha = SHA256.Create();
-            var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(data + chave));
-            var senha = Convert.ToHexString(hash)[..8].ToLower();
 
-            var loginJson = JsonSerializer.Serialize(new { login = "SISTEMA", senha }, _jsonOpts);
-            var content = new StringContent(loginJson, Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync($"{_urlCentral}/api/auth/login", content, ct);
+            // InstanciaUid persistente da instalacao (SyncEstadoLocal) — o hub usa pro anti-gemeo.
+            if (_instanciaUid == null)
+            {
+                using var scope = _services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                _instanciaUid = await SyncNoAuth.ObterOuCriarInstanciaUidAsync(db, ct);
+            }
+
+            var versao = _config["Sistema:Versao"];
+            var json = JsonSerializer.Serialize(new { noCodigo = _noCodigo, instanciaUid = _instanciaUid, chave, versaoApp = versao }, _jsonOpts);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync($"{_urlCentral}/api/sync/handshake", content, ct);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                // NO GEMEO: outra instalacao ativa com o MESMO codigo. Continuar = corrupcao silenciosa
+                // (colisao de faixa de Id + anti-eco cego). Falha RUIDOSA: para o loop ate' acao humana.
+                var corpo409 = await response.Content.ReadAsStringAsync(ct);
+                Log.Fatal("Sync: NO GEMEO detectado pela central — transporte INTERROMPIDO. {Body}", corpo409);
+                UltimoStatus = "GEMEO";
+                _fatal = true;
+                return null;
+            }
 
             if (!response.IsSuccessStatusCode)
             {
                 var errBody = await response.Content.ReadAsStringAsync(ct);
-                Log.Warning("Sync token: login SISTEMA falhou ({Status}): {Body}", response.StatusCode, errBody);
+                Log.Warning("Sync: handshake falhou ({Status}): {Body}", response.StatusCode, errBody);
                 return null;
             }
 
             var body = await response.Content.ReadAsStringAsync(ct);
             var result = JsonDocument.Parse(body);
             var token = result.RootElement.GetProperty("data").GetProperty("token").GetString();
-            var exp = result.RootElement.GetProperty("data").GetProperty("expiracao").GetDateTime();
+            var exp = result.RootElement.GetProperty("data").GetProperty("expiraEm").GetDateTime();
 
             _tokenCache = token;
             _tokenExpiracao = exp;

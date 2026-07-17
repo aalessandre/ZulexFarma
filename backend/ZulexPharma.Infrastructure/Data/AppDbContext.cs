@@ -72,6 +72,9 @@ public class AppDbContext : DbContext
     public DbSet<SyncFila> SyncFila => Set<SyncFila>();
     public DbSet<SyncQuarentena> SyncQuarentena => Set<SyncQuarentena>();
     public DbSet<SyncTombstone> SyncTombstones => Set<SyncTombstone>();
+    public DbSet<SyncNo> SyncNos => Set<SyncNo>();
+    public DbSet<SyncNoFilial> SyncNoFiliais => Set<SyncNoFilial>();
+    public DbSet<SyncEstadoLocal> SyncEstadoLocal => Set<SyncEstadoLocal>();
     public DbSet<SequenciaLocal> SequenciasLocais => Set<SequenciaLocal>();
     public DbSet<Ncm> Ncms => Set<Ncm>();
     public DbSet<NcmFederal> NcmFederais => Set<NcmFederal>();
@@ -2055,6 +2058,30 @@ public class AppDbContext : DbContext
             e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
             e.HasIndex(x => x.Tabela).IsUnique();
         });
+
+        // ── Registro de nos (fase 1) — INFRA, nao-BaseEntity, nao replica ──
+        modelBuilder.Entity<SyncNo>(e =>
+        {
+            e.HasKey(x => x.NoCodigo);
+            e.Property(x => x.NoCodigo).ValueGeneratedNever(); // atribuido no cadastro, nunca reutilizado
+            e.Property(x => x.Nome).HasMaxLength(120);
+            e.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            e.Property(x => x.ChaveHash).HasMaxLength(64).IsRequired();
+            e.Property(x => x.VersaoApp).HasMaxLength(40);
+            e.HasMany(x => x.Filiais).WithOne().HasForeignKey(x => x.NoCodigo).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<SyncNoFilial>(e =>
+        {
+            e.HasKey(x => new { x.NoCodigo, x.FilialId });
+        });
+
+        // ── Estado local do sync (fase 1) — INFRA, nao replica ──
+        modelBuilder.Entity<SyncEstadoLocal>(e =>
+        {
+            e.HasKey(x => x.Chave);
+            e.Property(x => x.Chave).HasMaxLength(80);
+            e.Property(x => x.Valor).IsRequired();
+        });
     }
 
     private static void ConfigurarClassificacao<T>(ModelBuilder mb) where T : ClassificacaoProdutoBase
@@ -2283,8 +2310,11 @@ public class AppDbContext : DbContext
             return await base.SaveChangesAsync(cancellationToken);
         }
 
-        // NoOrigemId usa o codigo do NO (config do servidor), nao a filial-dona do usuario (JWT)
-        var noOrigem = _noCodigo > 0 ? _noCodigo : GetFilialIdFromContext();
+        // FASE 1 (P0.3): a ORIGEM e' SEMPRE o no do servidor (config), inclusive no hub (0).
+        // O fallback antigo pro claim filialId do JWT misturava os eixos (origem/no vs filial-dona)
+        // e quebrava o anti-eco: edicao feita na nuvem ganhava NoOrigemId da filial do usuario e o
+        // PULL a escondia justamente do no criador. Teste: HubOrigemTests.
+        var noOrigem = (long)_noCodigo;
         var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade, long? filialDono)>();
         _cacheDerivFilial.Clear(); // memoizacao da derivacao de FilialDono e' por SaveChanges
 

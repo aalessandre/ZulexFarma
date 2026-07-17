@@ -1,7 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Domain.Helpers;
@@ -10,29 +14,202 @@ using ZulexPharma.Infrastructure.Services;
 
 namespace ZulexPharma.API.Controllers;
 
+// FASE 1 (autorizacao): o [Authorize] de CLASSE e' so' a linha de base (token valido). CADA action
+// declara a policy que precisa: data plane = "SyncNode" (token de MAQUINA emitido pelo /handshake);
+// painel/admin = "SyncAdmin" (usuario com claim isAdmin). Um JWT humano comum NAO alcanca mais o
+// data plane, e um token de no NAO alcanca o painel. Handshake e' anonimo (valida credencial propria).
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class SyncController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IConfiguration _config;
     private readonly int _noCodigo;
+
+    /// <summary>Teto de lote do data plane (qtde de ops por request) — protecao contra abuso/erro.</summary>
+    public const int MaxOpsPorLote = 500;
 
     public SyncController(AppDbContext db, IConfiguration config)
     {
         _db = db;
+        _config = config;
         // Codigo do NO (eixo Origem/No). Fallback pra chave antiga "Filial:Codigo".
         _noCodigo = int.TryParse(config["No:Codigo"] ?? config["Filial:Codigo"], out var c) ? c : 0;
     }
 
+    /// <summary>Codigo do no autenticado (claim do token de maquina emitido no handshake).</summary>
+    private int NoCodigoDoToken() => int.TryParse(User.FindFirst("noCodigo")?.Value, out var n) ? n : -1;
+
+    // ─── HANDSHAKE (autenticacao de maquina) ───────────────────────────────
+
     /// <summary>
-    /// Recebe operações de uma filial, aplica no banco central e enfileira para outras filiais.
+    /// Autentica um NO cadastrado (credencial por no + anti-gemeo) e emite token de MAQUINA de curta
+    /// duracao com claims { syncNode, noCodigo }. Substitui o login SISTEMA no transporte.
     /// </summary>
+    [AllowAnonymous]
+    [HttpPost("handshake")]
+    public async Task<IActionResult> Handshake([FromBody] SyncHandshakeDto dto)
+    {
+        try
+        {
+            var (resultado, no) = await SyncNoAuth.ValidarHandshakeAsync(
+                _db, dto.NoCodigo, dto.InstanciaUid, dto.Chave, dto.VersaoApp);
+
+            switch (resultado)
+            {
+                case HandshakeResultado.CredencialInvalida:
+                    Log.Warning("Sync handshake NEGADO (credencial) para NoCodigo={No}.", dto.NoCodigo);
+                    return Unauthorized(new { success = false, message = "Credencial de no invalida." });
+                case HandshakeResultado.NoInativo:
+                    return StatusCode(403, new { success = false, message = $"No {dto.NoCodigo} esta '{no!.Status}' — acao necessaria no painel de nos." });
+                case HandshakeResultado.Gemeo:
+                    return Conflict(new { success = false, codigo = "NoGemeoDetectado", message =
+                        $"Ja existe OUTRA instalacao ativa com o codigo {dto.NoCodigo}. Dois nos com o mesmo codigo " +
+                        "corrompem a replicacao (colisao de faixa de Id). Se isto e' uma reinstalacao legitima, use " +
+                        "'Resetar instancia' no painel de nos da central." });
+            }
+
+            var expiraEm = DateTime.UtcNow.AddHours(1);
+            var token = GerarTokenDeNo(no!.NoCodigo, expiraEm);
+            return Ok(new { success = true, data = new { token, expiraEm } });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro em SyncController.Handshake");
+            return StatusCode(500, new { success = false, message = "Erro no handshake." });
+        }
+    }
+
+    private string GerarTokenDeNo(int noCodigo, DateTime expiraEm)
+    {
+        var jwt = _config.GetSection("JwtSettings");
+        var creds = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["SecretKey"]!)), SecurityAlgorithms.HmacSha256);
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Name, $"NO:{noCodigo}"),
+            new Claim("syncNode", "true"),
+            new Claim("noCodigo", noCodigo.ToString())
+        };
+        var token = new JwtSecurityToken(jwt["Issuer"], jwt["Audience"], claims, expires: expiraEm, signingCredentials: creds);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    // ─── CADASTRO DE NOS (painel/admin) ────────────────────────────────────
+
+    /// <summary>Lista os nos cadastrados (sem hash de chave).</summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpGet("nos")]
+    public async Task<IActionResult> ListarNos()
+    {
+        var nos = await _db.SyncNos.AsNoTracking()
+            .Select(n => new
+            {
+                n.NoCodigo, n.Nome, n.Status, n.InstanciaUid, n.UltimoAckSeq,
+                n.UltimoPushEm, n.UltimoPullEm, n.VersaoApp, n.CriadoEm,
+                filiais = n.Filiais.Select(f => f.FilialId).ToList()
+            })
+            .OrderBy(n => n.NoCodigo)
+            .ToListAsync();
+        return Ok(new { success = true, data = nos });
+    }
+
+    /// <summary>
+    /// Cadastra um no e devolve a CHAVE EM CLARO (unica vez — so o hash fica no banco).
+    /// NoCodigo nunca e' reutilizado (mesmo espaco da faixa de Id).
+    /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpPost("nos")]
+    public async Task<IActionResult> CriarNo([FromBody] SyncNoCriarDto dto)
+    {
+        if (dto.NoCodigo < 1)
+            return BadRequest(new { success = false, message = "NoCodigo deve ser >= 1 (0 e' o hub)." });
+        if (await _db.SyncNos.AnyAsync(n => n.NoCodigo == dto.NoCodigo))
+            return Conflict(new { success = false, message = $"NoCodigo {dto.NoCodigo} ja cadastrado (codigo nunca e' reutilizado)." });
+
+        var chave = SyncNoAuth.GerarChave();
+        var no = new SyncNo
+        {
+            NoCodigo = dto.NoCodigo, Nome = dto.Nome, ChaveHash = SyncNoAuth.HashChave(chave),
+            Status = "Provisionando",
+            Filiais = (dto.Filiais ?? new List<long>()).Distinct().Select(f => new SyncNoFilial { NoCodigo = dto.NoCodigo, FilialId = f }).ToList()
+        };
+        _db.SyncNos.Add(no);
+        await _db.SaveChangesAsync();
+        Log.Information("Sync: no {No} ({Nome}) cadastrado por {User}.", dto.NoCodigo, dto.Nome, User.Identity?.Name);
+        return Ok(new { success = true, data = new { no.NoCodigo, chave, aviso = "Guarde a chave AGORA — ela nao sera exibida de novo (so o hash fica no banco)." } });
+    }
+
+    /// <summary>Rotaciona a chave do no (invalida a anterior) e devolve a nova em claro (unica vez).</summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpPost("nos/{noCodigo:int}/nova-chave")]
+    public async Task<IActionResult> NovaChave(int noCodigo)
+    {
+        var no = await _db.SyncNos.FindAsync(noCodigo);
+        if (no == null) return NotFound(new { success = false, message = "No nao cadastrado." });
+        var chave = SyncNoAuth.GerarChave();
+        no.ChaveHash = SyncNoAuth.HashChave(chave);
+        await _db.SaveChangesAsync();
+        Log.Warning("Sync: chave do no {No} ROTACIONADA por {User}.", noCodigo, User.Identity?.Name);
+        return Ok(new { success = true, data = new { no.NoCodigo, chave } });
+    }
+
+    /// <summary>Limpa o InstanciaUid (reinstalacao LEGITIMA do servidor do no) — o proximo handshake crava o novo.</summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpPost("nos/{noCodigo:int}/resetar-instancia")]
+    public async Task<IActionResult> ResetarInstancia(int noCodigo)
+    {
+        var no = await _db.SyncNos.FindAsync(noCodigo);
+        if (no == null) return NotFound(new { success = false, message = "No nao cadastrado." });
+        Log.Warning("Sync: InstanciaUid do no {No} RESETADO por {User} (era {Uid}).", noCodigo, User.Identity?.Name, no.InstanciaUid);
+        no.InstanciaUid = null;
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true, message = "Instancia resetada — o proximo handshake crava a nova." });
+    }
+
+    /// <summary>Atualiza nome/status/filiais do no.</summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpPut("nos/{noCodigo:int}")]
+    public async Task<IActionResult> AtualizarNo(int noCodigo, [FromBody] SyncNoAtualizarDto dto)
+    {
+        var statusValidos = new[] { "Provisionando", "Ativo", "Suspenso", "RebootstrapNecessario", "Desativado" };
+        if (dto.Status != null && !statusValidos.Contains(dto.Status))
+            return BadRequest(new { success = false, message = $"Status invalido. Use: {string.Join(", ", statusValidos)}." });
+
+        var no = await _db.SyncNos.Include(n => n.Filiais).FirstOrDefaultAsync(n => n.NoCodigo == noCodigo);
+        if (no == null) return NotFound(new { success = false, message = "No nao cadastrado." });
+
+        if (dto.Nome != null) no.Nome = dto.Nome;
+        if (dto.Status != null) no.Status = dto.Status;
+        if (dto.Filiais != null)
+        {
+            _db.SyncNoFiliais.RemoveRange(no.Filiais);
+            no.Filiais = dto.Filiais.Distinct().Select(f => new SyncNoFilial { NoCodigo = noCodigo, FilialId = f }).ToList();
+        }
+        await _db.SaveChangesAsync();
+        Log.Information("Sync: no {No} atualizado por {User} (status={Status}).", noCodigo, User.Identity?.Name, no.Status);
+        return Ok(new { success = true });
+    }
+
+    // ─── DATA PLANE (token de maquina) ─────────────────────────────────────
+
+    /// <summary>
+    /// Recebe operações de um NO autenticado, aplica no banco central e enfileira para os outros.
+    /// FASE 1: a ORIGEM das ops e' o no do TOKEN (derivada pelo servidor) — o NoOrigemId do body e' ignorado.
+    /// </summary>
+    [Authorize(Policy = "SyncNode")]
     [HttpPost("enviar")]
     public async Task<IActionResult> Enviar([FromBody] List<SyncOperacaoDto> operacoes)
     {
         try
         {
+            var noAutenticado = NoCodigoDoToken();
+            if (noAutenticado < 1)
+                return StatusCode(403, new { success = false, message = "Token sem identidade de no." });
+            if (operacoes.Count > MaxOpsPorLote)
+                return BadRequest(new { success = false, message = $"Lote acima do teto ({operacoes.Count} > {MaxOpsPorLote}). Reduza Sync:LoteTamanho." });
+
             var enfileirados = 0;
             var aplicadosDb = 0;
             var errosDb = 0;
@@ -56,8 +233,9 @@ public class SyncController : ControllerBase
                 {
                     try
                     {
+                        // Origem = no do TOKEN (P0.3/Codex: origem vem da credencial, nunca do body).
                         var res = await SyncApplicator.AplicarOperacaoAsync(
-                            _db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm, op.NoOrigemId);
+                            _db, op.Tabela, op.Operacao, op.RegistroId, op.DadosJson, op.CriadoEm, noAutenticado);
 
                         switch (res)
                         {
@@ -69,7 +247,7 @@ public class SyncController : ControllerBase
                                 break; // ja' no estado alvo / descartado por LWW
                             default: // PrecisaRetry | Conflito | TipoDesconhecido -> quarentena
                                 await SyncApplicator.QuarentenarAsync(_db, op.Tabela, op.Operacao, op.RegistroId,
-                                    op.DadosJson, op.CriadoEm, op.NoOrigemId, res.ToString(), null);
+                                    op.DadosJson, op.CriadoEm, noAutenticado, res.ToString(), null);
                                 errosDb++;
                                 break;
                         }
@@ -78,7 +256,7 @@ public class SyncController : ControllerBase
                     {
                         SyncApplicator.Desanexar(_db);
                         await SyncApplicator.QuarentenarAsync(_db, op.Tabela, op.Operacao, op.RegistroId,
-                            op.DadosJson, op.CriadoEm, op.NoOrigemId, "Erro", ex.Message);
+                            op.DadosJson, op.CriadoEm, noAutenticado, "Erro", ex.Message);
                         Log.Warning(ex, "Sync enviar: erro ao aplicar no central {Tabela}/{Op} Id={Id}",
                             op.Tabela, op.Operacao, op.RegistroId);
                         errosDb++;
@@ -128,7 +306,7 @@ public class SyncController : ControllerBase
                     RegistroId = op.RegistroId,
                     RegistroCodigo = op.RegistroCodigo,
                     DadosJson = op.DadosJson,
-                    NoOrigemId = op.NoOrigemId,
+                    NoOrigemId = noAutenticado, // origem = credencial, nunca o body
                     FilialDonoId = op.FilialDonoId,
                     OpUid = op.OpUid,
                     CriadoEm = op.CriadoEm,
@@ -138,6 +316,10 @@ public class SyncController : ControllerBase
             }
 
             await _db.SaveChangesAsync();
+
+            // Telemetria por no (painel de nos; a fase 2 adiciona o ACK aqui)
+            await _db.SyncNos.Where(n => n.NoCodigo == noAutenticado)
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.UltimoPushEm, DataHoraHelper.Agora()));
 
             Log.Information("Sync enviar: {Enfileirados} enfileirados, {Duplicadas} duplicadas (reenvio), {AplicadosDb} aplicados no DB, {ErrosDb} erros",
                 enfileirados, duplicadas, aplicadosDb, errosDb);
@@ -152,21 +334,31 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// Retorna operações pendentes para uma filial (exclui operações da própria filial).
+    /// Retorna operações pendentes para o NO autenticado (exclui as do próprio no).
+    /// FASE 1: identidade e ESCOPO vem do servidor (token + cadastro SyncNoFiliais) — os parametros
+    /// filialId/filiais da query sao IGNORADOS (mantidos so' por compat de assinatura com nos antigos).
     /// </summary>
+    [Authorize(Policy = "SyncNode")]
     [HttpGet("receber")]
-    public async Task<IActionResult> Receber([FromQuery] int filialId, [FromQuery] string? filiais = null, [FromQuery] long ultimoId = 0, [FromQuery] int limite = 100)
+    public async Task<IActionResult> Receber([FromQuery] int filialId = 0, [FromQuery] string? filiais = null, [FromQuery] long ultimoId = 0, [FromQuery] int limite = 100)
     {
         try
         {
-            // Escopo por-filial (Fase 3b): GLOBAL (FilialDonoId==null) vai pra TODOS; POR-FILIAL so' pras
-            // filiais que ESTE no atende (No:Filiais, em ?filiais=). Lista vazia => so' GLOBAL (sem vazamento).
-            var filiaisDono = (filiais ?? "")
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(s => long.TryParse(s, out _)).Select(long.Parse).ToArray();
+            var noAutenticado = NoCodigoDoToken();
+            if (noAutenticado < 1)
+                return StatusCode(403, new { success = false, message = "Token sem identidade de no." });
+            limite = Math.Clamp(limite, 1, MaxOpsPorLote);
+
+            // Escopo por-filial: GLOBAL (FilialDonoId==null) vai pra todos; POR-FILIAL so' pras filiais
+            // AUTORIZADAS no cadastro do no (SyncNoFiliais). Nada vem do cliente: um no nao consegue
+            // pedir escopo alheio. Lista vazia => so' GLOBAL (sem vazamento).
+            var filiaisDono = await _db.SyncNoFiliais.AsNoTracking()
+                .Where(nf => nf.NoCodigo == noAutenticado)
+                .Select(nf => nf.FilialId)
+                .ToArrayAsync();
 
             var operacoes = await _db.SyncFila
-                .Where(f => f.Id > ultimoId && f.NoOrigemId != filialId
+                .Where(f => f.Id > ultimoId && f.NoOrigemId != noAutenticado
                     && (f.FilialDonoId == null || filiaisDono.Contains(f.FilialDonoId.Value)))
                 .OrderBy(f => f.Id)
                 .Take(limite)
@@ -176,6 +368,9 @@ public class SyncController : ControllerBase
                     f.DadosJson, f.NoOrigemId, f.FilialDonoId, f.CriadoEm
                 })
                 .ToListAsync();
+
+            await _db.SyncNos.Where(n => n.NoCodigo == noAutenticado)
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.UltimoPullEm, DataHoraHelper.Agora()));
 
             // GAP CONHECIDO (pre-existente, NAO corrigido aqui — precisa de tarefa propria): este cursor
             // (Id > ultimoId) NAO prova consumo. O SyncFila.Id sai no INSERT e so' fica VISIVEL no COMMIT,
@@ -212,6 +407,7 @@ public class SyncController : ControllerBase
     /// <summary>
     /// Status do sync: pendentes, último envio, serviço.
     /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
     [HttpGet("status")]
     public async Task<IActionResult> Status()
     {
@@ -258,6 +454,7 @@ public class SyncController : ControllerBase
     /// <summary>
     /// Lista a fila de sync com filtros e paginação.
     /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
     [HttpGet("fila")]
     public async Task<IActionResult> Fila(
         [FromQuery] string? dataInicio, [FromQuery] string? dataFim,
@@ -307,6 +504,7 @@ public class SyncController : ControllerBase
     /// Lista a QUARENTENA (dead-letter do recebimento): ops que nao aplicaram e estao em retry.
     /// filtro=presos mostra so' as que estouraram o teto de tentativas (precisam de acao).
     /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
     [HttpGet("quarentena")]
     public async Task<IActionResult> Quarentena(
         [FromQuery] string? filtro, [FromQuery] string? tabela,
@@ -346,6 +544,7 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>Reprocessa a quarentena AGORA (reseta tentativas p/ destravar presos e drena).</summary>
+    [Authorize(Policy = "SyncAdmin")]
     [HttpPost("quarentena/reprocessar")]
     public async Task<IActionResult> ReprocessarQuarentena([FromQuery] long? id)
     {
@@ -375,6 +574,7 @@ public class SyncController : ControllerBase
     /// <summary>
     /// Força o envio no próximo ciclo do background service.
     /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
     [HttpPost("forcar-envio")]
     public IActionResult ForcarEnvio()
     {
@@ -385,6 +585,7 @@ public class SyncController : ControllerBase
     /// <summary>
     /// Reseta o ponteiro de recebimento para rebuscar tudo do Railway.
     /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
     [HttpPost("resetar-recebimento")]
     public async Task<IActionResult> ResetarRecebimento()
     {
@@ -411,6 +612,7 @@ public class SyncController : ControllerBase
     /// <summary>
     /// Limpa registros já enviados com mais de X dias.
     /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
     [HttpPost("limpar")]
     public async Task<IActionResult> Limpar([FromQuery] int? dias = null)
     {
@@ -447,5 +649,13 @@ public record SyncOperacaoDto(
     string? DadosJson, long NoOrigemId, long? FilialDonoId, DateTime CriadoEm,
     // Fase 4b: identidade GLOBAL e imutavel da op (Guid nascido no no de origem) = chave de idempotencia
     // do re-enfileiramento. Ausente/null = no ANTIGO (pre-4b) -> sem dedup (nada e' descartado).
+    // NOTA fase 1: NoOrigemId do body e' IGNORADO no servidor (a origem vem do token do no).
     Guid? OpUid = null
 );
+
+/// <summary>Credenciais de maquina do no (fase 1). InstanciaUid identifica a INSTALACAO (anti-gemeo).</summary>
+public record SyncHandshakeDto(int NoCodigo, Guid InstanciaUid, string Chave, string? VersaoApp = null);
+
+public record SyncNoCriarDto(int NoCodigo, string? Nome, List<long>? Filiais);
+
+public record SyncNoAtualizarDto(string? Nome, string? Status, List<long>? Filiais);
