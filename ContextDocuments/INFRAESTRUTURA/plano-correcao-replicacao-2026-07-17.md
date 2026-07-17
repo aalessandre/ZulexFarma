@@ -95,6 +95,15 @@ Ordem obrigatória: 0 → 1 → 2 → 3 → 4 → 5. Não paralelizar fases; den
 
 ### FASE 0 — Segredos, identidade de deployment e fundação de testes
 
+> ✅ **EXECUTADA em 17/07/2026** (Fable, branch `dev-pc1`): commits `85fa79d` (segurança), `8fa5a24`
+> (No:Modo), `265b577` (suíte de testes — **7 vermelhos provando os bugs + 12 verdes**), `72ee0af`
+> (limpeza documental). **Gate 0 BATIDO** com uma ressalva: os VALORES dos segredos ainda são os
+> antigos (a rotação exige ação do dono na Railway — checklist no fim do plano). Ajustes de rota
+> em relação ao texto original: o teste "EntidadeNaoClassificada" virou dois casos concretos
+> (`Configuracao_NaoDeveEntrarNaSyncFila` + `MovimentoEstoque_EhLedger`) porque o furo do
+> `ContasReceber` citado nos docs JÁ estava fechado pela fase 3a antiga; e o teste de segurança é
+> estrutural (reflection sobre as policies), não de servidor vivo.
+
 *Invariante-alvo: nenhum segredo no git; nenhum nó sobe com identidade errada em silêncio; os bugs conhecidos têm teste vermelho que os prova.*
 
 1. **Rotacionar e externalizar segredos.** Tirar do `appsettings.json`: connection string (senha), `Jwt:SecretKey`, `SistemaKey`, `SistemaApiKey` → env vars (`ConnectionStrings__DefaultConnection`, etc.). Gerar valores NOVOS (os atuais estão comprometidos pelo histórico do git — trocar também na Railway e no PG local). O `appsettings.json` fica com placeholders vazios + `appsettings.Development.json` **no .gitignore** para o dev local.
@@ -250,6 +259,19 @@ Não haverá dupla escrita de protocolos — é evolução in-place, mas a troca
 3. `AppDbContext.cs:2072-2075`: apagar o comentário morto "TUDO replica".
 4. `PROJECT_CONTEXT.md`: marcar como snapshot histórico.
 5. Este plano passa a ser o documento de execução; `synAteAqui.md` e a orientação do Codex ficam como referência de diagnóstico.
+
+## 7b. CHECKLIST DE DEPLOY DA FASE 0 (ação do dono — ANTES de este trabalho chegar ao main/Railway)
+
+O `appsettings.json` versionado não carrega mais segredo nem identidade. A Railway hoje roda SEM env
+vars (usa o appsettings) — sem os passos abaixo, o próximo deploy do main **não sobe** (fail-fast):
+
+1. Na Railway (serviço do ErpPharma), criar as env vars:
+   - `ConnectionStrings__DefaultConnection` = connection string do PG da Railway (aproveitar e trocar a senha do banco — a antiga está no histórico do git);
+   - `JwtSettings__SecretKey` = valor NOVO (≥ 32 chars; gerar: `[Convert]::ToBase64String((1..48 | %% { Get-Random -Max 256 }))` no PowerShell);
+   - `SistemaKey` = valor NOVO — e o MESMO valor no env do **ZulexAdmin**, senão a senha do dia diverge; se houver loja com sync ligado, atualizar o `appsettings.Development.json`/env da loja JUNTO (transporte usa login SISTEMA até a fase 1);
+   - `No__Modo` = `Hub` (o `No__Codigo` pode ser omitido — Hub assume 0).
+2. No PC local (dev): o `appsettings.Development.json` (gitignored) já foi ajustado com os valores atuais + `No:Modo=Edge`. Quando rotacionar a `SistemaKey` na Railway, trocar aqui também.
+3. Rodar a suíte: `dotnet test backend/ZulexPharma.Tests` (usa o Postgres local; cria/derruba `zulexpharma_test`). Esperado HOJE: 12 verdes + 7 vermelhos (os vermelhos são os bugs ativos — viram verdes nas fases 1-4).
 
 ## 8. Protocolo de execução (para o Opus)
 
