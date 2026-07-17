@@ -301,9 +301,19 @@ public class SyncBackgroundService : BackgroundService
 
         if (!response.IsSuccessStatusCode)
         {
+            var corpoErro = await response.Content.ReadAsStringAsync(ct);
+            // FASE 5: 409 = cursor abaixo da marca de COMPACTACAO do hub (retencao apagou o trecho).
+            // Re-tentar nao resolve nunca — para RUIDOSO ate' o bootstrap (runbook fase 5).
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                Log.Fatal("Sync: hub respondeu 409 no pull — cursor abaixo da marca de retencao. " +
+                    "Transporte INTERROMPIDO: bootstrap necessario. {Body}", corpoErro);
+                UltimoStatus = "REBOOTSTRAP";
+                _fatal = true;
+                return false;
+            }
             // Inclui o 422 EscopoNaoConfigurado (fase 1b): melhor parar RUIDOSO que avancar o cursor
             // por cima das ops por-filial que o cadastro incompleto filtraria.
-            var corpoErro = await response.Content.ReadAsStringAsync(ct);
             Log.Warning("Sync PULL falhou ({Status}): {Body}", response.StatusCode, corpoErro);
             return false;
         }

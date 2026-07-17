@@ -121,11 +121,19 @@ public class SyncController : ControllerBase
 
     // ─── CADASTRO DE NOS (painel/admin) ────────────────────────────────────
 
-    /// <summary>Lista os nos cadastrados (sem hash de chave).</summary>
+    /// <summary>
+    /// Lista os nos cadastrados (sem hash de chave). FASE 5: inclui atraso de entrega
+    /// (marca - ack) e alerta de SLA offline (Sync:SlaOfflineDias, default 30) — o painel mostra
+    /// QUAL no esta' atrasado e ha' quanto tempo, sem psql.
+    /// </summary>
     [Authorize(Policy = "SyncAdmin")]
     [HttpGet("nos")]
     public async Task<IActionResult> ListarNos()
     {
+        var marca = await _db.SyncFila.MaxAsync(f => (long?)f.SeqEntrega) ?? 0;
+        var slaDias = int.TryParse(_config["Sync:SlaOfflineDias"], out var s) ? s : 30;
+        var corteSla = DataHoraHelper.Agora().AddDays(-slaDias);
+
         var nos = await _db.SyncNos.AsNoTracking()
             .Select(n => new
             {
@@ -135,7 +143,82 @@ public class SyncController : ControllerBase
             })
             .OrderBy(n => n.NoCodigo)
             .ToListAsync();
-        return Ok(new { success = true, data = nos });
+
+        var data = nos.Select(n => new
+        {
+            n.NoCodigo, n.Nome, n.Status, n.InstanciaUid, n.UltimoAckSeq,
+            n.UltimoPushEm, n.UltimoPullEm, n.VersaoApp, n.CriadoEm, n.filiais,
+            atrasoSeq = Math.Max(0, marca - n.UltimoAckSeq),
+            // SLA estourado NUNCA age sozinho (regra do plano): o painel ALERTA e o admin decide
+            // (mudar o status pra RebootstrapNecessario tira o no da retencao explicitamente).
+            alertaSla = n.Status == "Ativo" && (n.UltimoPullEm == null || n.UltimoPullEm < corteSla)
+        });
+        return Ok(new { success = true, data, marcaEntrega = marca, slaDias });
+    }
+
+    /// <summary>
+    /// FASE 5 — info de BOOTSTRAP (rodar na central, na janela de manutencao): numera tudo que esta'
+    /// commitado e devolve a MARCA (watermark) + a geracao. O runbook usa: restore do dump no no
+    /// novo + POST /api/sync/cursor com estes valores = o no entra sem gap e sem re-pull do mundo.
+    /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpGet("bootstrap-info")]
+    public async Task<IActionResult> BootstrapInfo()
+    {
+        var marca = await SyncPublicador.NumerarEObterMarcaAsync(_db);
+        var geracao = await ObterGeracaoHubAsync();
+        return Ok(new { success = true, data = new { marca, geracao, geradoEm = DataHoraHelper.Agora() } });
+    }
+
+    /// <summary>
+    /// FASE 5 — define o cursor local (rodar NO NO, apos o restore do bootstrap): grava
+    /// sync.cursor.entrega e sync.hub.geracao.vista em SyncEstadoLocal.
+    /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpPost("cursor")]
+    public async Task<IActionResult> DefinirCursor([FromBody] SyncCursorDto dto)
+    {
+        async Task Upsert(string chave, string valor)
+        {
+            var e = await _db.SyncEstadoLocal.FirstOrDefaultAsync(x => x.Chave == chave);
+            if (e == null) _db.SyncEstadoLocal.Add(new SyncEstadoLocal { Chave = chave, Valor = valor });
+            else { e.Valor = valor; e.AtualizadoEm = DataHoraHelper.Agora(); }
+        }
+        await Upsert("sync.cursor.entrega", dto.Cursor.ToString());
+        if (!string.IsNullOrWhiteSpace(dto.Geracao))
+            await Upsert("sync.hub.geracao.vista", dto.Geracao!);
+        await _db.SaveChangesAsync();
+        Log.Warning("Sync: cursor local DEFINIDO por {User}: {Cursor} (geracao {Geracao}).", User.Identity?.Name, dto.Cursor, dto.Geracao);
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// FASE 5 — CHECKSUM de reconciliacao: contagem + md5 de (Id, AtualizadoEm) ordenado. O admin
+    /// compara hub × no (mesma tabela, mesmo filtro) e enxerga divergencia sem psql. Tabela validada
+    /// pelo dicionario (sem SQL arbitrario).
+    /// </summary>
+    [Authorize(Policy = "SyncAdmin")]
+    [HttpGet("checksum")]
+    public async Task<IActionResult> Checksum([FromQuery] string tabela, [FromQuery] long? filialId = null)
+    {
+        var tipo = SyncApplicator.ResolverTipo(tabela);
+        if (tipo == null)
+            return BadRequest(new { success = false, message = $"Tabela '{tabela}' desconhecida no dicionario de replicacao." });
+        var et = _db.Model.FindEntityType(tipo)!;
+        var nomeTabela = et.GetTableName()!;
+        if (filialId != null && et.FindProperty("FilialId") == null)
+            return BadRequest(new { success = false, message = $"'{tabela}' nao tem FilialId — chame sem o filtro." });
+
+        var where = filialId != null ? $" WHERE \"FilialId\" = {filialId.Value}" : "";
+        var conn = _db.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"SELECT COUNT(*)::bigint,
+            COALESCE(md5(string_agg(""Id""::text || ':' || COALESCE(""AtualizadoEm""::text, ''), ',' ORDER BY ""Id"")), '')
+            FROM ""{nomeTabela}""{where}";
+        using var reader = await cmd.ExecuteReaderAsync();
+        await reader.ReadAsync();
+        return Ok(new { success = true, data = new { tabela = nomeTabela, filialId, count = reader.GetInt64(0), hash = reader.GetString(1) } });
     }
 
     /// <summary>
@@ -470,6 +553,17 @@ public class SyncController : ControllerBase
                     "Configure as filiais do no no painel (PUT /api/sync/nos/{codigo}) antes de puxar — servir so' " +
                     "GLOBAL avancaria o cursor por cima das ops por-filial e o gap seria permanente." });
 
+            // FASE 5 — guard da compactacao: pull ABAIXO da marca de retencao significa que as ops
+            // que o no pediria JA' FORAM APAGADAS (ele nao e' Ativo com ack — foi suspenso/rebaixado
+            // e voltou sem bootstrap). Servir o que sobrou seria lote parcial SILENCIOSO.
+            var marcaRetidaCfg = await _db.SyncEstadoLocal.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Chave == "sync.retencao.marca");
+            if (marcaRetidaCfg != null && long.TryParse(marcaRetidaCfg.Valor, out var marcaRetida) && cursor < marcaRetida)
+                return StatusCode(409, new { success = false, codigo = "RebootstrapNecessario", message =
+                    $"O cursor {cursor} esta' ABAIXO da marca de compactacao {marcaRetida}: as ops desse trecho ja' " +
+                    "foram apagadas pela retencao. O no precisa de BOOTSTRAP (runbook fase 5) — servir o resto " +
+                    "seria um lote parcial silencioso." });
+
             // FASE 2: publicador oportunista (try-lock; quem nao pega serve o que ja' esta' numerado)
             // + marca d'agua. O select e' LIMITADO pela marca — numeracao concorrente alem dela fica
             // pro proximo pull (senao o cursorProximo podia pular ops nao servidas).
@@ -782,10 +876,42 @@ public class SyncController : ControllerBase
                 .Where(f => f.Enviado && f.EnviadoEm < corte)
                 .ExecuteDeleteAsync();
 
-            // NOTA: na CENTRAL isso apaga ZERO — as linhas de redistribuicao ficam Enviado=false pra sempre
-            // (a central nao faz PUSH). A fila central cresce sem teto por decisao consciente (a retencao
-            // foi revertida: ver o comentario em SyncApplicator). Monitorar o tamanho da SyncFila na Railway.
-            return Ok(new { success = true, data = new { removidos, dias = efetivo } });
+            // FASE 5 — RETENCAO DA FILA CENTRAL, religada com os pre-requisitos que a tentativa
+            // revertida nao tinha: (a) registro EXPLICITO de nos (SyncNos) — no cadastrado que nunca
+            // puxou tem ack 0 e RETEM TUDO (fail-closed; antes o no invisivel pro MIN perdia o
+            // backlog); (b) o ack agora PROVA processamento duravel (cursor persistido apos aplicar);
+            // (c) marca de compactacao persistida — pull abaixo dela leva 409, nao lote parcial.
+            // No Suspenso/RebootstrapNecessario/Desativado NAO segura a retencao — tirar o no do MIN
+            // e' exatamente a ACAO EXPLICITA de mudar o status (auditada no painel).
+            long removidosRetencao = 0;
+            long marcaRetencao = 0;
+            if (_noCodigo == 0)
+            {
+                var acksAtivos = await _db.SyncNos.AsNoTracking()
+                    .Where(n => n.Status == "Ativo")
+                    .Select(n => n.UltimoAckSeq)
+                    .ToListAsync();
+                if (acksAtivos.Count > 0 && acksAtivos.Min() > 0) // sem no Ativo (ou algum sem ack) = nao apaga NADA
+                {
+                    marcaRetencao = acksAtivos.Min();
+                    removidosRetencao = await _db.SyncFila
+                        .Where(f => f.SeqEntrega != null && f.SeqEntrega <= marcaRetencao && f.CriadoEm < corte)
+                        .ExecuteDeleteAsync();
+                    if (removidosRetencao > 0)
+                    {
+                        var estadoMarca = await _db.SyncEstadoLocal.FirstOrDefaultAsync(e => e.Chave == "sync.retencao.marca");
+                        if (estadoMarca == null)
+                            _db.SyncEstadoLocal.Add(new SyncEstadoLocal { Chave = "sync.retencao.marca", Valor = marcaRetencao.ToString() });
+                        else if (long.TryParse(estadoMarca.Valor, out var m) && marcaRetencao > m)
+                        { estadoMarca.Valor = marcaRetencao.ToString(); estadoMarca.AtualizadoEm = DataHoraHelper.Agora(); }
+                        await _db.SaveChangesAsync();
+                        Log.Warning("Sync: retencao do hub removeu {N} ops ate' a marca {Marca} (min ack dos Ativos).",
+                            removidosRetencao, marcaRetencao);
+                    }
+                }
+            }
+
+            return Ok(new { success = true, data = new { removidos, removidosRetencao, marcaRetencao, dias = efetivo } });
         }
         catch (Exception ex)
         {
@@ -808,5 +934,8 @@ public record SyncOperacaoDto(
 public record SyncHandshakeDto(int NoCodigo, Guid InstanciaUid, string Chave, string? VersaoApp = null);
 
 public record SyncNoCriarDto(int NoCodigo, string? Nome, List<long>? Filiais);
+
+/// <summary>Fase 5: cursor pos-bootstrap (marca e geracao vindos do GET /bootstrap-info da central).</summary>
+public record SyncCursorDto(long Cursor, string? Geracao);
 
 public record SyncNoAtualizarDto(string? Nome, string? Status, List<long>? Filiais);
