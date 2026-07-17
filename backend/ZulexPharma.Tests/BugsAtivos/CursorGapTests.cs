@@ -1,13 +1,22 @@
+using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Npgsql;
+using ZulexPharma.API.Controllers;
+using ZulexPharma.Domain.Entities;
+using ZulexPharma.Infrastructure.Services;
 
 namespace ZulexPharma.Tests.BugsAtivos;
 
 /// <summary>
-/// BUG ATIVO (plano §2, cura fase 2): o PULL serve "Id > ultimoId" (SyncController.Receber), mas o
-/// Id da SyncFila e' alocado no INSERT e so' fica VISIVEL no COMMIT. Uma transacao que commita tarde
-/// tem Id MENOR que o cursor ja' avancado -> a op NUNCA e' entregue. Perda permanente e silenciosa.
-/// Este teste reproduz a mecanica exata do cursor contra o Postgres real.
-/// VERMELHO ate' a fase 2 (publicador + SeqEntrega).
+/// GAP DO CURSOR — FECHADO na fase 2 (era o bug mais grave do subsistema; synAteAqui §6.1).
+/// Antes: o PULL servia "Id > ultimoId", mas o Id e' alocado no INSERT e visivel so' no COMMIT —
+/// op de transacao que commitava tarde era PULADA pra sempre. Agora: o publicador numera
+/// (SeqEntrega) SOMENTE linhas commitadas, e o cursor e' a SeqEntrega — commit tardio pega numero
+/// MAIOR na rodada seguinte e E' entregue. Este teste reproduz exatamente o cenario que perdia dado.
 /// </summary>
 [Collection("pg")]
 public class CursorGapTests
@@ -15,18 +24,30 @@ public class CursorGapTests
     private readonly PostgresFixture _pg;
     public CursorGapTests(PostgresFixture pg) => _pg = pg;
 
+    private const int NoLeitor = 9301;   // no que puxa
+    private const int NoEscritor = 9302; // origem das ops (anti-eco nao filtra pro leitor)
+
     private const string InsertSql = """
         INSERT INTO "SyncFila" ("Tabela","Operacao","RegistroId","NoOrigemId","DadosJson","CriadoEm","Enviado")
-        VALUES ('GapTeste','I', {0}, 1, '{{}}', now(), false) RETURNING "Id"
+        VALUES ('GapTeste','I', {0}, 9302, '{{}}', now(), false) RETURNING "Id"
         """;
 
     [Fact]
-    public async Task Gap_CursorId_PerdeCommitTardio()
+    public async Task CommitTardio_EhEntregue_PeloCursorDeSeqEntrega()
     {
-        await using (var limpa = await _pg.AbrirConexaoAsync())
-            await PostgresFixture.Exec(limpa, "DELETE FROM \"SyncFila\" WHERE \"Tabela\" = 'GapTeste'");
+        await using (var db = _pg.CriarContexto(aplicandoSync: true))
+        {
+            await db.SyncFila.Where(f => f.Tabela == "GapTeste").ExecuteDeleteAsync();
+            await db.SyncNos.Where(n => n.NoCodigo == NoLeitor).ExecuteDeleteAsync();
+            db.SyncNos.Add(new SyncNo
+            {
+                NoCodigo = NoLeitor, Nome = "Leitor do gap", Status = "Ativo",
+                ChaveHash = SyncNoAuth.HashChave(SyncNoAuth.GerarChave())
+            });
+            await db.SaveChangesAsync();
+        }
 
-        // Tx A: aloca o Id MENOR e fica aberta (ex.: /enviar com lote grande ainda commitando)
+        // Tx A: aloca o Id MENOR e fica ABERTA (lote grande ainda commitando)
         await using var connA = await _pg.AbrirConexaoAsync();
         var txA = await connA.BeginTransactionAsync();
         var idA = await InserirAsync(connA, txA, registroId: 9001);
@@ -38,21 +59,20 @@ public class CursorGapTests
         await txB.CommitAsync();
         Assert.True(idA < idB, "pre-condicao: A alocou Id menor que B");
 
-        // PULL 1 (mecanica do /receber): Id > cursor, ordena por Id, cursor = maior Id servido
-        long cursor = 0;
-        var entregues = new HashSet<long>(await LerIdsAsync(cursor));
-        cursor = entregues.Count > 0 ? entregues.Max() : cursor;
+        // PULL 1: o publicador numera SO' a B (a A esta' em voo) e o cursor avanca
+        var (entregues1, cursor1) = await PullAsync(cursor: 0);
 
-        // A tx A commita DEPOIS do pull — a op dela existe, e' valida, precisa ser entregue
+        // A tx A commita DEPOIS do pull — no desenho antigo essa op estava PERDIDA pra sempre
         await txA.CommitAsync();
 
-        // PULL 2 em diante: o cursor ja' passou do Id de A
-        foreach (var id in await LerIdsAsync(cursor)) entregues.Add(id);
+        // PULL 2: a A e' numerada AGORA (numero maior) e entregue mesmo com o cursor ja' na frente
+        var (entregues2, _) = await PullAsync(cursor1);
 
-        Assert.True(entregues.Contains(idA) && entregues.Contains(idB),
-            $"PERDA SILENCIOSA: a op {idA} (commit tardio) nunca foi entregue — o cursor 'Id > ultimoId' " +
-            $"avancou para {cursor} enquanto ela ainda estava invisivel. Entregues: [{string.Join(",", entregues)}]. " +
-            "Cura (fase 2): publicador numera SeqEntrega so' em linha COMMITADA; cursor passa a ser SeqEntrega.");
+        var todas = entregues1.Concat(entregues2).ToHashSet();
+        Assert.True(todas.Contains(9001) && todas.Contains(9002),
+            $"GAP REGREDIU: op de commit tardio nao foi entregue. Pull1={string.Join(",", entregues1)} " +
+            $"(cursor {cursor1}), Pull2={string.Join(",", entregues2)}. O publicador numera so' linha " +
+            "COMMITADA e o cursor e' SeqEntrega — commit tardio DEVE pegar numero maior e ser entregue.");
     }
 
     private async Task<long> InserirAsync(NpgsqlConnection conn, NpgsqlTransaction tx, long registroId)
@@ -61,14 +81,36 @@ public class CursorGapTests
         return (long)(await cmd.ExecuteScalarAsync())!;
     }
 
-    private async Task<List<long>> LerIdsAsync(long cursor)
+    private async Task<(List<long> RegistroIds, long CursorProximo)> PullAsync(long cursor)
     {
-        var ids = new List<long>();
-        await using var conn = await _pg.AbrirConexaoAsync();
-        await using var cmd = new NpgsqlCommand(
-            $"SELECT \"Id\" FROM \"SyncFila\" WHERE \"Tabela\" = 'GapTeste' AND \"Id\" > {cursor} ORDER BY \"Id\"", conn);
-        await using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync()) ids.Add(reader.GetInt64(0));
-        return ids;
+        await using var db = _pg.CriarContexto(aplicandoSync: true);
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["No:Modo"] = "Hub", ["No:Codigo"] = "0",
+        }).Build();
+        var controller = new SyncController(db, config)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+                    {
+                        new Claim("syncNode", "true"),
+                        new Claim("noCodigo", NoLeitor.ToString())
+                    }, "teste"))
+                }
+            }
+        };
+
+        var resposta = await controller.Receber(cursor: cursor, limite: 500);
+        var ok = Assert.IsType<OkObjectResult>(resposta);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(ok.Value));
+        var ids = json.RootElement.GetProperty("data").EnumerateArray()
+            .Where(e => e.GetProperty("Tabela").GetString() == "GapTeste")
+            .Select(e => e.GetProperty("RegistroId").GetInt64())
+            .ToList();
+        var cursorProximo = json.RootElement.GetProperty("cursorProximo").GetInt64();
+        return (ids, cursorProximo);
     }
 }
