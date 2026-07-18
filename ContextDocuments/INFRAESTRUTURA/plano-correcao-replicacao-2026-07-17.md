@@ -317,30 +317,31 @@ Não haverá dupla escrita de protocolos — é evolução in-place, mas a troca
 
 ## 5c. PENDÊNCIAS PRÉ-PRODUÇÃO (bloqueiam o 2º nó REAL — não o piloto controlado)
 
-Estado em 17/07/2026: **backend das 6 fases feito, suíte 72/72 verde, 5 revisões adversariais por
-fase + 1 auditoria cross-cutting.** O núcleo está sólido (converge, não vaza, não perde no caminho
-normal). O que falta antes de ligar um 2º nó REAL em produção:
+Estado em 18/07/2026: **backend das 6 fases + b+c (fase 6/6b) feito, suíte 81/81 verde, 5 revisões
+adversariais por fase + auditoria cross-cutting + design workflow do b+c + revisão do b+c.** O núcleo
+está sólido (converge, não vaza, não perde). O que falta antes de ligar um 2º nó REAL:
 
-1. **🟠 Conflito em coleção POCO sob concorrência — DECISÃO DE SEMÂNTICA DO DONO** (achado ALTO da
-   auditoria cross-cutting, `SyncApplicator.cs` reconciliação de filhos). Dois nós adicionam filhos
-   DIFERENTES à MESMA coleção do MESMO agregado (ex.: nó A add convênio X, nó B add convênio Y no
-   mesmo Cliente) dentro da janela de sync. O LWW escolhe UM agregado vencedor e o delete-missing
-   apaga o filho do perdedor **em silêncio** (viola invariante 7). Vale pra qualquer filho POCO dos
-   8 agregados (ClienteConvenio, ClienteDesconto, VendaPagamento, PromocaoProduto, AdquirenteTarifa,
-   HierarquiaDesconto*, etc.). **Não é hackável sem uma decisão:** qual a semântica de conflito de
-   coleção-filha? Opções: **(a)** UNIÃO por identidade estável (set-merge — nunca perde, mas é
-   CRDT-like, contra a decisão "LWW por linha"); **(b)** LWW-agregado como hoje, mas com o filho
-   removido indo para a QUARENTENA/painel antes do DELETE (respeita invariante 7 "nada silencioso" —
-   mudança pequena, mas precisa distinguir remoção legítima de perda-por-conflito pra não poluir o
-   painel); **(c)** promover as coleções concorrentes-por-natureza a `BaseEntity` (replicação e LWW
-   próprios por filho). Recomendo levar (b) como mínimo viável + (c) para as coleções onde dois nós
-   realmente inserem concorrente. **Requer o dono travar a semântica antes de codar** (é o padrão
-   "feature grande: planejar antes, travar decisão com o usuário").
+1. **✅ RESOLVIDO (fase 6/6b) — Conflito em coleção POCO sob concorrência.** Dono decidiu **b+c**:
+   **(c)** as 5 folhas de `Cliente` (ClienteConvenio/Autorizacao/Desconto/UsoContinuo/Bloqueio)
+   viraram `BaseEntity` → replicam sozinhas (união natural, nada se perde); **(b)** invariante de
+   boot em `SyncRegistry.ValidarModelo` (coleção POCO de agregado Global tem que estar promovida OU
+   na whitelist `ColecoesPocoSubstituicaoAceitas` — senão o boot cai com a lista nominal). Revisão do
+   b+c pegou e curou: A1 (o `RemoveRange`+re-add do `ClienteService` duplicava sob edição concorrente
+   → `ReconciliarFilhos` diff-preserve por chave natural), M2 (D de pai referenciado abandonado →
+   `PrecisaRetry`; RESTRICT do PG é 23001, não 23503). Design em `spec-conflito-poco-bc.md`.
+   **Sub-pendências (não bloqueiam):** (i) as **join-tables de vínculo puro** (Hierarquia*/Promoção
+   Colaborador/Cliente/Convenio/Produto) podem ser união — a whitelist as declara como substituição
+   *explícita*; o dono classifica por coleção e as de união migram pra (c) (migração mecânica); (ii)
+   **churn residual** só nos serviços que ainda fazem RemoveRange+re-add fora do Cliente (não crítico —
+   as coleções deles ficaram POCO/substituição); (iii) o diff do `ClienteService.AtualizarAsync` é
+   lógica de negócio (tem teste de service, mas vale **smoke-test do fluxo de edição de cliente no
+   app** antes de produção — junto do item 2).
 
 2. **🟠 Transação única na finalização da venda (P0.15, fase 4b)** — `VendaService.FinalizarAsync` e
    suprimento/sangria do caixa ainda em vários `SaveChanges` sem transação. O bloqueio que causou a
    reversão antiga (row-bump de `SequenciasLocais`) já morreu com o `nextval`. **Exige verificação em
    runtime** (finalizar venda real, matar o processo no meio) — sessão própria com o app rodando.
+   Bom momento pra fazer junto o **smoke-test do fluxo de edição de cliente** (o diff da fase 6b).
 
 3. **🟡 Frota mista de seeds** (pré-existente, não regressão): hub tem TiposPagamento/IcmsUf em faixa
    antiga, edge novo tem Ids fixos 1-4/1-27. Um edge EXISTENTE que só recebe o deploy novo continua
@@ -351,9 +352,15 @@ normal). O que falta antes de ligar um 2º nó REAL em produção:
    EXECUÇÃO de drenagem, não por tempo; no hub (drena a cada push de qualquer edge) pode "prender"
    uma op legítima em ~40min. Cura: carimbo de próximo-retry (backoff temporal).
 
-**Gate do piloto → produção:** os itens 1 e 2 são bloqueadores do 2º nó real; 3 e 4 podem ir com o
-rollout se documentados. O piloto controlado (dados sintéticos) pode rodar ANTES, operando em torno
-deles, para exercitar o fluxo e reproduzir os cenários de caos (ver §5 do relatório da auditoria).
+5. **🟢 Classificação das join-tables de vínculo** (opcional, não bloqueia): as coleções POCO de
+   Hierarquia/Promoção que ligam Colaborador/Cliente/Convênio/Produto estão na whitelist como
+   substituição (declarado, nunca silencioso). Se o dono decidir que alguma é união, promove pra
+   `BaseEntity` (fase 6, mecânico) — a invariante de boot garante que a decisão fica explícita.
+
+**Gate do piloto → produção:** o item 2 é o bloqueador remanescente do 2º nó real (o POCO/b+c já foi
+resolvido na fase 6/6b); 3, 4 e 5 podem ir com o rollout se documentados. O piloto controlado (dados
+sintéticos) pode rodar ANTES, operando em torno deles, para exercitar o fluxo e reproduzir os
+cenários de caos (ver §5 do relatório da auditoria).
 
 ## 6. Backlog ADIADO deliberadamente (com gatilho de retorno)
 

@@ -2,8 +2,16 @@
 
 > **Origem:** achado ALTO da auditoria cross-cutting (17/07/2026). Design produzido por um workflow
 > multi-agente (levantamento de fatos → 3 designs independentes → painel de juízes → síntese), todo
-> aterrado em `arquivo:linha` reais. **Estado: aprovado para execução do NÚCLEO; classificação das
-> join-tables pendente de decisão do dono.** Bloqueia o 2º nó real (seção 5c do plano).
+> aterrado em `arquivo:linha` reais.
+>
+> **✅ NÚCLEO IMPLEMENTADO em 18/07/2026** (commits `e7bdaba` fase 6 + `85398be` fase 6b): as 5 folhas
+> de Cliente promovidas a BaseEntity + invariante de boot + fix FURO 1 (Cascade→Restrict) + higiene.
+> Revisão adversarial do b+c pegou e curou: **A1** (o `RemoveRange`+re-add do `ClienteService`
+> duplicava sob edição concorrente → `ClienteService.ReconciliarFilhos` diff-preserve por chave
+> natural) e **M2** (D de pai referenciado abandonado → `PrecisaRetry`; RESTRICT do PG é 23001 e o
+> `EhFkViolation` só pegava 23503). Suíte 81/81. **Pendente (não bloqueia):** classificação das
+> join-tables de vínculo (whitelist = substituição declarada; dono decide união por coleção) e o
+> smoke-test do fluxo de edição de cliente no app (o diff é lógica de negócio). Ver seção 5c do plano.
 
 ## O problema (recap)
 
