@@ -3,9 +3,9 @@ using ZulexPharma.Domain.Enums;
 namespace ZulexPharma.Domain.Entities;
 
 /// <summary>Desconto especial por agrupador ou produto específico.</summary>
-public class ClienteDesconto
+// FASE 6 (b+c): promovido a BaseEntity (uniao por cliente — ver ClienteConvenio).
+public class ClienteDesconto : BaseEntity
 {
-    public long Id { get; set; }
     public long ClienteId { get; set; }
     public Cliente Cliente { get; set; } = null!;
 

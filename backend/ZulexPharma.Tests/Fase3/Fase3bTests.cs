@@ -28,46 +28,47 @@ public class Fase3bTests
     /// C1 (CRITICO): reconciliacao de filhos com FK faltando NAO pode commitar os DELETEs sem os
     /// INSERTs — a venda ficaria sem NENHUM item no destino ate' o retry (ou pra sempre).
     /// </summary>
+    // NOTA (fase 6): usa Convenio+ConvenioBloqueio (filho POCO com 2a FK = TipoPagamentoId, whitelisted).
+    // Os filhos de Cliente foram promovidos a BaseEntity e nao passam mais por delete-missing.
     [Fact]
     public async Task ReconciliacaoComFkFaltando_NaoApagaOsFilhosAntigos()
     {
         var t0 = new DateTime(2026, 7, 4, 10, 0, 0);
         var t1 = new DateTime(2026, 7, 4, 12, 0, 0);
         const long pessoaId = 3_000_000_601;
-        const long clienteId = 3_000_000_602;
-        const long convenioBomId = 3_000_000_603;
-        const long convenioInexistenteId = 3_000_000_699; // NUNCA criado -> 23503 no insert do filho
+        const long convenioId = 3_000_000_602;
+        const long tipoPagBom = 3_000_000_603;
+        const long tipoPagInexistente = 3_000_000_699; // NUNCA criado -> 23503 no insert do filho
 
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
         {
             var pessoa = new Pessoa { Id = pessoaId, Tipo = "F", Nome = "C1 PESSOA", CpfCnpj = "11122233344", CriadoEm = t0, NoOrigemId = 3, SyncGuid = GuidDe(pessoaId), Ativo = true };
             await SyncApplicator.AplicarOperacaoAsync(db, "Pessoas", "I", pessoaId, JsonSerializer.Serialize(pessoa, _json), t0, 3);
-            var convenio = new Convenio { Id = convenioBomId, PessoaId = pessoaId, CriadoEm = t0, NoOrigemId = 3, SyncGuid = GuidDe(convenioBomId), Ativo = true };
-            Assert.Equal(ResultadoSync.Aplicado, await SyncApplicator.AplicarOperacaoAsync(
-                db, "Convenios", "I", convenioBomId, JsonSerializer.Serialize(convenio, _json), t0, 3));
+            var tp = new TipoPagamento { Id = tipoPagBom, Nome = "TP C1", Modalidade = ZulexPharma.Domain.Enums.ModalidadePagamento.VendaVista, Ordem = 1, CriadoEm = t0, NoOrigemId = 3, SyncGuid = GuidDe(tipoPagBom), Ativo = true };
+            Assert.Equal(ResultadoSync.Aplicado, await SyncApplicator.AplicarOperacaoAsync(db, "TiposPagamento", "I", tipoPagBom, JsonSerializer.Serialize(tp, _json), t0, 3));
         }
 
-        // V1: cliente com 1 convenio VALIDO
-        var v1 = new Cliente { Id = clienteId, PessoaId = pessoaId, CriadoEm = t0, NoOrigemId = 3, SyncGuid = GuidDe(clienteId), Ativo = true };
-        v1.Convenios.Add(new ClienteConvenio { Id = 3_000_000_604, ClienteId = clienteId, ConvenioId = convenioBomId, Matricula = "M1" });
+        // V1: convenio com 1 bloqueio VALIDO
+        var v1 = new Convenio { Id = convenioId, PessoaId = pessoaId, CriadoEm = t0, NoOrigemId = 3, SyncGuid = GuidDe(convenioId), Ativo = true };
+        v1.Bloqueios.Add(new ConvenioBloqueio { Id = 3_000_000_604, ConvenioId = convenioId, TipoPagamentoId = tipoPagBom });
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
             Assert.Equal(ResultadoSync.Aplicado, await SyncApplicator.AplicarOperacaoAsync(
-                db, "Clientes", "I", clienteId, JsonSerializer.Serialize(v1, _json), t0, 3));
+                db, "Convenios", "I", convenioId, JsonSerializer.Serialize(v1, _json), t0, 3));
 
-        // V2 (edicao com RemoveRange+re-add): filho novo aponta pra convenio que AINDA nao replicou
-        var v2 = new Cliente { Id = clienteId, PessoaId = pessoaId, CriadoEm = t0, AtualizadoEm = t1, NoOrigemId = 3, SyncGuid = GuidDe(clienteId), Ativo = true };
-        v2.Convenios.Add(new ClienteConvenio { Id = 3_000_000_605, ClienteId = clienteId, ConvenioId = convenioInexistenteId, Matricula = "M2" });
+        // V2 (edicao com RemoveRange+re-add): filho novo aponta pra TipoPagamento que AINDA nao replicou
+        var v2 = new Convenio { Id = convenioId, PessoaId = pessoaId, CriadoEm = t0, AtualizadoEm = t1, NoOrigemId = 3, SyncGuid = GuidDe(convenioId), Ativo = true };
+        v2.Bloqueios.Add(new ConvenioBloqueio { Id = 3_000_000_605, ConvenioId = convenioId, TipoPagamentoId = tipoPagInexistente });
         ResultadoSync resV2;
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
             resV2 = await SyncApplicator.AplicarOperacaoAsync(
-                db, "Clientes", "U", clienteId, JsonSerializer.Serialize(v2, _json), t1, 3);
+                db, "Convenios", "U", convenioId, JsonSerializer.Serialize(v2, _json), t1, 3);
 
         Assert.Equal(ResultadoSync.PrecisaRetry, resV2);
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
         {
-            var filhos = await db.Set<ClienteConvenio>().Where(c => c.ClienteId == clienteId).ToListAsync();
+            var filhos = await db.Set<ConvenioBloqueio>().Where(c => c.ConvenioId == convenioId).ToListAsync();
             Assert.True(filhos.Count == 1 && filhos[0].Id == 3_000_000_604,
-                $"C1: o DELETE-MISSING commitou sem os INSERTs — cliente ficou com {filhos.Count} convenios " +
+                $"C1: o DELETE-MISSING commitou sem os INSERTs — convenio ficou com {filhos.Count} bloqueios " +
                 "(o antigo foi apagado e o novo falhou na FK). O savepoint tem que reverter o bloco INTEIRO.");
         }
     }
@@ -116,27 +117,24 @@ public class Fase3bTests
 
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
         {
-            var pessoa = new Pessoa { Id = pessoaId, Tipo = "F", Nome = "A1 PESSOA", CpfCnpj = "22233344455", CriadoEm = t0, NoOrigemId = 3, SyncGuid = GuidDe(pessoaId), Ativo = true };
-            await SyncApplicator.AplicarOperacaoAsync(db, "Pessoas", "I", pessoaId, JsonSerializer.Serialize(pessoa, _json), t0, 3);
-            var v1 = new Cliente { Id = clienteId, PessoaId = pessoaId, CriadoEm = t0, NoOrigemId = 3, SyncGuid = GuidDe(clienteId), Ativo = true };
-            v1.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_622, ClienteId = clienteId, Nome = "MARIA" });
-            await SyncApplicator.AplicarOperacaoAsync(db, "Clientes", "I", clienteId, JsonSerializer.Serialize(v1, _json), t0, 3);
-            await SyncApplicator.AplicarOperacaoAsync(db, "Clientes", "D", clienteId, null, tD, 3); // morte (cascade leva filhos)
+            var v1 = new Adquirente { Id = clienteId, Nome = "A1 ADQ", CriadoEm = t0, NoOrigemId = 3, SyncGuid = GuidDe(clienteId), Ativo = true };
+            v1.Bandeiras.Add(new AdquirenteBandeira { Id = 3_000_000_622, AdquirenteId = clienteId, Bandeira = "VISA" });
+            await SyncApplicator.AplicarOperacaoAsync(db, "Adquirentes", "I", clienteId, JsonSerializer.Serialize(v1, _json), t0, 3);
+            await SyncApplicator.AplicarOperacaoAsync(db, "Adquirentes", "D", clienteId, null, tD, 3); // morte (cascade leva filhos)
         }
 
-        // U MAIS NOVO que a lapide, mas com TODAS as colecoes omitidas (origem editou sem Include)
-        var v2 = new Cliente { Id = clienteId, PessoaId = pessoaId, CriadoEm = t0, AtualizadoEm = tU, NoOrigemId = 3, SyncGuid = GuidDe(clienteId), Ativo = true };
+        // U MAIS NOVO que a lapide, mas com a colecao OMITIDA (origem editou sem Include)
+        var v2 = new Adquirente { Id = clienteId, Nome = "A1 ADQ v2", CriadoEm = t0, AtualizadoEm = tU, NoOrigemId = 3, SyncGuid = GuidDe(clienteId), Ativo = true };
         var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(v2, _json))!.AsObject();
-        foreach (var chave in new[] { "convenios", "autorizacoes", "descontos", "usosContinuos", "bloqueios" })
-            node.Remove(chave);
+        node.Remove("bandeiras");
 
         ResultadoSync res;
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
-            res = await SyncApplicator.AplicarOperacaoAsync(db, "Clientes", "U", clienteId, node.ToJsonString(_json), tU, 3);
+            res = await SyncApplicator.AplicarOperacaoAsync(db, "Adquirentes", "U", clienteId, node.ToJsonString(_json), tU, 3);
 
         Assert.Equal(ResultadoSync.RecriacaoSemGrafo, res);
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
-            Assert.Null(await db.Clientes.FindAsync(clienteId)); // nao recriou capenga
+            Assert.Null(await db.Adquirentes.FindAsync(clienteId)); // nao recriou capenga
     }
 
     /// <summary>A3 (ALTO): linha criada NO HUB (origem 0) tem o guard de identidade LIGADO.</summary>
@@ -173,29 +171,26 @@ public class Fase3bTests
     [Fact]
     public async Task FilhoAdicionadoDiretoNoDbSet_OpDoPaiLevaAColecaoCompleta()
     {
-        long clienteId;
+        long adqId;
         await using (var db = _pg.CriarContexto(modo: "Edge", noCodigo: 1))
         {
-            var pessoa = new Pessoa { Tipo = "F", Nome = $"KIOSK {Guid.NewGuid():N}", CpfCnpj = Guid.NewGuid().ToString("N")[..11] };
-            db.Pessoas.Add(pessoa);
-            await db.SaveChangesAsync();
-            var cliente = new Cliente { PessoaId = pessoa.Id };
-            db.Clientes.Add(cliente);
+            var adq = new Adquirente { Nome = $"KIOSK {Guid.NewGuid():N}" };
+            db.Adquirentes.Add(adq);
             await db.SaveChangesAsync(); // pai persiste SEM filhos
-            clienteId = cliente.Id;
+            adqId = adq.Id;
 
             // padrao kiosk: filho adicionado DIRETO no DbSet, pai nao tocado, colecao nao carregada
-            db.Set<ClienteAutorizacao>().Add(new ClienteAutorizacao { ClienteId = clienteId, Nome = "KIOSK" });
+            db.Set<AdquirenteBandeira>().Add(new AdquirenteBandeira { AdquirenteId = adqId, Bandeira = "KIOSK" });
             await db.SaveChangesAsync();
         }
 
         await using (var db = _pg.CriarContexto(aplicandoSync: true))
         {
-            var opU = await db.SyncFila.Where(f => f.Tabela == "Clientes" && f.RegistroId == clienteId && f.Operacao == "U")
+            var opU = await db.SyncFila.Where(f => f.Tabela == "Adquirentes" && f.RegistroId == adqId && f.Operacao == "U")
                 .OrderByDescending(f => f.Id).FirstOrDefaultAsync();
             Assert.True(opU != null, "mudanca so'-de-filho tem que gerar op U do pai (touch)");
             using var doc = JsonDocument.Parse(opU!.DadosJson!);
-            Assert.True(doc.RootElement.TryGetProperty("autorizacoes", out var arr) && arr.GetArrayLength() == 1,
+            Assert.True(doc.RootElement.TryGetProperty("bandeiras", out var arr) && arr.GetArrayLength() == 1,
                 "M2: sem o force-load, a op U sai com a colecao OMITIDA e o filho novo NUNCA viaja pro hub");
         }
     }

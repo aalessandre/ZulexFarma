@@ -6,11 +6,11 @@ using ZulexPharma.Infrastructure.Services;
 namespace ZulexPharma.Tests.BugsAtivos;
 
 /// <summary>
-/// BUG ATIVO (plano §2 / synAteAqui §6.2 / Codex P0.7, cura fase 3): os services editam agregados
-/// com RemoveRange + re-add (Ids NOVOS da faixa do no) e o applicator (UpsertFilhosPocoAsync) e'
-/// append/update-only — nunca deleta filho ausente do JSON. Resultado: cada edicao DUPLICA o
-/// conjunto de filhos no no destino (os Ids velhos ficam + os novos entram).
-/// VERMELHO ate' a fase 3 (contrato de colecao: chave presente no JSON = autoritativa -> delete-missing).
+/// Cura fase 3 (Codex P0.7 / synAteAqui §6.2): reconciliacao de filhos POCO por contrato de colecao
+/// (chave presente = autoritativa -> delete-missing; chave omitida = preserva). Sem isso, editar um
+/// agregado com RemoveRange+re-add DUPLICAVA os filhos no destino.
+/// NOTA (fase 6): usa Adquirente+AdquirenteBandeira (filho POCO whitelisted) — os filhos de Cliente
+/// viraram BaseEntity (uniao, replicam sozinhos) e nao exercitam mais o mecanismo POCO.
 /// </summary>
 [Collection("pg")]
 public class FilhosPocoTests
@@ -26,87 +26,62 @@ public class FilhosPocoTests
     public FilhosPocoTests(PostgresFixture pg) => _pg = pg;
 
     [Fact]
-    public async Task EditarCliente_NaoDeveDuplicarFilhosNoDestino()
+    public async Task EditarAgregado_NaoDeveDuplicarFilhosNoDestino()
     {
         var t0 = new DateTime(2026, 7, 1, 10, 0, 0);
         var t1 = new DateTime(2026, 7, 1, 12, 0, 0);
-        const long pessoaId = 3_000_000_110;
-        const long clienteId = 3_000_000_111;
+        const long adqId = 3_000_000_111;
 
-        // Pessoa (FK do Cliente) chega primeiro, como no sync real
-        var pessoa = new Pessoa
-        {
-            Id = pessoaId, Tipo = "F", Nome = "CLIENTE TESTE FASE0", CpfCnpj = "99988877766",
-            CriadoEm = t0, NoOrigemId = 3, Ativo = true
-        };
-        var resPessoa = await Aplicar("Pessoas", "I", pessoaId, JsonSerializer.Serialize(pessoa, _json), t0);
-        Assert.Equal(ResultadoSync.Aplicado, resPessoa);
+        // Adquirente V1 com 2 bandeiras (Ids da faixa do no 3)
+        var v1 = NovoAdquirente(adqId, t0, atualizadoEm: null);
+        v1.Bandeiras.Add(new AdquirenteBandeira { Id = 3_000_000_112, AdquirenteId = adqId, Bandeira = "VISA" });
+        v1.Bandeiras.Add(new AdquirenteBandeira { Id = 3_000_000_113, AdquirenteId = adqId, Bandeira = "MASTER" });
+        Assert.Equal(ResultadoSync.Aplicado, await Aplicar("Adquirentes", "I", adqId, JsonSerializer.Serialize(v1, _json), t0));
 
-        // Cliente V1 com 2 autorizacoes (Ids da faixa do no 3)
-        var guid = Guid.NewGuid();
-        var v1 = NovoCliente(clienteId, pessoaId, guid, t0, atualizadoEm: null);
-        v1.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_112, ClienteId = clienteId, Nome = "MARIA" });
-        v1.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_113, ClienteId = clienteId, Nome = "JOSE" });
-        var resV1 = await Aplicar("Clientes", "I", clienteId, JsonSerializer.Serialize(v1, _json), t0);
-        Assert.Equal(ResultadoSync.Aplicado, resV1);
-
-        // Edicao na origem: o service faz RemoveRange + re-add -> as MESMAS 2 pessoas autorizadas
-        // voltam com Ids NOVOS. O JSON da edicao carrega SO' os 2 filhos novos.
-        var v2 = NovoCliente(clienteId, pessoaId, guid, t0, atualizadoEm: t1);
-        v2.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_114, ClienteId = clienteId, Nome = "MARIA" });
-        v2.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_115, ClienteId = clienteId, Nome = "JOSE" });
-        var resV2 = await Aplicar("Clientes", "U", clienteId, JsonSerializer.Serialize(v2, _json), t1);
+        // Edicao na origem: RemoveRange + re-add -> as MESMAS 2 bandeiras voltam com Ids NOVOS.
+        var v2 = NovoAdquirente(adqId, t0, atualizadoEm: t1);
+        v2.Bandeiras.Add(new AdquirenteBandeira { Id = 3_000_000_114, AdquirenteId = adqId, Bandeira = "VISA" });
+        v2.Bandeiras.Add(new AdquirenteBandeira { Id = 3_000_000_115, AdquirenteId = adqId, Bandeira = "MASTER" });
+        var resV2 = await Aplicar("Adquirentes", "U", adqId, JsonSerializer.Serialize(v2, _json), t1);
 
         await using var db = _pg.CriarContexto(aplicandoSync: true);
-        var filhos = await db.Set<ClienteAutorizacao>().Where(a => a.ClienteId == clienteId).ToListAsync();
-
+        var filhos = await db.Set<AdquirenteBandeira>().Where(b => b.AdquirenteId == adqId).ToListAsync();
         Assert.True(filhos.Count == 2,
-            $"DUPLICACAO: o cliente foi editado UMA vez na origem (2 autorizacoes) e o destino terminou " +
-            $"com {filhos.Count} filhos [{string.Join(", ", filhos.Select(f => $"{f.Id}:{f.Nome}"))}] (U deu {resV2}). " +
-            "O applicator so' insere/atualiza por Id — os filhos velhos (112/113) nunca sao removidos. " +
-            "Cada edicao rotineira duplica o conjunto; a proxima edicao no par leva os orfaos de volta. " +
-            "Cura (fase 3): colecao PRESENTE no JSON = autoritativa -> diff por Id com delete-missing.");
+            $"DUPLICACAO: editado UMA vez (2 bandeiras) e o destino ficou com {filhos.Count} " +
+            $"[{string.Join(", ", filhos.Select(f => $"{f.Id}:{f.Bandeira}"))}] (U deu {resV2}). Cura: colecao " +
+            "PRESENTE no JSON = autoritativa -> diff por Id com delete-missing.");
     }
 
-    /// <summary>
-    /// O outro lado do contrato (o que derrubou a v1): op "U" com a chave da colecao OMITIDA
-    /// (pai salvo sem Include na origem) NAO pode apagar os filhos do destino.
-    /// </summary>
+    /// <summary>Op "U" com a chave da colecao OMITIDA (pai salvo sem Include) NAO pode apagar os filhos.</summary>
     [Fact]
     public async Task ColecaoOmitidaNoJson_PreservaFilhosNoDestino()
     {
         var t0 = new DateTime(2026, 7, 1, 10, 0, 0);
         var t1 = new DateTime(2026, 7, 1, 12, 0, 0);
-        const long pessoaId = 3_000_000_116;
-        const long clienteId = 3_000_000_117;
+        const long adqId = 3_000_000_117;
 
-        var pessoa = new Pessoa { Id = pessoaId, Tipo = "F", Nome = "CLIENTE OMITIDA", CpfCnpj = "77766655544", CriadoEm = t0, NoOrigemId = 3, Ativo = true };
-        Assert.Equal(ResultadoSync.Aplicado, await Aplicar("Pessoas", "I", pessoaId, JsonSerializer.Serialize(pessoa, _json), t0));
+        var v1 = NovoAdquirente(adqId, t0, atualizadoEm: null);
+        v1.Bandeiras.Add(new AdquirenteBandeira { Id = 3_000_000_118, AdquirenteId = adqId, Bandeira = "VISA" });
+        v1.Bandeiras.Add(new AdquirenteBandeira { Id = 3_000_000_119, AdquirenteId = adqId, Bandeira = "MASTER" });
+        Assert.Equal(ResultadoSync.Aplicado, await Aplicar("Adquirentes", "I", adqId, JsonSerializer.Serialize(v1, _json), t0));
 
-        var guid = Guid.NewGuid();
-        var v1 = NovoCliente(clienteId, pessoaId, guid, t0, atualizadoEm: null);
-        v1.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_118, ClienteId = clienteId, Nome = "MARIA" });
-        v1.Autorizacoes.Add(new ClienteAutorizacao { Id = 3_000_000_119, ClienteId = clienteId, Nome = "JOSE" });
-        Assert.Equal(ResultadoSync.Aplicado, await Aplicar("Clientes", "I", clienteId, JsonSerializer.Serialize(v1, _json), t0));
-
-        // Edicao SEM Include na origem: o JSON da op vem SEM a chave 'autorizacoes'
-        var v2 = NovoCliente(clienteId, pessoaId, guid, t0, atualizadoEm: t1);
+        // Edicao SEM Include na origem: o JSON da op vem SEM a chave 'bandeiras'
+        var v2 = NovoAdquirente(adqId, t0, atualizadoEm: t1);
         var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(v2, _json))!.AsObject();
-        node.Remove("autorizacoes");
-        var resU = await Aplicar("Clientes", "U", clienteId, node.ToJsonString(_json), t1);
-        Assert.Equal(ResultadoSync.Aplicado, resU);
+        node.Remove("bandeiras");
+        Assert.Equal(ResultadoSync.Aplicado, await Aplicar("Adquirentes", "U", adqId, node.ToJsonString(_json), t1));
 
         await using var db = _pg.CriarContexto(aplicandoSync: true);
-        var filhos = await db.Set<ClienteAutorizacao>().Where(a => a.ClienteId == clienteId).CountAsync();
+        var filhos = await db.Set<AdquirenteBandeira>().Where(b => b.AdquirenteId == adqId).CountAsync();
         Assert.True(filhos == 2,
             $"CHAVE OMITIDA = 'nao carregada, preserve' — mas o destino ficou com {filhos} filhos. " +
-            "Apagar aqui e' o bug da v1 revertida (apagaria os descontos de TODA venda finalizada).");
+            "Apagar aqui e' o bug da v1 revertida.");
     }
 
-    private static Cliente NovoCliente(long id, long pessoaId, Guid guid, DateTime criadoEm, DateTime? atualizadoEm) => new()
+    private static Adquirente NovoAdquirente(long id, DateTime criadoEm, DateTime? atualizadoEm) => new()
     {
-        Id = id, PessoaId = pessoaId, CriadoEm = criadoEm, AtualizadoEm = atualizadoEm,
-        NoOrigemId = 3, SyncGuid = guid, Ativo = true
+        Id = id, Nome = "ADQUIRENTE FILHOS POCO", CriadoEm = criadoEm, AtualizadoEm = atualizadoEm,
+        NoOrigemId = 3, SyncGuid = new Guid($"00000000-0000-0000-0000-{id:D12}"), Ativo = true
     };
 
     private async Task<ResultadoSync> Aplicar(string tabela, string op, long id, string json, DateTime opCriadoEm)

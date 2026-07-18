@@ -1661,7 +1661,11 @@ public class AppDbContext : DbContext
             e.Property(x => x.Cartao).HasMaxLength(50);
             e.Property(x => x.Limite).HasPrecision(18, 2);
             e.HasOne(x => x.Cliente).WithMany(x => x.Convenios).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Convenio).WithMany().HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Cascade);
+            // FASE 6 (fix FURO 1): 2a FK -> Restrict. Com ClienteConvenio promovido a BaseEntity (replica
+            // sozinho), um Cascade daqui apagaria o filho no banco SEM gerar D+lapide (CarregarFilhosCascataAsync
+            // so' ve nav inversa; esta e' WithMany() vazio) -> ressurreicao. Restrict: apagar Convenio com
+            // clientes vinculados vira erro de negocio (o service ja' cai no soft-delete Ativo=false).
+            e.HasOne(x => x.Convenio).WithMany().HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<ClienteAutorizacao>(e =>
         {
@@ -1682,7 +1686,8 @@ public class AppDbContext : DbContext
         {
             e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.HasOne(x => x.Cliente).WithMany(x => x.Bloqueios).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Cascade);
+            // FASE 6 (fix FURO 1): 2a FK -> Restrict (mesmo motivo do ClienteConvenio acima).
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.ClienteId, x.TipoPagamentoId }).IsUnique();
         });
         modelBuilder.Entity<ClienteUsoContinuo>(e =>
@@ -2606,10 +2611,18 @@ public class AppDbContext : DbContext
         if (et == null) return;
         var entry = Entry(entidade); // NAO anexa: entidade fora do tracker vem como Detached
 
-        foreach (var nav in et.GetNavigations().Where(n =>
-                     n.IsCollection && !typeof(BaseEntity).IsAssignableFrom(n.TargetEntityType.ClrType)))
+        foreach (var nav in et.GetNavigations().Where(n => n.IsCollection))
         {
             var chave = JsonNamingPolicy.CamelCase.ConvertName(nav.Name);
+            // FASE 6 (higiene b+c): colecao de filho BaseEntity replica SOZINHA (op I/U/D propria) —
+            // NAO pode viajar embutida no JSON do pai (inflaria o payload + carregaria snapshot stale
+            // do filho). O apply ja' ignora (delete-missing so' age em POCO), mas stripar na origem e'
+            // mais limpo. Ex.: Cliente.Convenios (promovido) e CampanhaFidelidade.Itens.
+            if (typeof(BaseEntity).IsAssignableFrom(nav.TargetEntityType.ClrType))
+            {
+                node.Remove(chave);
+                continue;
+            }
             // Detached = nao ha' como saber se carregou -> OMITE (preservar no destino e' o lado
             // seguro; incluir vazia APAGA filho legitimo).
             var incluir = incluirTudo

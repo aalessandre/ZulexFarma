@@ -84,7 +84,32 @@ public static class SyncRegistry
         typeof(ProdutoBarras), typeof(ProdutoFamilia), typeof(ProdutoLocal), typeof(ProdutoMs),
         typeof(ProdutoSubstancia), typeof(ProdutoVariacao), typeof(ProdutoVariacaoValor),
         typeof(Promocao), typeof(Substancia), typeof(TipoPagamento), typeof(Usuario),
-        typeof(UsuarioFilialGrupo), typeof(ValorAtributo), typeof(Voucher)
+        typeof(UsuarioFilialGrupo), typeof(ValorAtributo), typeof(Voucher),
+        // FASE 6 (b+c): as 5 folhas de Cliente promovidas a BaseEntity — replicam sozinhas (uniao).
+        typeof(ClienteConvenio), typeof(ClienteAutorizacao), typeof(ClienteDesconto),
+        typeof(ClienteUsoContinuo), typeof(ClienteBloqueio)
+    };
+
+    /// <summary>
+    /// FASE 6 (b+c, invariante de boot) — colecoes de filho POCO de agregado GLOBAL cuja semantica de
+    /// conflito e' SUBSTITUICAO (LWW-agregado) ACEITA e revisada por humano. Cada entrada e' a afirmacao
+    /// "aqui a perda-como-LWW e' a semantica acordada; nao e' silenciosa, esta' declarada". Uma colecao
+    /// POCO de pai Global FORA desta whitelist derruba o boot (ValidarModelo) — forca a decisao
+    /// (promover a BaseEntity = uniao, OU declarar aqui = substituicao), nunca deixa virar perda muda.
+    /// Inclui os netos POCO (Secao/Tarifa). Filhos de Venda (PorFilial) nao entram (nao sao Global).
+    /// PENDENTE decisao do dono: as join-tables de vinculo puro (Colaborador/Cliente/Convenio/Produto/
+    /// Filial/Pagamento/Bandeira) podem ser UNIAO — se o dono confirmar, migram daqui pra (c).
+    /// </summary>
+    public static readonly HashSet<Type> ColecoesPocoSubstituicaoAceitas = new()
+    {
+        typeof(ConvenioDesconto), typeof(ConvenioBloqueio),
+        typeof(PromocaoFaixa), typeof(PromocaoFilial), typeof(PromocaoPagamento),
+        typeof(PromocaoConvenio), typeof(PromocaoProduto),
+        typeof(HierarquiaDescontoItem), typeof(HierarquiaDescontoSecao), typeof(HierarquiaDescontoColaborador),
+        typeof(HierarquiaDescontoConvenio), typeof(HierarquiaDescontoCliente),
+        typeof(HierarquiaComissaoItem), typeof(HierarquiaComissaoSecao), typeof(HierarquiaComissaoColaborador),
+        typeof(AdquirenteBandeira), typeof(AdquirenteTarifa),
+        typeof(CampanhaFidelidadeFilial), typeof(CampanhaFidelidadePagamento)
     };
 
     // ── POCOs de INFRA (sem FK de agregado — nao replicam nunca; o resto dos POCOs precisa ter FK) ─
@@ -142,9 +167,43 @@ public static class SyncRegistry
                     problemas.Add($"{clr.Name}: POCO sem FK — nao pertence a agregado nem esta marcado em PocosInfra (replicaria como... nada, em silencio)");
             }
         }
+
+        // FASE 6 (b+c, invariante de boot): nenhuma colecao de filho POCO de agregado GLOBAL pode
+        // existir sem estar classificada — ou o filho e' BaseEntity (uniao, replica sozinho) ou esta'
+        // em ColecoesPocoSubstituicaoAceitas (substituicao aceita, declarada e revisavel). Senao, sob
+        // concorrencia, o delete-missing do agregado vencedor apagaria o filho do perdedor EM SILENCIO
+        // (o ALTO da auditoria cross-cutting). Isto torna "nada silencioso" verdade ESTRUTURAL no boot.
+        var visitadosPoco = new HashSet<Type>();
+        foreach (var et in model.GetEntityTypes())
+            if (Globais.Contains(et.ClrType))
+                ColetarPocoNaoClassificado(et, problemas, visitadosPoco);
+
         if (problemas.Count > 0)
             throw new InvalidOperationException(
                 "SyncRegistry INVALIDO (fail-closed do plano, fase 4). Corrija ANTES de subir:\n - " +
                 string.Join("\n - ", problemas));
+    }
+
+    /// <summary>
+    /// FASE 6 — varre as colecoes de filho POCO de um agregado (recursivo pelos POCO, pra pegar netos
+    /// Secao/Tarifa). Cada colecao POCO fora da whitelist vira problema. Para nos filhos BaseEntity
+    /// (replicam sozinhos) e memoiza os POCO visitados (anti-ciclo). Mesmo predicado de nav-colecao
+    /// nao-BaseEntity do delete-missing real (SyncApplicator.ReconciliarColecoesAsync).
+    /// </summary>
+    private static void ColetarPocoNaoClassificado(IEntityType et, List<string> problemas, HashSet<Type> visitados)
+    {
+        foreach (var nav in et.GetNavigations())
+        {
+            if (!nav.IsCollection) continue;
+            var alvo = nav.TargetEntityType.ClrType;
+            if (typeof(BaseEntity).IsAssignableFrom(alvo)) continue; // filho BaseEntity replica sozinho (uniao)
+            if (!ColecoesPocoSubstituicaoAceitas.Contains(alvo))
+                problemas.Add($"{et.ClrType.Name}.{nav.Name}: colecao de filho POCO ({alvo.Name}) de agregado " +
+                    "GLOBAL nao classificada — PROMOVA a BaseEntity (uniao) OU declare em " +
+                    "SyncRegistry.ColecoesPocoSubstituicaoAceitas (substituicao aceita). Sob concorrencia, " +
+                    "o delete-missing apagaria o filho do perdedor EM SILENCIO.");
+            if (visitados.Add(alvo))
+                ColetarPocoNaoClassificado(nav.TargetEntityType, problemas, visitados); // netos POCO
+        }
     }
 }

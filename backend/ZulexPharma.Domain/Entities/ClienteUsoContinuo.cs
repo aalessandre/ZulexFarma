@@ -1,8 +1,8 @@
 namespace ZulexPharma.Domain.Entities;
 
-public class ClienteUsoContinuo
+// FASE 6 (b+c): promovido a BaseEntity (uniao por cliente — ver ClienteConvenio).
+public class ClienteUsoContinuo : BaseEntity
 {
-    public long Id { get; set; }
     public long ClienteId { get; set; }
     public Cliente Cliente { get; set; } = null!;
     public long ProdutoId { get; set; }

@@ -188,11 +188,10 @@ public static class SyncApplicator
         return true;
     }
 
-    // Agregados cujos filhos POCO (nao-BaseEntity) precisam viajar/aplicar junto do cabecalho.
-    // Agregados cujos filhos POCO viajam no JSON do pai + upsert em cascata (mesmo mecanismo do 2d).
-    // Cliente/Convenio/Promocao/Hierarquias/Adquirente/CampanhaFidelidade tem filhos POCO que NAO
-    // replicavam (mesmo bug do VendaItem pre-2d). Filhos BaseEntity (ex.: CampanhaFidelidadeItem) sao
-    // ignorados por ExtrairFilhosPoco (replicam sozinhos).
+    // Agregados cujos filhos POCO (nao-BaseEntity) viajam no JSON do pai + reconciliacao por
+    // delete-missing (ReconciliarColecoesAsync). Filho BaseEntity (ex.: CampanhaFidelidadeItem, e os
+    // 5 filhos de Cliente promovidos na fase 6) replica SOZINHO e e' ignorado aqui e no delete-missing.
+    // Cliente segue na lista (barato; suas colecoes viraram BaseEntity, entao a reconciliacao e' no-op).
     private static readonly HashSet<Type> _tiposAgregado = new()
     {
         typeof(Venda), typeof(Cliente), typeof(Convenio), typeof(Promocao),
@@ -717,6 +716,12 @@ public static class SyncApplicator
         "TiposPagamento"           => 1,
         "Convenios"                => 2,
         "Clientes"                 => 2,
+        // FASE 6 (b+c): filhos de Cliente promovidos — nivel 3 (> Clientes=2), pai antes do filho.
+        "ClienteConvenios"         => 3,
+        "ClienteAutorizacoes"      => 3,
+        "ClienteDescontos"         => 3,
+        "ClienteUsosContinuos"     => 3,
+        "ClienteBloqueios"         => 3,
         "HierarquiaDescontos"      => 3,
         "Vendas"                   => 4,
         "VendaFiscais"             => 5,
@@ -838,6 +843,12 @@ public static class SyncApplicator
         ["TiposPagamento"] = typeof(TipoPagamento),
         ["Convenios"] = typeof(Convenio),
         ["Clientes"] = typeof(Cliente),
+        // FASE 6 (b+c): filhos de Cliente promovidos a BaseEntity — replicam sozinhos, precisam do dicionario.
+        ["ClienteConvenios"] = typeof(ClienteConvenio),
+        ["ClienteAutorizacoes"] = typeof(ClienteAutorizacao),
+        ["ClienteDescontos"] = typeof(ClienteDesconto),
+        ["ClienteUsosContinuos"] = typeof(ClienteUsoContinuo),
+        ["ClienteBloqueios"] = typeof(ClienteBloqueio),
         ["HierarquiaDescontos"] = typeof(HierarquiaDesconto),
         ["Vendas"] = typeof(Venda),
         ["VendaFiscais"] = typeof(VendaFiscal),
