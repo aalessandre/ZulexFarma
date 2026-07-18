@@ -18,6 +18,37 @@ public class ClienteService : IClienteService
 
     public ClienteService(AppDbContext db, ILogAcaoService log) { _db = db; _log = log; }
 
+    /// <summary>
+    /// FASE 6b — reconcilia uma colecao de filho por CHAVE NATURAL preservando o Id do que continua
+    /// (filho igual = mesmo Id, 0 op se nada mudou; novo = insert; sumido = delete). Substitui o
+    /// RemoveRange+re-add que recriava tudo com Ids novos (churn + duplicacao concorrente — ver A1).
+    /// </summary>
+    private static void ReconciliarFilhos<TFilho, TDto>(
+        ICollection<TFilho> atuais, IEnumerable<TDto> desejados,
+        Func<TFilho, string> chaveAtual, Func<TDto, string> chaveDesejada,
+        Func<TDto, TFilho> criar, Action<TDto, TFilho> atualizar,
+        Microsoft.EntityFrameworkCore.DbSet<TFilho> set) where TFilho : class
+    {
+        var porChave = new Dictionary<string, TFilho>();
+        foreach (var a in atuais) porChave[chaveAtual(a)] = a; // dup pre-existente: ultimo vence (coalesce)
+        var mantidos = new HashSet<string>();
+        foreach (var d in desejados)
+        {
+            var k = chaveDesejada(d);
+            if (porChave.TryGetValue(k, out var existente))
+            {
+                atualizar(d, existente); // preserva Id; EF so' marca Modified se algo mudou
+                mantidos.Add(k);
+            }
+            else if (mantidos.Add(k)) // novo (e nao repetido no proprio dto)
+            {
+                atuais.Add(criar(d));
+            }
+        }
+        foreach (var a in atuais.Where(x => !mantidos.Contains(chaveAtual(x))).ToList())
+            set.Remove(a);
+    }
+
     public async Task<List<ClienteListDto>> ListarAsync()
     {
         try
@@ -178,23 +209,31 @@ public class ClienteService : IClienteService
             AtualizarPessoaEnderecos(pessoa, dto);
             AtualizarPessoaContatos(pessoa, dto);
 
-            // Recriar sub-tabelas
-            _db.Set<ClienteConvenio>().RemoveRange(cli.Convenios);
-            _db.Set<ClienteAutorizacao>().RemoveRange(cli.Autorizacoes);
-            _db.Set<ClienteDesconto>().RemoveRange(cli.Descontos);
-            _db.Set<ClienteUsoContinuo>().RemoveRange(cli.UsosContinuos);
-            _db.Set<ClienteBloqueio>().RemoveRange(cli.Bloqueios);
+            // FASE 6b (achado A1 da revisao): os filhos viraram BaseEntity (replicam sozinhos). O
+            // RemoveRange+re-add antigo apagava e RECRIAVA todos com Ids novos a CADA save (mesmo
+            // editando so' o telefone) -> D+I por filho -> sob edicao concorrente do MESMO cliente em
+            // 2 nos, cada um recriava com Id proprio e o resultado CONVERGIA COM DUPLICATA. Agora:
+            // reconcilia por CHAVE NATURAL preservando o Id do que continua (0 op se nada mudou),
+            // insere o novo, apaga o sumido. Fim do churn e da duplicacao.
+            ReconciliarFilhos(cli.Convenios, dto.Convenios, x => x.ConvenioId.ToString(), d => d.ConvenioId.ToString(),
+                d => new ClienteConvenio { ConvenioId = d.ConvenioId, Matricula = d.Matricula, Cartao = d.Cartao },
+                (d, x) => { x.Matricula = d.Matricula; x.Cartao = d.Cartao; }, _db.Set<ClienteConvenio>());
 
-            foreach (var cv in dto.Convenios)
-                cli.Convenios.Add(new ClienteConvenio { ConvenioId = cv.ConvenioId, Matricula = cv.Matricula, Cartao = cv.Cartao });
-            foreach (var a in dto.Autorizacoes)
-                cli.Autorizacoes.Add(new ClienteAutorizacao { Nome = a.Nome.Trim().ToUpper() });
-            foreach (var d in dto.Descontos)
-                cli.Descontos.Add(new ClienteDesconto { ProdutoId = d.ProdutoId, TipoAgrupador = d.TipoAgrupador, AgrupadorId = d.AgrupadorId, AgrupadorOuProdutoNome = d.AgrupadorOuProdutoNome, DescontoMaxSemSenha = d.DescontoMaxSemSenha, DescontoMaxComSenha = d.DescontoMaxComSenha });
-            foreach (var u in dto.UsosContinuos)
-                cli.UsosContinuos.Add(new ClienteUsoContinuo { ProdutoId = u.ProdutoId, Fabricante = u.Fabricante, Apresentacao = u.Apresentacao, QtdeAoDia = u.QtdeAoDia, UltimaCompra = string.IsNullOrEmpty(u.UltimaCompra) ? null : DateTime.Parse(u.UltimaCompra), ProximaCompra = string.IsNullOrEmpty(u.ProximaCompra) ? null : DateTime.Parse(u.ProximaCompra), ColaboradorNome = u.ColaboradorNome });
-            foreach (var tpId in dto.BloqueioTipoPagamentoIds.Distinct())
-                cli.Bloqueios.Add(new ClienteBloqueio { TipoPagamentoId = tpId });
+            ReconciliarFilhos(cli.Autorizacoes, dto.Autorizacoes, x => x.Nome, d => d.Nome.Trim().ToUpper(),
+                d => new ClienteAutorizacao { Nome = d.Nome.Trim().ToUpper() }, (d, x) => { }, _db.Set<ClienteAutorizacao>());
+
+            ReconciliarFilhos(cli.Descontos, dto.Descontos,
+                x => $"{x.ProdutoId}|{(int?)x.TipoAgrupador}|{x.AgrupadorId}",
+                d => $"{d.ProdutoId}|{(int?)d.TipoAgrupador}|{d.AgrupadorId}",
+                d => new ClienteDesconto { ProdutoId = d.ProdutoId, TipoAgrupador = d.TipoAgrupador, AgrupadorId = d.AgrupadorId, AgrupadorOuProdutoNome = d.AgrupadorOuProdutoNome, DescontoMaxSemSenha = d.DescontoMaxSemSenha, DescontoMaxComSenha = d.DescontoMaxComSenha },
+                (d, x) => { x.AgrupadorOuProdutoNome = d.AgrupadorOuProdutoNome; x.DescontoMaxSemSenha = d.DescontoMaxSemSenha; x.DescontoMaxComSenha = d.DescontoMaxComSenha; }, _db.Set<ClienteDesconto>());
+
+            ReconciliarFilhos(cli.UsosContinuos, dto.UsosContinuos, x => x.ProdutoId.ToString(), d => d.ProdutoId.ToString(),
+                d => new ClienteUsoContinuo { ProdutoId = d.ProdutoId, Fabricante = d.Fabricante, Apresentacao = d.Apresentacao, QtdeAoDia = d.QtdeAoDia, UltimaCompra = string.IsNullOrEmpty(d.UltimaCompra) ? null : DateTime.Parse(d.UltimaCompra), ProximaCompra = string.IsNullOrEmpty(d.ProximaCompra) ? null : DateTime.Parse(d.ProximaCompra), ColaboradorNome = d.ColaboradorNome },
+                (d, x) => { x.Fabricante = d.Fabricante; x.Apresentacao = d.Apresentacao; x.QtdeAoDia = d.QtdeAoDia; x.UltimaCompra = string.IsNullOrEmpty(d.UltimaCompra) ? null : DateTime.Parse(d.UltimaCompra); x.ProximaCompra = string.IsNullOrEmpty(d.ProximaCompra) ? null : DateTime.Parse(d.ProximaCompra); x.ColaboradorNome = d.ColaboradorNome; }, _db.Set<ClienteUsoContinuo>());
+
+            ReconciliarFilhos(cli.Bloqueios, dto.BloqueioTipoPagamentoIds.Distinct().ToList(), x => x.TipoPagamentoId.ToString(), tpId => tpId.ToString(),
+                tpId => new ClienteBloqueio { TipoPagamentoId = tpId }, (tpId, x) => { }, _db.Set<ClienteBloqueio>());
 
             await _db.SaveChangesAsync();
             var novo = ParaDict(cli, pessoa);

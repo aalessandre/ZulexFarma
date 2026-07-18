@@ -120,7 +120,21 @@ public static class SyncApplicator
                 if (CompararVersao(TsDe(existente), EscritorDe(existente), opCriadoEm, noOrigemId) > 0)
                     return ResultadoSync.Stale; // linha local MAIS NOVA vence o delete
                 db.Remove(existente);
-                await db.SaveChangesAsync(ct);
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException ex) when (EhFkViolation(ex))
+                {
+                    // FASE 6b (achado M2): apos o fix FURO 1 (2a FK Restrict), apagar um pai (ex.:
+                    // Convenio) que AINDA tem filhos referenciando neste no (ex.: ClienteConvenio
+                    // replicado de outro no) da' 23503. NAO abandonar (teto 5 = divergencia): e'
+                    // dependencia transitoria -> PrecisaRetry (teto alto). Quando o D/edicao dos
+                    // filhos referenciadores chegar, o retry apaga. Se nunca chegar, fica PRESO e
+                    // VISIVEL no painel (nunca some em silencio).
+                    Desanexar(db);
+                    return ResultadoSync.PrecisaRetry;
+                }
             }
             // Crava a lapide (mesmo se ja' nao existia) — impede ressurreicao por INSERT/UPDATE velho.
             await RegistrarTombstoneAsync(db, tabela, registroId, opCriadoEm, noOrigemId, ct);
@@ -363,8 +377,13 @@ public static class SyncApplicator
         }
     }
 
+    // 23503 (foreign_key_violation): INSERT/UPDATE de filho cujo PAI ainda nao replicou.
+    // 23001 (restrict_violation): DELETE/UPDATE de um pai AINDA referenciado sob FK Restrict (fase 6:
+    // apagar Convenio/TipoPagamento com ClienteConvenio/Bloqueio referenciando). Ambos = dependencia
+    // transitoria -> PrecisaRetry, nunca "Erro" que abandona no teto 5.
     private static bool EhFkViolation(DbUpdateException ex) =>
-        ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.ForeignKeyViolation;
+        ex.InnerException is PostgresException pg &&
+        (pg.SqlState == PostgresErrorCodes.ForeignKeyViolation || pg.SqlState == PostgresErrorCodes.RestrictViolation);
 
     // ── Lapides (tombstone anti-ressurreicao) ──────────────────────────────
     // FASE 3 (decisao A7 do plano): lapide NAO e' mais purgada por idade — sao 4 campos sem PII e a
