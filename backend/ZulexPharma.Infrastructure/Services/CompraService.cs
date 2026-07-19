@@ -801,6 +801,17 @@ public class CompraService : ICompraService
             .Select(f => f.Pessoa.Nome).FirstOrDefaultAsync();
         var docCompra = string.IsNullOrWhiteSpace(compra.NumeroNf) ? $"Compra #{compra.Id}" : $"NF {compra.NumeroNf}";
 
+        // Logs de auditoria sao COLETADOS aqui e emitidos DEPOIS do commit (fora da transacao): o
+        // LogAcaoService abre SaveChanges proprio e um erro dele nao pode envenenar a tx nem abortar a
+        // compra (auditoria nao bloqueia a operacao — decisao do dono 19/07).
+        var logsProdutos = new List<(long ProdutoId, Dictionary<string, string?> Anterior, Dictionary<string, string?> Novo)>();
+
+        // Transacao UNICA (cura P0.15-compra): estoque, custo medio, movimentos, lotes, contas a pagar e
+        // cabecalho commitam TUDO OU NADA. Sem isso, o RegistrarEntradaAsync (salva o lote sozinho) e o
+        // SaveChanges do log commitavam por produto — um crash no meio deixava a compra pela metade
+        // (lote/estoque entrando sem conta a pagar; refinalizar dobrava o estoque).
+        await using var tx = await _db.Database.BeginTransactionAsync();
+
         foreach (var item in compra.Produtos.Where(p => p.Vinculado && p.ProdutoId.HasValue))
         {
             // Estoque da compra sempre entra na linha-base (estoque simples, sem variacao de grade),
@@ -927,16 +938,17 @@ public class CompraService : ICompraService
             dados.Markup = Math.Clamp(dados.Markup, -999.99m, 999.99m);
             dados.ProjecaoLucro = Math.Clamp(dados.ProjecaoLucro, -99m, 99m);
 
-            // 5. Log individual
-            await _log.RegistrarAsync("Produtos", "FINALIZAÇÃO COMPRA", "Produto", item.ProdutoId!.Value,
-                anterior: anterior,
-                novo: new Dictionary<string, string?> {
-                    // A quantidade em estoque nao entra na Alteracao — vive no extrato de Movimentacao.
-                    ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
-                    ["Custo Médio"] = dados.CustoMedio.ToString("N4"),
-                    ["Ult. Compra Unit."] = dados.UltimaCompraUnitario.ToString("N4"),
-                    ["NF"] = compra.NumeroNf
-                });
+            // 5. Log individual — COLETADO aqui, emitido depois do commit (fora da tx). O SaveChanges
+            //    abaixo e' o flush por item que ANTES vinha do proprio log: preserva o custo medio (que
+            //    le o estoque dos SKUs no banco) quando o mesmo produto aparece em duas linhas da nota.
+            logsProdutos.Add((item.ProdutoId!.Value, anterior, new Dictionary<string, string?> {
+                // A quantidade em estoque nao entra na Alteracao — vive no extrato de Movimentacao.
+                ["Vlr Venda"] = dados.ValorVenda.ToString("N2"),
+                ["Custo Médio"] = dados.CustoMedio.ToString("N4"),
+                ["Ult. Compra Unit."] = dados.UltimaCompraUnitario.ToString("N4"),
+                ["NF"] = compra.NumeroNf
+            }));
+            await _db.SaveChangesAsync();
 
             // 6. Rastreio por lote — só para produtos rastreáveis
             if (item.Produto != null && ProdutoControleHelper.IsProdutoRastreavel(item.Produto))
@@ -1072,6 +1084,15 @@ public class CompraService : ICompraService
         }
 
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
+        // Fecha a tx ANTES dos logs: o LogAcaoService abre SaveChanges proprio e, com a tx ainda viva,
+        // ele participaria/envenenaria a transacao ja' commitada. (DisposeAsync e' idempotente — o
+        // `await using` no fim do metodo vira no-op.)
+        await tx.DisposeAsync();
+
+        // Logs de auditoria FORA da transacao (a compra ja' esta' commitada; auditoria nao a aborta).
+        foreach (var (produtoId, anterior, novo) in logsProdutos)
+            await _log.RegistrarAsync("Produtos", "FINALIZAÇÃO COMPRA", "Produto", produtoId, anterior: anterior, novo: novo);
 
         // Log geral
         await _log.RegistrarAsync("Compras", "FINALIZAÇÃO", "Compra", compra.Id,

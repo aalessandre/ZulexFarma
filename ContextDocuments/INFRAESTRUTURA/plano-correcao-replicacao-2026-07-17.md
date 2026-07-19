@@ -329,19 +329,50 @@ está sólido (converge, não vaza, não perde). O que falta antes de ligar um 2
    b+c pegou e curou: A1 (o `RemoveRange`+re-add do `ClienteService` duplicava sob edição concorrente
    → `ReconciliarFilhos` diff-preserve por chave natural), M2 (D de pai referenciado abandonado →
    `PrecisaRetry`; RESTRICT do PG é 23001, não 23503). Design em `spec-conflito-poco-bc.md`.
-   **Sub-pendências (não bloqueiam):** (i) as **join-tables de vínculo puro** (Hierarquia*/Promoção
-   Colaborador/Cliente/Convenio/Produto) podem ser união — a whitelist as declara como substituição
-   *explícita*; o dono classifica por coleção e as de união migram pra (c) (migração mecânica); (ii)
+   **Sub-pendências:** (i) **✅ join-tables classificadas (18/07/2026)** — todas as 19 coleções da
+   whitelist ficam substituição (decisão + prova no item 5 abaixo); nada a migrar; (ii)
    **churn residual** só nos serviços que ainda fazem RemoveRange+re-add fora do Cliente (não crítico —
    as coleções deles ficaram POCO/substituição); (iii) o diff do `ClienteService.AtualizarAsync` é
    lógica de negócio (tem teste de service, mas vale **smoke-test do fluxo de edição de cliente no
    app** antes de produção — junto do item 2).
 
-2. **🟠 Transação única na finalização da venda (P0.15, fase 4b)** — `VendaService.FinalizarAsync` e
-   suprimento/sangria do caixa ainda em vários `SaveChanges` sem transação. O bloqueio que causou a
-   reversão antiga (row-bump de `SequenciasLocais`) já morreu com o `nextval`. **Exige verificação em
-   runtime** (finalizar venda real, matar o processo no meio) — sessão própria com o app rodando.
-   Bom momento pra fazer junto o **smoke-test do fluxo de edição de cliente** (o diff da fase 6b).
+2. **🟠 Transação única na finalização de COMPRA e VENDA (P0.15 + P0.15-compra, fase 4b).** Dois
+   fluxos de negócio ainda efetivam em vários `SaveChanges` sem transação — crash no meio deixa estado
+   parcial, e o outbox replica a parcialidade fielmente. **Ordem: compra PRIMEIRO** (foi onde o dono
+   parou antes de pivotar pra replicação), venda depois. Ambos exigem **verificação em runtime**
+   (efetivar de verdade, matar o processo no meio) — sessão própria com o app rodando. Parados agora
+   porque o foco virou a implantação/piloto da replicação (runbook-implantacao.md).
+   - **2a. ✅ Compra — `CompraService.FinalizarAsync` (:772): transação única IMPLEMENTADA (19/07).**
+     Toda a efetivação (estoque, custo médio, movimentos, lotes via `RegistrarEntradaAsync`, contas a
+     pagar, cabeçalho) agora commita numa `BeginTransactionAsync`/`CommitAsync` única. Os logs de
+     auditoria saíram PRA FORA da tx (coletados no loop, emitidos após o commit — auditoria não aborta a
+     compra nem envenena a tx). O flush por item foi preservado (mantém o custo médio, que lê o estoque
+     dos SKUs no banco). **Provado com Postgres real** — `CompraTransacaoTests` (BugsAtivos): red→green
+     (a falha no lote DEPOIS de mexer no estoque deixava estoque/movimento commitados; agora rollback
+     total) + caminho feliz (estoque 10 / custo 5 / 1 movimento / lote / 1 conta a pagar / Finalizada).
+     Suíte **83/83 verde**. Contexto original do bug: o estoque de LOTE entrava via
+     `_loteService.RegistrarEntradaAsync` (salva sozinho, `ProdutoLoteService.cs:81,109`) e o log
+     (`LogAcaoService:43`) commitava por produto — crash no meio = compra pela metade / refinalizar
+     dobrava o estoque (o autor já sabia, comentário `:786-787`). **Falta ainda:** o estorno
+     `ExcluirAsync:1096` (mesmo espelho, mesma cura — próximo passo) e a venda (2b). Commit local, sem deploy.
+   - **2b. Venda — `VendaService.FinalizarAsync` (:289), SEM `BeginTransaction`.** 6 `SaveChanges`
+     soltos (contas a receber `:484`, estoque/movimentos/lotes `:563`, entrega `:578`, caixa
+     `:611/616`, SNGPC `:627`) + suprimento/sangria do caixa (`CaixaMovimentoService.cs:131-146,
+     311-329`). Sub-serviços (`_loteService`/`_entregaService`/`_receitaService`/`_fpService`) NÃO
+     abrem tx própria e compartilham o mesmo `AppDbContext` scoped → alistam na tx ambiente
+     (confirmado 18/07). A pré-auth Farmácia Popular (`:402`) é HTTP externo e fica FORA/antes da tx.
+     Precedente pronto: `SelfCheckoutVendaService.cs:79` já finaliza venda em transação. O bloqueio da
+     reversão antiga (row-bump de `SequenciasLocais`) morreu com o `nextval`. Prova preferível: teste
+     de fault-injection no harness (falha entre saves → rollback total), melhor que matar processo vivo.
+   - **Smoke-test do fluxo de edição de cliente** (o diff da fase 6b) cabe junto quando o app subir.
+   - **Fora do escopo da transação da compra (pendências de FEATURE, decisão do dono 19/07 — não são
+     atomicidade, são funcionalidade que a finalização NÃO faz hoje):** (a) **SNGPC de entrada** — a
+     `CompraService.FinalizarAsync` não registra SNGPC de produto controlado que entra por compra
+     (existe `CompraSngpcService` + `SngpcOptOut`, mas não é chamado na finalização); (b) **movimento
+     bancário/caixa no pagamento** — com `NotaPaga=true` ela só marca a `ContaPagar` como `Pago` +
+     `DataPagamento`, sem criar a saída bancária/caixa (a contrapartida financeira que a venda tem no
+     recebimento); (c) **escrituração fiscal / livro de entradas / SPED** — carrega dados fiscais por
+     item mas não gera lançamento fiscal. Avaliar cada uma como feature própria, depois.
 
 3. **🟡 Frota mista de seeds** (pré-existente, não regressão): hub tem TiposPagamento/IcmsUf em faixa
    antiga, edge novo tem Ids fixos 1-4/1-27. Um edge EXISTENTE que só recebe o deploy novo continua
@@ -352,10 +383,18 @@ está sólido (converge, não vaza, não perde). O que falta antes de ligar um 2
    EXECUÇÃO de drenagem, não por tempo; no hub (drena a cada push de qualquer edge) pode "prender"
    uma op legítima em ~40min. Cura: carimbo de próximo-retry (backoff temporal).
 
-5. **🟢 Classificação das join-tables de vínculo** (opcional, não bloqueia): as coleções POCO de
-   Hierarquia/Promoção que ligam Colaborador/Cliente/Convênio/Produto estão na whitelist como
-   substituição (declarado, nunca silencioso). Se o dono decidir que alguma é união, promove pra
-   `BaseEntity` (fase 6, mecânico) — a invariante de boot garante que a decisão fica explícita.
+5. **✅ RESOLVIDO (18/07/2026) — Classificação das join-tables de vínculo.** Dono decidiu: **as 19
+   coleções POCO da whitelist `ColecoesPocoSubstituicaoAceitas` ficam SUBSTITUIÇÃO** (nenhuma vira
+   união). Prova de código: os 6 pais (Convênio/Promoção/HierarquiaDesconto/HierarquiaComissão/
+   Adquirente/CampanhaFidelidade) editam os filhos em BLOCO (`RemoveRange`+re-add no `AtualizarAsync` —
+   `ConvenioService:218,233`, `PromocaoService:186-190`, `HierarquiaDescontoService:112-116`,
+   `HierarquiaComissaoService:104-106`, `AdquirenteService:80-81`, `CampanhaFidelidadeService:131-136`)
+   → LWW-agregado (o form inteiro mais novo vence) é a semântica certa; união fundiria dois forms
+   concorrentes num estado que nenhum editor autorou. Assimetria com os filhos de Cliente (união na
+   fase 6) é PROPOSITAL: Cliente é multi-fluxo/alta-concorrência, estes são config central editada de
+   uma vez. Decisão registrada no comentário da whitelist (`SyncRegistry.cs`). Nada a migrar; a
+   invariante de boot continua forçando classificação explícita de qualquer coleção POCO nova. Revisar
+   só se a operação real mostrar dois nós adicionando vínculos independentes ao mesmo pai.
 
 **Gate do piloto → produção:** o item 2 é o bloqueador remanescente do 2º nó real (o POCO/b+c já foi
 resolvido na fase 6/6b); 3, 4 e 5 podem ir com o rollout se documentados. O piloto controlado (dados
