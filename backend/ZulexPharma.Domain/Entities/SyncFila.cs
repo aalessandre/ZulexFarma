@@ -38,4 +38,14 @@ public class SyncFila
     public bool Enviado { get; set; }
     public DateTime? EnviadoEm { get; set; }
     public string? Erro { get; set; }
+
+    /// <summary>
+    /// FASE 2 — numero de ENTREGA (so' no hub). Atribuido pelo publicador (nextval de
+    /// seq_sync_entrega, sob advisory lock) SOMENTE a linhas ja' COMMITADAS — por isso o cursor do
+    /// pull passou a ser SeqEntrega e o gap de visibilidade do Id morreu: linha que commita tarde
+    /// pega um numero MAIOR na rodada seguinte (o Id e' alocado no INSERT, visivel so' no COMMIT —
+    /// cursor por Id perdia essas ops pra sempre). Null = ainda nao numerada (invisivel pro pull)
+    /// ou linha de no edge (edge nao numera: o push usa a flag Enviado, imune ao gap).
+    /// </summary>
+    public long? SeqEntrega { get; set; }
 }

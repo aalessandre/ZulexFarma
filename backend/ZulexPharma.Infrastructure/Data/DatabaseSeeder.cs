@@ -13,8 +13,12 @@ public static class DatabaseSeeder
     /// </summary>
     private const long ID_RANGE_PER_FILIAL = 1_000_000_000L;
 
-    public static async Task SeedAsync(AppDbContext context, int noCodigo = 0)
+    public static async Task SeedAsync(AppDbContext context, int noCodigo = 0, NoModo modo = NoModo.Edge)
     {
+        // FASE 4 — fail-closed do registry: entidade nova sem classificacao explicita (Global/
+        // PorFilial/Infra) ou fora do dicionario do applicator DERRUBA o boot com a lista nominal.
+        Services.SyncRegistry.ValidarModelo(context.Model);
+
         await context.Database.MigrateAsync();
 
         // Normalizar CPF/CNPJ: remover máscara (só dígitos), pulando registros que gerariam duplicata
@@ -34,14 +38,22 @@ public static class DatabaseSeeder
 
         // CFOP 5102 = venda mercadoria, CSOSN 102 = Simples Nacional tributada, Origem 0 = Nacional
         // PIS/COFINS CST 49 = Outras operações de saída, IPI CST 99 = Outras saídas
-        await context.Database.ExecuteSqlRawAsync(@"
-            INSERT INTO ""ProdutosFiscal"" (""ProdutoId"", ""FilialId"", ""Cfop"", ""OrigemMercadoria"", ""CstIcms"", ""Csosn"", ""AliquotaIcms"", ""CstPis"", ""AliquotaPis"", ""CstCofins"", ""AliquotaCofins"", ""CstIpi"", ""AliquotaIpi"", ""Ativo"", ""CriadoEm"", ""SyncGuid"")
-            SELECT p.""Id"", 1, '5102', '0', NULL, '102', 0, '49', 0, '49', 0, '99', 0, true, NOW(), gen_random_uuid()
-            FROM ""Produtos"" p
-            WHERE NOT EXISTS (
-                SELECT 1 FROM ""ProdutosFiscal"" pf WHERE pf.""ProdutoId"" = p.""Id"" AND pf.""FilialId"" = 1
-            )
-        ");
+        // FASE 4 (P0.12): FilialId era HARDCODED = 1 — todo deployment criava dado fiscal da filial 1
+        // (a filial de OUTRO no). Agora usa a filial DESTE no; e o HUB NAO semeia (fase 4b): ele
+        // recebe os ProdutosFiscal das lojas via sync — fabricar aqui colidiria no unique
+        // (ProdutoId, FilialId) com o 'I' real da loja (quarentena eterna).
+        if (noCodigo > 0)
+        {
+            var filialFiscal = (long)noCodigo;
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""ProdutosFiscal"" (""ProdutoId"", ""FilialId"", ""Cfop"", ""OrigemMercadoria"", ""CstIcms"", ""Csosn"", ""AliquotaIcms"", ""CstPis"", ""AliquotaPis"", ""CstCofins"", ""AliquotaCofins"", ""CstIpi"", ""AliquotaIpi"", ""Ativo"", ""CriadoEm"", ""SyncGuid"")
+                SELECT p.""Id"", {filialFiscal}, '5102', '0', NULL, '102', 0, '49', 0, '49', 0, '99', 0, true, NOW(), gen_random_uuid()
+                FROM ""Produtos"" p
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM ""ProdutosFiscal"" pf WHERE pf.""ProdutoId"" = p.""Id"" AND pf.""FilialId"" = {filialFiscal}
+                )
+            ");
+        }
 
         // Configurar sequences para a faixa de IDs da filial
         if (noCodigo > 0)
@@ -279,26 +291,68 @@ public static class DatabaseSeeder
         await context.SaveChangesAsync();
 
         // Seed: Tipos de Pagamento padrão do sistema
+        // FASE 4 (P0.12): IDs FIXOS DETERMINISTICOS (1..4), iguais em todos os nos — antes cada no
+        // criava na propria faixa (noCodigo*1e9+i) SEM enfileirar, entao vendas replicadas
+        // referenciavam TipoPagamentoId inexistente no hub (quarentena eterna). Com Id fixo e
+        // AplicandoSync=true (nao enfileira), todos os nos nascem com as MESMAS linhas nas MESMAS
+        // PKs; NoOrigemId=null = pre-sync (edicao remota adota o guid via LWW).
         if (!await context.TiposPagamento.AnyAsync(t => t.PadraoSistema))
         {
-            var tpBase = noCodigo > 0 ? noCodigo * ID_RANGE_PER_FILIAL : 0;
             var tiposPadrao = new[]
             {
-                new TipoPagamento { Id = tpBase + 1, Nome = "DINHEIRO", Modalidade = Domain.Enums.ModalidadePagamento.VendaVista, Ordem = 1, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 2, Nome = "A PRAZO", Modalidade = Domain.Enums.ModalidadePagamento.VendaPrazo, Ordem = 2, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 3, Nome = "CARTÃO", Modalidade = Domain.Enums.ModalidadePagamento.VendaCartao, Ordem = 3, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
-                new TipoPagamento { Id = tpBase + 4, Nome = "PIX", Modalidade = Domain.Enums.ModalidadePagamento.VendaPix, Ordem = 4, PadraoSistema = true, AceitaPromocao = true, NoOrigemId = filialSeedId },
+                new TipoPagamento { Id = 1, Nome = "DINHEIRO", Modalidade = Domain.Enums.ModalidadePagamento.VendaVista, Ordem = 1, PadraoSistema = true, AceitaPromocao = true },
+                new TipoPagamento { Id = 2, Nome = "A PRAZO", Modalidade = Domain.Enums.ModalidadePagamento.VendaPrazo, Ordem = 2, PadraoSistema = true, AceitaPromocao = true },
+                new TipoPagamento { Id = 3, Nome = "CARTÃO", Modalidade = Domain.Enums.ModalidadePagamento.VendaCartao, Ordem = 3, PadraoSistema = true, AceitaPromocao = true },
+                new TipoPagamento { Id = 4, Nome = "PIX", Modalidade = Domain.Enums.ModalidadePagamento.VendaPix, Ordem = 4, PadraoSistema = true, AceitaPromocao = true },
             };
             context.TiposPagamento.AddRange(tiposPadrao);
             await context.SaveChangesAsync();
-            Log.Information("Seed: 4 tipos de pagamento padrão criados.");
+            Log.Information("Seed: 4 tipos de pagamento padrão criados (Ids fixos 1-4).");
+        }
+
+        // Seed: ICMS por UF (27 estados) — FASE 4 (P0.12): movido pra DENTRO do AplicandoSync=true
+        // (nao enfileira) + IDs FIXOS (1..27). Antes rodava com sync LIGADO e Ids da faixa do no:
+        // cada edge publicava os proprios 27 e colidiam por chave natural no hub.
+        if (!await context.IcmsUfs.AnyAsync())
+        {
+            var ufsSeed = new (string uf, string nome, decimal aliq)[]
+            {
+                ("AC", "ACRE", 19), ("AL", "ALAGOAS", 19), ("AP", "AMAPA", 18),
+                ("AM", "AMAZONAS", 20), ("BA", "BAHIA", 20.5m), ("CE", "CEARA", 20),
+                ("DF", "DISTRITO FEDERAL", 20), ("ES", "ESPIRITO SANTO", 17),
+                ("GO", "GOIAS", 19), ("MA", "MARANHAO", 22), ("MT", "MATO GROSSO", 17),
+                ("MS", "MATO GROSSO DO SUL", 17), ("MG", "MINAS GERAIS", 18),
+                ("PA", "PARA", 19), ("PB", "PARAIBA", 20), ("PR", "PARANA", 19.5m),
+                ("PE", "PERNAMBUCO", 20.5m), ("PI", "PIAUI", 21), ("RJ", "RIO DE JANEIRO", 22),
+                ("RN", "RIO GRANDE DO NORTE", 20), ("RS", "RIO GRANDE DO SUL", 17),
+                ("RO", "RONDONIA", 19.5m), ("RR", "RORAIMA", 20), ("SC", "SANTA CATARINA", 17),
+                ("SP", "SAO PAULO", 18), ("SE", "SERGIPE", 19), ("TO", "TOCANTINS", 20),
+            };
+            for (var i = 0; i < ufsSeed.Length; i++)
+                context.IcmsUfs.Add(new IcmsUf { Id = i + 1, Uf = ufsSeed[i].uf, NomeEstado = ufsSeed[i].nome, AliquotaInterna = ufsSeed[i].aliq });
+            await context.SaveChangesAsync();
+            Log.Information("Seed: 27 IcmsUf criados (Ids fixos 1-27, sem enfileirar).");
+        }
+
+        // FASE 4b (achado da revisao): no HUB (no 0, sem ConfigurarSequences) os seeds com Id FIXO
+        // nao avancam a identity — a primeira criacao de usuario tomaria 23505 ate' a sequence
+        // passar do range fixo. Avanca as identities pra depois dos Ids seedados.
+        if (noCodigo == 0)
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                SELECT setval(pg_get_serial_sequence('""TiposPagamento""','Id'),
+                              GREATEST((SELECT COALESCE(MAX(""Id""),0) FROM ""TiposPagamento"" WHERE ""Id"" < 1000000000), 100), true);");
+            await context.Database.ExecuteSqlRawAsync(@"
+                SELECT setval(pg_get_serial_sequence('""IcmsUfs""','Id'),
+                              GREATEST((SELECT COALESCE(MAX(""Id""),0) FROM ""IcmsUfs"" WHERE ""Id"" < 1000000000), 100), true);");
         }
 
         context.AplicandoSync = false;
 
         // Enfileirar na SyncFila registros do seed que precisam replicar
-        // (Filial e Usuario — GruposUsuario têm IDs fixos idênticos em todos os PCs)
-        if (noCodigo > 0)
+        // (Filial e Usuario — GruposUsuario têm IDs fixos idênticos em todos os PCs).
+        // StandaloneCloud nao replica: enfileirar seria lixo eterno na fila (cura P1.1).
+        if (noCodigo > 0 && modo != NoModo.StandaloneCloud)
             await EnfileirarSeedParaSync(context, noCodigo);
     }
 
@@ -347,26 +401,9 @@ public static class DatabaseSeeder
 
         await context.SaveChangesAsync();
 
-        // ── Seed ICMS por UF (27 estados) ─────────────────────────────
-        if (!await context.IcmsUfs.AnyAsync())
-        {
-            var ufs = new (string uf, string nome, decimal aliq)[]
-            {
-                ("AC", "ACRE", 19), ("AL", "ALAGOAS", 19), ("AP", "AMAPA", 18),
-                ("AM", "AMAZONAS", 20), ("BA", "BAHIA", 20.5m), ("CE", "CEARA", 20),
-                ("DF", "DISTRITO FEDERAL", 20), ("ES", "ESPIRITO SANTO", 17),
-                ("GO", "GOIAS", 19), ("MA", "MARANHAO", 22), ("MT", "MATO GROSSO", 17),
-                ("MS", "MATO GROSSO DO SUL", 17), ("MG", "MINAS GERAIS", 18),
-                ("PA", "PARA", 19), ("PB", "PARAIBA", 20), ("PR", "PARANA", 19.5m),
-                ("PE", "PERNAMBUCO", 20.5m), ("PI", "PIAUI", 21), ("RJ", "RIO DE JANEIRO", 22),
-                ("RN", "RIO GRANDE DO NORTE", 20), ("RS", "RIO GRANDE DO SUL", 17),
-                ("RO", "RONDONIA", 19.5m), ("RR", "RORAIMA", 20), ("SC", "SANTA CATARINA", 17),
-                ("SP", "SAO PAULO", 18), ("SE", "SERGIPE", 19), ("TO", "TOCANTINS", 20),
-            };
-            foreach (var (uf, nome, aliq) in ufs)
-                context.IcmsUfs.Add(new IcmsUf { Uf = uf, NomeEstado = nome, AliquotaInterna = aliq });
-            await context.SaveChangesAsync();
-        }
+        // (FASE 4: o seed de IcmsUf saiu daqui — rodava com sync LIGADO e Ids da faixa do no, cada
+        //  edge publicava os proprios 27 e colidiam por chave natural no hub. Agora vive no fluxo
+        //  principal com AplicandoSync=true e Ids fixos 1-27.)
     }
 
     /// <summary>
@@ -422,23 +459,58 @@ public static class DatabaseSeeder
                 tabelas.Add(reader.GetString(0));
         }
 
+        var fimFaixa = offset + ID_RANGE_PER_FILIAL;
         foreach (var tabela in tabelas)
         {
-            // Pegar o valor máximo atual de Id na tabela
+            // FASE 5b (achado CRITICO da revisao): o guard antigo usava MAX(Id) GLOBAL — apos um
+            // BOOTSTRAP (restore do dump do hub, que traz linhas de TODOS os nos), o MAX global
+            // estoura o offset e o RESTART nunca rodava: a identity ficava na posicao DO HUB e o no
+            // passava a emitir Ids na faixa alheia -> colisao de PK entre nos = fusao silenciosa por
+            // LWW. A referencia certa e' o MAX DENTRO DA FAIXA DESTE NO.
             using var cmdMax = conn.CreateCommand();
-            cmdMax.CommandText = $@"SELECT COALESCE(MAX(""Id""), 0) FROM ""{tabela}""";
-            var maxId = Convert.ToInt64(await cmdMax.ExecuteScalarAsync());
+            cmdMax.CommandText = $@"SELECT COALESCE(MAX(""Id""), 0) FROM ""{tabela}"" WHERE ""Id"" > {offset} AND ""Id"" <= {fimFaixa}";
+            var maxNaFaixa = Convert.ToInt64(await cmdMax.ExecuteScalarAsync());
 
-            // Só ajustar se o Id atual está abaixo da faixa da filial
-            if (maxId < offset)
+            // posicao atual da identity (0 se nao resolvida)
+            long posicaoAtual = 0;
+            using (var cmdNomeSeq = conn.CreateCommand())
+            {
+                cmdNomeSeq.CommandText = $@"SELECT pg_get_serial_sequence('""{tabela}""', 'Id')";
+                var nomeSeq = await cmdNomeSeq.ExecuteScalarAsync() as string;
+                if (!string.IsNullOrEmpty(nomeSeq))
+                {
+                    using var cmdLast = conn.CreateCommand();
+                    cmdLast.CommandText = $"SELECT last_value FROM {nomeSeq}";
+                    posicaoAtual = Convert.ToInt64(await cmdLast.ExecuteScalarAsync());
+                }
+            }
+
+            var alvo = DecidirRestartSequence(offset, fimFaixa, maxNaFaixa, posicaoAtual);
+            if (alvo != null)
             {
                 using var cmdRestart = conn.CreateCommand();
-                cmdRestart.CommandText = $@"ALTER TABLE ""{tabela}"" ALTER COLUMN ""Id"" RESTART WITH {offset + 1}";
+                cmdRestart.CommandText = $@"ALTER TABLE ""{tabela}"" ALTER COLUMN ""Id"" RESTART WITH {alvo.Value}";
                 await cmdRestart.ExecuteNonQueryAsync();
-                Log.Debug("Sequence {Tabela} configurada para {Offset}", tabela, offset + 1);
+                Log.Debug("Sequence {Tabela} configurada para {Alvo} (posicao anterior {Pos})", tabela, alvo.Value, posicaoAtual);
             }
         }
 
         Log.Information("Faixa de IDs configurada para Filial {Filial}: {Offset}+", noCodigo, offset);
+    }
+
+    /// <summary>
+    /// FASE 5b (achado CRITICO da revisao) — decisao PURA de reposicionamento da identity, extraida
+    /// pra ser testavel. Retorna o alvo do RESTART ou null (nao mexer). Reposiciona quando a
+    /// identity esta' FORA da faixa deste no (abaixo do offset OU alem do fim = herdada de restore
+    /// de outro no/hub) ou ATRAS do maior Id ja' emitido DENTRO da faixa. NUNCA reduz dentro da
+    /// faixa (reuso de Id apagado ressuscitaria via lapide). O guard antigo usava MAX(Id) GLOBAL:
+    /// apos bootstrap, as linhas de outros nos no dump estouravam o offset e o RESTART nunca rodava,
+    /// deixando a identity na posicao do HUB -> o no emitia Ids na faixa alheia = colisao de PK.
+    /// </summary>
+    public static long? DecidirRestartSequence(long offset, long fimFaixa, long maxNaFaixa, long posicaoAtual)
+    {
+        var alvo = Math.Max(maxNaFaixa, offset) + 1;
+        var foraDaFaixa = posicaoAtual <= offset || posicaoAtual > fimFaixa;
+        return (foraDaFaixa || posicaoAtual < Math.Max(maxNaFaixa, offset)) ? alvo : null;
     }
 }

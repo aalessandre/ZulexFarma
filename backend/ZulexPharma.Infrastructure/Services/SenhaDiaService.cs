@@ -13,10 +13,12 @@ public class SenhaDiaService : ISenhaDiaService
 
     public string Gerar()
     {
-        // Chave vem do config: env var SistemaKey no Railway (prod) sobrescreve o
-        // appsettings (dev). Sem fallback hardcoded — falha alto se não configurada.
-        var chave = _config["SistemaKey"]
-            ?? throw new InvalidOperationException("SistemaKey não configurada (env var no Railway em prod, appsettings em dev).");
+        // Chave vem do config: env var SistemaKey (prod) ou appsettings.Development.json (dev).
+        // Sem fallback hardcoded — falha alto se ausente OU vazia (o placeholder "" do
+        // appsettings.json versionado NAO pode virar chave de derivacao).
+        var chave = _config["SistemaKey"];
+        if (string.IsNullOrWhiteSpace(chave))
+            throw new InvalidOperationException("SistemaKey não configurada (env var em prod, appsettings.Development.json em dev).");
         var data = DateTime.UtcNow.ToString("yyyyMMdd");
         using var sha = SHA256.Create();
         var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(data + chave));

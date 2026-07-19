@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 {
     private readonly IHttpContextAccessor? _http;
     private readonly int _noCodigo;
+    private readonly bool _capturaOutbox;
 
     /// <summary>Se true, não gera Codigo nem registra na SyncFila (usado ao aplicar sync remoto).</summary>
     public bool AplicandoSync { get; set; }
@@ -22,6 +23,10 @@ public class AppDbContext : DbContext
         // Codigo do NO (servidor/deployment), eixo Origem/No. Fallback pra chave antiga "Filial:Codigo".
         // Default 0 (unificado com Program/Seeder); o boot faz fail-fast se ausente/invalido.
         _noCodigo = int.TryParse(config?["No:Codigo"] ?? config?["Filial:Codigo"], out var c) ? c : 0;
+        // StandaloneCloud NAO captura outbox/lapide (cura P1.1: Sync:Habilitado=false so' desligava o
+        // transporte e a SyncFila crescia pra sempre). Leitura LENIENTE (harness/design-time passam
+        // config nula = captura ligada); o fail-fast de verdade e' o NoDeployment.Resolver no boot.
+        _capturaOutbox = NoDeployment.LerModoLeniente(config) != NoModo.StandaloneCloud;
     }
 
     public DbSet<Filial> Filiais => Set<Filial>();
@@ -67,6 +72,9 @@ public class AppDbContext : DbContext
     public DbSet<SyncFila> SyncFila => Set<SyncFila>();
     public DbSet<SyncQuarentena> SyncQuarentena => Set<SyncQuarentena>();
     public DbSet<SyncTombstone> SyncTombstones => Set<SyncTombstone>();
+    public DbSet<SyncNo> SyncNos => Set<SyncNo>();
+    public DbSet<SyncNoFilial> SyncNoFiliais => Set<SyncNoFilial>();
+    public DbSet<SyncEstadoLocal> SyncEstadoLocal => Set<SyncEstadoLocal>();
     public DbSet<SequenciaLocal> SequenciasLocais => Set<SequenciaLocal>();
     public DbSet<Ncm> Ncms => Set<Ncm>();
     public DbSet<NcmFederal> NcmFederais => Set<NcmFederal>();
@@ -1653,7 +1661,11 @@ public class AppDbContext : DbContext
             e.Property(x => x.Cartao).HasMaxLength(50);
             e.Property(x => x.Limite).HasPrecision(18, 2);
             e.HasOne(x => x.Cliente).WithMany(x => x.Convenios).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Convenio).WithMany().HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Cascade);
+            // FASE 6 (fix FURO 1): 2a FK -> Restrict. Com ClienteConvenio promovido a BaseEntity (replica
+            // sozinho), um Cascade daqui apagaria o filho no banco SEM gerar D+lapide (CarregarFilhosCascataAsync
+            // so' ve nav inversa; esta e' WithMany() vazio) -> ressurreicao. Restrict: apagar Convenio com
+            // clientes vinculados vira erro de negocio (o service ja' cai no soft-delete Ativo=false).
+            e.HasOne(x => x.Convenio).WithMany().HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<ClienteAutorizacao>(e =>
         {
@@ -1674,7 +1686,8 @@ public class AppDbContext : DbContext
         {
             e.HasKey(x => x.Id); e.Property(x => x.Id).UseIdentityByDefaultColumn();
             e.HasOne(x => x.Cliente).WithMany(x => x.Bloqueios).HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Cascade);
+            // FASE 6 (fix FURO 1): 2a FK -> Restrict (mesmo motivo do ClienteConvenio acima).
+            e.HasOne(x => x.TipoPagamento).WithMany().HasForeignKey(x => x.TipoPagamentoId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.ClienteId, x.TipoPagamentoId }).IsUnique();
         });
         modelBuilder.Entity<ClienteUsoContinuo>(e =>
@@ -1856,17 +1869,24 @@ public class AppDbContext : DbContext
         {
             if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType) && entityType.ClrType != typeof(BaseEntity))
             {
-                // Index on Codigo for sync lookups
+                // FASE 4: indice UNICO composto (Codigo, NoOrigemId) — guard contra reciclagem de
+                // codigo por restore/seed; leading Codigo continua servindo as buscas das telas.
+                // NULLs (Codigo null / NoOrigemId null de linha pre-sync) ficam fora de conflito.
                 modelBuilder.Entity(entityType.ClrType)
-                    .HasIndex("Codigo")
+                    .HasIndex("Codigo", "NoOrigemId")
+                    .IsUnique()
                     .HasFilter("\"Codigo\" IS NOT NULL");
 
-                // SyncGuid: default para registros existentes + index para reconciliação
+                // SyncGuid: default para registros existentes + indice UNICO (fase 3, P0.10):
+                // e' o guard de identidade — mesma PK com SyncGuid diferente = colisao de faixa/
+                // no gemeo (ColisaoIdentidade na quarentena, nunca SetValues). Duplicata na
+                // aplicacao da migration = diagnostico de dado clonado (falha alto de proposito).
                 modelBuilder.Entity(entityType.ClrType)
                     .Property("SyncGuid")
                     .HasDefaultValueSql("gen_random_uuid()");
                 modelBuilder.Entity(entityType.ClrType)
-                    .HasIndex("SyncGuid");
+                    .HasIndex("SyncGuid")
+                    .IsUnique();
             }
         }
 
@@ -2015,6 +2035,13 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.OpUid)
                 .IsUnique()
                 .HasFilter("\"OpUid\" IS NOT NULL");
+            // Fase 2: cursor do pull e' SeqEntrega (so' linhas numeradas sao servidas).
+            e.HasIndex(x => x.SeqEntrega)
+                .HasFilter("\"SeqEntrega\" IS NOT NULL");
+            // Fase 2b: o PUBLICADOR filtra o oposto (IS NULL) a cada request — sem este indice
+            // parcial (quase vazio em regime) seria seq scan da fila inteira do hub.
+            e.HasIndex(x => x.SeqEntrega, "IX_SyncFila_SeqEntrega_Pendente")
+                .HasFilter("\"SeqEntrega\" IS NULL");
         });
 
         // ── SyncQuarentena (dead-letter do sync, Fase 1) ────────────
@@ -2050,6 +2077,30 @@ public class AppDbContext : DbContext
             e.Property(x => x.Tabela).HasMaxLength(100).IsRequired();
             e.HasIndex(x => x.Tabela).IsUnique();
         });
+
+        // ── Registro de nos (fase 1) — INFRA, nao-BaseEntity, nao replica ──
+        modelBuilder.Entity<SyncNo>(e =>
+        {
+            e.HasKey(x => x.NoCodigo);
+            e.Property(x => x.NoCodigo).ValueGeneratedNever(); // atribuido no cadastro, nunca reutilizado
+            e.Property(x => x.Nome).HasMaxLength(120);
+            e.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            e.Property(x => x.ChaveHash).HasMaxLength(64).IsRequired();
+            e.Property(x => x.VersaoApp).HasMaxLength(40);
+            e.HasMany(x => x.Filiais).WithOne().HasForeignKey(x => x.NoCodigo).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<SyncNoFilial>(e =>
+        {
+            e.HasKey(x => new { x.NoCodigo, x.FilialId });
+        });
+
+        // ── Estado local do sync (fase 1) — INFRA, nao replica ──
+        modelBuilder.Entity<SyncEstadoLocal>(e =>
+        {
+            e.HasKey(x => x.Chave);
+            e.Property(x => x.Chave).HasMaxLength(80);
+            e.Property(x => x.Valor).IsRequired();
+        });
     }
 
     private static void ConfigurarClassificacao<T>(ModelBuilder mb) where T : ClassificacaoProdutoBase
@@ -2069,19 +2120,15 @@ public class AppDbContext : DbContext
         });
     }
 
-    // Tabelas que NÃO geram Codigo nem entram na SyncFila
-    // Tabelas que NÃO geram SyncFila (infraestrutura de sync apenas).
-    // REGRA: todas as filiais veem dados de todas as filiais. TUDO replica.
+    // Tabelas que NÃO geram Codigo nem entram na SyncFila (infraestrutura, nao replica).
+    // ATENCAO: a regra vigente NAO e' "tudo replica" — o escopo e' GLOBAL (todos os nos) vs
+    // POR-FILIAL (dono + hub) vs INFRA (nunca). Fonte: classificacao-replicacao.md + plano
+    // plano-correcao-replicacao-2026-07-17.md (fase 4 unifica esta denylist num registry unico).
     // Nota: DicionarioTabelas/Revisoes/Relacionamentos não herdam BaseEntity,
     // então não passam pelo interceptor — não precisam estar aqui.
-    private static readonly HashSet<string> _tabelasSemSync = new()
-    {
-        // SequenciasCentrais = contador fiscal (NFC-e), pinado ao NO dono (cada no numera o seu).
-        // NAO pode replicar sob LWW (senao dois nos sobrescrevem o ProximoNumero -> numero fiscal duplicado).
-        // GestorTributario* = INFRA local (controle de job/uso do motor tributario) — nao replica.
-        "SyncFila", "SequenciasLocais", "AbcFarmaBase", "CertificadosDigitais", "SefazNotas",
-        "SequenciasCentrais", "GestorTributarioJobs", "GestorTributarioUsoMensais"
-    };
+    // FASE 4: a fonte UNICA e' o SyncRegistry (classificacao explicita + validacao fail-closed no
+    // boot). Os nomes locais viraram aliases pra nao reescrever os ~20 usos.
+    private static HashSet<string> _tabelasSemSync => Services.SyncRegistry.TabelasInfra;
 
     // Entidades POR-FILIAL (eixo escopo): o dado pertence a UMA filial (FilialId do usuario logado).
     // Fonte unica pra carimbar SyncFila.FilialDonoId. O que NAO esta aqui e' GLOBAL (replica pra todos).
@@ -2094,20 +2141,12 @@ public class AppDbContext : DbContext
     // InventarioSngpcItem, AtualizacaoPrecoItem, SelfCheckout*) ficam com FilialDonoId=null (=GLOBAL)
     // hoje. Antes de LIGAR o roteamento (Fase 3), essas precisam herdar a filial do pai (ver
     // ContextDocuments/classificacao-replicacao.md, Lista de Trabalho 1) senao vazam/quebram FK.
-    private static readonly HashSet<Type> _entidadesPorFilial = new()
-    {
-        typeof(ProdutoDados), typeof(ProdutoFiscal), typeof(ProdutoFornecedor), typeof(ProdutoLote),
-        typeof(MovimentoEstoque), typeof(AtualizacaoPreco),
-        typeof(Venda), typeof(VendaReceita), typeof(Caixa),
-        typeof(Compra), typeof(ContaPagar), typeof(ContaReceber), typeof(ContaBancaria),
-        typeof(Entrega), typeof(EntregaPerfil), typeof(EntregaAgenda),
-        typeof(InventarioSngpc), typeof(SngpcMapa),
-        typeof(SelfCheckoutTerminal), typeof(SelfCheckoutConfiguracao)
-    };
+    private static HashSet<Type> _entidadesPorFilial => Services.SyncRegistry.PorFilialDireta;
 
     // Fase 3b: FILHAS por-filial SEM FilialId direto -> derivam a filial-dona do PAI (chave FK -> tipo pai),
     // recursivamente ate' um tipo com FilialId (em _entidadesPorFilial). Inclui o intermediario POCO VendaItem.
-    private static readonly Dictionary<Type, (string fk, Type pai)> _derivacaoFilialDono = new()
+    // PUBLICO (fase 4): o SyncRegistry valida no boot que toda PorFilialDerivada tem entrada aqui.
+    public static readonly Dictionary<Type, (string fk, Type pai)> DerivacaoFilialDono = new()
     {
         [typeof(CaixaMovimento)]              = ("CaixaId", typeof(Caixa)),
         [typeof(CaixaFechamentoDeclarado)]    = ("CaixaId", typeof(Caixa)),
@@ -2137,7 +2176,7 @@ public class AppDbContext : DbContext
     // Memoiza a derivacao POR SaveChanges (colapsa N filhas do mesmo pai a 1 resolucao). Limpo a cada override.
     private readonly Dictionary<(Type, long), long?> _cacheDerivFilial = new();
 
-    private async Task<long?> ResolverFilialDonoAsync(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, CancellationToken ct)
+    private async Task<(long? Dono, bool NaoResolvido)> ResolverFilialDonoAsync(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, CancellationToken ct)
     {
         var tipo = entry.Metadata.ClrType; // ClrType = imune a proxy de lazy-loading
         var values = entry.State == EntityState.Deleted ? entry.OriginalValues : entry.CurrentValues;
@@ -2146,20 +2185,36 @@ public class AppDbContext : DbContext
         {
             var prop = entry.Metadata.FindProperty("FilialId");
             var v = prop == null ? null : values[prop];
-            return v == null ? null : Convert.ToInt64(v);
+            // FilialId nullable com valor NULL e' legitimo nos HIBRIDOS (ContaBancaria/Feriado:
+            // null = corporativo/global por design) — nao e' falha de resolucao.
+            return (v == null ? null : Convert.ToInt64(v), false);
         }
-        if (_derivacaoFilialDono.TryGetValue(tipo, out var map))
+        if (DerivacaoFilialDono.TryGetValue(tipo, out var map))
         {
             var fkVal = values[map.fk];
-            if (fkVal == null) return null;
-            var dono = await DerivarFilialDonoAsync(map.pai, Convert.ToInt64(fkVal), 0, ct);
-            // Uma FILHA mapeada SEMPRE deveria ter pai resolvivel -> null aqui e' sintoma de bug (pai nao
-            // materializado/ausente), NAO GLOBAL legitimo. Alerta em vez de vazar em silencio (fail-open).
+            if (fkVal == null) return (null, false); // FK nullable vazia = sem dono por design
+            var paiId = Convert.ToInt64(fkVal);
+            var dono = await DerivarFilialDonoAsync(map.pai, paiId, 0, ct);
             if (dono == null)
-                Serilog.Log.Warning("Sync: FilialDono NAO derivado p/ {Tipo} (op vira GLOBAL) — cadeia de pai nao resolveu", tipo.Name);
-            return dono;
+            {
+                // Unico null LEGITIMO da derivacao: ContaBancaria CORPORATIVA (FilialId null por
+                // design — hibrido). Se o pai existe (tracker ou banco), o movimento e' global.
+                if (map.pai == typeof(ContaBancaria))
+                {
+                    var paiExiste = ChangeTracker.Entries<ContaBancaria>().Any(e => e.Entity.Id == paiId)
+                        || await ConsultarLongAsync(map.pai, paiId, "Id", ct) != null;
+                    if (paiExiste) return (null, false);
+                }
+                // FASE 4 (P0.8, fail-closed): filha mapeada SEM pai resolvivel e' sintoma de BUG, nao
+                // GLOBAL legitimo. Antes virava GLOBAL com um Warning (vazaria pra todos os nos);
+                // agora a op vai pra QUARENTENA local (DonoNaoResolvido) — visivel, nunca vaza.
+                Serilog.Log.Error("Sync: FilialDono NAO derivado p/ {Tipo} Id={Id} — op vai pra QUARENTENA (DonoNaoResolvido)",
+                    tipo.Name, values["Id"]);
+                return (null, true);
+            }
+            return (dono, false);
         }
-        return null; // GLOBAL
+        return (null, false); // GLOBAL classificado (o SyncRegistry garante que nao e' omissao)
     }
 
     /// <summary>Deriva a filial-dona subindo a cadeia de FK (tracker primeiro, senao 1 query). Memoizado + guard.</summary>
@@ -2182,7 +2237,7 @@ public class AppDbContext : DbContext
             }
             else resultado = id < 0 ? null : await ConsultarLongAsync(tipo, id, "FilialId", ct);
         }
-        else if (_derivacaoFilialDono.TryGetValue(tipo, out var map))
+        else if (DerivacaoFilialDono.TryGetValue(tipo, out var map))
         {
             long? paiId = tracked != null
                 ? (tracked.Property(map.fk).CurrentValue is { } pv ? Convert.ToInt64(pv) : null)
@@ -2277,39 +2332,67 @@ public class AppDbContext : DbContext
             return await base.SaveChangesAsync(cancellationToken);
         }
 
-        // NoOrigemId usa o codigo do NO (config do servidor), nao a filial-dona do usuario (JWT)
-        var noOrigem = _noCodigo > 0 ? _noCodigo : GetFilialIdFromContext();
+        // FASE 1 (P0.3): a ORIGEM e' SEMPRE o no do servidor (config), inclusive no hub (0).
+        // O fallback antigo pro claim filialId do JWT misturava os eixos (origem/no vs filial-dona)
+        // e quebrava o anti-eco: edicao feita na nuvem ganhava NoOrigemId da filial do usuario e o
+        // PULL a escondia justamente do no criador. Teste: HubOrigemTests.
+        var noOrigem = (long)_noCodigo;
         var operacoesPendentes = new List<(string tabela, string op, BaseEntity entidade, long? filialDono)>();
         _cacheDerivFilial.Clear(); // memoizacao da derivacao de FilialDono e' por SaveChanges
 
-        await CarregarFilhosCascataAsync(cancellationToken);
+        // StandaloneCloud (_capturaOutbox=false): mantem carimbos (NoOrigemId/Codigo/AtualizadoEm),
+        // mas NAO enfileira op, nao crava lapide e nao precisa carregar filhos de cascata.
+        if (_capturaOutbox)
+        {
+            await CarregarFilhosCascataAsync(cancellationToken);
 
-        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+            // FASE 3 — TOUCH DO PAI + FORCE-LOAD DA COLECAO: edicao SO'-de-filho POCO (RemoveRange+
+            // re-add, ou Add direto no DbSet como no kiosk) deixava o pai Unchanged -> NENHUMA op e a
+            // mudanca nunca replicava. Alem do touch, CARREGA a colecao do pai quando nao carregada
+            // (fase 3b, achado M2): sem isso a op "U" sairia com a chave OMITIDA e o filho novo
+            // nunca viajaria; carregada, a colecao fica completa (banco + adds locais) e autoritativa.
+            foreach (var pocoEntry in ChangeTracker.Entries()
+                         .Where(e => e.Entity is not BaseEntity &&
+                                     e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                         .ToList())
+            {
+                await TocarPaisECarregarColecoesAsync(pocoEntry, 0, cancellationToken);
+            }
+        }
+
+        // .ToList() OBRIGATORIO (fase 4b): o ColetarOpAsync pode ADICIONAR SyncQuarentena ao tracker
+        // (DonoNaoResolvido) — mutacao durante enumeracao lazy = 'Collection was modified' e o save
+        // do usuario inteiro morre.
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>().ToList())
         {
             var tabela = entry.Metadata.GetTableName() ?? entry.Entity.GetType().Name;
 
             if (entry.State == EntityState.Added)
             {
-                if (entry.Entity.NoOrigemId == null && noOrigem > 0)
-                    entry.Entity.NoOrigemId = noOrigem;
+                // FASE 3b (achado ALTO A3): carimba INCLUSIVE no hub (0) — NoOrigemId null significa
+                // "linha pre-sync/seed" e desliga o guard de identidade (adota guid); deixar as linhas
+                // do hub como null desligava o guard exatamente no no que recebe de todo mundo.
+                entry.Entity.NoOrigemId ??= noOrigem;
+                entry.Entity.AtualizadoPorNoId = noOrigem; // fase 3: escritor real da versao atual
 
                 // Gerar Codigo visível (sequencial local; o no fica na coluna NoOrigemId)
                 if (entry.Entity.Codigo == null && !_tabelasSemSync.Contains(tabela))
                     entry.Entity.Codigo = await GerarCodigo(tabela, cancellationToken);
 
-                if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "I", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
+                if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
+                    await ColetarOpAsync(operacoesPendentes, tabela, "I", entry, cancellationToken);
             }
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
-                if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "U", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
+                entry.Entity.AtualizadoPorNoId = noOrigem; // fase 3: escritor real da versao atual
+                if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
+                    await ColetarOpAsync(operacoesPendentes, tabela, "U", entry, cancellationToken);
             }
             else if (entry.State == EntityState.Deleted)
             {
-                if (!_tabelasSemSync.Contains(tabela))
-                    operacoesPendentes.Add((tabela, "D", entry.Entity, await ResolverFilialDonoAsync(entry, cancellationToken)));
+                if (_capturaOutbox && !_tabelasSemSync.Contains(tabela))
+                    await ColetarOpAsync(operacoesPendentes, tabela, "D", entry, cancellationToken);
             }
         }
 
@@ -2329,7 +2412,12 @@ public class AppDbContext : DbContext
                 foreach (var (tabela, op, entidade, filialDono) in operacoesPendentes)
                 {
                     var agoraOp = Domain.Helpers.DataHoraHelper.Agora();
-                    var noOrigemOp = _noCodigo > 0 ? _noCodigo : (entidade.NoOrigemId ?? 0);
+                    // FASE 1b (achado CRITICO da revisao adversarial): a origem da OP e' SEMPRE o no que a
+                    // ESCREVEU (config do servidor; hub = 0) — nunca o criador do registro (entidade.NoOrigemId).
+                    // Com o fallback antigo, o hub editando/deletando registro criado na loja 5 gerava op com
+                    // origem 5 e o anti-eco do PULL escondia a mudanca exatamente do no dono (divergencia
+                    // permanente em operacao normal). Teste: Hub_EditarRegistroCriadoNoEdge_OpSaiComOrigemZero.
+                    var noOrigemOp = (long)_noCodigo;
 
                     // DELETE LOCAL TAMBEM CRAVA A LAPIDE (anti-ressurreicao).
                     // Ate' 07/2026 a lapide so' nascia ao APLICAR delete REMOTO (SyncApplicator), entao o no
@@ -2364,7 +2452,7 @@ public class AppDbContext : DbContext
                         CriadoEm = agoraOp, // mesmo instante da lapide (os outros nos usam isto no LWW)
                         RegistroId = entidade.Id,
                         RegistroCodigo = entidade.Codigo,
-                        DadosJson = op != "D" ? JsonSerializer.Serialize(entidade, entidade.GetType(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }) : null,
+                        DadosJson = op != "D" ? SerializarComContratoDeColecao(entidade, op) : null,
                         NoOrigemId = noOrigemOp,
                         FilialDonoId = filialDono,
                         // Fase 4b: identidade GLOBAL e imutavel da op (idempotencia fim-a-fim). Nasce aqui,
@@ -2388,6 +2476,174 @@ public class AppDbContext : DbContext
         finally
         {
             if (txOutbox != null) await txOutbox.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// FASE 4 (P0.8): coleta a op pro outbox — mas dono NAO RESOLVIDO vai pra QUARENTENA local
+    /// (visivel no painel, drenagem NAO tenta reaplicar), NUNCA como GLOBAL (vazaria pra todos).
+    /// A quarentena participa do MESMO commit do dado (atomico).
+    /// </summary>
+    private async Task ColetarOpAsync(
+        List<(string tabela, string op, BaseEntity entidade, long? filialDono)> pendentes,
+        string tabela, string op,
+        Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<BaseEntity> entry, CancellationToken ct)
+    {
+        // FASE 4b (achado A4): LEDGER so' emite 'I'. O SetNull/cascata de uma exclusao (ex.: excluir
+        // Perda nula VendaId dos MovimentosLote -> entry Modified -> op 'U') geraria LedgerImutavel
+        // eterno em TODOS os receptores — o efeito local do cascade se repete em cada no via o D do
+        // pai, nao precisa (nem pode) replicar como U/D de ledger.
+        if (op != "I" && Services.SyncRegistry.TabelasLedger.Contains(tabela)) return;
+
+        var (dono, naoResolvido) = await ResolverFilialDonoAsync(entry, ct);
+        if (!naoResolvido)
+        {
+            pendentes.Add((tabela, op, entry.Entity, dono));
+            return;
+        }
+
+        // Upsert REABRINDO linha resolvida (fase 4b, achado M5): apos um descarte manual sem corrigir
+        // a derivacao, a proxima edicao da mesma op precisa REACENDER o alarme — o AnyAsync antigo
+        // pulava a linha Resolvida e a op sumia em silencio (alem do risco de 23505 no indice unico).
+        var q = await SyncQuarentena.FirstOrDefaultAsync(x =>
+            x.Tabela == tabela && x.RegistroId == entry.Entity.Id && x.Operacao == op, ct);
+        if (q == null)
+        {
+            SyncQuarentena.Add(new SyncQuarentena
+            {
+                Tabela = tabela, Operacao = op, RegistroId = entry.Entity.Id,
+                DadosJson = op == "D" ? null : SerializarComContratoDeColecao(entry.Entity, op),
+                OpCriadoEm = Domain.Helpers.DataHoraHelper.Agora(), NoOrigemId = _noCodigo,
+                Motivo = "DonoNaoResolvido", Tentativas = 0, Resolvido = false,
+                UltimoErro = "Filial-dona nao derivada (cadeia de pai nao resolveu) — op NAO replicada. " +
+                             "Corrigir a derivacao/classificacao e reprocessar manualmente."
+            });
+        }
+        else
+        {
+            q.Motivo = "DonoNaoResolvido";
+            q.DadosJson = op == "D" ? null : SerializarComContratoDeColecao(entry.Entity, op);
+            q.OpCriadoEm = Domain.Helpers.DataHoraHelper.Agora();
+            q.Resolvido = false;
+            q.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora();
+        }
+    }
+
+    /// <summary>
+    /// FASE 3/3b — sobe pelas FKs do filho POCO (Desconto -> VendaItem -> Venda) e, pra CADA pai com
+    /// navegacao de colecao (M3: um POCO de juncao pode ter DOIS pais agregados — toca ambos):
+    /// (a) se o pai e' AGREGADO tracked Unchanged -> touch (AtualizadoEm) pra gerar a op "U";
+    /// (b) se a colecao do pai nao esta' carregada -> LoadAsync (M2: senao a op sai com a chave
+    ///     omitida e o filho novo NUNCA viaja; carregar mescla banco + mudancas locais = completa).
+    /// </summary>
+    private async Task TocarPaisECarregarColecoesAsync(
+        Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry filho, int profundidade, CancellationToken ct)
+    {
+        if (profundidade > 3) return;
+        foreach (var fk in filho.Metadata.GetForeignKeys())
+        {
+            if (fk.PrincipalToDependent?.IsCollection != true) continue; // so' relacao pai->colecao
+            var principalClr = fk.PrincipalEntityType.ClrType;
+            var valorFk = filho.Property(fk.Properties[0].Name).CurrentValue;
+            if (valorFk == null) continue;
+            var idPai = Convert.ToInt64(valorFk);
+
+            if (typeof(BaseEntity).IsAssignableFrom(principalClr))
+            {
+                if (!Services.SyncApplicator.TiposAgregado.Contains(principalClr)) continue;
+                var pai = ChangeTracker.Entries<BaseEntity>()
+                    .FirstOrDefault(e => e.Entity.GetType() == principalClr && e.Entity.Id == idPai);
+                if (pai == null || pai.State == EntityState.Deleted) continue;
+
+                if (pai.State == EntityState.Unchanged)
+                    pai.Entity.AtualizadoEm = Domain.Helpers.DataHoraHelper.Agora(); // vira Modified
+
+                var colecao = pai.Collection(fk.PrincipalToDependent.Name);
+                if (!colecao.IsLoaded && pai.State != EntityState.Added)
+                    await colecao.LoadAsync(ct);
+            }
+            else
+            {
+                // pai intermediario e' POCO (VendaItem) -> carrega a colecao DELE tambem e sobe
+                var paiPoco = ChangeTracker.Entries()
+                    .FirstOrDefault(e => e.Entity.GetType() == principalClr
+                        && Convert.ToInt64(e.Property("Id").CurrentValue ?? 0L) == idPai);
+                if (paiPoco == null || paiPoco.State == EntityState.Deleted) continue;
+                var colecaoPoco = paiPoco.Collection(fk.PrincipalToDependent.Name);
+                if (!colecaoPoco.IsLoaded && paiPoco.State != EntityState.Added)
+                    await colecaoPoco.LoadAsync(ct);
+                await TocarPaisECarregarColecoesAsync(paiPoco, profundidade + 1, ct);
+            }
+        }
+    }
+
+    private static readonly JsonSerializerOptions _jsonOutbox = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
+    /// <summary>
+    /// FASE 3 — CONTRATO DE COLECAO (P0.7/synAteAqui §6.2): no JSON do agregado, colecao POCO NAO
+    /// CARREGADA e' OMITIDA (chave ausente = "preserve os filhos no destino"); colecao carregada
+    /// (mesmo vazia) fica presente = AUTORITATIVA (o applicator reconcilia com delete-missing).
+    /// Sem isso, salvar o pai sem Include serializava a colecao default vazia como [] e o destino
+    /// apagaria filhos LEGITIMOS (FinalizarAsync sem Itens.Descontos, CancelarAsync sem Include —
+    /// o motivo da reversao da v1). Entidade Added = grafo em memoria e' a verdade -> inclui tudo.
+    /// </summary>
+    private string SerializarComContratoDeColecao(BaseEntity entidade, string op)
+    {
+        var json = JsonSerializer.Serialize(entidade, entidade.GetType(), _jsonOutbox);
+        if (!Services.SyncApplicator.TiposAgregado.Contains(entidade.GetType())) return json;
+
+        var node = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+        // Op "I": o grafo recem-criado em memoria E' o estado — inclui tudo. (A serializacao roda
+        // DEPOIS do SaveChanges, quando o entry Added ja' virou Unchanged — por isso a letra da op,
+        // nao o State, decide aqui.)
+        RemoverColecoesNaoCarregadas(entidade, node, incluirTudo: op == "I");
+        return node.ToJsonString(_jsonOutbox);
+    }
+
+    private void RemoverColecoesNaoCarregadas(object entidade, System.Text.Json.Nodes.JsonObject node, bool incluirTudo)
+    {
+        var et = Model.FindEntityType(entidade.GetType());
+        if (et == null) return;
+        var entry = Entry(entidade); // NAO anexa: entidade fora do tracker vem como Detached
+
+        foreach (var nav in et.GetNavigations().Where(n => n.IsCollection))
+        {
+            var chave = JsonNamingPolicy.CamelCase.ConvertName(nav.Name);
+            // FASE 6 (higiene b+c): colecao de filho BaseEntity replica SOZINHA (op I/U/D propria) —
+            // NAO pode viajar embutida no JSON do pai (inflaria o payload + carregaria snapshot stale
+            // do filho). O apply ja' ignora (delete-missing so' age em POCO), mas stripar na origem e'
+            // mais limpo. Ex.: Cliente.Convenios (promovido) e CampanhaFidelidade.Itens.
+            if (typeof(BaseEntity).IsAssignableFrom(nav.TargetEntityType.ClrType))
+            {
+                node.Remove(chave);
+                continue;
+            }
+            // Detached = nao ha' como saber se carregou -> OMITE (preservar no destino e' o lado
+            // seguro; incluir vazia APAGA filho legitimo).
+            var incluir = incluirTudo
+                || (entry.State != EntityState.Detached && entry.Collection(nav.Name).IsLoaded);
+            if (!incluir)
+            {
+                node.Remove(chave);
+                continue;
+            }
+            // presente: desce nos itens (nested — ex.: VendaItem.Descontos), pareando por indice
+            if (node[chave] is System.Text.Json.Nodes.JsonArray arr && nav.PropertyInfo?.GetValue(entidade) is System.Collections.IEnumerable col)
+            {
+                var i = 0;
+                foreach (var item in col)
+                {
+                    if (i >= arr.Count) break;
+                    if (arr[i] is System.Text.Json.Nodes.JsonObject filhoNode)
+                        RemoverColecoesNaoCarregadas(item, filhoNode, incluirTudo);
+                    i++;
+                }
+            }
         }
     }
 
@@ -2423,7 +2679,11 @@ public class AppDbContext : DbContext
             await CriarSequenceCodigoAsync(conn, tx, tabela, ct);
             ultimo = await NextvalCodigoAsync(conn, tx, tabela, ct);
         }
-        return $"{_noCodigo}{ultimo}";
+        // FASE 4: separador mata a AMBIGUIDADE (no 1 + seq 11 e no 11 + seq 1 davam ambos "111").
+        // Formato {no}-{seq} em vez de sequencial puro DE PROPOSITO: o sequencial puro colidiria com
+        // codigo LEGADO do no 1 ("16" legado = no1+seq6 vs "16" novo = seq16) e o indice unico
+        // composto (Codigo, NoOrigemId) derrubaria o save. Codigos legados nao migram (ja' unicos).
+        return $"{_noCodigo}-{ultimo}";
     }
 
     private static async Task<long> NextvalCodigoAsync(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction? tx, string tabela, CancellationToken ct)

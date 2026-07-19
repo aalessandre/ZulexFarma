@@ -168,6 +168,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
 
@@ -189,10 +192,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Adquirentes");
                 });
@@ -267,6 +272,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
 
@@ -291,10 +299,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("AtributosVariacao");
                 });
@@ -312,6 +322,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -361,12 +374,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FilialId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("AtualizacoesPreco");
                 });
@@ -387,6 +402,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -437,10 +455,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("AtualizacaoPrecoId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("AtualizacoesPrecoItens");
                 });
@@ -458,6 +478,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -508,18 +531,20 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ColaboradorId");
 
                     b.HasIndex("FilialId");
 
                     b.HasIndex("Status");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Caixas");
                 });
@@ -537,6 +562,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("CaixaId")
                         .HasColumnType("bigint");
@@ -564,15 +592,17 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("TipoPagamentoId");
 
                     b.HasIndex("CaixaId", "TipoPagamentoId")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("CaixaFechamentoDeclarados");
                 });
@@ -590,6 +620,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("CaixaId")
                         .HasColumnType("bigint");
@@ -661,16 +694,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("CaixaId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ContaPagarId");
 
                     b.HasIndex("ContaReceberId");
 
                     b.HasIndex("StatusConferencia");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("Tipo");
 
@@ -679,6 +710,10 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("UsuarioId");
 
                     b.HasIndex("VendaPagamentoId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("CaixaMovimentos");
                 });
@@ -696,6 +731,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -767,10 +805,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("Tipo", "Ativo");
 
@@ -814,6 +854,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("CampanhaFidelidadeId")
                         .HasColumnType("bigint");
@@ -869,9 +912,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("CampanhaFidelidadeId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FabricanteId");
 
                     b.HasIndex("GrupoPrincipalId");
@@ -886,7 +926,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("SubGrupoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("CampanhasFidelidadeItens", (string)null);
                 });
@@ -928,6 +973,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Cnpj")
                         .IsRequired()
@@ -972,13 +1020,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FilialId")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("CertificadosDigitais");
                 });
@@ -996,6 +1046,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Aviso")
                         .HasMaxLength(200)
@@ -1090,13 +1143,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("PessoaId")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Clientes");
                 });
@@ -1109,7 +1164,25 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("ClienteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Codigo")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("NoOrigemId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("Nome")
@@ -1117,9 +1190,21 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<Guid>("SyncGuid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
+
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ClienteAutorizacoes");
                 });
@@ -1132,18 +1217,48 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("ClienteId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Codigo")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("NoOrigemId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("SyncGuid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<long>("TipoPagamentoId")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
                     b.HasIndex("TipoPagamentoId");
 
                     b.HasIndex("ClienteId", "TipoPagamentoId")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ClienteBloqueios");
                 });
@@ -1156,6 +1271,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Cartao")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -1163,8 +1287,14 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<long>("ClienteId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Codigo")
+                        .HasColumnType("text");
+
                     b.Property<long>("ConvenioId")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<decimal>("Limite")
                         .HasPrecision(18, 2)
@@ -1174,11 +1304,26 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<long?>("NoOrigemId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("SyncGuid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
 
                     b.HasIndex("ConvenioId");
+
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ClienteConvenios");
                 });
@@ -1199,8 +1344,23 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("ClienteId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Codigo")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<decimal>("DescontoMaxComSenha")
                         .HasPrecision(5, 2)
@@ -1214,8 +1374,16 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)");
 
+                    b.Property<long?>("NoOrigemId")
+                        .HasColumnType("bigint");
+
                     b.Property<long?>("ProdutoId")
                         .HasColumnType("bigint");
+
+                    b.Property<Guid>("SyncGuid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<int?>("TipoAgrupador")
                         .HasColumnType("integer");
@@ -1223,6 +1391,13 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
+
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ClienteDescontos");
                 });
@@ -1238,16 +1413,34 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<int>("Apresentacao")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("ClienteId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Codigo")
+                        .HasColumnType("text");
 
                     b.Property<string>("ColaboradorNome")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<string>("Fabricante")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<long?>("NoOrigemId")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("ProdutoId")
                         .HasColumnType("bigint");
@@ -1258,6 +1451,11 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<int>("QtdeAoDia")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("SyncGuid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
                     b.Property<DateTime?>("UltimaCompra")
                         .HasColumnType("timestamp without time zone");
 
@@ -1266,6 +1464,13 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("ClienteId");
 
                     b.HasIndex("ProdutoId");
+
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ClienteUsosContinuos");
                 });
@@ -1287,6 +1492,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Cargo")
                         .HasMaxLength(100)
@@ -1330,13 +1538,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("PessoaId")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Colaboradores");
                 });
@@ -1363,6 +1573,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
 
@@ -1388,12 +1601,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ColaboradorId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ColaboradorComissaoAgrupadores");
                 });
@@ -1411,6 +1626,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -1448,10 +1666,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("TipoEntidade", "EntidadeId");
 
@@ -1471,6 +1691,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ChaveNfe")
                         .IsRequired()
@@ -1581,14 +1804,16 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("ChaveNfe")
                         .IsUnique();
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FilialId");
 
                     b.HasIndex("FornecedorId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Compras");
                 });
@@ -1630,6 +1855,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<decimal>("BaseCofins")
                         .HasColumnType("numeric(12,2)");
@@ -1723,13 +1951,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CompraProdutoId")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ComprasFiscal");
                 });
@@ -1747,6 +1977,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("CestXml")
                         .HasMaxLength(9)
@@ -1876,12 +2109,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ProdutoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("CompraId", "NumeroItem")
                         .IsUnique();
@@ -1902,6 +2137,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -1963,14 +2201,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CompraProdutoId");
 
                     b.HasIndex("EditadoPorUsuarioId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ComprasProdutosLotes");
                 });
@@ -1988,6 +2228,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Chave")
                         .IsRequired()
@@ -2022,10 +2265,12 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("Chave")
                         .IsUnique();
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Configuracoes");
                 });
@@ -2051,6 +2296,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Banco")
                         .HasMaxLength(100)
@@ -2109,14 +2357,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FilialId");
 
                     b.HasIndex("PlanoContaId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ContasBancarias");
                 });
@@ -2134,6 +2384,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -2219,9 +2472,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("DataVencimento");
 
                     b.HasIndex("FilialId");
@@ -2234,7 +2484,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("Status");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ContasPagar");
                 });
@@ -2258,6 +2513,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<long?>("ClienteId")
                         .HasColumnType("bigint");
@@ -2375,9 +2633,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("ClienteId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ContaBancariaId");
 
                     b.HasIndex("DataVencimento");
@@ -2390,7 +2645,8 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("Status");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("TipoPagamentoId");
 
@@ -2399,6 +2655,10 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("VendaPagamentoId");
 
                     b.HasIndex("VoucherId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ContasReceber");
                 });
@@ -2416,6 +2676,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Aviso")
                         .HasMaxLength(200)
@@ -2499,13 +2762,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("PessoaId")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Convenios");
                 });
@@ -2724,6 +2989,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Bairro")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -2835,16 +3103,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("ClienteId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("EnderecoEntregaId");
 
                     b.HasIndex("EntregaFaixaId");
 
                     b.HasIndex("EntregadorId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("TokenEntregador")
                         .IsUnique();
@@ -2854,6 +3120,10 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("VendaId")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "DataPedido");
 
@@ -2875,6 +3145,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -2907,12 +3180,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("PerfilId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "DiaSemana", "Turno", "EhFeriado")
                         .IsUnique();
@@ -2933,6 +3208,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -2972,12 +3250,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("EntregaId", "CriadoEm");
 
@@ -2997,6 +3277,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3026,10 +3309,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("PerfilId", "RaioMaxKm")
                         .IsUnique();
@@ -3050,6 +3335,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3075,10 +3363,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "Nome")
                         .IsUnique();
@@ -3099,6 +3389,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3130,10 +3423,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Fabricantes");
                 });
@@ -3154,6 +3449,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3189,14 +3487,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("Data");
 
                     b.HasIndex("FilialId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("Data", "Ambito", "Uf", "FilialId")
                         .IsUnique();
@@ -3220,6 +3520,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Bairro")
                         .IsRequired()
@@ -3329,14 +3632,16 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("Cnpj")
                         .IsUnique();
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ContaCofreId");
 
                     b.HasIndex("MunicipioId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Filiais");
                 });
@@ -3354,6 +3659,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3374,13 +3682,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("PessoaId")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Fornecedores");
                 });
@@ -3398,6 +3708,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3460,12 +3773,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("Status", "CriadoEm");
 
@@ -3488,6 +3803,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3528,10 +3846,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("Ano", "Mes", "Provider")
                         .IsUnique();
@@ -3552,6 +3872,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("Bloco")
                         .HasColumnType("integer");
@@ -3600,12 +3923,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("GrupoUsuarioId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("UsuariosGruposPermissao", (string)null);
                 });
@@ -3624,6 +3949,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<bool>("AtualizarAbcFarma")
                         .HasColumnType("boolean");
 
@@ -3691,10 +4019,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("GruposPrincipais");
                 });
@@ -3713,6 +4043,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<bool>("AtualizarAbcFarma")
                         .HasColumnType("boolean");
 
@@ -3780,10 +4113,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("GruposProdutos");
                 });
@@ -3801,6 +4136,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3826,10 +4164,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("UsuariosGrupos", (string)null);
                 });
@@ -3847,6 +4187,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -3872,10 +4215,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("HierarquiasComissao");
                 });
@@ -3967,6 +4312,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<bool>("BuscarMenorValorPromocao")
                         .HasColumnType("boolean");
 
@@ -3997,10 +4345,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("HierarquiaDescontos");
                 });
@@ -4210,6 +4560,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
 
@@ -4236,13 +4589,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("Uf")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("IcmsUfs");
                 });
@@ -4260,6 +4615,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -4300,12 +4658,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "DataInventario");
 
@@ -4325,6 +4685,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -4370,14 +4733,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("InventarioSngpcId");
 
                     b.HasIndex("ProdutoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("InventariosSngpcItens");
                 });
@@ -4400,6 +4765,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -4446,14 +4814,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
 
                     b.HasIndex("UsuarioLiberouId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("LogsAcao");
                 });
@@ -4471,6 +4841,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -4511,10 +4884,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("LogsErro");
                 });
@@ -4532,6 +4907,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<long?>("CaixaId")
                         .HasColumnType("bigint");
@@ -4580,12 +4958,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("CaixaMovimentoId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("ContaBancariaId", "DataMovimento");
 
@@ -4605,6 +4985,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -4667,10 +5050,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("ProdutoId", "FilialId", "Data");
 
@@ -4690,6 +5075,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -4738,18 +5126,20 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CompraId");
 
                     b.HasIndex("CompraProdutoLoteId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
 
                     b.HasIndex("VendaId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("ProdutoLoteId", "DataMovimento");
 
@@ -4769,6 +5159,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -4806,13 +5199,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CodigoIbge")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("Uf", "NomeNormalizado");
 
@@ -4832,6 +5227,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -4907,10 +5305,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("NaturezasOperacao");
                 });
@@ -4928,6 +5328,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("CenarioTributario")
                         .HasColumnType("integer");
@@ -4975,12 +5378,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("NaturezaOperacaoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("NaturezaOperacaoRegras");
                 });
@@ -4998,6 +5403,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -5033,13 +5441,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CodigoNcm")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Ncms");
                 });
@@ -5069,6 +5479,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -5107,12 +5520,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("NcmId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("NcmFederais");
                 });
@@ -5136,6 +5551,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Cbenef")
                         .HasMaxLength(10)
@@ -5182,10 +5600,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("NcmId", "Uf")
                         .IsUnique();
@@ -5209,6 +5629,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Cest")
                         .HasMaxLength(9)
@@ -5258,10 +5681,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("NcmId", "UfOrigem", "UfDestino")
                         .IsUnique();
@@ -5282,6 +5707,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -5333,13 +5761,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CpfCnpj")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Pessoas");
                 });
@@ -5357,6 +5787,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -5394,12 +5827,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("PessoaId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("PessoasContato");
                 });
@@ -5417,6 +5852,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Bairro")
                         .IsRequired()
@@ -5495,14 +5933,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("MunicipioId");
 
                     b.HasIndex("PessoaId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("PessoasEndereco");
                 });
@@ -5520,6 +5960,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -5557,12 +6000,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ContaPaiId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("PlanosContas");
                 });
@@ -5580,6 +6025,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Categoria")
                         .HasMaxLength(100)
@@ -5620,12 +6068,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("Nome");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("PremiosFidelidade", (string)null);
                 });
@@ -5643,6 +6093,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -5692,12 +6145,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("Nome");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("TipoConselho", "NumeroConselho", "Uf");
 
@@ -5717,6 +6172,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ClasseTerapeutica")
                         .HasMaxLength(30)
@@ -5806,9 +6264,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CodigoBalanca")
                         .IsUnique()
                         .HasFilter("\"CodigoBalanca\" IS NOT NULL");
@@ -5823,7 +6278,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("SubGrupoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Produtos");
                 });
@@ -5844,6 +6304,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -5869,10 +6332,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("AtributoVariacaoId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("ProdutoId", "AtributoVariacaoId")
                         .IsUnique();
@@ -5893,6 +6358,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Barras")
                         .IsRequired()
@@ -5918,12 +6386,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ProdutoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ProdutosBarras");
                 });
@@ -5941,6 +6411,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("AvisoFracao")
                         .HasColumnType("boolean");
@@ -6119,9 +6592,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ProdutoFamiliaId");
 
                     b.HasIndex("ProdutoLocalId");
@@ -6130,7 +6600,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("SecaoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("ProdutoId", "FilialId", "ProdutoVariacaoId")
                         .IsUnique();
@@ -6154,6 +6629,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
 
@@ -6175,10 +6653,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ProdutoFamilias");
                 });
@@ -6245,6 +6725,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<string>("AtualizadoGestorTributarioProvider")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Cest")
                         .HasMaxLength(9)
@@ -6368,12 +6851,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("NcmId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("ProdutoId", "FilialId")
                         .IsUnique();
@@ -6394,6 +6879,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -6431,12 +6919,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FornecedorId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("ProdutoId", "FilialId", "FornecedorId")
                         .IsUnique();
@@ -6457,6 +6947,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -6479,10 +6972,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ProdutosLocais");
                 });
@@ -6500,6 +6995,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -6560,16 +7058,18 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CompraId");
 
                     b.HasIndex("FornecedorId");
 
                     b.HasIndex("ProdutoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "ProdutoId", "DataValidade");
 
@@ -6591,6 +7091,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -6616,12 +7119,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ProdutoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ProdutosMs");
                 });
@@ -6639,6 +7144,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -6662,12 +7170,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("SubstanciaId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("ProdutoId", "SubstanciaId")
                         .IsUnique();
@@ -6688,6 +7198,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -6715,14 +7228,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CodigoBarras");
 
                     b.HasIndex("ProdutoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ProdutosVariacoes");
                 });
@@ -6743,6 +7258,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -6768,14 +7286,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("AtributoVariacaoId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ProdutoVariacaoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("ValorAtributoId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ProdutosVariacoesValores");
                 });
@@ -6793,6 +7313,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -6852,10 +7375,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Promocoes");
                 });
@@ -7044,6 +7569,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<bool>("AtualizarAbcFarma")
                         .HasColumnType("boolean");
 
@@ -7111,10 +7639,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Secoes");
                 });
@@ -7219,6 +7749,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
 
@@ -7247,10 +7780,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("AtendidoPorColaboradorId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("TerminalId", "AtendidoEm");
 
@@ -7270,6 +7805,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -7309,15 +7847,17 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ProcessadoEm");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("VendaItemId")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("SelfCheckoutConciliacoesEstoque", (string)null);
                 });
@@ -7335,6 +7875,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -7389,15 +7932,17 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FilialId")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioVirtualId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("SelfCheckoutConfiguracoes", (string)null);
                 });
@@ -7419,6 +7964,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -7445,10 +7993,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "Numero")
                         .IsUnique();
@@ -7469,6 +8019,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -7498,10 +8051,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "ModeloDocumento", "Serie")
                         .IsUnique();
@@ -7546,6 +8101,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -7607,12 +8165,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "CompetenciaAno", "CompetenciaMes")
                         .IsUnique();
@@ -7633,6 +8193,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("AtualizarAbcFarma")
                         .HasColumnType("boolean");
@@ -7701,10 +8264,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("SubGrupos");
                 });
@@ -7725,6 +8290,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Cas")
                         .IsRequired()
@@ -7774,12 +8342,32 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
                         .HasFilter("\"Codigo\" IS NOT NULL");
 
-                    b.HasIndex("SyncGuid");
-
                     b.ToTable("Substancias");
+                });
+
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.SyncEstadoLocal", b =>
+                {
+                    b.Property<string>("Chave")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Valor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Chave");
+
+                    b.ToTable("SyncEstadoLocal");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.SyncFila", b =>
@@ -7827,6 +8415,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<long>("RegistroId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("SeqEntrega")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Tabela")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -7844,7 +8435,69 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("\"OpUid\" IS NOT NULL");
 
+                    b.HasIndex("SeqEntrega")
+                        .HasFilter("\"SeqEntrega\" IS NOT NULL");
+
+                    b.HasIndex(new[] { "SeqEntrega" }, "IX_SyncFila_SeqEntrega_Pendente")
+                        .HasFilter("\"SeqEntrega\" IS NULL");
+
                     b.ToTable("SyncFila");
+                });
+
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.SyncNo", b =>
+                {
+                    b.Property<int>("NoCodigo")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ChaveHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("InstanciaUid")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Nome")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<long>("UltimoAckSeq")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UltimoPullEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UltimoPushEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("VersaoApp")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("NoCodigo");
+
+                    b.ToTable("SyncNos");
+                });
+
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.SyncNoFilial", b =>
+                {
+                    b.Property<int>("NoCodigo")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("FilialId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("NoCodigo", "FilialId");
+
+                    b.ToTable("SyncNoFiliais");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.SyncQuarentena", b =>
@@ -7864,6 +8517,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<string>("DadosJson")
                         .HasColumnType("text");
 
+                    b.Property<long?>("FilialDonoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Motivo")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -7874,6 +8530,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime>("OpCriadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("OpUid")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Operacao")
                         .IsRequired()
@@ -7960,6 +8619,9 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
 
@@ -8005,12 +8667,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("PlanoContaId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("TiposPagamento");
                 });
@@ -8028,6 +8692,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -8087,9 +8754,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ColaboradorId")
                         .IsUnique();
 
@@ -8100,7 +8764,12 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("Login")
                         .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Usuarios");
                 });
@@ -8118,6 +8787,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -8144,14 +8816,16 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FilialId");
 
                     b.HasIndex("GrupoUsuarioId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("UsuarioId", "FilialId", "GrupoUsuarioId")
                         .IsUnique();
@@ -8175,6 +8849,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -8206,10 +8883,12 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("AtributoVariacaoId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("ValoresAtributo");
                 });
@@ -8227,6 +8906,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<long?>("CaixaId")
                         .HasColumnType("bigint");
@@ -8359,9 +9041,6 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("ClienteId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ColaboradorId");
 
                     b.HasIndex("DestinatarioPessoaId");
@@ -8378,9 +9057,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("Status");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("TipoPagamentoId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.HasIndex("FilialId", "Origem");
 
@@ -8404,6 +9088,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("BolsaFamilia")
                         .HasColumnType("boolean");
@@ -8533,19 +9220,21 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasIndex("CoSolicitacaoFarmacia")
                         .IsUnique();
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("CpfPaciente");
 
                     b.HasIndex("NuAutorizacao");
 
                     b.HasIndex("PrescritorId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("VendaId")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("VendaFarmaciaPopulares");
                 });
@@ -8563,6 +9252,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -8627,15 +9319,17 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("VendaFarmaciaPopularId");
 
                     b.HasIndex("VendaItemId")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("VendaFarmaciaPopularItens");
                 });
@@ -8656,6 +9350,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ChaveAcesso")
                         .IsRequired()
@@ -8814,17 +9511,19 @@ namespace ZulexPharma.Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("\"ChaveAcesso\" <> ''");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("NaturezaOperacaoId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("TransportadoraPessoaId");
 
                     b.HasIndex("VendaId")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("VendaFiscais", (string)null);
                 });
@@ -8984,6 +9683,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<decimal>("BaseCofins")
                         .HasColumnType("numeric(18,2)");
@@ -9174,13 +9876,15 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("VendaItemId")
                         .IsUnique();
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("VendaItemFiscais", (string)null);
                 });
@@ -9245,6 +9949,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Cid")
                         .HasMaxLength(10)
@@ -9379,16 +10086,18 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("FilialId");
 
                     b.HasIndex("PrescritorId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("VendaId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("VendaReceitas", (string)null);
                 });
@@ -9406,6 +10115,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Codigo")
                         .HasColumnType("text");
@@ -9439,18 +10151,20 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
                     b.HasIndex("ProdutoId");
 
                     b.HasIndex("ProdutoLoteId");
 
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("VendaItemId");
 
                     b.HasIndex("VendaReceitaId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("VendaReceitaItens", (string)null);
                 });
@@ -9468,6 +10182,9 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<long?>("AtualizadoPorNoId")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("ClienteId")
                         .HasColumnType("bigint");
@@ -9514,12 +10231,14 @@ namespace ZulexPharma.Infrastructure.Migrations
 
                     b.HasIndex("ClienteId");
 
-                    b.HasIndex("Codigo")
-                        .HasFilter("\"Codigo\" IS NOT NULL");
-
-                    b.HasIndex("SyncGuid");
+                    b.HasIndex("SyncGuid")
+                        .IsUnique();
 
                     b.HasIndex("VendaOrigemId");
+
+                    b.HasIndex("Codigo", "NoOrigemId")
+                        .IsUnique()
+                        .HasFilter("\"Codigo\" IS NOT NULL");
 
                     b.ToTable("Vouchers");
                 });
@@ -9786,7 +10505,7 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasOne("ZulexPharma.Domain.Entities.TipoPagamento", "TipoPagamento")
                         .WithMany()
                         .HasForeignKey("TipoPagamentoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Cliente");
@@ -9805,7 +10524,7 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.HasOne("ZulexPharma.Domain.Entities.Convenio", "Convenio")
                         .WithMany()
                         .HasForeignKey("ConvenioId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Cliente");
@@ -10990,6 +11709,15 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.SyncNoFilial", b =>
+                {
+                    b.HasOne("ZulexPharma.Domain.Entities.SyncNo", null)
+                        .WithMany("Filiais")
+                        .HasForeignKey("NoCodigo")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ZulexPharma.Domain.Entities.TipoPagamento", b =>
                 {
                     b.HasOne("ZulexPharma.Domain.Entities.PlanoConta", "PlanoConta")
@@ -11563,6 +12291,11 @@ namespace ZulexPharma.Infrastructure.Migrations
                     b.Navigation("Pagamentos");
 
                     b.Navigation("Produtos");
+                });
+
+            modelBuilder.Entity("ZulexPharma.Domain.Entities.SyncNo", b =>
+                {
+                    b.Navigation("Filiais");
                 });
 
             modelBuilder.Entity("ZulexPharma.Domain.Entities.Usuario", b =>

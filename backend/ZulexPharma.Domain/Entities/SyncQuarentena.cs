@@ -22,4 +22,10 @@ public class SyncQuarentena
     public bool Resolvido { get; set; }
     public DateTime CriadoEm { get; set; } = Helpers.DataHoraHelper.Agora();
     public DateTime AtualizadoEm { get; set; } = Helpers.DataHoraHelper.Agora();
+
+    /// <summary>Fase 2: identidade da op (idempotencia) — preservada pra re-enfileirar quando o retry aplicar no hub.</summary>
+    public Guid? OpUid { get; set; }
+
+    /// <summary>Fase 2: filial-dona da op (escopo) — preservada pra re-enfileirar com o roteamento certo.</summary>
+    public long? FilialDonoId { get; set; }
 }

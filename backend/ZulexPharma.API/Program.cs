@@ -27,13 +27,33 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+// ─── Config obrigatoria (fail-fast) ────────────────────────────────────────
+// Segredos sairam do appsettings.json versionado (historico do git = comprometido).
+// Prod: env vars (ConnectionStrings__DefaultConnection, JwtSettings__SecretKey, SistemaKey).
+// Dev: appsettings.Development.json (gitignored). Placeholder "" NAO pode subir meio-vivo.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    Log.Fatal("ConnectionStrings:DefaultConnection ausente/vazia. Configure env var ou appsettings.Development.json.");
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection ausente/vazia. O appsettings.json versionado nao carrega mais " +
+        "segredos: configure via env var (prod) ou appsettings.Development.json gitignored (dev).");
+}
+
 // ─── Database ──────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 // ─── JWT ───────────────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"]!;
+var secretKey = jwtSettings["SecretKey"];
+if (string.IsNullOrWhiteSpace(secretKey) || secretKey.Length < 32)
+{
+    Log.Fatal("JwtSettings:SecretKey ausente/vazia/curta (minimo 32 chars). Configure env var ou appsettings.Development.json.");
+    throw new InvalidOperationException(
+        "JwtSettings:SecretKey ausente/vazia/curta (minimo 32 chars). O appsettings.json versionado nao carrega " +
+        "mais segredos: configure via env var (prod) ou appsettings.Development.json gitignored (dev).");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -50,7 +70,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // FASE 1 (replicacao): separa MAQUINA de HUMANO no sync.
+    // SyncNode = token emitido pelo /api/sync/handshake (credencial por no) — unico que alcanca o
+    // data plane (/enviar, /receber). SyncAdmin = usuario humano administrador — painel/operacoes.
+    options.AddPolicy("SyncNode", p => p.RequireClaim("syncNode", "true"));
+    options.AddPolicy("SyncAdmin", p => p.RequireClaim("isAdmin", "True"));
+});
 
 // ─── CORS ──────────────────────────────────────────────────────────────────
 var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>() ?? [];
@@ -263,18 +290,12 @@ using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-        // Codigo do NO (eixo Origem/No) — fonte unica com fail-fast. Fallback pra chave antiga "Filial:Codigo".
-        // 0 = nuvem/central (hub); inteiro > 0 = no local (loja). Ausente/invalido/negativo = fail-fast
-        // (mata o default silencioso; a nuvem PRECISA declarar 0 explicitamente).
-        var noRaw = config["No:Codigo"] ?? config["Filial:Codigo"];
-        if (!int.TryParse(noRaw, out var noCodigo) || noCodigo < 0)
-            throw new InvalidOperationException(
-                "Config 'No:Codigo' ausente ou invalida. Defina EXPLICITAMENTE: 0 para a nuvem/central (hub) " +
-                "ou um inteiro > 0 unico para cada no local (loja) — define a faixa de Id e a origem do sync. " +
-                "Sem default silencioso.");
-        await DatabaseSeeder.SeedAsync(db, noCodigo);
+        // Identidade do no (fase 0 do plano de replicacao): No:Modo OBRIGATORIO + No:Codigo validado
+        // por modo. Fonte unica de parse/validacao = NoDeployment.Resolver (fail-fast, sem default).
+        var (noModo, noCodigo) = NoDeployment.Resolver(config);
+        await DatabaseSeeder.SeedAsync(db, noCodigo, noModo);
 
-        Log.Information("Banco de dados inicializado com sucesso.");
+        Log.Information("Banco de dados inicializado. No:Modo={Modo} | No:Codigo={Codigo}", noModo, noCodigo);
     }
     catch (Exception ex)
     {
@@ -298,6 +319,21 @@ app.UseMiddleware<ZulexPharma.API.Middleware.ErrorHandlingMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
+
+// FASE 1b: token de MAQUINA (syncNode) so' alcanca o data plane do sync — sem este gate ele passaria
+// em qualquer [Authorize] puro do app (mesma chave de assinatura dos tokens humanos).
+app.Use(async (context, next) =>
+{
+    if (ZulexPharma.API.Middleware.SyncNodeGate.EhTokenDeNo(context.User)
+        && !ZulexPharma.API.Middleware.SyncNodeGate.PermitidoParaNo(context.Request.Path))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new { success = false, message = "Token de no so' acessa o data plane do sync." });
+        return;
+    }
+    await next();
+});
+
 app.UseAuthorization();
 app.MapControllers();
 

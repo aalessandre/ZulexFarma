@@ -1,5 +1,11 @@
 # ZulexPharma ERP — Contexto do Projeto
 
+> ⚠️ **PARCIALMENTE DESATUALIZADO (nota de 18/07/2026).** Este doc descreve o estágio inicial do
+> projeto e NÃO reflete o estado atual (ex.: o subsistema de replicação, os módulos de venda/compra/
+> estoque/fiscal, etc.). Para o **sincronismo** use `INFRAESTRUTURA/GUIA-sync-nova-entidade.md` e o
+> plano; para o guia operacional geral use o `CLAUDE.md` na raiz do repo. As seções abaixo servem só
+> como referência histórica da fundação.
+
 ## Stack Definida
 - **Backend:** ASP.NET Core Web API (.NET 9) + C#
 - **ORM:** Entity Framework Core 9.0.4
