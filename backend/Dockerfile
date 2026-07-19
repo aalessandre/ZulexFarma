@@ -8,8 +8,10 @@ COPY ZulexPharma.Application/*.csproj ZulexPharma.Application/
 COPY ZulexPharma.Infrastructure/*.csproj ZulexPharma.Infrastructure/
 COPY ZulexPharma.API/*.csproj ZulexPharma.API/
 
-# Restaurar pacotes
-RUN dotnet restore
+# Restaurar pacotes — SO' da API (puxa Domain/Application/Infrastructure por dependencia).
+# NAO usar `dotnet restore` sem alvo: ele restaura a solution inteira, que referencia
+# ZulexPharma.Tests — projeto que a imagem de producao NAO copia (nem precisa).
+RUN dotnet restore ZulexPharma.API/ZulexPharma.API.csproj
 
 # Copiar tudo e publicar
 COPY . .
