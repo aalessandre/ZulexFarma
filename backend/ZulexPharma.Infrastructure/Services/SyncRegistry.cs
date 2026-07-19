@@ -97,8 +97,14 @@ public static class SyncRegistry
     /// POCO de pai Global FORA desta whitelist derruba o boot (ValidarModelo) — forca a decisao
     /// (promover a BaseEntity = uniao, OU declarar aqui = substituicao), nunca deixa virar perda muda.
     /// Inclui os netos POCO (Secao/Tarifa). Filhos de Venda (PorFilial) nao entram (nao sao Global).
-    /// PENDENTE decisao do dono: as join-tables de vinculo puro (Colaborador/Cliente/Convenio/Produto/
-    /// Filial/Pagamento/Bandeira) podem ser UNIAO — se o dono confirmar, migram daqui pra (c).
+    /// DECIDIDO pelo dono (18/07/2026): TODAS as 19 ficam SUBSTITUICAO — nenhuma vira uniao. Prova no
+    /// codigo: os 6 pais (Convenio/Promocao/HierarquiaDesconto/HierarquiaComissao/Adquirente/
+    /// CampanhaFidelidade) editam os filhos em BLOCO (RemoveRange + re-add no AtualizarAsync), entao
+    /// LWW-agregado (o form inteiro mais novo vence) e' a semantica CERTA; uniao fundiria dois forms
+    /// concorrentes num estado que nenhum editor autorou. A assimetria com os filhos de Cliente (que
+    /// viraram uniao na fase 6) e' PROPOSITAL: Cliente e' multi-fluxo/alta-concorrencia (uma loja poe
+    /// bloqueio no balcao sem tocar no resto), estes sao config central editada de uma vez so'. Revisar
+    /// SO' se a operacao real mostrar dois nos adicionando vinculos INDEPENDENTES ao mesmo pai.
     /// </summary>
     public static readonly HashSet<Type> ColecoesPocoSubstituicaoAceitas = new()
     {

@@ -9,9 +9,10 @@
 > Revisão adversarial do b+c pegou e curou: **A1** (o `RemoveRange`+re-add do `ClienteService`
 > duplicava sob edição concorrente → `ClienteService.ReconciliarFilhos` diff-preserve por chave
 > natural) e **M2** (D de pai referenciado abandonado → `PrecisaRetry`; RESTRICT do PG é 23001 e o
-> `EhFkViolation` só pegava 23503). Suíte 81/81. **Pendente (não bloqueia):** classificação das
-> join-tables de vínculo (whitelist = substituição declarada; dono decide união por coleção) e o
-> smoke-test do fluxo de edição de cliente no app (o diff é lógica de negócio). Ver seção 5c do plano.
+> `EhFkViolation` só pegava 23503). Suíte 81/81. **✅ Join-tables classificadas (18/07):** todas as 19 da whitelist
+> ficam substituição — a checagem do código (os 6 pais editam em bloco) refutou a hipótese de união
+> do design (ver seção "DECISÃO DO DONO" abaixo). **Pendente (não bloqueia):** smoke-test do fluxo de
+> edição de cliente no app (o diff é lógica de negócio). Ver seção 5c do plano.
 
 ## O problema (recap)
 
@@ -68,13 +69,18 @@ Demais filhos POCO de agregado Global: `Convenio` (`ConvenioDesconto`, `Convenio
 `Adquirente` (`AdquirenteBandeira`+neto `AdquirenteTarifa`), `CampanhaFidelidade` (`Filial`,
 `Pagamento`). Filhos de **`Venda`** (PorFilial, single-writer) ficam POCO e **fora** da invariante.
 
-### ⚠ DECISÃO DO DONO (pendente) — join-tables de vínculo puro
+### ✅ DECISÃO DO DONO (18/07/2026) — join-tables de vínculo puro: SUBSTITUIÇÃO
 `HierarquiaDescontoColaborador/Cliente/Convenio`, `HierarquiaComissaoColaborador`, `PromocaoConvenio/
-Filial/Pagamento/Produto`, `AdquirenteBandeira`, `CampanhaFidelidadeFilial/Pagamento` são **candidatas
-fortes a UNIÃO** (duas lojas vinculam colaboradores/produtos/filiais DIFERENTES → ambos deveriam
-sobreviver). Regra **"na dúvida, PROMOVA"** (união nunca perde). O dono confirma union/substituição por
-coleção; cada "union" migra de (b) para (c) com o fix FURO 1. **A invariante de boot garante que essa
-decisão fique explícita, nunca silenciosa** — pode ser deferida sem risco de perda invisível.
+Filial/Pagamento/Produto`, `AdquirenteBandeira`, `CampanhaFidelidadeFilial/Pagamento` — o design supôs
+que fossem **candidatas fortes a UNIÃO** ("duas lojas vinculam itens DIFERENTES → ambos sobrevivem",
+regra "na dúvida promova"). **A checagem do código REFUTOU a suposição:** os 6 pais editam a coleção em
+BLOCO (`RemoveRange`+re-add no `AtualizarAsync` — `ConvenioService:218,233`, `PromocaoService:186-190`,
+`HierarquiaDescontoService:112-116`, `HierarquiaComissaoService:104-106`, `AdquirenteService:80-81`,
+`CampanhaFidelidadeService:131-136`). NÃO existe fluxo de "adicionar 1 vínculo"; edita-se o form
+inteiro. Sob esse padrão, união NÃO é o seguro: mesclaria dois forms concorrentes num estado que nenhum
+editor autorou (pior que LWW limpo). Union nunca perde LINHA, mas aqui perderia a INTENÇÃO. Por isso
+**todas ficam SUBSTITUIÇÃO** — nada migra de (b) para (c). A invariante de boot segue forçando a decisão
+explícita de qualquer coleção POCO nova.
 
 ## 2. (c) Migração (por folha promovida)
 
@@ -140,7 +146,7 @@ futuro **quebra o boot** com nome. `Venda` (PorFilial) não é varrida.
 **Ordem (maior valor/menor risco primeiro):** (1) gate de dados [FEITO: FURO 1 live, greenfield ok];
 (2) **invariante + whitelist** — zero migração, deployável já, torna "nada silencioso" estrutural; (3)
 higiene (a); (4) promover as 3 folhas SEM FURO 1; (5) promover as 2 COM FURO 1 (após o fix Restrict);
-(6) opcional: rede PorFilial-dono; (7) diferido: join-tables que o dono classificar como UNIÃO.
+(6) opcional: rede PorFilial-dono; (7) ✅ resolvido: join-tables classificadas como SUBSTITUIÇÃO (nenhuma união).
 
 **Riscos:** índice `SyncGuid` UNIQUE global tem que entrar antes do 2º nó (greenfield ok); NÃO fazer
 backfill determinístico; FK-order → `PrecisaRetry` teto alto (só reduz incidência); a invariante só
