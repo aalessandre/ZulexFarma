@@ -102,7 +102,12 @@ Controla o proximo sequencial do Codigo visivel por tabela.
 - **NAO cobre filho POCO** (VendaItem, ClienteConvenio, AdquirenteTarifa...): eles nao geram op nem lapide,
   viajam no JSON do pai. Ver RECONCILIACAO DE FILHOS abaixo.
 
-### RECONCILIACAO DE FILHOS (pendente — orfao/duplicacao em agregado)
+### RECONCILIACAO DE FILHOS (✅ RESOLVIDO — fase 3 contrato de colecao + fase 6 b+c)
+> ✅ Curado: o applicator so' faz delete-missing das colecoes com a CHAVE PRESENTE no JSON (contrato da
+> fase 3; o outbox nulla colecao nao-IsLoaded), e os filhos que precisavam de uniao viraram BaseEntity
+> (fase 6 b+c; `ClienteService.ReconciliarFilhos` diff-preserve matou a duplicacao). As join-tables que
+> ficaram POCO estao classificadas como substituicao (decisao 18/07). O texto abaixo e' o registro do
+> problema ORIGINAL, mantido como historico.
 - `UpsertFilhosPocoAsync` e' append/update-only: filho POCO REMOVIDO no pai continua VIVO no destino.
 - Pior que "orfao": os services fazem `RemoveRange` de TODOS os filhos e re-adicionam do DTO, e os novos
   ganham Ids NOVOS da faixa daquele no. Entao uma edicao ROTINEIRA de cliente ja' DUPLICA o conjunto no par
@@ -152,7 +157,7 @@ Controla o proximo sequencial do Codigo visivel por tabela.
   o bug quando ainda estava aberto e foi mantida por engano depois do fix — o texto duplicado/contraditorio
   foi removido em 17/07/2026 (limpeza documental da fase 0 do plano).
 
-### GAP do cursor (BUG PRE-EXISTENTE, ativo — nao corrigido)
+### GAP do cursor (✅ RESOLVIDO na fase 2 — cura B: publicador + SeqEntrega; racional mantido abaixo)
 - O PULL usa `Id > ultimoId`. Mas o `SyncFila.Id` e' atribuido no **INSERT** e so' fica **visivel no
   COMMIT**. Com duas transacoes concorrentes (Id 101 e 102) em que a 102 commita primeiro, um pull nesse
   instante serve a 102, o no crava o ponteiro em 102, e a 101 — ao commitar depois — **nunca e' entregue**.
@@ -177,7 +182,9 @@ Controla o proximo sequencial do Codigo visivel por tabela.
     na numeracao e' inofensivo (nextval nao e' transacional; cursor e' `>`). Obstaculo: a central nao roda
     background loop -> numerar de forma OPORTUNISTA no `/receber` (e/ou fim do `/enviar`) sob
     `pg_try_advisory_xact_lock`: quem pega o lock numera, quem nao pega serve o que ja' esta' numerado.
-- Enquanto nao houver uma das duas, a retencao NAO pode voltar.
+- ✅ A cura (B) — `SyncPublicador` numera `SeqEntrega` via nextval SO' em linhas commitadas, sob
+  advisory lock, oportunista no `/enviar` e `/receber`; cursor virou `SeqEntrega` — foi IMPLEMENTADA na
+  fase 2; a retencao voltou na fase 5 (ACK fail-closed). O texto acima e' o racional da escolha.
 - **Retrato completo do subsistema (objetivos, infra, erros cometidos, pendencias): `synAteAqui.md`.**
 - TENTATIVA REJEITADA (07/2026) — "VARREDURA por tempo": re-puxar periodicamente a janela recente por
   CriadoEm (ignorando o cursor) e reaplicar (idempotente). Foi implementada e REVERTIDA; a revisao
@@ -239,9 +246,9 @@ Editaveis na tela Configuracoes do sistema:
 - DicionarioTabelas, DicionarioRevisoes (ferramenta dev, nao herdam BaseEntity)
 - SyncFila, SequenciaLocal, SequenciaCentral (controle interno)
 - AbcFarmaBase, CertificadosDigitais, SefazNotas, GestorTributario*
-- **ATENCAO (bug ativo, cura fase 2 do plano): `Configuracoes` HOJE ENTRA na fila** (replica como
-  GLOBAL) — este doc dizia o contrario. E' grave porque o CURSOR do pull (`sync.ultimo.id.recebido`)
-  mora nela: o estado de sync de um no pode vazar pra outro. Teste vermelho:
+- **✅ RESOLVIDO (fase 2/4, decisao A4): `Configuracoes` NAO entra mais na fila** — hoje e' Infra
+  (`SyncRegistry.InfraTipos`/`TabelasInfra`, `SyncRegistry.cs:34,42`) e o cursor do pull saiu dela pra
+  `SyncEstadoLocal` (chave `sync.cursor.entrega`). Estado de sync nao vaza mais entre nos. Teste:
   `EscopoTests.Configuracao_NaoDeveEntrarNaSyncFila`.
 
 ## IDs globais por faixa de filial
