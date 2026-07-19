@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using ZulexPharma.Application.DTOs.Compras;
 using ZulexPharma.Application.DTOs.Logs;
+using ZulexPharma.Application.DTOs.Produtos;
 using ZulexPharma.Application.Interfaces;
 using ZulexPharma.Domain.Entities;
 using ZulexPharma.Domain.Enums;
@@ -38,6 +39,23 @@ internal sealed class LoteExplode : IProdutoLoteService
     public Task<List<ProdutoLote>> ListarLotesAtivosAsync(long produtoId, long filialId) => throw new NotImplementedException();
     public Task<int> GerarLotesFicticiosDoGrupoAsync(long grupoProdutoId, long? usuarioId = null) => throw new NotImplementedException();
     public Task<int> GerarLotesFicticiosSngpcAsync(long? usuarioId = null) => throw new NotImplementedException();
+}
+
+/// <summary>Movimento stub que FLUSHA (commita a reversao ja' feita, no codigo sem tx) e depois ESTOURA
+/// — simula uma falha no meio do estorno, DEPOIS de o estoque ja' ter sido revertido.</summary>
+internal sealed class MovFlushThrow : IMovimentoEstoqueService
+{
+    private readonly AppDbContext _db;
+    public MovFlushThrow(AppDbContext db) => _db = db;
+    public void Registrar(long produtoId, long filialId, long? variacaoId, decimal delta, decimal saldoApos,
+        TipoMovimentoEstoque tipo, string? documento = null, long? pessoaId = null, string? pessoaNome = null,
+        long? usuarioId = null, long? compraId = null, long? vendaId = null, string? observacao = null)
+    {
+        _db.SaveChanges(); // no codigo ANTIGO (sem tx) isto commita a reversao ja' feita -> estorno pela metade
+        throw new InvalidOperationException("falha injetada no movimento (teste de atomicidade do estorno)");
+    }
+    public Task<List<MovimentoEstoqueDto>> ListarPorProdutoAsync(long produtoId, long? filialId,
+        DateTime? dataInicio, DateTime? dataFim) => throw new NotImplementedException();
 }
 
 /// <summary>
@@ -154,6 +172,54 @@ public class CompraTransacaoTests
             Assert.Equal(1, await check.ContasPagar.CountAsync(c => c.CompraId == compraId));         // 1 conta a pagar
             var compra = await check.Compras.FirstAsync(c => c.Id == compraId);
             Assert.Equal(CompraStatus.Finalizada, compra.Status);                                     // finalizada
+        }
+    }
+
+    /// <summary>Estorno (ExcluirAsync de compra finalizada): se estoura DEPOIS de reverter o estoque de
+    /// um produto, NADA pode ficar commitado — estoque intacto, conta a pagar intacta, compra ainda existe.</summary>
+    [Fact]
+    public async Task ExcluirAsync_FalhaAoReverter_FazRollbackTotal()
+    {
+        const long prodId = 9_000_000_010, dadosId = 9_000_000_020, compraId = 9_000_000_030, itemId = 9_000_000_031, contaId = 9_000_000_040;
+        await SeedComumAsync();
+
+        await using (var seed = _pg.CriarContexto(aplicandoSync: true))
+        {
+            seed.Produtos.Add(new Produto { Id = prodId, Nome = "PROD ESTORNO" });
+            // Estoque 10 = como se a compra ja' tivesse sido finalizada.
+            seed.ProdutosDados.Add(new ProdutoDados { Id = dadosId, ProdutoId = prodId, FilialId = FilialId, EstoqueAtual = 10, CustoMedio = 5 });
+            var compra = new Compra
+            {
+                Id = compraId, FilialId = FilialId, FornecedorId = FornId, ChaveNfe = $"CHAVE{compraId}",
+                NumeroNf = compraId.ToString(), Status = CompraStatus.Finalizada, ValorNota = 50
+            };
+            compra.Produtos.Add(new CompraProduto
+            {
+                Id = itemId, CompraId = compraId, ProdutoId = prodId, NumeroItem = 1,
+                Quantidade = 10, ValorUnitario = 5, ValorItemNota = 50, Vinculado = true, Fracao = 1
+            });
+            seed.Compras.Add(compra);
+            seed.ContasPagar.Add(new ContaPagar
+            {
+                Id = contaId, Descricao = "NF 9", FilialId = FilialId, CompraId = compraId, PessoaId = PessoaId,
+                Valor = 50, ValorFinal = 50, DataEmissao = new DateTime(2026, 1, 1), DataVencimento = new DateTime(2026, 2, 1),
+                Status = StatusConta.Aberto, Ativo = true
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var db = _pg.CriarContexto(aplicandoSync: true))
+        {
+            var svc = new CompraService(db, new LogFlush(db), new ProdutoLoteService(db), new MovFlushThrow(db));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ExcluirAsync(compraId));
+        }
+
+        await using (var check = _pg.CriarContexto(aplicandoSync: true))
+        {
+            var d = await check.ProdutosDados.FirstAsync(x => x.Id == dadosId);
+            Assert.Equal(10m, d.EstoqueAtual);                                                   // estoque NAO revertido (rollback)
+            Assert.True(await check.Compras.AnyAsync(c => c.Id == compraId));                     // compra NAO removida
+            Assert.Equal(1, await check.ContasPagar.CountAsync(c => c.CompraId == compraId));     // conta a pagar NAO removida
         }
     }
 }

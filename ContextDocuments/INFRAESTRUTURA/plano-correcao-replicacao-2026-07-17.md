@@ -353,8 +353,11 @@ está sólido (converge, não vaza, não perde). O que falta antes de ligar um 2
      Suíte **83/83 verde**. Contexto original do bug: o estoque de LOTE entrava via
      `_loteService.RegistrarEntradaAsync` (salva sozinho, `ProdutoLoteService.cs:81,109`) e o log
      (`LogAcaoService:43`) commitava por produto — crash no meio = compra pela metade / refinalizar
-     dobrava o estoque (o autor já sabia, comentário `:786-787`). **Falta ainda:** o estorno
-     `ExcluirAsync:1096` (mesmo espelho, mesma cura — próximo passo) e a venda (2b). Commit local, sem deploy.
+     dobrava o estoque (o autor já sabia, comentário `:786-787`). **Estorno também feito (19/07):**
+     `ExcluirAsync` (compra finalizada) na MESMA transação, logs fora — teste red→green
+     (`ExcluirAsync_FalhaAoReverter`: reverter o estoque e estourar deixava estoque zerado + conta a
+     pagar apagada + compra intacta; agora rollback total). Suíte **84/84 verde**. **Falta ainda:** a
+     venda (2b). Commits locais, sem deploy.
    - **2b. Venda — `VendaService.FinalizarAsync` (:289), SEM `BeginTransaction`.** 6 `SaveChanges`
      soltos (contas a receber `:484`, estoque/movimentos/lotes `:563`, entrega `:578`, caixa
      `:611/616`, SNGPC `:627`) + suprimento/sangria do caixa (`CaixaMovimentoService.cs:131-146,

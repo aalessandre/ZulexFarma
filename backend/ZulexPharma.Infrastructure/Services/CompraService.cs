@@ -1123,6 +1123,13 @@ public class CompraService : ICompraService
                 .FirstOrDefaultAsync(c => c.Id == id)
                 ?? throw new KeyNotFoundException($"Compra {id} não encontrada.");
 
+            var logsProdutos = new List<(long ProdutoId, Dictionary<string, string?> Novo)>();
+
+            // Transacao unica (cura P0.15-compra, estorno): reversao de estoque, movimentos, remocao das
+            // contas a pagar e da propria compra commitam TUDO OU NADA. Sem isso, o SaveChanges do log
+            // (por produto) commitava a reversao por produto — crash no meio = estorno pela metade.
+            await using var tx = await _db.Database.BeginTransactionAsync();
+
             // Se finalizada, reverter estoque e preços
             if (compra.Status == CompraStatus.Finalizada)
             {
@@ -1174,30 +1181,35 @@ public class CompraService : ICompraService
                             dados.EstoqueAtual, TipoMovimentoEstoque.EstornoCompra, docCompra, compra.FornecedorId, fornecedorNome, compraId: compra.Id);
                     }
 
-                    // Log de reversão por produto
-                    await _log.RegistrarAsync("Produtos", "EXCLUSÃO COMPRA (REVERSÃO)", "Produto", item.ProdutoId!.Value,
-                        novo: new Dictionary<string, string?> {
-                            ["Estoque revertido"] = $"-{qtdeTotal:N3}",
-                            ["Nos SKUs (grade)"] = revertidoSkus.ToString("N3"),
-                            ["No estoque simples"] = doBase.ToString("N3"),
-                            ["NF excluída"] = compra.NumeroNf
-                        });
+                    // Log de reversão por produto — COLETADO, emitido apos o commit (fora da tx).
+                    logsProdutos.Add((item.ProdutoId!.Value, new Dictionary<string, string?> {
+                        ["Estoque revertido"] = $"-{qtdeTotal:N3}",
+                        ["Nos SKUs (grade)"] = revertidoSkus.ToString("N3"),
+                        ["No estoque simples"] = doBase.ToString("N3"),
+                        ["NF excluída"] = compra.NumeroNf
+                    }));
                 }
             }
 
-            // Log geral antes de excluir
-            await _log.RegistrarAsync(TELA, "EXCLUSÃO", ENTIDADE, id,
-                anterior: new Dictionary<string, string?>
-                {
-                    ["NF"] = compra.NumeroNf,
-                    ["Chave"] = compra.ChaveNfe,
-                    ["Valor"] = compra.ValorNota.ToString("N2"),
-                    ["Status"] = compra.Status.ToString(),
-                    ["Era finalizada"] = compra.Status == CompraStatus.Finalizada ? "Sim (estoque revertido)" : "Não"
-                });
+            // Log geral COLETADO (capturar o status ANTES do Remove). Emitido apos o commit.
+            var logGeral = new Dictionary<string, string?>
+            {
+                ["NF"] = compra.NumeroNf,
+                ["Chave"] = compra.ChaveNfe,
+                ["Valor"] = compra.ValorNota.ToString("N2"),
+                ["Status"] = compra.Status.ToString(),
+                ["Era finalizada"] = compra.Status == CompraStatus.Finalizada ? "Sim (estoque revertido)" : "Não"
+            };
 
             _db.Compras.Remove(compra);
             await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+            await tx.DisposeAsync(); // fecha a tx antes dos logs (LogAcaoService abre SaveChanges proprio)
+
+            // Logs de auditoria FORA da transacao (o estorno ja' esta' commitado; auditoria nao o aborta).
+            foreach (var (produtoId, novo) in logsProdutos)
+                await _log.RegistrarAsync("Produtos", "EXCLUSÃO COMPRA (REVERSÃO)", "Produto", produtoId, novo: novo);
+            await _log.RegistrarAsync(TELA, "EXCLUSÃO", ENTIDADE, id, anterior: logGeral);
 
             return "excluido";
         }
